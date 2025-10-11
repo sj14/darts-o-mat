@@ -1,6 +1,8 @@
 package board
 
-import "net/url"
+import (
+	"net/url"
+)
 
 type Server struct {
 	Host  url.URL
@@ -8,8 +10,9 @@ type Server struct {
 }
 
 type Board struct {
-	ID      uint64
-	Servers []Server
+	// gorm.Model
+	ID uint64
+	// Servers []Server
 	// Registered string // GameID
 }
 

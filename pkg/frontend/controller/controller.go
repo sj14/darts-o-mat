@@ -3,14 +3,14 @@ package controller
 import (
 	"net/http"
 
-	"github.com/sj14/darts-o-mat/pkg/repos/sqlite"
+	"github.com/sj14/darts-o-mat/pkg/repos/postgres"
 )
 
 type Controller struct {
-	repo *sqlite.SQLiteStore // TODO: replace with interface
+	repo *postgres.Store // TODO: replace with interface
 }
 
-func New(repo *sqlite.SQLiteStore) Controller {
+func New(repo *postgres.Store) Controller {
 	return Controller{
 		repo: repo,
 	}

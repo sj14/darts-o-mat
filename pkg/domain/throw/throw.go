@@ -1,9 +1,9 @@
 package throw
 
-import "gorm.io/gorm"
-
 type Dart struct {
-	gorm.Model
+	// gorm.Model
+	ID            uint64
+	GameID        int
 	Number        uint8
 	Multiplicator uint8
 	Miss          bool

@@ -7,21 +7,21 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/frontend/controller"
-	"github.com/sj14/darts-o-mat/pkg/repos/sqlite"
-	"gorm.io/gorm"
+	"github.com/sj14/darts-o-mat/pkg/repos/postgres"
 )
 
 func main() {
-	game301 := game.GameX01{
+	game301 := x01.GameX01{
 		HitCounter:    20,
 		CurrentPlayer: 0,
-		OutMode:       game.OutModeDouble,
-		Players: []*game.PlayerState{
-			{Player: player.Player{Model: gorm.Model{ID: 0}}},
-			{Player: player.Player{Model: gorm.Model{ID: 1}}},
+		OutMode:       x01.OutModeDouble,
+		Players: []*x01.X01PlayerState{
+			{Game: game.PlayerState{Player: player.Player{ID: 0}}},
+			{Game: game.PlayerState{Player: player.Player{ID: 1}}},
 		},
 	}
 
@@ -44,11 +44,19 @@ func main() {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 
-	store := sqlite.NewSQLiteStore()
+	// store := sqlite.NewSQLiteStore()
+	store := postgres.NewStore()
 	ctx := context.Background()
 
-	store.StorePlayer(ctx, &player.Player{Name: "Simon"})
-	store.StorePlayer(ctx, &player.Player{Name: "Mario"})
+	err := store.StorePlayer(ctx, &player.Player{Name: "Simon"})
+	if err != nil {
+		panic(err)
+	}
+
+	err = store.StorePlayer(ctx, &player.Player{Name: "Mario"})
+	if err != nil {
+		panic(err)
+	}
 
 	ctrl := controller.New(store)
 

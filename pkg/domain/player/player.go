@@ -1,12 +1,10 @@
 package player
 
-import "gorm.io/gorm"
-
 // type PlayerID uint64
 
 type Player struct {
-	gorm.Model
-	// ID   PlayerID
+	// gorm.Model
+	ID   uint64
 	Name string
 	// State PlayerState
 }

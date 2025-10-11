@@ -5,19 +5,17 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/sj14/darts-o-mat/pkg/domain/game"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/frontend/view"
-	"gorm.io/gorm"
 )
 
 type GameX01Model struct {
-	Game game.GameX01
+	Game x01.GameX01
 }
 
-func (controller *Controller) ShowNewGameX01(w http.ResponseWriter, r *http.Request) {
-	p1 := player.Player{Model: gorm.Model{ID: 0}, Name: "Max"}
-	p2 := player.Player{Model: gorm.Model{ID: 1}, Name: "Jan"}
+func (c *Controller) ShowNewGameX01(w http.ResponseWriter, r *http.Request) {
+	c.repo.GetPlayers(ctx)
 
 	view.ShowCreateX01([]player.Player{p1, p2}).Render(r.Context(), w)
 }
@@ -51,8 +49,12 @@ func (c *Controller) PostNewGameX01(w http.ResponseWriter, r *http.Request) {
 	}
 
 	players, err := c.repo.GetPlayers(r.Context(), playerIDs)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	g, err := game.NewX01(counter, players)
+	g, err := x01.NewX01(counter, players)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -62,5 +64,5 @@ func (c *Controller) PostNewGameX01(w http.ResponseWriter, r *http.Request) {
 		Game: g,
 	}
 
-	view.ShowX01(model.Game.GameID).Render(r.Context(), w)
+	view.ShowX01(model.Game.ID).Render(r.Context(), w)
 }

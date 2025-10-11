@@ -1,21 +1,19 @@
-package game
+package x01
 
 import (
 	"errors"
 	"log"
-	"math/rand/v2"
 
-	"github.com/sj14/darts-o-mat/pkg/domain/board"
+	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
-	"gorm.io/gorm"
 )
 
-type PlayerState struct {
-	player.Player
-	Board   board.Board
+type X01PlayerState struct {
+	// gorm.Model
+	ID      uint64
 	Counter uint64
-	Throws  []throw.Dart
+	Game    game.PlayerState
 }
 
 type OutMode uint8
@@ -28,12 +26,11 @@ const (
 )
 
 type GameX01 struct {
-	gorm.Model
-	GameID        uint64
+	ID            uint64
 	HitCounter    uint64
 	CurrentRound  uint8
-	CurrentPlayer uint
-	Players       []*PlayerState
+	CurrentPlayer uint64
+	Players       []*X01PlayerState
 	OutMode       OutMode
 }
 
@@ -43,13 +40,13 @@ func NewX01(hitCounter uint64, players []player.Player) (GameX01, error) {
 	}
 
 	g := GameX01{
-		GameID:        rand.Uint64(),
+		// ID:            rand.Uint64(),
 		HitCounter:    hitCounter,
 		CurrentPlayer: players[0].ID,
 	}
 
 	for _, p := range players {
-		g.Players = append(g.Players, &PlayerState{Player: p})
+		g.Players = append(g.Players, &X01PlayerState{Game: game.PlayerState{Player: p}})
 	}
 
 	return g, nil
@@ -70,7 +67,7 @@ func (g *GameX01) NextPlayer() {
 	}
 }
 
-func (g *GameX01) currentPlayer() *PlayerState {
+func (g *GameX01) currentPlayer() *X01PlayerState {
 	for _, p := range g.Players {
 		if p.ID == g.CurrentPlayer {
 			return p
@@ -81,10 +78,10 @@ func (g *GameX01) currentPlayer() *PlayerState {
 
 func (g *GameX01) RegisterDart(throw throw.Dart) {
 	player := g.currentPlayer()
-	player.Throws = append(player.Throws, throw)
+	player.Game.Throws = append(player.Game.Throws, throw)
 
 	defer func() {
-		if len(player.Throws)%3 == 0 {
+		if len(player.Game.Throws)%3 == 0 {
 			g.NextPlayer()
 			g.CurrentRound++
 		}
