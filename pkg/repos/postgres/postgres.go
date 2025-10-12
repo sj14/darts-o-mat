@@ -1,26 +1,29 @@
 package postgres
 
 import (
-	"github.com/go-pg/pg/v10"
-	"github.com/go-pg/pg/v10/orm"
+	"context"
+	"database/sql"
+
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
+	"github.com/uptrace/bun/driver/pgdriver"
 )
 
 type Store struct {
-	db *pg.DB
+	db *bun.DB
 }
 
-func NewStore() *Store {
+func NewStore(ctx context.Context) *Store {
 	// docker run --name some-postgres -e POSTGRES_PASSWORD=mysecretpassword -e POSTGRES_DB=darts-o-mat -p 5432:5432 postgres
-	db := pg.Connect(&pg.Options{
-		User:     "postgres",
-		Password: "mysecretpassword",
-		Database: "darts-o-mat",
-	})
+	sqldb := sql.OpenDB(pgdriver.NewConnector(
+		pgdriver.WithDSN("postgres://postgres:mysecretpassword@localhost:5432/darts-o-mat?sslmode=disable"),
+	))
+	db := bun.NewDB(sqldb, pgdialect.New())
 
 	models := []any{
 		(*game.Game)(nil),
@@ -32,10 +35,7 @@ func NewStore() *Store {
 	}
 
 	for _, model := range models {
-		err := db.Model(model).CreateTable(&orm.CreateTableOptions{
-			// Temp: true,
-			// FKConstraints: ,
-		})
+		_, err := db.NewCreateTable().Model(model).Exec(ctx)
 		if err != nil {
 			panic(err)
 		}

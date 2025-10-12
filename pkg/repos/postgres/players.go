@@ -7,11 +7,12 @@ import (
 )
 
 func (store *Store) StorePlayer(ctx context.Context, p *player.Player) error {
-	_, err := store.db.Model(p).Insert()
+	_, err := store.db.NewInsert().Model(p).Exec(ctx)
 	return err
 }
 
 func (store *Store) GetPlayers(ctx context.Context, ids []int) ([]player.Player, error) {
 	var result []player.Player
-	return result, store.db.Model(&result).WhereIn("id = ?", ids).Select()
+	_, err := store.db.NewSelect().Model(&result).Where("id = ?", ids).Exec(ctx)
+	return result, err
 }

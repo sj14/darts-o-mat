@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
-	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/frontend/view"
 )
 
@@ -15,9 +14,13 @@ type GameX01Model struct {
 }
 
 func (c *Controller) ShowNewGameX01(w http.ResponseWriter, r *http.Request) {
-	c.repo.GetPlayers(ctx)
+	players, err := c.repo.GetPlayers(r.Context(), []int{0, 1, 2})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	view.ShowCreateX01([]player.Player{p1, p2}).Render(r.Context(), w)
+	view.ShowCreateX01(players).Render(r.Context(), w)
 }
 
 func (c *Controller) PostNewGameX01(w http.ResponseWriter, r *http.Request) {

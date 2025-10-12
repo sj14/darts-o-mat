@@ -15,6 +15,8 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+
 	game301 := x01.GameX01{
 		HitCounter:    20,
 		CurrentPlayer: 0,
@@ -45,8 +47,7 @@ func main() {
 	r.Use(middleware.Logger)
 
 	// store := sqlite.NewSQLiteStore()
-	store := postgres.NewStore()
-	ctx := context.Background()
+	store := postgres.NewStore(ctx)
 
 	err := store.StorePlayer(ctx, &player.Player{Name: "Simon"})
 	if err != nil {
