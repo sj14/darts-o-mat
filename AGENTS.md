@@ -4,6 +4,11 @@
 
 Ziel des Projekts ist es, eine Alternative zu [Autodarts](https://autodarts.io) und [Scolia](https://scoliadarts.com) zu schaffen.
 
+## Anforderungen
+
+- **Mehrere Accounts mit Login:** Das System soll mehrere Accounts unterstützen, die sich anmelden. Noch nicht umgesetzt.
+  Vor der Umsetzung mit dem Nutzer klären: wie Accounts und Spieler zusammenhängen und welche Daten (Spieler, Spiele, Boards) einem Account gehören bzw. für andere sichtbar sind.
+
 ## Dokumentation
 
 `README.md` richtet sich ausschließlich an Menschen: kurz, übersichtlich und ohne Vorwissen verständlich (was ist das, wie starte ich es, wie probiere ich es aus).
@@ -21,6 +26,7 @@ Neue Funktionen bauen auf dem bestehenden Stack auf; ohne Absprache keine zusät
 - **Statische Dateien:** htmx und Bootstrap liegen versioniert in `pkg/frontend/static` und werden per `go:embed` ausgeliefert, kein CDN (darts-o-mat soll auch ohne Internet laufen).
 - **Datenbank:** PostgreSQL und SQLite werden beide unterstützt (Auswahl per `-db sqlite|postgres` und `-dsn`). Persistenz-Code muss mit beiden Datenbanken funktionieren.
 - **ORM/Query-Builder:** [Bun](https://bun.uptrace.dev) (`pgdialect`/`pgdriver` für PostgreSQL, `sqlitedialect` mit dem cgo-freien Treiber `modernc.org/sqlite` für SQLite)
+- **Kamera/Bildverarbeitung:** [GoCV](https://github.com/hybridgroup/gocv) (OpenCV-Anbindung für Go) verwenden, wo es sinnvoll ist. GoCV braucht cgo und ein installiertes OpenCV; das betrifft nur `darts-o-cam`. Der Server (`darts-o-mat`) bleibt cgo-frei und darf GoCV nicht importieren. Alternativen siehe [Kamera](#kamera).
 - **Messaging (optional):** [NATS](https://nats.io) darf aufgenommen werden, wenn es gebraucht wird, z. B. um Würfe von der Kamera (`darts-o-cam`) an den Server (`darts-o-mat`) zu übertragen.
 
 ## Struktur
@@ -32,6 +38,19 @@ Neue Funktionen bauen auf dem bestehenden Stack auf; ohne Absprache keine zusät
 - `pkg/domain`: Fachlogik (Board, Spieler, Würfe, Spielmodi X01 und Around the Clock)
 - `pkg/frontend`: Weboberfläche: Controller, templ-Views (`view`) und eingebettete statische Dateien (`static`)
 - `pkg/repos/store`: Persistenz; ein gemeinsamer Bun-Store für beide Datenbanken, nur der Verbindungsaufbau (`NewPostgres`/`NewSQLite`) unterscheidet sich
+
+## Kamera
+
+Noch nicht umgesetzt. Vorgesehener Ansatz für den Start ist klassische Bildverarbeitung: Bild vor und nach dem Wurf vergleichen, die Dart-Linie finden und per Homographie auf das Board umrechnen. Dafür spart GoCV am meisten Arbeit.
+
+Alternativen, falls sich GoCV nicht bewährt (Pflegestand der Bibliotheken vor der Entscheidung prüfen):
+
+- **Reines Go ohne cgo:** [go4vl](https://github.com/vladimirvivien/go4vl) für die Kamera (nur Linux/V4L2, z. B. Raspberry Pi), [bild](https://github.com/anthonynsimon/bild) oder [imaging](https://github.com/disintegration/imaging) für Bildoperationen, [gonum](https://gonum.org) für Homographie und Geradenanpassung.
+  Vorteil: kein OpenCV, einfaches Cross-Compiling, ein Binary. Nachteil: Konturen, Linienanpassung und Kalibrierung selbst schreiben; Kamerazugriff auf macOS bräuchte wieder cgo.
+  Sinnvoll, wenn einfaches Ausliefern (z. B. auf einen Raspberry Pi) wichtiger ist als schnelles Vorankommen.
+- **Neuronales Netz über ONNX Runtime** (z. B. [onnxruntime_go](https://github.com/yalue/onnxruntime_go), ebenfalls cgo): ein trainiertes Modell erkennt die Dartspitzen direkt, robuster bei Licht und Verdeckung, braucht aber Trainingsdaten und ein Modell.
+  Erst angehen, wenn der klassische Ansatz nicht zuverlässig genug ist.
+- **Python mit OpenCV als eigener Dienst**, der Würfe per NATS/HTTP meldet: nur als letzter Ausweg, weil es den Go-Stack verlässt.
 
 ## Spielstand
 
