@@ -1,0 +1,174 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/sj14/darts-o-mat/pkg/domain/game"
+	"github.com/sj14/darts-o-mat/pkg/domain/player"
+	"github.com/sj14/darts-o-mat/pkg/service"
+)
+
+type HomeModel struct {
+	Players []player.Player
+	Games   []service.GameView
+	Mode    game.Mode // selected mode of the new game, empty until the user picked one
+	Error   string
+}
+
+templ Home(m HomeModel) {
+	@layout("Start") {
+		@errorAlert(m.Error)
+		<div class="row g-4">
+			<div class="md:col-8">
+				@newGame(m)
+			</div>
+			<div class="md:col-4 d-grid gap-4 align-content-start">
+				<div class="card">
+					<div class="card-body">
+						<h2 class="fs-xl mb-3">Spieler</h2>
+						if len(m.Players) == 0 {
+							<p class="fg-3">Noch keine Spieler. Lege zuerst Spieler an.</p>
+						} else {
+							<ul class="list-group mb-3">
+								for _, p := range m.Players {
+									<li class="list-group-item">{ p.Name }</li>
+								}
+							</ul>
+						}
+						<form method="post" action="/players" class="d-flex gap-2">
+							<input type="text" name="name" class="form-control" placeholder="Name" required aria-label="Name"/>
+							<button type="submit" class="btn-solid theme-secondary">Anlegen</button>
+						</form>
+					</div>
+				</div>
+				if len(m.Games) > 0 {
+					<div class="card">
+						<div class="card-body">
+							<h2 class="fs-xl mb-3">Letzte Spiele</h2>
+							<div class="list-group">
+								for _, g := range m.Games {
+									<a href={ templ.URL(gameURL(g.Game.ID, "")) } class="list-group-item list-group-item-action">
+										<div class="d-flex justify-content-between gap-2">
+											<span class="fw-semibold">{ modeLabel(g.Game) }</span>
+											if progressOf(g).GameOver {
+												<span class="badge theme-success">beendet</span>
+											} else {
+												<span class="badge theme-primary">läuft</span>
+											}
+										</div>
+										<div class="fs-sm fg-3">{ playerNames(g, g.Game.PlayerIDs) }</div>
+									</a>
+								}
+							</div>
+						</div>
+					</div>
+				}
+			</div>
+		</div>
+	}
+}
+
+templ radioButton(name, value, label string, checked bool) {
+	<label class="btn-check btn-outline theme-primary">
+		<input type="radio" name={ name } value={ value } checked?={ checked }/>
+		{ label }
+	</label>
+}
+
+// playerChoice lets the user pick the players of a new game; they throw in the listed order.
+templ playerChoice(players []player.Player) {
+	<div class="form-group">
+		<span class="form-label">Mitspieler</span>
+		if len(players) == 0 {
+			<p class="fg-3 mb-0">Lege zuerst rechts Spieler an.</p>
+		}
+		for _, p := range players {
+			<div class="form-field">
+				<input type="checkbox" class="check" id={ "player-" + strconv.FormatInt(p.ID, 10) } name="player_ids" value={ strconv.FormatInt(p.ID, 10) }/>
+				<label for={ "player-" + strconv.FormatInt(p.ID, 10) }>{ p.Name }</label>
+			</div>
+		}
+	</div>
+}
+
+// newGame first lets the user pick a mode and then shows the options of that mode.
+// Picking a mode reloads only this section via htmx; without JavaScript the links still work.
+templ newGame(m HomeModel) {
+	<div id="new-game" class="card">
+		<div class="card-body d-grid gap-4">
+			<h2 class="fs-xl mb-0">Neues Spiel</h2>
+			<div class="row g-3">
+				<div class="col-6">
+					@modeTile(game.ModeX01, m.Mode, "X01", "Von 301, 501 oder 701 auf genau 0 runterspielen.")
+				</div>
+				<div class="col-6">
+					@modeTile(game.ModeAroundTheClock, m.Mode, "Around the Clock", "Die Zahlen 1 bis 20 der Reihe nach treffen.")
+				</div>
+			</div>
+			switch m.Mode {
+				case game.ModeX01:
+					<form method="post" action="/games" class="d-grid gap-3">
+						<input type="hidden" name="mode" value="x01"/>
+						<div class="form-group">
+							<span class="form-label">Startpunkte</span>
+							<div class="btn-group" role="group">
+								for _, score := range []int{301, 501, 701} {
+									@radioButton("start_score", strconv.Itoa(score), strconv.Itoa(score), score == 501)
+								}
+							</div>
+						</div>
+						<div class="form-group">
+							<span class="form-label">Auschecken mit</span>
+							<div class="btn-group" role="group">
+								@radioButton("out_mode", "single", "beliebigem Dart", false)
+								@radioButton("out_mode", "double", "Doppel", true)
+								@radioButton("out_mode", "master", "Doppel oder Triple", false)
+							</div>
+						</div>
+						@playerChoice(m.Players)
+						<div>
+							<button type="submit" class="btn-solid theme-primary">X01 starten</button>
+						</div>
+					</form>
+				case game.ModeAroundTheClock:
+					<form method="post" action="/games" class="d-grid gap-3">
+						<input type="hidden" name="mode" value="around_the_clock"/>
+						<div class="form-field">
+							<input type="checkbox" class="check" id="atc-bull" name="bull" checked/>
+							<label for="atc-bull">Zum Schluss das Bull treffen</label>
+						</div>
+						<div class="form-field">
+							<input type="checkbox" class="check" id="atc-skips" name="multiplier_skips"/>
+							<label for="atc-skips">Doppel springt 2 Felder, Triple 3 Felder weiter</label>
+						</div>
+						@playerChoice(m.Players)
+						<div>
+							<button type="submit" class="btn-solid theme-primary">Around the Clock starten</button>
+						</div>
+					</form>
+				default:
+					<p class="fg-3 mb-0">Wähle zuerst einen Spielmodus.</p>
+			}
+		</div>
+	</div>
+}
+
+templ modeTile(mode, selected game.Mode, title, description string) {
+	<a
+		href={ templ.URL("/?mode=" + string(mode)) }
+		hx-get={ "/?mode=" + string(mode) }
+		hx-target="#new-game"
+		hx-select="#new-game"
+		hx-swap="outerHTML"
+		hx-push-url="true"
+		class={ "card h-100 text-decoration-none", templ.KV("border-primary border-3", mode == selected) }
+		if mode == selected {
+			aria-current="true"
+		}
+	>
+		<div class="card-body">
+			<div class="fs-lg fw-bold mb-1">{ title }</div>
+			<div class="fs-sm fg-3">{ description }</div>
+		</div>
+	</a>
+}

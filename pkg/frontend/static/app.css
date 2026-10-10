@@ -1,0 +1,30 @@
+.scoreboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1rem;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: .5rem;
+}
+
+.keypad button {
+  min-height: 3.5rem;
+  font-size: 1.25rem;
+}
+
+.keypad .span-2 {
+  grid-column: span 2;
+}
+
+.score {
+  font-size: 3.5rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.keypad .span-3 {
+  grid-column: span 3;
+}

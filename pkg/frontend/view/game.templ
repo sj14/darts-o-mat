@@ -1,0 +1,127 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
+	"github.com/sj14/darts-o-mat/pkg/domain/throw"
+	"github.com/sj14/darts-o-mat/pkg/service"
+)
+
+templ Game(v service.GameView) {
+	@layout(modeLabel(v.Game)) {
+		@Board(v, "")
+	}
+}
+
+// Board is the part of the game page that htmx replaces after every dart.
+templ Board(v service.GameView, errMsg string) {
+	{{ p := progressOf(v) }}
+	<div id="board">
+		<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+			<h1 class="fs-2xl mb-0">{ modeLabel(v.Game) }</h1>
+			if !p.GameOver {
+				<span class="fg-3">Runde { strconv.Itoa(p.Round) }</span>
+			}
+		</div>
+		@errorAlert(errMsg)
+		if p.GameOver {
+			<div class="alert theme-success mb-4" role="status">
+				<div class="fs-xl fw-bold">
+					if len(p.WinnerIDs) > 1 {
+						Unentschieden: { playerNames(v, p.WinnerIDs) }
+					} else {
+						🏆 { playerNames(v, p.WinnerIDs) } gewinnt!
+					}
+				</div>
+				<a href="/" class="btn-solid theme-success mt-3">Neues Spiel</a>
+			</div>
+		}
+		<div class="scoreboard mb-4">
+			switch st := v.State.(type) {
+				case x01.State:
+					for _, ps := range st.Players {
+						@playerCard(v, p, ps.PlayerID, strconv.FormatUint(ps.Remaining, 10), "Rest")
+					}
+				case aroundtheclock.State:
+					for _, ps := range st.Players {
+						@playerCard(v, p, ps.PlayerID, targetLabel(ps.Target), "Ziel")
+					}
+			}
+		</div>
+		if !p.GameOver {
+			<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+				<span class="fw-semibold">{ playerName(v, *p.CurrentPlayerID) } ist dran</span>
+				for i := range turn.DartsPerTurn {
+					if i < len(turnDarts(v, p)) {
+						<span class="badge theme-primary">{ dartLabel(turnDarts(v, p)[i]) }</span>
+					} else {
+						<span class="badge">–</span>
+					}
+				}
+			</div>
+			@keypad(v)
+		}
+		<div class="mt-3">
+			<button
+				type="button"
+				class="btn-outline theme-secondary"
+				hx-post={ gameURL(v.Game.ID, "/undo") }
+				hx-target="#board"
+				hx-swap="outerHTML"
+				disabled?={ len(v.Darts) == 0 }
+			>↶ Letzten Dart zurücknehmen</button>
+		</div>
+	</div>
+}
+
+templ playerCard(v service.GameView, p progress, playerID int64, value, caption string) {
+	<div class={ "card", templ.KV("border-primary border-3", p.isCurrent(playerID)), templ.KV("border-success border-3", p.isWinner(playerID)) }>
+		<div class="card-body">
+			<div class="d-flex justify-content-between align-items-center gap-2">
+				<span class="fw-semibold text-truncate">{ playerName(v, playerID) }</span>
+				if p.isWinner(playerID) {
+					<span class="badge theme-success">Sieg</span>
+				}
+			</div>
+			<div class="score fw-bold my-2">{ value }</div>
+			<div class="fs-sm fg-3">{ caption }</div>
+		</div>
+	</div>
+}
+
+// keypad enters a dart: choose single, double or triple, then tap the number.
+templ keypad(v service.GameView) {
+	{{ target := currentTarget(v) }}
+	<form
+		hx-post={ gameURL(v.Game.ID, "/darts") }
+		hx-target="#board"
+		hx-swap="outerHTML"
+		class="d-grid gap-3"
+	>
+		<div class="btn-group" role="group" aria-label="Multiplikator">
+			@radioButton("multiplier", "1", "Single", true)
+			@radioButton("multiplier", "2", "Doppel", false)
+			@radioButton("multiplier", "3", "Triple", false)
+		</div>
+		<div class="keypad">
+			for n := 1; n <= 20; n++ {
+				<button
+					type="submit"
+					name="number"
+					value={ strconv.Itoa(n) }
+					class={ "btn-solid", templ.KV("theme-primary", uint8(n) == target), templ.KV("theme-secondary", uint8(n) != target) }
+				>{ strconv.Itoa(n) }</button>
+			}
+			<button
+				type="submit"
+				name="number"
+				value="25"
+				class={ "btn-solid span-2", templ.KV("theme-primary", target == throw.Bull), templ.KV("theme-success", target != throw.Bull) }
+			>Bull</button>
+			<button type="submit" name="miss" value="true" class="btn-solid theme-danger span-3">Daneben</button>
+		</div>
+	</form>
+}

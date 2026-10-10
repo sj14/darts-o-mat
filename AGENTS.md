@@ -17,6 +17,8 @@ Neue Funktionen bauen auf dem bestehenden Stack auf; ohne Absprache keine zusät
 - **Sprache:** Go (Version siehe `go.mod`)
 - **HTTP-Routing:** [chi](https://github.com/go-chi/chi) v5
 - **Frontend:** serverseitig gerenderte HTML-Templates mit [templ](https://templ.guide) (als Go-Tool in `go.mod` eingebunden; generieren mit `go tool templ generate`) und [htmx](https://htmx.org) für Interaktivität: Handler liefern templ-Fragmente, die htmx in die Seite tauscht, statt eigenem JavaScript bzw. einem JS-Framework
+- **Design:** [Bootstrap 6 Alpha](https://getbootstrap.com) (nur CSS, ohne Bootstrap-JS). Die Klassennamen weichen von Bootstrap 5 ab, z. B. `btn-solid theme-primary` statt `btn-primary`, `alert theme-danger`, Breakpoints als `md:col-6`, Toggle-Buttons als `<label class="btn-check …"><input …></label>`, Checkboxen mit `class="check"`. Im Zweifel in `pkg/frontend/static/bootstrap.min.css` nachsehen statt v5-Wissen anzunehmen. Eigene Styles nur sparsam in `app.css`.
+- **Statische Dateien:** htmx und Bootstrap liegen versioniert in `pkg/frontend/static` und werden per `go:embed` ausgeliefert, kein CDN (darts-o-mat soll auch ohne Internet laufen).
 - **Datenbank:** PostgreSQL und SQLite werden beide unterstützt (Auswahl per `-db sqlite|postgres` und `-dsn`). Persistenz-Code muss mit beiden Datenbanken funktionieren.
 - **ORM/Query-Builder:** [Bun](https://bun.uptrace.dev) (`pgdialect`/`pgdriver` für PostgreSQL, `sqlitedialect` mit dem cgo-freien Treiber `modernc.org/sqlite` für SQLite)
 - **Messaging (optional):** [NATS](https://nats.io) darf aufgenommen werden, wenn es gebraucht wird, z. B. um Würfe von der Kamera (`darts-o-cam`) an den Server (`darts-o-mat`) zu übertragen.
@@ -26,8 +28,9 @@ Neue Funktionen bauen auf dem bestehenden Stack auf; ohne Absprache keine zusät
 - `cmd/darts-o-mat`: Webserver
 - `cmd/darts-o-cam`: Kamera-Client, der Würfe erkennt und an den Server meldet
 - `pkg/api`: JSON-API unter `/api`
+- `pkg/service`: Anwendungslogik (Spieler/Spiele anlegen, Darts eintragen, Undo), gemeinsam genutzt von API und Weboberfläche. Neue Logik gehört hierher, nicht in die Handler.
 - `pkg/domain`: Fachlogik (Board, Spieler, Würfe, Spielmodi X01 und Around the Clock)
-- `pkg/frontend`: Controller und templ-Views
+- `pkg/frontend`: Weboberfläche: Controller, templ-Views (`view`) und eingebettete statische Dateien (`static`)
 - `pkg/repos/store`: Persistenz; ein gemeinsamer Bun-Store für beide Datenbanken, nur der Verbindungsaufbau (`NewPostgres`/`NewSQLite`) unterscheidet sich
 
 ## Spielstand
@@ -48,3 +51,9 @@ X01 kennt die Out-Modi `single`, `double` und `master` (Doppel oder Triple).
 - `GET /api/games/{id}`: Spiel, Darts und berechneter Stand
 - `POST /api/games/{id}/darts`: `{"number": 20, "multiplier": 3}` oder `{"miss": true}`; Bull ist `25`
 - `DELETE /api/games/{id}/darts/last`: letzten Dart rückgängig machen
+
+## Testen
+
+- Regeln: `go test ./pkg/...`
+- Weboberfläche: mit [Lightpanda](https://github.com/lightpanda-io/browser) statt Headless Chrome, z. B. `lightpanda fetch <url> --inject-script-file klicks.js --wait-script '…' --dump semantic_tree_text --dump-selector '#board'`.
+  Lightpanda führt JavaScript/htmx aus, rendert aber keine Pixel; für echte Screenshots gibt es damit keinen Ersatz.

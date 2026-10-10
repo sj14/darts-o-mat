@@ -20,7 +20,7 @@ Voraussetzung: [Go](https://go.dev/dl/) ist installiert.
 go run ./cmd/darts-o-mat
 ```
 
-Danach läuft darts-o-mat auf Port 3000. Die Daten landen in der Datei `darts-o-mat.db` im aktuellen Ordner.
+Dann im Browser <http://localhost:3000> öffnen. Die Daten landen in der Datei `darts-o-mat.db` im aktuellen Ordner.
 
 ### Mit PostgreSQL statt Datei
 
@@ -29,20 +29,11 @@ docker run -d --name darts-postgres -e POSTGRES_PASSWORD=geheim -e POSTGRES_DB=d
 go run ./cmd/darts-o-mat -db postgres -dsn "postgres://postgres:geheim@localhost:5432/darts-o-mat?sslmode=disable"
 ```
 
-## Ausprobieren
+## Spielen
 
-Eine Bedienoberfläche ist noch im Aufbau. Bis dahin lässt sich ein Spiel z. B. mit `curl` spielen:
+1. Auf der Startseite rechts die Spieler anlegen.
+2. Spielmodus wählen, Mitspieler ankreuzen und starten. Geworfen wird in der Reihenfolge der Spielerliste.
+3. Nach jedem Wurf eintragen: erst Single, Doppel oder Triple wählen, dann die Zahl antippen. Für das Bull „Bull“ (mit „Doppel“ = Bullseye), für Fehlwürfe „Daneben“.
+4. Vertippt? „Letzten Dart zurücknehmen“.
 
-```sh
-# Spieler anlegen
-curl -X POST localhost:3000/api/players -d '{"name": "Anna"}'
-
-# 501-Spiel mit Double Out starten
-curl -X POST localhost:3000/api/games -d '{"mode": "x01", "player_ids": [1], "x01": {"start_score": 501, "out_mode": "double"}}'
-
-# Triple 20 werfen
-curl -X POST localhost:3000/api/games/1/darts -d '{"number": 20, "multiplier": 3}'
-
-# Letzten Wurf zurücknehmen
-curl -X DELETE localhost:3000/api/games/1/darts/last
-```
+Angefangene Spiele findest du auf der Startseite unter „Letzte Spiele“.

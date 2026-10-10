@@ -7,26 +7,20 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
-	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
-	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
-	"github.com/sj14/darts-o-mat/pkg/repos/store"
+	"github.com/sj14/darts-o-mat/pkg/service"
 )
 
 type API struct {
-	store *store.Store
-	// dartsMu serializes changes to the darts, so two darts can't both pass
-	// the replay check against the same previous state.
-	dartsMu sync.Mutex
+	svc *service.Service
 }
 
-func New(store *store.Store) *API {
-	return &API{store: store}
+func New(svc *service.Service) *API {
+	return &API{svc: svc}
 }
 
 func (a *API) Routes() http.Handler {
@@ -40,37 +34,27 @@ func (a *API) Routes() http.Handler {
 	return r
 }
 
-// gameResponse is returned by all game endpoints.
-type gameResponse struct {
-	Game  game.Game    `json:"game"`
-	Darts []throw.Dart `json:"darts"`
-	State any          `json:"state"` // x01.State or aroundtheclock.State, depending on the mode
-}
-
 func (a *API) listPlayers(w http.ResponseWriter, r *http.Request) {
-	players, err := a.store.ListPlayers(r.Context())
+	players, err := a.svc.ListPlayers(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, players)
 }
 
 func (a *API) createPlayer(w http.ResponseWriter, r *http.Request) {
-	var p player.Player
-	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
+	var req struct {
+		Name string `json:"name"`
 	}
-	p.ID = 0
-	p.Name = strings.TrimSpace(p.Name)
-	if p.Name == "" {
-		writeError(w, http.StatusBadRequest, errors.New("name must not be empty"))
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, fmt.Errorf("%w: %w", service.ErrInvalid, err))
 		return
 	}
 
-	if err := a.store.StorePlayer(r.Context(), &p); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+	p, err := a.svc.CreatePlayer(r.Context(), req.Name)
+	if err != nil {
+		writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, p)
@@ -79,146 +63,72 @@ func (a *API) createPlayer(w http.ResponseWriter, r *http.Request) {
 func (a *API) createGame(w http.ResponseWriter, r *http.Request) {
 	var g game.Game
 	if err := json.NewDecoder(r.Body).Decode(&g); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	g.ID = 0
-	if err := g.Validate(); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, fmt.Errorf("%w: %w", service.ErrInvalid, err))
 		return
 	}
 
-	players, err := a.store.GetPlayers(r.Context(), g.PlayerIDs)
+	v, err := a.svc.CreateGame(r.Context(), g)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, err)
 		return
 	}
-	if len(players) != len(g.PlayerIDs) {
-		writeError(w, http.StatusBadRequest, errors.New("unknown player in player_ids"))
-		return
-	}
-
-	if err := a.store.CreateGame(r.Context(), &g); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	state, err := g.Play(nil)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, gameResponse{Game: g, Darts: []throw.Dart{}, State: state})
+	writeJSON(w, http.StatusCreated, v)
 }
 
 func (a *API) getGame(w http.ResponseWriter, r *http.Request) {
-	g, ok := a.loadGame(w, r)
+	id, ok := gameID(w, r)
 	if !ok {
 		return
 	}
-	a.respondGame(w, r, http.StatusOK, g)
+	v, err := a.svc.Game(r.Context(), id)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, v)
 }
 
-// addDart registers the next dart of the game. The dart is only stored
-// if the game accepts it, i.e. it is valid and the game is not over yet.
 func (a *API) addDart(w http.ResponseWriter, r *http.Request) {
-	g, ok := a.loadGame(w, r)
+	id, ok := gameID(w, r)
 	if !ok {
 		return
 	}
 
 	var d throw.Dart
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, fmt.Errorf("%w: %w", service.ErrInvalid, err))
 		return
 	}
-	d.ID = 0
-	d.GameID = g.ID
-	if d.Miss {
-		d.Number, d.Multiplier = 0, 0
-	} else if d.Multiplier == 0 {
-		d.Multiplier = 1
-	}
 
-	a.dartsMu.Lock()
-	defer a.dartsMu.Unlock()
-
-	darts, err := a.store.ListDarts(r.Context(), g.ID)
+	v, err := a.svc.AddDart(r.Context(), id, d)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, err)
 		return
 	}
-
-	// The stored darts were accepted before, so an error can only come from the new one.
-	if _, err := g.Play(append(darts, d)); err != nil {
-		status := http.StatusBadRequest
-		if errors.Is(err, turn.ErrGameOver) {
-			status = http.StatusConflict
-		}
-		writeError(w, status, err)
-		return
-	}
-
-	if err := a.store.AddDart(r.Context(), &d); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-	a.respondGame(w, r, http.StatusCreated, g)
+	writeJSON(w, http.StatusCreated, v)
 }
 
 func (a *API) undoDart(w http.ResponseWriter, r *http.Request) {
-	g, ok := a.loadGame(w, r)
+	id, ok := gameID(w, r)
 	if !ok {
 		return
 	}
-
-	a.dartsMu.Lock()
-	defer a.dartsMu.Unlock()
-
-	err := a.store.DeleteLastDart(r.Context(), g.ID)
-	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusConflict, errors.New("no dart to undo"))
-		return
-	}
+	v, err := a.svc.UndoDart(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, err)
 		return
 	}
-	a.respondGame(w, r, http.StatusOK, g)
+	writeJSON(w, http.StatusOK, v)
 }
 
-// loadGame loads the game from the {id} URL parameter and writes the error response if that fails.
-func (a *API) loadGame(w http.ResponseWriter, r *http.Request) (game.Game, bool) {
+// gameID parses the {id} URL parameter and writes the error response if that fails.
+func gameID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid game id: %w", err))
-		return game.Game{}, false
+		writeError(w, fmt.Errorf("%w: invalid game id", service.ErrInvalid))
+		return 0, false
 	}
-
-	g, err := a.store.GetGame(r.Context(), id)
-	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, errors.New("game not found"))
-		return game.Game{}, false
-	}
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return game.Game{}, false
-	}
-	return g, true
-}
-
-func (a *API) respondGame(w http.ResponseWriter, r *http.Request, status int, g game.Game) {
-	darts, err := a.store.ListDarts(r.Context(), g.ID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-	state, err := g.Play(darts)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-	writeJSON(w, status, gameResponse{Game: g, Darts: darts, State: state})
+	return id, true
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -227,6 +137,15 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func writeError(w http.ResponseWriter, status int, err error) {
+func writeError(w http.ResponseWriter, err error) {
+	status := http.StatusInternalServerError
+	switch {
+	case errors.Is(err, service.ErrInvalid), errors.Is(err, throw.ErrInvalid):
+		status = http.StatusBadRequest
+	case errors.Is(err, service.ErrNotFound):
+		status = http.StatusNotFound
+	case errors.Is(err, turn.ErrGameOver), errors.Is(err, service.ErrNothingToUndo):
+		status = http.StatusConflict
+	}
 	writeJSON(w, status, map[string]string{"error": err.Error()})
 }

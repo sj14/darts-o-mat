@@ -53,3 +53,10 @@ func (store *Store) DeleteLastDart(ctx context.Context, gameID int64) error {
 	}
 	return nil
 }
+
+// ListGames returns the most recent games, newest first.
+func (store *Store) ListGames(ctx context.Context, limit int) ([]game.Game, error) {
+	games := []game.Game{}
+	err := store.db.NewSelect().Model(&games).Order("id DESC").Limit(limit).Scan(ctx)
+	return games, err
+}

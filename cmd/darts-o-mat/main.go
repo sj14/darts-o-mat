@@ -11,6 +11,7 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/api"
 	"github.com/sj14/darts-o-mat/pkg/frontend/controller"
 	"github.com/sj14/darts-o-mat/pkg/repos/store"
+	"github.com/sj14/darts-o-mat/pkg/service"
 )
 
 func main() {
@@ -44,11 +45,9 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 
-	ctrl := controller.New(repo)
-
-	r.Get("/games/x01", ctrl.ShowNewGameX01)
-	r.Post("/games/x01", ctrl.PostNewGameX01)
-	r.Mount("/api", api.New(repo).Routes())
+	svc := service.New(repo)
+	r.Mount("/api", api.New(svc).Routes())
+	r.Mount("/", controller.New(svc).Routes())
 
 	log.Fatal(http.ListenAndServe(*addr, r))
 }

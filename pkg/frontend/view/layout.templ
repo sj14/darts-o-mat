@@ -1,0 +1,31 @@
+package view
+
+templ layout(title string) {
+	<!DOCTYPE html>
+	<html lang="de">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title } · darts-o-mat</title>
+			<link rel="stylesheet" href="/static/bootstrap.min.css"/>
+			<link rel="stylesheet" href="/static/app.css"/>
+			<script src="/static/htmx.min.js"></script>
+		</head>
+		<body>
+			<header class="border-bottom mb-4">
+				<div class="container py-3">
+					<a href="/" class="fs-xl fw-bold text-decoration-none">🎯 darts-o-mat</a>
+				</div>
+			</header>
+			<main class="container pb-5">
+				{ children... }
+			</main>
+		</body>
+	</html>
+}
+
+templ errorAlert(msg string) {
+	if msg != "" {
+		<div class="alert theme-danger mb-4" role="alert">{ msg }</div>
+	}
+}
