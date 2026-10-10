@@ -6,7 +6,6 @@ import (
 
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
-	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/uptrace/bun"
@@ -43,9 +42,7 @@ func NewSQLite(ctx context.Context, dsn string) (*Store, error) {
 func newStore(ctx context.Context, db *bun.DB) (*Store, error) {
 	models := []any{
 		(*game.Game)(nil),
-		(*game.PlayerState)(nil),
 		(*player.Player)(nil),
-		(*x01.GameX01)(nil),
 		(*board.Board)(nil),
 		(*throw.Dart)(nil),
 	}
