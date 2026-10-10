@@ -3,14 +3,14 @@ package controller
 import (
 	"net/http"
 
-	"github.com/sj14/darts-o-mat/pkg/repos/postgres"
+	"github.com/sj14/darts-o-mat/pkg/repos/store"
 )
 
 type Controller struct {
-	repo *postgres.Store // TODO: replace with interface
+	repo *store.Store // TODO: replace with interface
 }
 
-func New(repo *postgres.Store) Controller {
+func New(repo *store.Store) Controller {
 	return Controller{
 		repo: repo,
 	}
