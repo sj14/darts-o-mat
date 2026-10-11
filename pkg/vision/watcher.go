@@ -136,11 +136,17 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		return w.takeout(ref, frames)
 	}
 
-	// Comparing images can't tell a dart that appeared from one that disappeared.
+	// Each camera is evaluated once, all at the same time: it takes a while per frame.
 	areas := make([][]image.Point, len(frames))
+	detections := make([]Detection, len(frames))
+	errs := make([]error, len(frames))
+	var wg sync.WaitGroup
 	for i, f := range frames {
-		areas[i] = ChangedArea(ref[i], f, w.opts.Detect)
+		wg.Go(func() { detections[i], areas[i], errs[i] = detect(ref[i], f, w.opts.Detect) })
 	}
+	wg.Wait()
+
+	// Comparing images can't tell a dart that appeared from one that disappeared.
 	if w.removed(ref, frames, areas) {
 		return w.takeout(ref, frames)
 	}
@@ -152,10 +158,10 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	var points []dartboard.Point
 	for i, f := range frames {
 		w.rememberDart(i, f.Bounds(), areas[i])
-		d, err := DetectDart(ref[i], f, w.opts.Detect)
-		if err != nil {
+		if errs[i] != nil {
 			continue
 		}
+		d := detections[i]
 		p := toBoard[i].Apply(d.Tip)
 		if p.Radius() > MaxBoardRadius {
 			continue // e.g. a reflection outside the board was taken for the dart

@@ -138,14 +138,22 @@ func abs(v int) int {
 // All changed areas except tiny specks count as the dart: it often falls apart into
 // pieces where it crosses board areas of similar brightness.
 func DetectDart(before, after *image.RGBA, opts DetectOptions) (Detection, error) {
+	d, _, err := detect(before, after, opts)
+	return d, err
+}
+
+// detect is DetectDart that also returns the changed area, so the watcher compares the
+// images only once per camera.
+func detect(before, after *image.RGBA, opts DetectOptions) (Detection, []image.Point, error) {
 	seed, area := dartArea(before, after, opts)
 	if len(area) < opts.MinPixels {
-		return Detection{}, ErrNoDart
+		return Detection{}, area, ErrNoDart
 	}
 	if seed == nil {
-		return Detection{}, ErrNotElongated
+		return Detection{}, area, ErrNotElongated
 	}
-	return tipOf(seed, area)
+	d, err := tipOf(seed, area)
+	return d, area, err
 }
 
 // ChangedArea returns the changed pixels that DetectDart looks at, e.g. to debug a detection.
@@ -352,37 +360,74 @@ func median(v []float64) float64 {
 }
 
 // blur averages each pixel with its (2r+1)x(2r+1) neighborhood, per color channel.
+// The frames of three cameras must be blurred quickly after every dart, so it is
+// separable, uses running sums (the cost doesn't depend on r), goes through memory
+// row by row, and divides by multiplying with the reciprocal.
 func blur(src *image.RGBA, r int) *image.RGBA {
 	w, h := src.Bounds().Dx(), src.Bounds().Dy()
-	tmp := make([]int, w*h*4)
+	// div[n] turns a sum of n values into their average: (sum*div[n])>>32 is sum/n,
+	// exactly, for sums below 2^32/n.
+	div := make([]uint64, 2*r+2)
+	for n := 1; n < len(div); n++ {
+		div[n] = (1<<32 + uint64(n) - 1) / uint64(n)
+	}
+
+	// Rows: running sum along each row.
+	tmp := make([]uint32, w*h*3)
 	for y := 0; y < h; y++ {
+		row := src.Pix[y*src.Stride : y*src.Stride+w*4]
+		out := tmp[y*w*3 : (y+1)*w*3]
+		var sr, sg, sb uint32
+		n := 0
+		for x := 0; x <= r && x < w; x++ {
+			sr, sg, sb = sr+uint32(row[x*4]), sg+uint32(row[x*4+1]), sb+uint32(row[x*4+2])
+			n++
+		}
 		for x := 0; x < w; x++ {
-			for c := 0; c < 3; c++ {
-				sum, n := 0, 0
-				for dx := -r; dx <= r; dx++ {
-					if xx := x + dx; xx >= 0 && xx < w {
-						sum += int(src.Pix[y*src.Stride+xx*4+c])
-						n++
-					}
-				}
-				tmp[(y*w+x)*4+c] = sum / n
+			d := div[n]
+			out[x*3] = uint32(uint64(sr) * d >> 32)
+			out[x*3+1] = uint32(uint64(sg) * d >> 32)
+			out[x*3+2] = uint32(uint64(sb) * d >> 32)
+			if add := x + r + 1; add < w {
+				sr, sg, sb = sr+uint32(row[add*4]), sg+uint32(row[add*4+1]), sb+uint32(row[add*4+2])
+				n++
+			}
+			if remove := x - r; remove >= 0 {
+				sr, sg, sb = sr-uint32(row[remove*4]), sg-uint32(row[remove*4+1]), sb-uint32(row[remove*4+2])
+				n--
 			}
 		}
 	}
+
+	// Columns: running sums of whole rows.
 	out := image.NewRGBA(image.Rect(0, 0, w, h))
+	sums := make([]uint32, w*3)
+	n := 0
+	for y := 0; y <= r && y < h; y++ {
+		for i, v := range tmp[y*w*3 : (y+1)*w*3] {
+			sums[i] += v
+		}
+		n++
+	}
 	for y := 0; y < h; y++ {
+		dst := out.Pix[y*out.Stride:]
 		for x := 0; x < w; x++ {
-			for c := 0; c < 3; c++ {
-				sum, n := 0, 0
-				for dy := -r; dy <= r; dy++ {
-					if yy := y + dy; yy >= 0 && yy < h {
-						sum += tmp[(yy*w+x)*4+c]
-						n++
-					}
-				}
-				out.Pix[y*out.Stride+x*4+c] = uint8(sum / n)
+			dst[x*4] = uint8(uint64(sums[x*3]) * div[n] >> 32)
+			dst[x*4+1] = uint8(uint64(sums[x*3+1]) * div[n] >> 32)
+			dst[x*4+2] = uint8(uint64(sums[x*3+2]) * div[n] >> 32)
+			dst[x*4+3] = 255
+		}
+		if add := y + r + 1; add < h {
+			for i, v := range tmp[add*w*3 : (add+1)*w*3] {
+				sums[i] += v
 			}
-			out.Pix[y*out.Stride+x*4+3] = 255
+			n++
+		}
+		if remove := y - r; remove >= 0 {
+			for i, v := range tmp[remove*w*3 : (remove+1)*w*3] {
+				sums[i] -= v
+			}
+			n--
 		}
 	}
 	return out

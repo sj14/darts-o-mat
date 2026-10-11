@@ -307,3 +307,35 @@ func TestFuseTips(t *testing.T) {
 		})
 	}
 }
+
+// TestBlur compares the running-sum blur with averaging each neighborhood directly.
+func TestBlur(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 13, 9))
+	for i := range img.Pix {
+		img.Pix[i] = uint8(i * 37 % 251)
+	}
+	for _, r := range []int{0, 1, 2, 5} {
+		got := blur(img, r)
+		w, h := 13, 9
+		for y := range h {
+			for x := range w {
+				for c := range 3 {
+					// Rows first, truncated like the implementation, then columns.
+					sum, n := 0, 0
+					for yy := max(y-r, 0); yy <= min(y+r, h-1); yy++ {
+						rowSum, rowN := 0, 0
+						for xx := max(x-r, 0); xx <= min(x+r, w-1); xx++ {
+							rowSum += int(img.Pix[img.PixOffset(xx, yy)+c])
+							rowN++
+						}
+						sum += rowSum / rowN
+						n++
+					}
+					if want := uint8(sum / n); got.Pix[got.PixOffset(x, y)+c] != want {
+						t.Fatalf("r=%d at %d,%d channel %d: got %d, want %d", r, x, y, c, got.Pix[got.PixOffset(x, y)+c], want)
+					}
+				}
+			}
+		}
+	}
+}
