@@ -3,70 +3,22 @@ package vision
 import (
 	"fmt"
 	"image"
-	"io"
-	"os/exec"
-	"runtime"
-	"strconv"
+	"slices"
 	"sync"
+	"time"
+
+	"github.com/sj14/darts-o-mat/pkg/camera"
 )
 
-// Camera reads frames from a camera through ffmpeg, which works the same on macOS
-// (AVFoundation) and Linux (V4L2) without cgo.
-type Camera struct {
-	Device string
-
-	cmd    *exec.Cmd
-	out    io.ReadCloser
-	width  int
-	height int
-}
-
-// OpenCamera starts reading the camera at the given resolution and frame rate.
-// device is the AVFoundation index on macOS (e.g. "1") or the device path on Linux (e.g. "/dev/video0").
-func OpenCamera(device string, width, height, fps int) (*Camera, error) {
-	size := fmt.Sprintf("%dx%d", width, height)
-	var input []string
-	switch runtime.GOOS {
-	case "darwin":
-		// AVFoundation only accepts the frame rates the camera offers, so the rate is reduced by the filter below.
-		input = []string{"-f", "avfoundation", "-framerate", "30", "-video_size", size, "-pixel_format", "nv12", "-i", device}
-	default:
-		input = []string{"-f", "v4l2", "-input_format", "mjpeg", "-framerate", "30", "-video_size", size, "-i", device}
-	}
-	args := append([]string{"-hide_banner", "-loglevel", "error"}, input...)
-	args = append(args, "-vf", fmt.Sprintf("fps=%d", fps), "-f", "rawvideo", "-pix_fmt", "rgba", "-")
-
-	cmd := exec.Command("ffmpeg", args...)
-	out, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("start ffmpeg: %w", err)
-	}
-	return &Camera{Device: device, cmd: cmd, out: out, width: width, height: height}, nil
-}
-
-// Read blocks until the next frame arrives.
-func (c *Camera) Read() (*image.RGBA, error) {
-	img := image.NewRGBA(image.Rect(0, 0, c.width, c.height))
-	if _, err := io.ReadFull(c.out, img.Pix); err != nil {
-		return nil, err
-	}
-	return img, nil
-}
-
-func (c *Camera) Close() error {
-	_ = c.cmd.Process.Kill()
-	_ = c.cmd.Wait()
-	return nil
-}
+// settleTime lets the cameras adjust their exposure after opening, before their
+// views are compared and the exposure is locked.
+const settleTime = time.Second
 
 // OpenCameras opens the cameras of a calibration, in the calibration's order.
 // Cameras without a fixed device are found among the devices named DeviceName
-// by comparing their view with the reference images (macOS only).
-func OpenCameras(calib Calibration, width, height, fps int) ([]*Camera, error) {
-	cams := make([]*Camera, len(calib.Cameras))
+// by comparing their view with the reference images.
+func OpenCameras(calib Calibration, width, height, fps int) ([]*camera.Camera, error) {
+	cams := make([]*camera.Camera, len(calib.Cameras))
 	closeAll := func() {
 		for _, c := range cams {
 			if c != nil {
@@ -81,7 +33,7 @@ func OpenCameras(calib Calibration, width, height, fps int) ([]*Camera, error) {
 			unresolved = append(unresolved, i)
 			continue
 		}
-		cam, err := OpenCamera(c.Device, width, height, fps)
+		cam, err := camera.Open(c.Device, camera.Options{Width: width, Height: height, FPS: fps})
 		if err != nil {
 			closeAll()
 			return nil, fmt.Errorf("camera %s: %w", c.Name, err)
@@ -89,21 +41,18 @@ func OpenCameras(calib Calibration, width, height, fps int) ([]*Camera, error) {
 		cams[i] = cam
 	}
 	if len(unresolved) == 0 {
+		if _, err := settle(cams); err != nil {
+			closeAll()
+			return nil, err
+		}
 		return cams, nil
 	}
 
-	if runtime.GOOS != "darwin" {
-		closeAll()
-		return nil, fmt.Errorf("camera %s: set its device", calib.Cameras[unresolved[0]].Name)
-	}
-	devices, err := ListAVFoundationDevices()
+	candidates, err := OpenCamerasNamed(calib.DeviceName, width, height, fps)
 	if err != nil {
 		closeAll()
 		return nil, err
 	}
-
-	var candidates []*Camera
-	var frames []image.Image
 	closeCandidates := func(keep map[int]bool) {
 		for i, c := range candidates {
 			if !keep[i] {
@@ -111,22 +60,12 @@ func OpenCameras(calib Calibration, width, height, fps int) ([]*Camera, error) {
 			}
 		}
 	}
-	candidates, err = openNamed(devices, calib.DeviceName, width, height, fps)
+	// The candidates come first, so frames[i] belongs to candidates[i].
+	frames, err := settle(append(slices.Clone(candidates), slices.DeleteFunc(slices.Clone(cams), func(c *camera.Camera) bool { return c == nil })...))
 	if err != nil {
+		closeCandidates(nil)
 		closeAll()
 		return nil, err
-	}
-	// Let the exposure settle for about a second before comparing views.
-	for _, cam := range candidates {
-		var img *image.RGBA
-		for range max(fps, 1) {
-			if img, err = cam.Read(); err != nil {
-				closeCandidates(nil)
-				closeAll()
-				return nil, err
-			}
-		}
-		frames = append(frames, img)
 	}
 
 	var refs []image.Image
@@ -139,7 +78,11 @@ func OpenCameras(calib Calibration, width, height, fps int) ([]*Camera, error) {
 		}
 		refs = append(refs, ref)
 	}
-	assignment, err := AssignCameras(frames, refs)
+	var views []image.Image
+	for _, f := range frames[:len(candidates)] {
+		views = append(views, f)
+	}
+	assignment, err := AssignCameras(views, refs)
 	if err != nil {
 		closeCandidates(nil)
 		closeAll()
@@ -155,27 +98,19 @@ func OpenCameras(calib Calibration, width, height, fps int) ([]*Camera, error) {
 	return cams, nil
 }
 
-// OpenCamerasNamed opens all cameras with the given name, in device order (macOS only).
-// It is used to set up a board that has no calibration yet.
-func OpenCamerasNamed(name string, width, height, fps int) ([]*Camera, error) {
-	devices, err := ListAVFoundationDevices()
+// OpenCamerasNamed opens all cameras with the given name, in device order. It is used
+// to set up a board that has no calibration yet. The exposure isn't locked yet.
+func OpenCamerasNamed(name string, width, height, fps int) ([]*camera.Camera, error) {
+	devices, err := camera.Devices()
 	if err != nil {
 		return nil, err
 	}
-	cams, err := openNamed(devices, name, width, height, fps)
-	if err == nil && len(cams) == 0 {
-		err = fmt.Errorf("no camera named %q", name)
-	}
-	return cams, err
-}
-
-func openNamed(devices []Device, name string, width, height, fps int) ([]*Camera, error) {
-	var cams []*Camera
+	var cams []*camera.Camera
 	for _, d := range devices {
 		if d.Name != name {
 			continue
 		}
-		cam, err := OpenCamera(strconv.Itoa(d.Index), width, height, fps)
+		cam, err := camera.Open(d.ID, camera.Options{Width: width, Height: height, FPS: fps})
 		if err != nil {
 			for _, c := range cams {
 				c.Close()
@@ -184,13 +119,33 @@ func openNamed(devices []Device, name string, width, height, fps int) ([]*Camera
 		}
 		cams = append(cams, cam)
 	}
+	if len(cams) == 0 {
+		return nil, fmt.Errorf("no camera named %q", name)
+	}
 	return cams, nil
+}
+
+// settle waits until the cameras have adjusted their exposure, then locks it, so a
+// hand in front of a camera doesn't change its whole image (seen when pulling darts
+// out). It returns a frame of each camera. Cameras that can't lock keep adjusting.
+func settle(cams []*camera.Camera) ([]*image.RGBA, error) {
+	time.Sleep(settleTime)
+	frames := make([]*image.RGBA, len(cams))
+	for i, c := range cams {
+		img, err := c.Read()
+		if err != nil {
+			return nil, err
+		}
+		frames[i] = img
+		_ = c.LockExposure() // without the lock, detection works as before
+	}
+	return frames, nil
 }
 
 // Live reads a camera in the background and keeps its newest frame, so several users
 // (detection, calibration interface) can share the camera.
 type Live struct {
-	cam    *Camera
+	cam    *camera.Camera
 	mu     sync.Mutex
 	cond   *sync.Cond
 	latest *image.RGBA
@@ -199,7 +154,7 @@ type Live struct {
 }
 
 // StartLive starts reading the camera in the background.
-func StartLive(cam *Camera) *Live {
+func StartLive(cam *camera.Camera) *Live {
 	l := &Live{cam: cam}
 	l.cond = sync.NewCond(&l.mu)
 	go func() {
@@ -239,7 +194,7 @@ func (l *Live) Next(after uint64) (*image.RGBA, uint64, error) {
 }
 
 // Device returns the camera's capture device.
-func (l *Live) Device() string {
+func (l *Live) Device() camera.Device {
 	return l.cam.Device
 }
 

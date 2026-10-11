@@ -1,54 +1,11 @@
 package vision
 
 import (
-	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"image"
 	"math"
-	"os/exec"
-	"regexp"
-	"strconv"
 )
-
-// Device is a video capture device as listed by ffmpeg.
-type Device struct {
-	Index int
-	Name  string
-}
-
-var avfDevicePattern = regexp.MustCompile(`\] \[(\d+)\] (.+)$`)
-
-// ListAVFoundationDevices returns the video devices on macOS in AVFoundation order.
-// The order is not stable: it can change when devices are plugged in or out.
-func ListAVFoundationDevices() ([]Device, error) {
-	// ffmpeg lists the devices and then fails because there is no input, that's expected.
-	out, _ := exec.Command("ffmpeg", "-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", "").CombinedOutput()
-
-	var devices []Device
-	video := false
-	scanner := bufio.NewScanner(bytes.NewReader(out))
-	for scanner.Scan() {
-		line := scanner.Text()
-		switch {
-		case bytes.Contains([]byte(line), []byte("video devices:")):
-			video = true
-			continue
-		case bytes.Contains([]byte(line), []byte("audio devices:")):
-			video = false
-			continue
-		}
-		if m := avfDevicePattern.FindStringSubmatch(line); video && m != nil {
-			i, _ := strconv.Atoi(m[1])
-			devices = append(devices, Device{Index: i, Name: m[2]})
-		}
-	}
-	if len(devices) == 0 {
-		return nil, fmt.Errorf("ffmpeg found no video devices: %s", out)
-	}
-	return devices, nil
-}
 
 // thumbSize is the size frames are reduced to for comparing camera views.
 const thumbW, thumbH = 64, 36

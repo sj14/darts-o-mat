@@ -1131,7 +1131,7 @@ func EventPage(m EventModel) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "</td></tr></tbody></table><p class=\"fs-sm fg-3\">Grenzen: Triple 99–107 mm, Doppel 162–170 mm, Bull bis 15,9 mm, Bullseye bis 6,35 mm. Das Ergebnis ist pro Koordinate der Median der Kameras.</p></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "</td></tr></tbody></table><p class=\"fs-sm fg-3\">Grenzen: Triple 99–107 mm, Doppel 162–170 mm, Bull bis 15,9 mm, Bullseye bis 6,35 mm. Das Ergebnis ist der Median der Abstände zur Mitte und der Median der Winkel (nahe der Mitte: Median pro Koordinate).</p></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

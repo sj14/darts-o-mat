@@ -144,7 +144,7 @@ func (ui *UI) overview(w http.ResponseWriter, r *http.Request) {
 		if i >= len(ui.cams) {
 			break // a camera of the calibration isn't connected
 		}
-		cams = append(cams, CameraModel{Index: i, Name: c.Name, Device: ui.cams[i].Device(), Calibrated: c.Refined != nil})
+		cams = append(cams, CameraModel{Index: i, Name: c.Name, Device: ui.cams[i].Device().ID, Calibrated: c.Refined != nil})
 	}
 	var events []EventModel
 	for i := len(ui.events) - 1; i >= 0; i-- {

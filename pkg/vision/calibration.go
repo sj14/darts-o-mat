@@ -52,9 +52,9 @@ func (c CalibrationPoint) Board() (dartboard.Point, error) {
 
 type CameraCalibration struct {
 	Name string `json:"name"`
-	// Device is the capture device, e.g. "/dev/video0" on Linux. If empty, the camera is
-	// found by the calibration's DeviceName and its Reference view, because macOS doesn't
-	// keep the device order stable.
+	// Device fixes the capture device by its camera.Device ID. Usually it is empty and the
+	// camera is found by the calibration's DeviceName and its Reference view, because the
+	// IDs change with the USB port and identical cameras can't be told apart otherwise.
 	Device string `json:"device,omitempty"`
 	// Reference is an image of the camera's view, relative to the calibration file.
 	Reference string `json:"reference,omitempty"`

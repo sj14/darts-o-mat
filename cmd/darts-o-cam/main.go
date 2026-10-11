@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/sj14/darts-o-mat/pkg/camera"
 	"github.com/sj14/darts-o-mat/pkg/camui"
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
@@ -188,7 +189,7 @@ func detect(args []string) error {
 		live := vision.StartLive(cams[i])
 		defer live.Close()
 		lives = append(lives, live)
-		log.Printf("%s: device %s", c.Name, live.Device())
+		log.Printf("%s: device %s", c.Name, live.Device().ID)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -287,25 +288,22 @@ func snapshot(args []string) error {
 	if err != nil {
 		return err
 	}
-	// Only the first frames are needed, after the exposure settled.
-	const fps = 10
-	cams, err := vision.OpenCameras(calib, 1280, 720, fps)
+	// OpenCameras returns once the exposure settled.
+	cams, err := vision.OpenCameras(calib, 1280, 720, 10)
 	if err != nil {
 		return err
 	}
 	for i, cam := range cams {
 		defer cam.Close()
-		var img *image.RGBA
-		for range fps {
-			if img, err = cam.Read(); err != nil {
-				return err
-			}
+		img, err := cam.Read()
+		if err != nil {
+			return err
 		}
 		path := filepath.Join(*dir, calib.Cameras[i].Name+".jpg")
 		if err := writeJPEG(path, img); err != nil {
 			return err
 		}
-		log.Printf("%s (device %s): %s", calib.Cameras[i].Name, cam.Device, path)
+		log.Printf("%s (device %s): %s", calib.Cameras[i].Name, cam.Device.ID, path)
 	}
 	return nil
 }
@@ -403,16 +401,14 @@ func calibrate(args []string) error {
 			}
 		}
 	} else {
-		const fps = 10
-		cams, err := vision.OpenCameras(calib, 1280, 720, fps)
+		// OpenCameras returns once the exposure settled.
+		cams, err := vision.OpenCameras(calib, 1280, 720, 10)
 		if err != nil {
 			return err
 		}
 		for i, cam := range cams {
-			for range fps { // let the exposure settle
-				if images[i], err = cam.Read(); err != nil {
-					return err
-				}
+			if images[i], err = cam.Read(); err != nil {
+				return err
 			}
 			cam.Close()
 		}
@@ -475,7 +471,7 @@ func runUI(args []string) error {
 
 	const width, height, fps = 1280, 720, 10
 	calib, err := vision.LoadCalibration(*calibPath)
-	var cams []*vision.Camera
+	var cams []*camera.Camera
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		log.Printf("no calibration at %s yet, opening all cameras named %q", *calibPath, *deviceName)
