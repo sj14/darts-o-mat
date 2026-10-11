@@ -157,5 +157,7 @@ Alle Endpunkte unter `/api` außer `register`/`login`/`logout` brauchen das Sess
 ## Testen
 
 - Regeln und Service (Accounts, Rechte, Einladungen gegen In-Memory-SQLite): `go test ./pkg/...`
-- Weboberfläche: mit [Lightpanda](https://github.com/lightpanda-io/browser) statt Headless Chrome, z. B. `lightpanda fetch <url> --inject-script-file klicks.js --wait-script '…' --dump semantic_tree_text --dump-selector '#board'`.
-  Lightpanda führt JavaScript/htmx aus, rendert aber keine Pixel; für echte Screenshots gibt es damit keinen Ersatz.
+- Weboberfläche: mit [moli](https://github.com/lexmount/moli) (Entscheidung des Nutzers, 2026-10-11; vorher Lightpanda, moli kann zusätzlich Screenshots und wartet in `--eval` auf Promises). Ablauf:
+  - Anmelden mit curl (`curl -c cj -X POST …/api/login -d '{"username":…,"password":…}'`) und die Cookie-Datei an moli geben: `moli fetch <url> -c cj`. **Nicht** `-H "Cookie: …"`: das gilt nur für die Seite selbst, htmx-Anfragen und die SSE-Verbindung laufen dann ohne Session ins Leere.
+  - Klicks und Prüfungen: `--eval "(async () => { document.querySelector(…).click(); await new Promise(r => setTimeout(r, 800)); return document.querySelector('#board').textContent })()"` – der Rückgabewert landet auf stdout. Struktur: `--dump semantic_tree_text`.
+  - Screenshots: `--layout --dump screenshot` (bzw. `screenshot_full`) > PNG. Nicht pixelgenau wie Chrome (versteckte Radio-Buttons in `btn-check` scheinen durch, „↶“ fehlt in der Schrift); für Details einen echten Browser nehmen.
