@@ -2,6 +2,7 @@ package vision
 
 import (
 	"image"
+	"slices"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
@@ -47,11 +48,16 @@ type Event struct {
 	Dart  throw.Dart
 	// Cameras are the positions on the board in mm seen by the cameras that found the dart, by camera index.
 	Cameras map[int]dartboard.Point
+	// Before and After are the still frames of all cameras the event was decided on.
+	Before, After []*image.RGBA
 }
 
 // Watcher turns the frames of all cameras of a board into events: after something
 // changed and the board is still again, it decides whether a dart was added.
 type Watcher struct {
+	// OnMotion is called when the board starts moving, e.g. for logging.
+	OnMotion func()
+
 	toBoard []Homography
 	opts    WatchOptions
 
@@ -68,7 +74,9 @@ func NewWatcher(toBoard []Homography, opts WatchOptions) *Watcher {
 
 // Feed takes the latest frame of every camera, in the same order as the homographies.
 // It returns an event once a change is over, nil otherwise.
+// The slice may be reused by the caller, the images must not be changed afterwards.
 func (w *Watcher) Feed(frames []*image.RGBA) *Event {
+	frames = slices.Clone(frames)
 	defer func() { w.prev = frames }()
 	if w.prev == nil {
 		w.ref = frames
@@ -82,6 +90,9 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		}
 	}
 	if moving {
+		if !w.changing && w.OnMotion != nil {
+			w.OnMotion()
+		}
 		w.changing, w.still = true, 0
 		return nil
 	}
@@ -107,10 +118,10 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		return nil // e.g. a shadow passed by
 	}
 	if changed > w.opts.TakeoutPixels {
-		return &Event{Kind: EventTakeout}
+		return &Event{Kind: EventTakeout, Before: ref, After: frames}
 	}
 
-	e := &Event{Kind: EventDart, Cameras: map[int]dartboard.Point{}}
+	e := &Event{Kind: EventDart, Cameras: map[int]dartboard.Point{}, Before: ref, After: frames}
 	var points []dartboard.Point
 	for i, f := range frames {
 		d, err := DetectDart(ref[i], f, w.opts.Detect)
@@ -124,7 +135,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	board, err := FuseTips(points)
 	if err != nil {
 		// Something changed, but no camera saw a dart: most likely darts were pulled out.
-		return &Event{Kind: EventTakeout}
+		return &Event{Kind: EventTakeout, Before: ref, After: frames}
 	}
 	e.Board = board
 	e.Dart = dartboard.Score(board)

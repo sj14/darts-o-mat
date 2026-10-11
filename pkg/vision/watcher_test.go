@@ -69,3 +69,33 @@ func findCamera(c Calibration, name string) (CameraCalibration, error) {
 	}
 	return CameraCalibration{}, ErrNoDart
 }
+
+// The caller may reuse the slice of frames between calls, like darts-o-cam does.
+func TestWatcherReusedSlice(t *testing.T) {
+	calib, err := LoadCalibration("testdata/calibration.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cam, _ := findCamera(calib, "cam3")
+	toBoard, err := cam.ToBoard()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	empty := loadRGBA(t, "testdata/cam3.jpg")
+	withDart := loadRGBA(t, "testdata/cam3.jpg")
+	drawDart(withDart, dartboard.Point{X: 721, Y: 255}, dartboard.Point{X: 0.1, Y: -1})
+
+	w := NewWatcher([]Homography{toBoard}, DefaultWatchOptions)
+	frames := make([]*image.RGBA, 1)
+	var events int
+	for _, f := range []*image.RGBA{empty, empty, empty, withDart, withDart, withDart, withDart} {
+		frames[0] = f
+		if w.Feed(frames) != nil {
+			events++
+		}
+	}
+	if events != 1 {
+		t.Errorf("got %d events, want 1", events)
+	}
+}

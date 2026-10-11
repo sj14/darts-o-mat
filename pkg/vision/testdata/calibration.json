@@ -1,8 +1,8 @@
 {
+  "device_name": "Autodarts DIY Cam",
   "cameras": [
     {
       "name": "cam1",
-      "device": "1",
       "points": [
         {
           "image": {
@@ -92,11 +92,11 @@
           ],
           "ring": "double_outer"
         }
-      ]
+      ],
+      "reference": "cam1.jpg"
     },
     {
       "name": "cam2",
-      "device": "2",
       "points": [
         {
           "image": {
@@ -186,11 +186,11 @@
           ],
           "ring": "double_outer"
         }
-      ]
+      ],
+      "reference": "cam2.jpg"
     },
     {
       "name": "cam3",
-      "device": "3",
       "points": [
         {
           "image": {
@@ -258,7 +258,8 @@
           ],
           "ring": "double_outer"
         }
-      ]
+      ],
+      "reference": "cam3.jpg"
     }
   ]
 }

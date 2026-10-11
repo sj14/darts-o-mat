@@ -3,7 +3,11 @@ package vision
 import (
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"os"
+	"path/filepath"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 )
@@ -47,9 +51,14 @@ func (c CalibrationPoint) Board() (dartboard.Point, error) {
 }
 
 type CameraCalibration struct {
-	Name   string             `json:"name"`
-	Device string             `json:"device"` // capture device, e.g. the AVFoundation index
-	Points []CalibrationPoint `json:"points"`
+	Name string `json:"name"`
+	// Device is the capture device, e.g. "/dev/video0" on Linux. If empty, the camera is
+	// found by the calibration's DeviceName and its Reference view, because macOS doesn't
+	// keep the device order stable.
+	Device string `json:"device,omitempty"`
+	// Reference is an image of the camera's view, relative to the calibration file.
+	Reference string             `json:"reference,omitempty"`
+	Points    []CalibrationPoint `json:"points"`
 }
 
 // ToBoard returns the homography mapping image pixels to board millimeters.
@@ -67,7 +76,11 @@ func (c CameraCalibration) ToBoard() (Homography, error) {
 }
 
 type Calibration struct {
-	Cameras []CameraCalibration `json:"cameras"`
+	// DeviceName is the name of the board's capture devices, e.g. "Autodarts DIY Cam".
+	DeviceName string              `json:"device_name,omitempty"`
+	Cameras    []CameraCalibration `json:"cameras"`
+
+	dir string // of the calibration file, for the reference images
 }
 
 func LoadCalibration(path string) (Calibration, error) {
@@ -77,5 +90,20 @@ func LoadCalibration(path string) (Calibration, error) {
 		return c, err
 	}
 	err = json.Unmarshal(data, &c)
+	c.dir = filepath.Dir(path)
 	return c, err
+}
+
+// LoadReference loads the reference view of a camera.
+func (c Calibration) LoadReference(cam CameraCalibration) (image.Image, error) {
+	if cam.Reference == "" {
+		return nil, fmt.Errorf("camera %s has neither a device nor a reference image", cam.Name)
+	}
+	f, err := os.Open(filepath.Join(c.dir, cam.Reference))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	img, _, err := image.Decode(f)
+	return img, err
 }
