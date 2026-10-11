@@ -1,3 +1,25 @@
+/*
+ * Slightly tinted colors instead of Bootstrap's plain black/white.
+ * --bs-bg-body is used for surfaces like cards, inputs and lists;
+ * the page itself gets a darker tint, so the cards stand out.
+ */
+:root {
+  --bs-bg-body: light-dark(#fff, oklch(26% .03 255));
+  --page-bg: light-dark(oklch(96.5% .012 250), oklch(19% .028 255));
+  --page-glow: light-dark(oklch(99% .02 240), oklch(30% .06 255));
+}
+
+body {
+  background:
+    radial-gradient(ellipse 120% 60% at 50% 0%, var(--page-glow), transparent 70%) no-repeat,
+    var(--page-bg);
+  min-height: 100vh;
+}
+
+.card {
+  box-shadow: 0 1px 2px oklch(0% 0 0 / .06), 0 6px 20px oklch(0% 0 0 / .08);
+}
+
 .scoreboard {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
