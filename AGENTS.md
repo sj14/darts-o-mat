@@ -37,18 +37,22 @@ Neue Funktionen bauen auf dem bestehenden Stack auf; ohne Absprache keine zusät
 ## Struktur
 
 - `cmd/darts-o-mat`: Webserver
-- `cmd/darts-o-cam`: Kamera-Werkzeug: `detect` (Würfe live erkennen, `-v`/`-save` zur Fehlersuche), `calibrate` (Kalibrierung automatisch verfeinern), `overlay` (Kalibrierung prüfen), `snapshot` (ein Bild je Kamera), `analyze` (gespeicherte Würfe erneut auswerten), `score` (Bildpunkte aufs Board umrechnen). Meldet noch nichts an den Server.
+- `cmd/darts-o-cam`: Kamera-Werkzeug: `detect` (Würfe live erkennen, `-v`/`-save` zur Fehlersuche), `ui` (Kalibrier-Oberfläche), `calibrate` (Kalibrierung automatisch verfeinern), `overlay` (Kalibrierung prüfen), `snapshot` (ein Bild je Kamera), `analyze` (gespeicherte Würfe erneut auswerten), `score` (Bildpunkte aufs Board umrechnen). Meldet noch nichts an den Server.
 - `pkg/api`: JSON-API unter `/api`
 - `pkg/service`: Anwendungslogik inklusive Berechtigungsprüfung (Accounts, Gäste, Boards, Spiele, Einladungen, Darts), gemeinsam genutzt von API und Weboberfläche. Neue Logik gehört hierher, nicht in die Handler; Methoden bekommen den angemeldeten Account übergeben.
 - `pkg/auth`: Session-Cookie (HttpOnly, SameSite=Lax) und Middleware, die den angemeldeten Account in den Request-Kontext legt. In der DB steht nur der SHA-256-Hash des Session-Tokens, Passwörter als bcrypt-Hash.
 - `pkg/domain`: Fachlogik (Board, Spieler, Würfe, Spielmodi X01 und Around the Clock)
 - `pkg/vision`: Kamera-Geometrie und Pfeilerkennung in reinem Go (Homographie, Kalibrierung, Bildvergleich, Watcher, ffmpeg-Kamerazugriff)
+- `pkg/camui`: lokale Oberfläche von `darts-o-cam` (`ui`, läuft auch in `detect` mit): Kalibrieren, Raster prüfen, letzte Erkennungen
 - `pkg/frontend`: Weboberfläche: Controller, templ-Views (`view`) und eingebettete statische Dateien (`static`)
 - `pkg/repos/store`: Persistenz; ein gemeinsamer Bun-Store für beide Datenbanken, nur der Verbindungsaufbau (`NewPostgres`/`NewSQLite`) unterscheidet sich
 
 ## Kamera
 
 `cmd/darts-o-cam` erkennt Würfe mit klassischer Bildverarbeitung in reinem Go (`pkg/vision`) und meldet sie mit `-server`/`-token` an darts-o-mat (sonst nur Ausgabe).
+
+- **Kalibrierung bleibt beim Client** (Entscheidung des Nutzers, 2026-10-11): Die Kalibrierungsdatei liegt auf dem Rechner mit den Kameras, nie auf dem Server – dasselbe Board funktioniert so mit verschiedenen Servern; Server und Token kommen getrennt per `-server`/`-token`. Erstellt wird sie mit der lokalen Weboberfläche `darts-o-cam ui` (`pkg/camui`, Standard `localhost:8090`, templ + Bootstrap wie die Hauptanwendung): pro Kamera ein Standbild, der Nutzer klickt nacheinander Drahtkreuzungen am Doppelring an (`camui.Targets`, verdeckte überspringbar, mindestens 4; Klickposition per `<input type="image">`, Bild in Originalgröße, kein eigenes JavaScript), danach automatische Feinkalibrierung auf demselben Bild und Speichern samt Referenz- und Leer-Bild. Ohne Datei öffnet sie alle Kameras mit `-device-name`. Grobe Klicks reichen: im Test 6 px daneben → 0,33 mm Abweichung zur sorgfältigen Kalibrierung. `detect` startet dieselbe Oberfläche mit (`-ui`, Standard `localhost:8090`, leer schaltet ab) auf denselben Kameras (`vision.Live` mit Bildzähler, damit `detect` kein Bild doppelt auswertet); eine Neukalibrierung geht sofort in die laufende Erkennung ein (`Watcher.SetToBoard`). Zusätzlich zeigt sie die letzten 20 Erkennungen (pro Kamera Bildausschnitt mit Spitze, Board-Skizze als SVG mit den Positionen der Kameras und dem Ergebnis) und „Raster prüfen“: Feinkalibrierung auf dem aktuellen Bild ohne Speichern, mit den gefundenen Ringkanten und Drähten eingefärbt nach Abweichung (`RefineResult.Features`).
+- **Nicht umgesetzt (bewusst):** Aus Korrekturen im Spiel nachkalibrieren. Eine Korrektur nennt nur das Feld, nicht die Position, und die Fehler liegen nachweislich beim Finden der Spitze, nicht in der Kalibrierung (~0,3 mm). Offener Vorschlag an den Nutzer: nach jedem Herausziehen bei leerem Board automatisch feinkalibrieren (gleicht verrutschte Kameras aus) – erst nach seiner Entscheidung, weil das die Kalibrierungsdatei automatisch ändert.
 
 - **Anbindung ans Spiel:** Pro Board ein Kamera-Token (Boards-Seite oder `POST /api/boards/{id}/token`), gespeichert nur als SHA-256-Hash in eigener Tabelle `tokens` (`board.Token`; eigene Tabelle, damit bestehende Datenbanken ohne Migration weiterlaufen). `darts-o-cam` schickt `Authorization: Bearer <token>` an `POST /api/board/darts` bzw. `/api/board/takeout`. Der Dart geht an das neueste Spiel mit diesem Board, das bereit und nicht beendet ist (`service.AddBoardDart`), im Namen des Board-Besitzers – also gleiche Regeln und gleiches Undo wie beim Eintippen. Kein solches Spiel: `ErrNoActiveGame` (409).
 - **Herausziehen** (`service.BoardTakeout`): ist die Aufnahme dann unvollständig, sind die fehlenden Darts nicht stecken geblieben (Abpraller, daneben) und werden als „Daneben“ eingetragen, damit der nächste Spieler werfen kann.
@@ -128,11 +132,3 @@ Alle Endpunkte unter `/api` außer `register`/`login`/`logout` brauchen das Sess
 - Regeln und Service (Accounts, Rechte, Einladungen gegen In-Memory-SQLite): `go test ./pkg/...`
 - Weboberfläche: mit [Lightpanda](https://github.com/lightpanda-io/browser) statt Headless Chrome, z. B. `lightpanda fetch <url> --inject-script-file klicks.js --wait-script '…' --dump semantic_tree_text --dump-selector '#board'`.
   Lightpanda führt JavaScript/htmx aus, rendert aber keine Pixel; für echte Screenshots gibt es damit keinen Ersatz.
-
-## Offene Punkte
-
-- **TODO: Kalibrierung für Nutzer zugänglich machen** (Entscheidung offen, nicht eigenmächtig umsetzen – erst mit dem Nutzer klären).
-  Problem: Die einzige Kalibrierung liegt in `pkg/vision/testdata/calibration.json` (Entwicklungs-Board). Die Boards-Seite zeigt nach dem Erzeugen eines Kamera-Tokens einen Befehl mit `-calibration calibration.json`, die Datei gibt es dort aber nicht. Für ein neues Board müssten Kalibrierpunkte von Hand in JSON geschrieben und dann `darts-o-cam calibrate` ausgeführt werden.
-  Zur Wahl stehen:
-  1. **Klein:** Kalibrierung des Entwicklungs-Boards an einen sinnvollen Ort im Repo (nicht `testdata`) verschieben, Boards-Seite zeigt den richtigen Pfad, README erklärt, wo die Datei liegt.
-  2. **Richtig:** Kalibrierung pro Board auf dem Server speichern; `darts-o-cam` lädt sie mit dem Board-Token selbst (Befehl braucht nur `-server` und `-token`). Für neue Boards ein Kalibrier-Schritt, z. B. vier Punkte im Browser auf dem Kamerabild anklicken, danach automatische Feinkalibrierung.

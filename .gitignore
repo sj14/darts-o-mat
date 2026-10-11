@@ -1,1 +1,4 @@
 *.db
+# local camera calibration of darts-o-cam (stays on the camera computer)
+/calibration.json
+/cam*.jpg

@@ -278,8 +278,9 @@ templ Boards(user string, boards []service.BoardView, errMsg string, newToken *N
 				if newToken != nil {
 					<div class="alert theme-success mb-0" role="status">
 						<div class="fw-bold mb-2">Kamera-Token für „{ newToken.BoardName }“</div>
-						<p class="mb-2">Er wird nur jetzt angezeigt. Starte damit die Kamera-Erkennung am Board:</p>
-						<pre class="mb-0 text-wrap text-break"><code>go run ./cmd/darts-o-cam detect -calibration calibration.json -server { newToken.Server } -token { newToken.Token }</code></pre>
+						<p class="mb-2">Er wird nur jetzt angezeigt. Starte damit die Kamera-Erkennung am Rechner mit den Kameras:</p>
+						<pre class="mb-2 text-wrap text-break"><code>go run ./cmd/darts-o-cam detect -calibration calibration.json -server { newToken.Server } -token { newToken.Token }</code></pre>
+						<p class="mb-0 fs-sm">Die Kalibrierung (<code>calibration.json</code>) liegt auf dem Rechner mit den Kameras, nicht auf diesem Server. Noch keine? Erstelle sie dort mit <code>go run ./cmd/darts-o-cam ui</code> und öffne <code>http://localhost:8090</code>.</p>
 					</div>
 				}
 				<div class="card">

@@ -17,6 +17,21 @@ type RefineResult struct {
 	// RMSBefore and RMSAfter are the root mean square distances in pixels between the
 	// features found in the image and where the calibration expects them.
 	RMSBefore, RMSAfter float64
+	// Features are the features found in the last round, to show them for checking.
+	Features []Feature
+}
+
+// Feature is a ring edge or wire found in the image.
+type Feature struct {
+	Found dartboard.Point // in image pixels
+	// Expected is where the refined calibration puts the feature in the image.
+	Expected dartboard.Point
+	// Deviation is the distance between both across the edge, in pixels.
+	Deviation float64
+	// Wire tells a wire between two numbers from a ring edge.
+	Wire bool
+	// Outlier is set for features left out of the fit, e.g. hidden by a dart.
+	Outlier bool
 }
 
 var ErrTooFewMatches = errors.New("too few board features found in the image")
@@ -55,13 +70,31 @@ func RefineCalibration(img image.Image, rough Homography) (RefineResult, error) 
 		if err != nil {
 			return RefineResult{}, err
 		}
-		feats = dropOutliers(h, feats)
-		if h, err = fitNormal(h, feats); err != nil {
+		kept := dropOutliers(h, feats)
+		if h, err = fitNormal(h, kept); err != nil {
 			return RefineResult{}, err
 		}
 		toImage = h
-		result.Matches = len(feats)
-		result.RMSAfter = normalRMS(h, feats)
+		result.Matches = len(kept)
+		result.RMSAfter = normalRMS(h, kept)
+
+		if iteration == len(windows)-1 {
+			limit := 0.0
+			for _, ft := range kept {
+				limit = max(limit, math.Abs(ft.residual(h)))
+			}
+			result.Features = nil
+			for _, ft := range feats {
+				r := ft.residual(h)
+				result.Features = append(result.Features, Feature{
+					Found:     ft.found,
+					Expected:  h.Apply(ft.board),
+					Deviation: math.Abs(r),
+					Wire:      ft.wire,
+					Outlier:   math.Abs(r) > limit,
+				})
+			}
+		}
 	}
 
 	result.ToBoard, err = toImage.Inverse()
@@ -74,6 +107,7 @@ type feature struct {
 	board  dartboard.Point // in mm
 	found  dartboard.Point // in pixels
 	normal dartboard.Point // unit vector in the image, across the edge
+	wire   bool            // a wire between numbers, not a ring edge
 }
 
 // residual is the signed distance of the feature from where toImage expects it, across the edge.
@@ -284,6 +318,7 @@ func (f *featureImage) findFeatures(toImage Homography, window float64) []featur
 			dir := unit(dartboard.Polar(r, a-0.5), dartboard.Polar(r, a+0.5))
 			if p, ok := f.edge(f.rg, toImage.Apply(b), dir, window, sign, 8); ok {
 				add(b, p, dir)
+				feats[len(feats)-1].wire = true
 			}
 		}
 	}

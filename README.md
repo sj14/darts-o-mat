@@ -45,9 +45,10 @@ Unter „Boards“ kannst du deine Dartboards anlegen (z. B. Keller, Verein) und
 
 Die Kamera-Erkennung ist noch in Arbeit, funktioniert aber schon für normale Würfe:
 
-1. Unter „Boards“ dein Board anlegen und „Kamera-Token erzeugen“ klicken. Es wird ein fertiger Befehl angezeigt.
-2. Den Befehl am Rechner mit den Kameras starten.
-3. Beim Spielstart dieses Board auswählen. Würfe erscheinen dann von selbst; Fehlerkennungen korrigierst du wie gewohnt mit „Letzten Dart zurücknehmen“.
+1. Einmalig die Kameras kalibrieren: am Rechner mit den Kameras `go run ./cmd/darts-o-cam ui` starten, <http://localhost:8090> öffnen und pro Kamera den Anweisungen folgen (Board dabei leer). Die Kalibrierung bleibt auf diesem Rechner in `calibration.json`.
+2. Unter „Boards“ dein Board anlegen und „Kamera-Token erzeugen“ klicken. Es wird ein fertiger Befehl angezeigt.
+3. Den Befehl am Rechner mit den Kameras starten. Die Kalibrier-Oberfläche läuft dabei weiter unter <http://localhost:8090>: dort siehst du auch, was die Kameras bei den letzten Würfen erkannt haben, und kannst prüfen, ob das Raster noch auf dem Board liegt.
+4. Beim Spielstart dieses Board auswählen. Würfe erscheinen dann von selbst; Fehlerkennungen korrigierst du wie gewohnt mit „Letzten Dart zurücknehmen“.
 
 Beim Herausziehen der Pfeile wird eine unvollständige Aufnahme mit „Daneben“ aufgefüllt, z. B. wenn ein Pfeil abgeprallt ist.
 

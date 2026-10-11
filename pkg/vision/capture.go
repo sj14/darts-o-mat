@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
+	"sync"
 )
 
 // Camera reads frames from a camera through ffmpeg, which works the same on macOS
@@ -110,17 +111,10 @@ func OpenCameras(calib Calibration, width, height, fps int) ([]*Camera, error) {
 			}
 		}
 	}
-	for _, d := range devices {
-		if d.Name != calib.DeviceName {
-			continue
-		}
-		cam, err := OpenCamera(strconv.Itoa(d.Index), width, height, fps)
-		if err != nil {
-			closeCandidates(nil)
-			closeAll()
-			return nil, err
-		}
-		candidates = append(candidates, cam)
+	candidates, err = openNamed(devices, calib.DeviceName, width, height, fps)
+	if err != nil {
+		closeAll()
+		return nil, err
 	}
 	// Let the exposure settle for about a second before comparing views.
 	for _, cam := range candidates {
@@ -159,4 +153,96 @@ func OpenCameras(calib Calibration, width, height, fps int) ([]*Camera, error) {
 	}
 	closeCandidates(keep)
 	return cams, nil
+}
+
+// OpenCamerasNamed opens all cameras with the given name, in device order (macOS only).
+// It is used to set up a board that has no calibration yet.
+func OpenCamerasNamed(name string, width, height, fps int) ([]*Camera, error) {
+	devices, err := ListAVFoundationDevices()
+	if err != nil {
+		return nil, err
+	}
+	cams, err := openNamed(devices, name, width, height, fps)
+	if err == nil && len(cams) == 0 {
+		err = fmt.Errorf("no camera named %q", name)
+	}
+	return cams, err
+}
+
+func openNamed(devices []Device, name string, width, height, fps int) ([]*Camera, error) {
+	var cams []*Camera
+	for _, d := range devices {
+		if d.Name != name {
+			continue
+		}
+		cam, err := OpenCamera(strconv.Itoa(d.Index), width, height, fps)
+		if err != nil {
+			for _, c := range cams {
+				c.Close()
+			}
+			return nil, err
+		}
+		cams = append(cams, cam)
+	}
+	return cams, nil
+}
+
+// Live reads a camera in the background and keeps its newest frame, so several users
+// (detection, calibration interface) can share the camera.
+type Live struct {
+	cam    *Camera
+	mu     sync.Mutex
+	cond   *sync.Cond
+	latest *image.RGBA
+	seq    uint64 // counts the frames read
+	err    error
+}
+
+// StartLive starts reading the camera in the background.
+func StartLive(cam *Camera) *Live {
+	l := &Live{cam: cam}
+	l.cond = sync.NewCond(&l.mu)
+	go func() {
+		for {
+			img, err := cam.Read()
+			l.mu.Lock()
+			if err == nil {
+				l.latest = img
+				l.seq++
+			}
+			l.err = err
+			l.cond.Broadcast()
+			l.mu.Unlock()
+			if err != nil {
+				return
+			}
+		}
+	}()
+	return l
+}
+
+// Latest returns the newest frame, nil until the first one arrived.
+func (l *Live) Latest() (*image.RGBA, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.latest, l.err
+}
+
+// Next waits for a frame newer than the one numbered after and returns it with its number.
+func (l *Live) Next(after uint64) (*image.RGBA, uint64, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for l.seq <= after && l.err == nil {
+		l.cond.Wait()
+	}
+	return l.latest, l.seq, l.err
+}
+
+// Device returns the camera's capture device.
+func (l *Live) Device() string {
+	return l.cam.Device
+}
+
+func (l *Live) Close() error {
+	return l.cam.Close()
 }

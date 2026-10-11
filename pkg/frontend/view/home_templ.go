@@ -1031,7 +1031,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "“</div><p class=\"mb-2\">Er wird nur jetzt angezeigt. Starte damit die Kamera-Erkennung am Board:</p><pre class=\"mb-0 text-wrap text-break\"><code>go run ./cmd/darts-o-cam detect -calibration calibration.json -server ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "“</div><p class=\"mb-2\">Er wird nur jetzt angezeigt. Starte damit die Kamera-Erkennung am Rechner mit den Kameras:</p><pre class=\"mb-2 text-wrap text-break\"><code>go run ./cmd/darts-o-cam detect -calibration calibration.json -server ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1057,7 +1057,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "</code></pre></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "</code></pre><p class=\"mb-0 fs-sm\">Die Kalibrierung (<code>calibration.json</code>) liegt auf dem Rechner mit den Kameras, nicht auf diesem Server. Noch keine? Erstelle sie dort mit <code>go run ./cmd/darts-o-cam ui</code> und öffne <code>http://localhost:8090</code>.</p></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1079,7 +1079,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 					var templ_7745c5c3_Var44 string
 					templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(b.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/home.templ`, Line: 294, Col: 19}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/home.templ`, Line: 295, Col: 19}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 					if templ_7745c5c3_Err != nil {
@@ -1102,7 +1102,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 					var templ_7745c5c3_Var45 templ.SafeURL
 					templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/token"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/home.templ`, Line: 300, Col: 102}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/home.templ`, Line: 301, Col: 102}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 					if templ_7745c5c3_Err != nil {
@@ -1130,7 +1130,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 					var templ_7745c5c3_Var46 templ.SafeURL
 					templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/delete"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/home.templ`, Line: 309, Col: 103}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/home.templ`, Line: 310, Col: 103}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 					if templ_7745c5c3_Err != nil {

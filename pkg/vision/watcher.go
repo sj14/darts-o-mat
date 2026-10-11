@@ -3,6 +3,7 @@ package vision
 import (
 	"image"
 	"slices"
+	"sync"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
@@ -52,6 +53,8 @@ type Event struct {
 	Dart  throw.Dart
 	// Cameras are the positions on the board in mm seen by the cameras that found the dart, by camera index.
 	Cameras map[int]dartboard.Point
+	// Tips are where those cameras found the tip in their image, in pixels.
+	Tips map[int]dartboard.Point
 	// Before and After are the still frames of all cameras the event was decided on.
 	Before, After []*image.RGBA
 }
@@ -66,8 +69,9 @@ type Watcher struct {
 	// the watcher started; without them, only darts the watcher saw coming are known.
 	Empty []*image.RGBA
 
-	toBoard []Homography
-	opts    WatchOptions
+	toBoardMu sync.Mutex
+	toBoard   []Homography
+	opts      WatchOptions
 
 	// darts marks, per camera, where the darts thrown since the last takeout are in the image.
 	darts []*Mask
@@ -141,7 +145,10 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		return w.takeout(ref, frames)
 	}
 
-	e := &Event{Kind: EventDart, Cameras: map[int]dartboard.Point{}, Before: ref, After: frames}
+	e := &Event{Kind: EventDart, Cameras: map[int]dartboard.Point{}, Tips: map[int]dartboard.Point{}, Before: ref, After: frames}
+	w.toBoardMu.Lock()
+	toBoard := slices.Clone(w.toBoard)
+	w.toBoardMu.Unlock()
 	var points []dartboard.Point
 	for i, f := range frames {
 		w.rememberDart(i, f.Bounds(), areas[i])
@@ -149,11 +156,12 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		if err != nil {
 			continue
 		}
-		p := w.toBoard[i].Apply(d.Tip)
+		p := toBoard[i].Apply(d.Tip)
 		if p.Radius() > MaxBoardRadius {
 			continue // e.g. a reflection outside the board was taken for the dart
 		}
 		e.Cameras[i] = p
+		e.Tips[i] = d.Tip
 		points = append(points, p)
 	}
 	board, err := FuseTips(points)
@@ -205,6 +213,16 @@ func pixelDiff(a, b *image.RGBA, p image.Point) int {
 		d = max(d, abs(int(a.Pix[i+c])-int(b.Pix[j+c])))
 	}
 	return d
+}
+
+// SetToBoard replaces a camera's calibration, e.g. after it was calibrated again.
+// It is safe to call while Feed runs.
+func (w *Watcher) SetToBoard(camera int, toBoard Homography) {
+	w.toBoardMu.Lock()
+	defer w.toBoardMu.Unlock()
+	if camera < len(w.toBoard) {
+		w.toBoard[camera] = toBoard
+	}
 }
 
 // takeout forgets the darts on the board.

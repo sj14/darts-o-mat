@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"image"
@@ -10,11 +11,13 @@ import (
 	"image/jpeg"
 	"image/png"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 
+	"github.com/sj14/darts-o-mat/pkg/camui"
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/vision"
@@ -23,6 +26,7 @@ import (
 const usage = `usage: darts-o-cam <command> [flags]
 
 commands:
+  ui        web interface to calibrate the cameras (the calibration stays on this computer)
   overlay   draw the calibrated board onto a camera image to check the calibration
   score     map image points (x,y in pixels) of a camera onto the board and score them
   detect    watch all calibrated cameras and print every dart thrown
@@ -40,6 +44,8 @@ func main() {
 
 	var err error
 	switch os.Args[1] {
+	case "ui":
+		err = runUI(os.Args[2:])
 	case "overlay":
 		err = overlay(os.Args[2:])
 	case "score":
@@ -150,6 +156,7 @@ func detect(args []string) error {
 	saveDir := fs.String("save", "", "directory to save the camera frames of every event to, for debugging")
 	serverURL := fs.String("server", "", "darts-o-mat server to report darts to, e.g. http://localhost:3000 (default: only print them)")
 	token := fs.String("token", "", "the board's camera token, created on the server's boards page")
+	uiAddr := fs.String("ui", "localhost:8090", "address of the calibration interface, empty to turn it off")
 	_ = fs.Parse(args)
 	if (*serverURL == "") != (*token == "") {
 		return fmt.Errorf("-server and -token are only used together")
@@ -170,41 +177,29 @@ func detect(args []string) error {
 	}
 
 	var toBoard []vision.Homography
-	var latest []chan *image.RGBA
+	var lives []*vision.Live
 	for i, c := range calib.Cameras {
 		h, err := c.ToBoard()
 		if err != nil {
 			return err
 		}
 		toBoard = append(toBoard, h)
-
-		cam := cams[i]
-		defer cam.Close()
-		log.Printf("%s: device %s", c.Name, cam.Device)
-
-		// Keep only the newest frame, so a slow analysis never works on old frames.
-		ch := make(chan *image.RGBA, 1)
-		latest = append(latest, ch)
-		go func(name string) {
-			for {
-				img, err := cam.Read()
-				if err != nil {
-					log.Printf("camera %s: %v", name, err)
-					return
-				}
-				select {
-				case <-ch:
-				default:
-				}
-				ch <- img
-			}
-		}(c.Name)
+		// The calibration interface shares the cameras.
+		live := vision.StartLive(cams[i])
+		defer live.Close()
+		lives = append(lives, live)
+		log.Printf("%s: device %s", c.Name, live.Device())
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	go func() {
+		<-ctx.Done()
+		for _, l := range lives {
+			l.Close() // ends the waits for frames below
+		}
+	}()
 
-	log.Printf("watching %d cameras, waiting for darts (stop with Ctrl+C)", len(latest))
 	w := vision.NewWatcher(toBoard, vision.DefaultWatchOptions)
 	w.Empty, err = loadEmpty(calib, *width, *height)
 	if err != nil {
@@ -216,14 +211,32 @@ func detect(args []string) error {
 	if *verbose {
 		w.OnMotion = func() { log.Printf("motion") }
 	}
+
+	var ui *camui.UI
+	if *uiAddr != "" {
+		ui = camui.New(*calibPath, calib, lives)
+		ui.OnCalibrated = w.SetToBoard
+		go func() {
+			log.Printf("calibration interface on http://%s", *uiAddr)
+			if err := http.ListenAndServe(*uiAddr, ui.Routes()); err != nil {
+				log.Printf("calibration interface: %v", err)
+			}
+		}()
+	}
+
+	log.Printf("watching %d cameras, waiting for darts (stop with Ctrl+C)", len(lives))
 	events := 0
+	seq := make([]uint64, len(lives))
 	for {
-		frames := make([]*image.RGBA, len(latest))
-		for i, ch := range latest {
-			select {
-			case frames[i] = <-ch:
-			case <-ctx.Done():
-				return nil
+		// Analyze every frame once: wait for a new one of each camera.
+		frames := make([]*image.RGBA, len(lives))
+		for i, l := range lives {
+			frames[i], seq[i], err = l.Next(seq[i])
+			if err != nil {
+				if ctx.Err() != nil {
+					return nil
+				}
+				return fmt.Errorf("camera %s: %w", calib.Cameras[i].Name, err)
 			}
 		}
 		e := w.Feed(frames)
@@ -231,6 +244,9 @@ func detect(args []string) error {
 			continue
 		}
 		events++
+		if ui != nil {
+			ui.AddEvent(e)
+		}
 		if *saveDir != "" {
 			if err := saveEvent(*saveDir, events, calib, e); err != nil {
 				log.Printf("save event: %v", err)
@@ -446,6 +462,48 @@ func readImage(path string) (*image.RGBA, error) {
 		return nil, err
 	}
 	return vision.ToRGBA(img), nil
+}
+
+// runUI serves the calibration web interface. Without a calibration file yet, it opens
+// all cameras named -device-name and creates one.
+func runUI(args []string) error {
+	fs := flag.NewFlagSet("ui", flag.ExitOnError)
+	calibPath := fs.String("calibration", "calibration.json", "calibration file, created if it doesn't exist")
+	addr := fs.String("addr", "localhost:8090", "address to serve the web interface on")
+	deviceName := fs.String("device-name", "Autodarts DIY Cam", "name of the board's cameras, for a new calibration")
+	_ = fs.Parse(args)
+
+	const width, height, fps = 1280, 720, 10
+	calib, err := vision.LoadCalibration(*calibPath)
+	var cams []*vision.Camera
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		log.Printf("no calibration at %s yet, opening all cameras named %q", *calibPath, *deviceName)
+		calib = vision.NewCalibration(*calibPath, *deviceName)
+		cams, err = vision.OpenCamerasNamed(*deviceName, width, height, fps)
+	case err != nil:
+		return err
+	default:
+		cams, err = vision.OpenCameras(calib, width, height, fps)
+		if errors.Is(err, vision.ErrAmbiguousCameras) {
+			// E.g. the board was moved: open them in device order, the user recalibrates anyway.
+			log.Printf("cameras don't match their reference images (%v), opening them in device order: recalibrate them", err)
+			cams, err = vision.OpenCamerasNamed(calib.DeviceName, width, height, fps)
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	var live []*vision.Live
+	for _, c := range cams {
+		l := vision.StartLive(c)
+		defer l.Close()
+		live = append(live, l)
+	}
+	ui := camui.New(*calibPath, calib, live)
+	log.Printf("calibration interface on http://%s", *addr)
+	return http.ListenAndServe(*addr, ui.Routes())
 }
 
 func writeJPEG(path string, img image.Image) error {

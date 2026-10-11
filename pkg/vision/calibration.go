@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
-	_ "image/jpeg"
+	"image/jpeg"
 	_ "image/png"
 	"os"
 	"path/filepath"
@@ -106,6 +106,24 @@ func (c Calibration) Save(path string) error {
 		return err
 	}
 	return os.WriteFile(path, append(data, '\n'), 0o644)
+}
+
+// NewCalibration starts an empty calibration that will be saved at path.
+func NewCalibration(path, deviceName string) Calibration {
+	return Calibration{DeviceName: deviceName, dir: filepath.Dir(path)}
+}
+
+// SaveImage writes an image next to the calibration file, e.g. a reference image.
+func (c Calibration) SaveImage(name string, img image.Image) error {
+	f, err := os.Create(filepath.Join(c.dir, name))
+	if err != nil {
+		return err
+	}
+	if err := jpeg.Encode(f, img, &jpeg.Options{Quality: 95}); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 func LoadCalibration(path string) (Calibration, error) {
