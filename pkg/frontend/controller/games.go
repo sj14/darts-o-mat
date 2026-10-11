@@ -1,9 +1,15 @@
 package controller
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/auth"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
@@ -30,27 +36,69 @@ func (c *Controller) showGame(w http.ResponseWriter, r *http.Request) {
 	render(w, r, http.StatusOK, view.Game(acc.Username, v))
 }
 
-// showBoard returns only the board, used by the game page to refresh itself.
-// If the board still is the version the page shows (?v=), it responds 204 No Content.
-func (c *Controller) showBoard(w http.ResponseWriter, r *http.Request) {
+// gameEvents streams the board to the game page whenever the game changes, as
+// Server-Sent Events ("board"), e.g. when a dart comes from the board's cameras or
+// another player's device. The page swaps it in with the htmx SSE extension.
+func (c *Controller) gameEvents(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
 	}
-	v, err := c.svc.Game(r.Context(), auth.Account(r.Context()), id)
-	if isNotFound(err) {
+	acc := auth.Account(r.Context())
+	if _, err := c.svc.Game(r.Context(), acc, id); isNotFound(err) {
 		http.NotFound(w, r)
 		return
-	}
-	if err != nil {
+	} else if err != nil {
 		serverError(w, err)
 		return
 	}
-	if r.URL.Query().Get("v") == view.BoardVersion(v) {
-		w.WriteHeader(http.StatusNoContent)
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		serverError(w, errors.New("streaming not supported"))
 		return
 	}
-	render(w, r, http.StatusOK, view.Board(v, ""))
+
+	changes, stop := c.svc.Subscribe(id)
+	defer stop()
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no") // don't let a reverse proxy hold events back
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	// Comments keep idle connections from being closed by proxies.
+	keepalive := time.NewTicker(25 * time.Second)
+	defer keepalive.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-keepalive.C:
+			fmt.Fprint(w, ": keepalive\n\n")
+		case <-changes:
+			v, err := c.svc.Game(r.Context(), acc, id)
+			if err != nil {
+				return // e.g. the game was deleted because everyone declined
+			}
+			var buf bytes.Buffer
+			if err := view.Board(v, "").Render(r.Context(), &buf); err != nil {
+				log.Printf("render board: %v", err)
+				return
+			}
+			writeEvent(w, "board", buf.String())
+		}
+		flusher.Flush()
+	}
+}
+
+// writeEvent writes one Server-Sent Event; every line of the data needs its own "data:" field.
+func writeEvent(w io.Writer, event, data string) {
+	fmt.Fprintf(w, "event: %s\n", event)
+	for _, line := range strings.Split(data, "\n") {
+		fmt.Fprintf(w, "data: %s\n", line)
+	}
+	fmt.Fprint(w, "\n")
 }
 
 // addDart is called by htmx and responds with the updated board.

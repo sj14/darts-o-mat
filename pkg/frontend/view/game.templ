@@ -13,7 +13,11 @@ import (
 
 templ Game(user string, v service.GameView) {
 	@layout(modeLabel(v.Game), user) {
-		@Board(v, "")
+		// The server pushes the board whenever the game changes (darts from the cameras or
+		// other devices, answered invitations); the board element swaps itself on "board".
+		<div hx-ext="sse" sse-connect={ gameURL(v.Game.ID, "/events") }>
+			@Board(v, "")
+		</div>
 	}
 }
 
@@ -27,9 +31,9 @@ templ Board(v service.GameView, errMsg string) {
 	}
 }
 
-// lobby reloads itself every few seconds, so it turns into the board once everyone has accepted.
+// lobby turns into the board once everyone has accepted, pushed by the server.
 templ lobby(v service.GameView, errMsg string) {
-	<div id="board" hx-get={ gameURL(v.Game.ID, "/board?v="+BoardVersion(v)) } hx-trigger="every 2s" hx-swap="outerHTML">
+	<div id="board" sse-swap="board" hx-swap="outerHTML">
 		<h1 class="fs-2xl mb-3">{ modeLabel(v.Game) }</h1>
 		@errorAlert(errMsg)
 		if v.Invited {
@@ -80,9 +84,7 @@ templ lobby(v service.GameView, errMsg string) {
 
 templ scores(v service.GameView, errMsg string) {
 	{{ p := progressOf(v) }}
-	// Asks every second for news, e.g. darts from the board's cameras. The server answers
-	// 204 No Content as long as nothing changed, then htmx keeps the board as it is.
-	<div id="board" hx-get={ gameURL(v.Game.ID, "/board?v="+BoardVersion(v)) } hx-trigger="every 1s" hx-swap="outerHTML">
+	<div id="board" sse-swap="board" hx-swap="outerHTML">
 		<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
 			<h1 class="fs-2xl mb-0">{ modeLabel(v.Game) }</h1>
 			<span class="fg-3">

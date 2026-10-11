@@ -456,3 +456,44 @@ func TestBoardCamera(t *testing.T) {
 		t.Errorf("game view board = %+v, want Keller", v.Board)
 	}
 }
+
+func TestSubscribe(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	v, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
+	other, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
+
+	changes, stop := s.Subscribe(v.Game.ID)
+	pending := func() bool {
+		select {
+		case <-changes:
+			return true
+		default:
+			return false
+		}
+	}
+
+	if _, err := s.AddDart(ctx, anna, other.Game.ID, t20); err != nil {
+		t.Fatal(err)
+	}
+	if pending() {
+		t.Error("notified about another game")
+	}
+
+	// Two changes while the subscriber is busy arrive as one notification.
+	_, _ = s.AddDart(ctx, anna, v.Game.ID, t20)
+	_, _ = s.UndoDart(ctx, anna, v.Game.ID)
+	if !pending() {
+		t.Error("no notification after a dart")
+	}
+	if pending() {
+		t.Error("changes were not merged into one notification")
+	}
+
+	stop()
+	_, _ = s.AddDart(ctx, anna, v.Game.ID, t20)
+	if pending() {
+		t.Error("notified after stopping")
+	}
+}

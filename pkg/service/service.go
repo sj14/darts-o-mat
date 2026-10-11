@@ -64,6 +64,8 @@ type Service struct {
 	// mu serializes changes to the darts and players of games, so two darts
 	// can't both pass the replay check against the same previous state.
 	mu sync.Mutex
+	// hub notifies about changed games.
+	hub hub
 }
 
 func New(store *store.Store, opts Options) *Service {
@@ -202,6 +204,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, acc account.Account, gam
 	if err := s.store.AcceptInvitation(ctx, gameID, acc.PlayerID); err != nil {
 		return GameView{}, err
 	}
+	s.notify(gameID)
 	return s.Game(ctx, acc, gameID)
 }
 
@@ -217,7 +220,11 @@ func (s *Service) DeclineInvitation(ctx context.Context, acc account.Account, ga
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.store.RemoveInvitedPlayer(ctx, gameID, acc.PlayerID)
+	if err := s.store.RemoveInvitedPlayer(ctx, gameID, acc.PlayerID); err != nil {
+		return err
+	}
+	s.notify(gameID)
+	return nil
 }
 
 // WithdrawInvitation lets the owner remove an invited player who hasn't accepted yet.
@@ -241,6 +248,7 @@ func (s *Service) WithdrawInvitation(ctx context.Context, acc account.Account, g
 	if err != nil {
 		return GameView{}, err
 	}
+	s.notify(gameID)
 	return s.Game(ctx, acc, gameID)
 }
 
@@ -277,6 +285,7 @@ func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64
 	if err := s.store.AddDart(ctx, &d); err != nil {
 		return GameView{}, err
 	}
+	s.notify(g.ID)
 	return s.view(ctx, acc, g)
 }
 
@@ -296,6 +305,7 @@ func (s *Service) UndoDart(ctx context.Context, acc account.Account, gameID int6
 	if err != nil {
 		return GameView{}, err
 	}
+	s.notify(g.ID)
 	return s.view(ctx, acc, g)
 }
 

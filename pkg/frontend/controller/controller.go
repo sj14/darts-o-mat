@@ -47,7 +47,7 @@ func (c *Controller) Routes() http.Handler {
 
 		r.Post("/games", c.createGame)
 		r.Get("/games/{id}", c.showGame)
-		r.Get("/games/{id}/board", c.showBoard)
+		r.Get("/games/{id}/events", c.gameEvents)
 		r.Post("/games/{id}/darts", c.addDart)
 		r.Post("/games/{id}/undo", c.undoDart)
 		r.Post("/games/{id}/accept", c.acceptInvitation)

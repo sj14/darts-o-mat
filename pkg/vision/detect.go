@@ -279,7 +279,8 @@ func tipOf(seed, area []image.Point) (Detection, error) {
 	// (A percentile would cut off too much: the point is only about 2 px wide.)
 	tipT := sorted[max(len(sorted)-4, 0)]
 
-	// The tip is the center of the pixels within 3 px of the tip end.
+	// The tip is the center of the pixels within 3 px of the tip end. (Moving it along the
+	// axis to the very end was tried on real throws in 2026-10 and didn't help.)
 	var tx, ty float64
 	var count int
 	for i, p := range area {
