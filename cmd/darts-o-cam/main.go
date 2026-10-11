@@ -28,6 +28,7 @@ commands:
   detect    watch all calibrated cameras and print every dart thrown
   snapshot  save one frame of every calibrated camera, e.g. as reference images
   analyze   explain the detection of events saved by detect -save
+  calibrate refine the calibration automatically from images of the empty board
 `
 
 func main() {
@@ -49,6 +50,8 @@ func main() {
 		err = snapshot(os.Args[2:])
 	case "analyze":
 		err = analyze(os.Args[2:])
+	case "calibrate":
+		err = calibrate(os.Args[2:])
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
@@ -328,6 +331,74 @@ func analyze(args []string) error {
 			fmt.Printf("event %d: %s at %.0f,%.0f mm\n", n, dartLabel(dartboard.Score(p)), p.X, p.Y)
 		}
 	}
+}
+
+// calibrate refines each camera's calibration, starting from its points, with an image
+// of the empty board: either from -images (<camera name>.jpg) or taken live.
+func calibrate(args []string) error {
+	fs := flag.NewFlagSet("calibrate", flag.ExitOnError)
+	calibPath := fs.String("calibration", "calibration.json", "calibration file")
+	out := fs.String("out", "", "file to write the refined calibration to (default: overwrite -calibration)")
+	imagesDir := fs.String("images", "", "directory with an image of the empty board per camera (default: take them live)")
+	overlayDir := fs.String("overlay", "", "directory to write overlays of the refined calibration to, for checking")
+	_ = fs.Parse(args)
+	if *out == "" {
+		*out = *calibPath
+	}
+
+	calib, err := vision.LoadCalibration(*calibPath)
+	if err != nil {
+		return err
+	}
+
+	images := make([]*image.RGBA, len(calib.Cameras))
+	if *imagesDir != "" {
+		for i, cam := range calib.Cameras {
+			if images[i], err = readImage(filepath.Join(*imagesDir, cam.Name+".jpg")); err != nil {
+				return err
+			}
+		}
+	} else {
+		const fps = 10
+		cams, err := vision.OpenCameras(calib, 1280, 720, fps)
+		if err != nil {
+			return err
+		}
+		for i, cam := range cams {
+			for range fps { // let the exposure settle
+				if images[i], err = cam.Read(); err != nil {
+					return err
+				}
+			}
+			cam.Close()
+		}
+	}
+
+	for i := range calib.Cameras {
+		cam := &calib.Cameras[i]
+		rough, err := cam.FromPoints()
+		if err != nil {
+			return err
+		}
+		res, err := vision.RefineCalibration(images[i], rough)
+		if err != nil {
+			return fmt.Errorf("camera %s: %w", cam.Name, err)
+		}
+		cam.Refined = &res.ToBoard
+		log.Printf("%s: %d board features, deviation %.2f px before, %.2f px after", cam.Name, res.Matches, res.RMSBefore, res.RMSAfter)
+
+		if *overlayDir != "" {
+			toImage, err := res.ToBoard.Inverse()
+			if err != nil {
+				return err
+			}
+			path := filepath.Join(*overlayDir, cam.Name+"-refined.jpg")
+			if err := writeJPEG(path, vision.DrawBoard(images[i], toImage, color.RGBA{0, 255, 255, 255})); err != nil {
+				return err
+			}
+		}
+	}
+	return calib.Save(*out)
 }
 
 func readImage(path string) (*image.RGBA, error) {

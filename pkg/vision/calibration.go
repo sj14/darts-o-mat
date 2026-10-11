@@ -57,12 +57,25 @@ type CameraCalibration struct {
 	// keep the device order stable.
 	Device string `json:"device,omitempty"`
 	// Reference is an image of the camera's view, relative to the calibration file.
-	Reference string             `json:"reference,omitempty"`
-	Points    []CalibrationPoint `json:"points"`
+	Reference string `json:"reference,omitempty"`
+	// Points are the rough calibration, e.g. clicked by hand.
+	Points []CalibrationPoint `json:"points"`
+	// Refined is the calibration improved by RefineCalibration (image pixels to board mm).
+	// If set, it is used instead of the points.
+	Refined *Homography `json:"refined,omitempty"`
 }
 
-// ToBoard returns the homography mapping image pixels to board millimeters.
+// ToBoard returns the homography mapping image pixels to board millimeters:
+// the refined one if there is one, otherwise the one from the points.
 func (c CameraCalibration) ToBoard() (Homography, error) {
+	if c.Refined != nil {
+		return *c.Refined, nil
+	}
+	return c.FromPoints()
+}
+
+// FromPoints returns the homography from the calibration points only.
+func (c CameraCalibration) FromPoints() (Homography, error) {
 	var image, board []dartboard.Point
 	for _, p := range c.Points {
 		b, err := p.Board()
@@ -81,6 +94,15 @@ type Calibration struct {
 	Cameras    []CameraCalibration `json:"cameras"`
 
 	dir string // of the calibration file, for the reference images
+}
+
+// Save writes the calibration as JSON.
+func (c Calibration) Save(path string) error {
+	data, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(data, '\n'), 0o644)
 }
 
 func LoadCalibration(path string) (Calibration, error) {

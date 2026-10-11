@@ -25,8 +25,7 @@ func TestWatcher(t *testing.T) {
 
 	empty := loadRGBA(t, "testdata/cam3.jpg")
 	withDart := loadRGBA(t, "testdata/cam3.jpg")
-	// The tip of the real single 1 in this camera (see TestRealDarts).
-	tip := dartboard.Point{X: 721, Y: 255}
+	tip := single1(t, toBoard)
 	drawDart(withDart, tip, dartboard.Point{X: 0.1, Y: -1})
 
 	w := NewWatcher([]Homography{toBoard}, DefaultWatchOptions)
@@ -84,7 +83,7 @@ func TestWatcherReusedSlice(t *testing.T) {
 
 	empty := loadRGBA(t, "testdata/cam3.jpg")
 	withDart := loadRGBA(t, "testdata/cam3.jpg")
-	drawDart(withDart, dartboard.Point{X: 721, Y: 255}, dartboard.Point{X: 0.1, Y: -1})
+	drawDart(withDart, single1(t, toBoard), dartboard.Point{X: 0.1, Y: -1})
 
 	w := NewWatcher([]Homography{toBoard}, DefaultWatchOptions)
 	frames := make([]*image.RGBA, 1)
@@ -98,4 +97,14 @@ func TestWatcherReusedSlice(t *testing.T) {
 	if events != 1 {
 		t.Errorf("got %d events, want 1", events)
 	}
+}
+
+// single1 returns the image position of the middle of the inner single 1.
+func single1(t *testing.T, toBoard Homography) dartboard.Point {
+	t.Helper()
+	toImage, err := toBoard.Inverse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return toImage.Apply(dartboard.Polar(60, dartboard.SegmentAngle))
 }

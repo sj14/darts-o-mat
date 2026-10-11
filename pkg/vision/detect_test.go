@@ -136,9 +136,9 @@ func TestDetectDartNothingChanged(t *testing.T) {
 
 // TestRealDarts checks the calibration of the development board with real darts.
 // Their tips were located by hand in each camera image (2026-10-11, two rounds of four);
-// the player confirmed the fields. One more dart, a single 5 right next to the wire
-// to the 12, ends up 1 mm on the wrong side and is left out. A camera may be missing
-// when it couldn't see the tip (a black dart in front of a black segment).
+// the player confirmed the fields. A camera may be missing when it couldn't see the tip
+// (a black dart in front of a black segment). Darts within 1.5 mm of a wire are only
+// logged: at this resolution they land on either side.
 func TestRealDarts(t *testing.T) {
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
@@ -160,6 +160,7 @@ func TestRealDarts(t *testing.T) {
 		{"S5", map[string]dartboard.Point{"cam1": {X: 908.7, Y: 211.7}, "cam2": {X: 601.7, Y: 413.3}, "cam3": {X: 570.7, Y: 228.3}}},
 		{"S1", map[string]dartboard.Point{"cam1": {X: 788.7, Y: 280.7}, "cam2": {X: 581.7, Y: 260.7}, "cam3": {X: 721, Y: 255}}},
 		{"S3", map[string]dartboard.Point{"cam1": {X: 558.3, Y: 256}, "cam2": {X: 722, Y: 149.3}, "cam3": {X: 815, Y: 367.6}}},
+		{"S5", map[string]dartboard.Point{"cam1": {X: 734.3, Y: 239.3}, "cam2": {X: 663.3, Y: 252.7}, "cam3": {X: 693.3, Y: 291.7}}},
 		{"S8", map[string]dartboard.Point{"cam1": {X: 668.25, Y: 205.5}, "cam2": {X: 753.75, Y: 230}, "cam3": {X: 669.25, Y: 338}}},
 		{"S2", map[string]dartboard.Point{"cam1": {X: 588.25, Y: 280}, "cam2": {X: 683.25, Y: 156.25}, "cam3": {X: 824, Y: 340}}},
 		{"S18", map[string]dartboard.Point{"cam1": {X: 828, Y: 310}, "cam2": {X: 518, Y: 248}, "cam3": {X: 741, Y: 218}}},
@@ -173,6 +174,10 @@ func TestRealDarts(t *testing.T) {
 		p, err := FuseTips(points)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if w := distanceToWire(p); w < 1.5 {
+			t.Logf("dart at %.1f,%.1f mm is %.1f mm from a wire, scored %+v (want %s), not checked", p.X, p.Y, w, dartboard.Score(p), dart.want)
+			continue
 		}
 		d := dartboard.Score(p)
 		got := "S" + itoa(d.Number)
@@ -258,4 +263,19 @@ func TestRealThrows(t *testing.T) {
 			}
 		})
 	}
+}
+
+// distanceToWire returns how far p is from the nearest ring or wire between numbers, in mm.
+func distanceToWire(p dartboard.Point) float64 {
+	r := p.Radius()
+	d := math.Inf(1)
+	for _, ring := range allRingRadii {
+		d = min(d, math.Abs(r-ring))
+	}
+	if r > dartboard.BullRadius {
+		off := math.Mod(p.Angle()+dartboard.SegmentAngle/2, dartboard.SegmentAngle)
+		angle := min(off, dartboard.SegmentAngle-off) * math.Pi / 180
+		d = min(d, r*math.Sin(angle))
+	}
+	return d
 }
