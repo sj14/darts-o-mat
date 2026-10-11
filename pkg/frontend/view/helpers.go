@@ -8,6 +8,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/service"
@@ -343,4 +344,19 @@ func soundKind(v service.GameView) string {
 func soundID(v service.GameView) string {
 	_, id := sound(v)
 	return id
+}
+
+// checkoutSuggestion is how the current player can finish with the darts left in the
+// turn (X01 only), nil if that isn't possible.
+func checkoutSuggestion(v service.GameView, p progress) []throw.Dart {
+	st, ok := v.State.(x01.State)
+	if !ok || !p.running() || p.WaitingForTakeout || p.CurrentPlayerID == nil {
+		return nil
+	}
+	for _, ps := range st.Players {
+		if ps.PlayerID == *p.CurrentPlayerID {
+			return v.Game.X01.OutMode.Checkout(ps.Remaining, turn.DartsPerTurn-p.DartsInTurn)
+		}
+	}
+	return nil
 }

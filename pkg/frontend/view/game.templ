@@ -172,9 +172,18 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 					@editPanel(v, *editing)
 				} else if p.running() {
 					<div class="grid grid-cols-3 gap-3">
+						{{ thrown, suggestion := turnDarts(v, p), checkoutSuggestion(v, p) }}
 						for i := range turn.DartsPerTurn {
-							if i < len(turnDarts(v, p)) {
-								@dartTile(v, turnDarts(v, p)[i])
+							if i < len(thrown) {
+								@dartTile(v, thrown[i])
+							} else if j := i - len(thrown); j < len(suggestion) {
+								// The way to finish, like Autodarts shows it.
+								<span class="flex h-20 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-amber-400/60 bg-amber-400/5 font-display text-amber-300 sm:h-24" title="Vorschlag zum Auschecken">
+									<span class={ templ.KV("text-2xl sm:text-3xl", len(dartLabel(suggestion[j])) > 4), templ.KV("text-4xl", len(dartLabel(suggestion[j])) <= 4) }>{ dartLabel(suggestion[j]) }</span>
+									if j == 0 {
+										<span class="text-xs font-semibold uppercase tracking-widest text-amber-300/60">Checkout</span>
+									}
+								</span>
 							} else {
 								<span class="flex h-20 items-center justify-center rounded-2xl border-2 border-dashed border-white/15 font-display text-4xl text-white/20 sm:h-24">{ strconv.Itoa(i + 1) }</span>
 							}
