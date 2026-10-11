@@ -279,3 +279,31 @@ func distanceToWire(p dartboard.Point) float64 {
 	}
 	return d
 }
+
+func TestFuseTips(t *testing.T) {
+	tests := []struct {
+		name   string
+		points []dartboard.Point
+		want   throw.Dart
+	}{
+		// Real T18: two cameras in the triple, one 3 mm inside (2026-10-11).
+		{"two of three in the triple", []dartboard.Point{{X: 56.0, Y: 82.3}, {X: 55.6, Y: 78.6}, {X: 59.7, Y: 80.4}}, throw.Dart{Number: 18, Multiplier: 3}},
+		// One camera far off doesn't matter.
+		{"outlier", []dartboard.Point{{X: 0, Y: 130}, {X: 1, Y: 131}, {X: 40, Y: 60}}, throw.Dart{Number: 20, Multiplier: 1}},
+		// Around the center the angles say nothing.
+		{"bullseye", []dartboard.Point{{X: 3, Y: 0}, {X: -3, Y: 1}, {X: 0, Y: -2}}, throw.Dart{Number: 25, Multiplier: 2}},
+		// Angles across the wrap-around at ±180° (left of the board, segment 11).
+		{"wrap around", []dartboard.Point{{X: -120, Y: 2}, {X: -121, Y: -2}, {X: -119, Y: 0}}, throw.Dart{Number: 11, Multiplier: 1}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := FuseTips(tt.points)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := dartboard.Score(p); got != tt.want {
+				t.Errorf("fused %.1f,%.1f (%.1f mm) scored %+v, want %+v", p.X, p.Y, p.Radius(), got, tt.want)
+			}
+		})
+	}
+}

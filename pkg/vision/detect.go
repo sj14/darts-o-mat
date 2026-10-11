@@ -301,19 +301,47 @@ func tipOf(seed, area []image.Point) (Detection, error) {
 }
 
 // FuseTips combines the dart positions on the board seen by several cameras.
-// It takes the median of each coordinate, so a single camera that is far off
-// (e.g. because the dart hides its tip) doesn't move the result.
+// The board is made of rings and segments, so it takes the median of the distance to
+// the center and the median of the angle: a single camera that is far off (e.g.
+// because the dart hides its tip) doesn't move the result, and when two of three
+// cameras see the dart beyond a ring's wire, so does the result. (The median of each
+// coordinate combined x of one camera with y of another, which put a dart seen in the
+// triple by two cameras closer to the center than both: 99.6 and 100.2 mm became 98.0.)
+// Near the center the cameras surround the dart and their angles say nothing: then
+// it is the median of each coordinate.
 func FuseTips(points []dartboard.Point) (dartboard.Point, error) {
 	if len(points) == 0 {
 		return dartboard.Point{}, ErrNoDart
 	}
 	xs := make([]float64, len(points))
 	ys := make([]float64, len(points))
+	var sumX, sumY float64
 	for i, p := range points {
 		xs[i], ys[i] = p.X, p.Y
+		sumX, sumY = sumX+p.X, sumY+p.Y
 	}
-	return dartboard.Point{X: median(xs), Y: median(ys)}, nil
+
+	radii := make([]float64, len(points))
+	for i, p := range points {
+		radii[i] = p.Radius()
+	}
+	r := median(radii)
+	if r < polarFuseRadius {
+		return dartboard.Point{X: median(xs), Y: median(ys)}, nil
+	}
+	// Angles relative to the mean direction, so they don't wrap around at ±180°.
+	mean := math.Atan2(sumY, sumX)
+	angles := make([]float64, len(points))
+	for i, p := range points {
+		angles[i] = math.Remainder(math.Atan2(p.Y, p.X)-mean, 2*math.Pi)
+	}
+	a := mean + median(angles)
+	return dartboard.Point{X: r * math.Cos(a), Y: r * math.Sin(a)}, nil
 }
+
+// polarFuseRadius is the distance from the center from which the cameras' angles
+// agree well enough to fuse in polar coordinates (cameras are a few mm apart).
+const polarFuseRadius = 2 * dartboard.BullRadius
 
 func median(v []float64) float64 {
 	slices.Sort(v)
