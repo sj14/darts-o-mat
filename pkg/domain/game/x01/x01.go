@@ -136,7 +136,7 @@ type Turn struct {
 // A player who reaches exactly 0 has finished; the game ends after that round,
 // see package turn.
 func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
-	return PlayLog(s, playerIDs, turn.Log{Darts: darts})
+	return PlayLog(s, playerIDs, turn.Log{Entries: darts})
 }
 
 // PlayLog replays a game's log of darts and takeouts, see Play.

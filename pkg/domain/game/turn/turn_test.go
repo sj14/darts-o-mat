@@ -1,6 +1,7 @@
 package turn
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
@@ -45,27 +46,26 @@ func TestWaitForTakeoutGameOver(t *testing.T) {
 	}
 }
 
-func TestReplayWithoutTakeouts(t *testing.T) {
-	// Games logged before takeouts were recorded: a dart while waiting counts as pulled out.
-	log := Log{Darts: make([]throw.Dart, 4), WaitForTakeout: true}
-	tr := NewWaitingForTakeouts()
-	var players []int
-	if err := log.Replay(&tr, 2, func(i int, d throw.Dart) error {
-		players = append(players, tr.Player)
-		tr.Advance(2)
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if want := []int{0, 0, 0, 1}; len(players) != 4 || players[3] != want[3] {
-		t.Errorf("players = %v, want %v", players, want)
+func TestReplay(t *testing.T) {
+	dart, takeout := throw.Dart{Number: 20, Multiplier: 1}, throw.Dart{Takeout: true}
+	advance := func(tr *Turn) func(int, throw.Dart) error {
+		return func(int, throw.Dart) error { tr.Advance(2); return nil }
 	}
 
-	// With a takeout logged after the third dart, the fourth dart is the next player's, too.
-	log.Takeouts = []int{3}
-	tr = NewWaitingForTakeouts()
-	_ = log.Replay(&tr, 2, func(i int, d throw.Dart) error { tr.Advance(2); return nil })
+	// The takeout after the third dart passes the turn on to the next player.
+	tr := NewWaitingForTakeouts()
+	log := Log{Entries: []throw.Dart{dart, dart, dart, takeout, dart}, WaitForTakeout: true}
+	if err := log.Replay(&tr, 2, advance(&tr)); err != nil {
+		t.Fatal(err)
+	}
 	if tr.Player != 1 || tr.Dart != 1 {
-		t.Errorf("player %d darts %d, want player 1 with 1 dart", tr.Player, tr.Dart)
+		t.Errorf("player %d with %d darts, want player 1 with 1 dart", tr.Player, tr.Dart)
+	}
+
+	// A dart before the takeout is an error.
+	tr = NewWaitingForTakeouts()
+	log.Entries = []throw.Dart{dart, dart, dart, dart}
+	if err := log.Replay(&tr, 2, advance(&tr)); !errors.Is(err, ErrWaitingForTakeout) {
+		t.Errorf("got %v, want ErrWaitingForTakeout", err)
 	}
 }

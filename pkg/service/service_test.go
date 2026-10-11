@@ -446,12 +446,12 @@ func TestBoardCamera(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(v.Darts) != 3 || !v.Darts[1].Miss || !v.Darts[2].Miss {
-		t.Errorf("after takeout: %d darts %+v, want the dart and 2 misses", len(v.Darts), v.Darts)
+	if len(v.Darts) != 4 || !v.Darts[1].Miss || !v.Darts[2].Miss || !v.Darts[3].Takeout {
+		t.Errorf("after takeout: %d entries %+v, want the dart, 2 misses and the takeout", len(v.Darts), v.Darts)
 	}
-	// A complete turn stays as it is.
-	if v, _ = s.BoardTakeout(ctx, keller); len(v.Darts) != 3 {
-		t.Errorf("second takeout added darts: %d", len(v.Darts))
+	// Nothing to pull out anymore: the log stays as it is.
+	if v, _ = s.BoardTakeout(ctx, keller); len(v.Darts) != 4 {
+		t.Errorf("second takeout changed the log: %d entries", len(v.Darts))
 	}
 	if v.Board == nil || v.Board.Name != "Keller" {
 		t.Errorf("game view board = %+v, want Keller", v.Board)
@@ -534,16 +534,16 @@ func TestTakeout(t *testing.T) {
 		t.Errorf("after takeout: waiting=%v current=%d, want the guest", waiting(v.State), current(v))
 	}
 	// Another takeout without darts thrown changes nothing.
-	if v, _ = s.Takeout(ctx, anna, id); len(v.Takeouts) != 1 {
-		t.Errorf("empty takeout was recorded: %d takeouts", len(v.Takeouts))
+	if v, _ = s.Takeout(ctx, anna, id); len(v.Darts) != 4 {
+		t.Errorf("empty takeout was recorded: %d log entries, want 3 darts and 1 takeout", len(v.Darts))
 	}
 
 	// Undo takes back the takeout first, then darts.
 	if v, err = s.UndoDart(ctx, anna, id); err != nil {
 		t.Fatal(err)
 	}
-	if !waiting(v.State) || len(v.Darts) != 3 || len(v.Takeouts) != 0 {
-		t.Errorf("after undo: waiting=%v darts=%d takeouts=%d, want waiting with 3 darts", waiting(v.State), len(v.Darts), len(v.Takeouts))
+	if !waiting(v.State) || len(v.Darts) != 3 {
+		t.Errorf("after undo: waiting=%v entries=%d, want waiting with 3 darts", waiting(v.State), len(v.Darts))
 	}
 	if v, _ = s.UndoDart(ctx, anna, id); len(v.Darts) != 2 || waiting(v.State) {
 		t.Errorf("second undo: darts=%d waiting=%v, want 2 darts", len(v.Darts), waiting(v.State))
@@ -556,5 +556,35 @@ func TestTakeout(t *testing.T) {
 	}
 	if waiting(v.State) || current(v) != guest.ID {
 		t.Errorf("game without board: waiting=%v current=%d, want the guest", waiting(v.State), current(v))
+	}
+}
+
+// Pulling the darts out after a bust passes the turn on without adding misses.
+func TestBoardTakeoutAfterBust(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	guest, _ := s.CreateGuest(ctx, anna, "Papa")
+	keller, _ := s.CreateBoard(ctx, anna, "Keller")
+	g := x01Game(anna.PlayerID, guest.ID)
+	g.X01.StartScore = 40
+	g.BoardID = &keller.ID
+	v, err := s.CreateGame(ctx, anna, g, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, _ = s.AddDart(ctx, anna, v.Game.ID, throw.Dart{Number: 5, Multiplier: 1})
+	if v, err = s.AddDart(ctx, anna, v.Game.ID, t20); err != nil { // bust
+		t.Fatal(err)
+	}
+	if !waiting(v.State) || v.State.(x01.State).DartsInTurn != 2 {
+		t.Fatalf("after bust: waiting=%v darts=%d, want waiting after 2 darts", waiting(v.State), v.State.(x01.State).DartsInTurn)
+	}
+	if v, err = s.BoardTakeout(ctx, keller); err != nil {
+		t.Fatal(err)
+	}
+	if len(v.Darts) != 3 || !v.Darts[2].Takeout || *v.State.(x01.State).CurrentPlayerID != guest.ID {
+		t.Errorf("after takeout: %d entries, current %d; want 2 darts, the takeout and the guest's turn", len(v.Darts), *v.State.(x01.State).CurrentPlayerID)
 	}
 }

@@ -292,7 +292,7 @@ func TestPlayLogWaitForTakeout(t *testing.T) {
 	s := Settings{StartScore: 501, OutMode: OutModeDouble}
 	darts := []throw.Dart{hit(20, 3), hit(20, 3), hit(20, 3)}
 
-	st, err := PlayLog(s, []int64{1, 2}, turn.Log{Darts: darts, WaitForTakeout: true})
+	st, err := PlayLog(s, []int64{1, 2}, turn.Log{Entries: darts, WaitForTakeout: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,14 +300,14 @@ func TestPlayLogWaitForTakeout(t *testing.T) {
 		t.Errorf("waiting=%v current=%d darts=%d, want player 1 waiting after 3 darts", st.WaitingForTakeout, *st.CurrentPlayerID, st.DartsInTurn)
 	}
 
-	st, _ = PlayLog(s, []int64{1, 2}, turn.Log{Darts: darts, Takeouts: []int{3}, WaitForTakeout: true})
+	st, _ = PlayLog(s, []int64{1, 2}, turn.Log{Entries: append(darts, throw.Dart{Takeout: true}), WaitForTakeout: true})
 	if st.WaitingForTakeout || *st.CurrentPlayerID != 2 {
 		t.Errorf("after takeout: waiting=%v current=%d, want player 2", st.WaitingForTakeout, *st.CurrentPlayerID)
 	}
 
 	// A bust also waits: the darts are still in the board.
-	st, _ = PlayLog(Settings{StartScore: 40, OutMode: OutModeDouble}, []int64{1, 2}, turn.Log{Darts: []throw.Dart{hit(20, 3)}, WaitForTakeout: true})
-	if !st.WaitingForTakeout || st.Players[0].Remaining != 40 {
-		t.Errorf("bust: waiting=%v remaining=%d, want waiting with 40 left", st.WaitingForTakeout, st.Players[0].Remaining)
+	st, _ = PlayLog(Settings{StartScore: 40, OutMode: OutModeDouble}, []int64{1, 2}, turn.Log{Entries: []throw.Dart{hit(20, 3)}, WaitForTakeout: true})
+	if !st.WaitingForTakeout || st.Players[0].Remaining != 40 || st.DartsInTurn != 1 {
+		t.Errorf("bust: waiting=%v remaining=%d darts=%d, want waiting with 40 left after 1 dart", st.WaitingForTakeout, st.Players[0].Remaining, st.DartsInTurn)
 	}
 }

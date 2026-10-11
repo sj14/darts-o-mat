@@ -10,12 +10,16 @@ const Bull = 25
 
 var ErrInvalid = errors.New("invalid dart")
 
+// Dart is an entry of a game's log, in the order it happened: a dart thrown, or the
+// darts being pulled out of the board (Takeout), which ends a turn in games played on
+// a board.
 type Dart struct {
 	ID         int64 `bun:",pk,autoincrement" json:"id"`
 	GameID     int64 `bun:",notnull" json:"-"`
 	Number     uint8 `json:"number"`
 	Multiplier uint8 `json:"multiplier"`
 	Miss       bool  `json:"miss"`
+	Takeout    bool  `bun:",notnull,default:false" json:"takeout,omitempty"`
 }
 
 // Validate checks that the dart hit a field that exists on the board.

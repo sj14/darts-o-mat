@@ -67,7 +67,12 @@ func (s *Service) BoardTakeout(ctx context.Context, b board.Board) (GameView, er
 	if thrown == 0 {
 		return v, nil
 	}
-	for range turn.DartsPerTurn - thrown {
+	// A turn that is over (third dart, bust, checkout) needs no misses.
+	missing := turn.DartsPerTurn - thrown
+	if waiting(v.State) {
+		missing = 0
+	}
+	for range missing {
 		if v, err = s.AddDart(ctx, owner, v.Game.ID, throw.Dart{Miss: true}); err != nil {
 			return GameView{}, err
 		}

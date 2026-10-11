@@ -12,6 +12,7 @@ package turn
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 )
@@ -26,35 +27,27 @@ var (
 
 // Log is what happened in a game, the input to replay it.
 type Log struct {
-	Darts []throw.Dart
-	// Takeouts are the numbers of darts thrown before each takeout, ascending.
-	Takeouts []int
+	// Entries are the darts and takeouts (throw.Dart.Takeout) in the order they happened.
+	Entries []throw.Dart
 	// WaitForTakeout keeps a finished turn until the darts were pulled out.
 	WaitForTakeout bool
 }
 
 // Replay calls dart for every dart of the log in order and handles the takeouts in
-// between. A dart while waiting for a takeout counts as if the darts had been pulled
-// out (games logged before takeouts were recorded); rejecting such darts is up to the
-// caller, see Turn.Waiting.
+// between. A dart while the turn waits for the takeout is an error.
 func (l Log) Replay(t *Turn, players int, dart func(i int, d throw.Dart) error) error {
-	next := 0
-	takeouts := func(thrown int) {
-		for next < len(l.Takeouts) && l.Takeouts[next] <= thrown {
+	for i, d := range l.Entries {
+		if d.Takeout {
 			t.Takeout(players)
-			next++
+			continue
 		}
-	}
-	for i, d := range l.Darts {
-		takeouts(i)
 		if t.Waiting() {
-			t.Takeout(players)
+			return fmt.Errorf("entry %d: %w", i+1, ErrWaitingForTakeout)
 		}
 		if err := dart(i, d); err != nil {
 			return err
 		}
 	}
-	takeouts(len(l.Darts))
 	return nil
 }
 
@@ -78,28 +71,34 @@ func NewWaitingForTakeouts() Turn {
 	return Turn{Round: 1, waitForTakeout: true}
 }
 
-// Advance moves on after a dart was thrown; the turn is over after the third dart.
+// Advance counts a dart thrown; the turn is over after the third dart.
 func (t *Turn) Advance(players int) {
 	t.Dart++
 	if t.Dart == DartsPerTurn {
-		t.End(players)
+		t.complete(players)
 	}
 }
 
-// End ends the turn, e.g. after the third dart or a bust: the next player throws,
-// or, when waiting for takeouts, after the darts were pulled out.
+// End counts a dart that ends the turn early, e.g. a bust.
 func (t *Turn) End(players int) {
+	t.Dart++
+	t.complete(players)
+}
+
+// Finish counts the dart the current player finished with and ends their turn.
+func (t *Turn) Finish(players int) {
+	t.finished = append(t.finished, t.Player)
+	t.End(players)
+}
+
+// complete ends the turn: the next player throws, or, when waiting for takeouts,
+// after the darts were pulled out.
+func (t *Turn) complete(players int) {
 	if t.waitForTakeout && !t.endsGame(players) {
 		t.waiting = true
 		return
 	}
 	t.next(players)
-}
-
-// Finish marks the current player as finished and ends their turn.
-func (t *Turn) Finish(players int) {
-	t.finished = append(t.finished, t.Player)
-	t.End(players)
 }
 
 // Takeout handles the darts being pulled out: a turn waiting for it, or one with fewer

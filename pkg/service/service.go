@@ -12,7 +12,6 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
-	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
@@ -85,8 +84,7 @@ type GameView struct {
 	Board       *board.Board      `json:"board,omitempty"` // the board it's played on, if any
 	Players     []player.Player   `json:"players"`         // in throwing order
 	Invitations []game.Invitation `json:"invitations"`
-	Darts       []throw.Dart      `json:"darts"`
-	Takeouts    []game.Takeout    `json:"takeouts"`
+	Darts       []throw.Dart      `json:"darts"` // the log: darts and takeouts
 	State       any               `json:"state"` // x01.State or aroundtheclock.State, depending on the mode
 	// Ready is true once no invitation is pending anymore; only then darts can be thrown.
 	Ready bool `json:"ready"`
@@ -267,6 +265,7 @@ func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64
 
 	d.ID = 0
 	d.GameID = g.ID
+	d.Takeout = false // takeouts go through Takeout
 	if d.Miss {
 		d.Number, d.Multiplier = 0, 0
 	} else if d.Multiplier == 0 {
@@ -280,21 +279,9 @@ func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64
 	if err != nil {
 		return GameView{}, err
 	}
-	takeouts, err := s.store.ListTakeouts(ctx, g.ID)
-	if err != nil {
-		return GameView{}, err
-	}
-	// Replaying is lenient with darts thrown before the takeout (old games), new darts aren't.
-	state, err := g.Play(darts, takeouts)
-	if err != nil {
-		return GameView{}, err
-	}
-	if waiting(state) {
-		return GameView{}, turn.ErrWaitingForTakeout
-	}
-
-	// The stored darts were accepted before, so an error can only come from the new one.
-	if _, err := g.Play(append(darts, d), takeouts); err != nil {
+	// The stored darts were accepted before, so an error can only come from the new one,
+	// e.g. turn.ErrWaitingForTakeout.
+	if _, err := g.Play(append(darts, d)); err != nil {
 		return GameView{}, err
 	}
 
@@ -314,22 +301,10 @@ func (s *Service) UndoDart(ctx context.Context, acc account.Account, gameID int6
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Undo the takeout first, if it was the last thing that happened.
-	darts, err := s.store.ListDarts(ctx, g.ID)
-	if err != nil {
-		return GameView{}, err
-	}
-	takeouts, err := s.store.ListTakeouts(ctx, g.ID)
-	if err != nil {
-		return GameView{}, err
-	}
-	if n := len(takeouts); n > 0 && len(darts) > 0 && takeouts[n-1].AfterDart >= darts[len(darts)-1].ID {
-		err = s.store.DeleteTakeout(ctx, takeouts[n-1].ID)
-	} else {
-		err = s.store.DeleteLastDart(ctx, g.ID)
-		if errors.Is(err, store.ErrNotFound) {
-			return GameView{}, ErrNothingToUndo
-		}
+	// The last entry may be a takeout: then the player waits for it again.
+	err = s.store.DeleteLastDart(ctx, g.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		return GameView{}, ErrNothingToUndo
 	}
 	if err != nil {
 		return GameView{}, err
@@ -358,7 +333,7 @@ func (s *Service) Takeout(ctx context.Context, acc account.Account, gameID int64
 	if over || (!waiting(v.State) && thrown == 0) || len(v.Darts) == 0 {
 		return v, nil
 	}
-	if err := s.store.AddTakeout(ctx, &game.Takeout{GameID: g.ID, AfterDart: v.Darts[len(v.Darts)-1].ID}); err != nil {
+	if err := s.store.AddDart(ctx, &throw.Dart{GameID: g.ID, Takeout: true}); err != nil {
 		return GameView{}, err
 	}
 	s.notify(g.ID)
@@ -432,11 +407,7 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	if err != nil {
 		return GameView{}, err
 	}
-	v.Takeouts, err = s.store.ListTakeouts(ctx, g.ID)
-	if err != nil {
-		return GameView{}, err
-	}
-	v.State, err = g.Play(v.Darts, v.Takeouts)
+	v.State, err = g.Play(v.Darts)
 	if err != nil {
 		return GameView{}, err
 	}
