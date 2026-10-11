@@ -11,6 +11,9 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/repos/store"
@@ -83,6 +86,7 @@ type GameView struct {
 	Players     []player.Player   `json:"players"`         // in throwing order
 	Invitations []game.Invitation `json:"invitations"`
 	Darts       []throw.Dart      `json:"darts"`
+	Takeouts    []game.Takeout    `json:"takeouts"`
 	State       any               `json:"state"` // x01.State or aroundtheclock.State, depending on the mode
 	// Ready is true once no invitation is pending anymore; only then darts can be thrown.
 	Ready bool `json:"ready"`
@@ -276,9 +280,21 @@ func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64
 	if err != nil {
 		return GameView{}, err
 	}
+	takeouts, err := s.store.ListTakeouts(ctx, g.ID)
+	if err != nil {
+		return GameView{}, err
+	}
+	// Replaying is lenient with darts thrown before the takeout (old games), new darts aren't.
+	state, err := g.Play(darts, takeouts)
+	if err != nil {
+		return GameView{}, err
+	}
+	if waiting(state) {
+		return GameView{}, turn.ErrWaitingForTakeout
+	}
 
 	// The stored darts were accepted before, so an error can only come from the new one.
-	if _, err := g.Play(append(darts, d)); err != nil {
+	if _, err := g.Play(append(darts, d), takeouts); err != nil {
 		return GameView{}, err
 	}
 
@@ -298,11 +314,51 @@ func (s *Service) UndoDart(ctx context.Context, acc account.Account, gameID int6
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	err = s.store.DeleteLastDart(ctx, g.ID)
-	if errors.Is(err, store.ErrNotFound) {
-		return GameView{}, ErrNothingToUndo
+	// Undo the takeout first, if it was the last thing that happened.
+	darts, err := s.store.ListDarts(ctx, g.ID)
+	if err != nil {
+		return GameView{}, err
+	}
+	takeouts, err := s.store.ListTakeouts(ctx, g.ID)
+	if err != nil {
+		return GameView{}, err
+	}
+	if n := len(takeouts); n > 0 && len(darts) > 0 && takeouts[n-1].AfterDart >= darts[len(darts)-1].ID {
+		err = s.store.DeleteTakeout(ctx, takeouts[n-1].ID)
+	} else {
+		err = s.store.DeleteLastDart(ctx, g.ID)
+		if errors.Is(err, store.ErrNotFound) {
+			return GameView{}, ErrNothingToUndo
+		}
 	}
 	if err != nil {
+		return GameView{}, err
+	}
+	s.notify(g.ID)
+	return s.view(ctx, acc, g)
+}
+
+// Takeout records that the darts were pulled out, so the next player throws. It only
+// matters for games on a board (see game.Game.WaitsForTakeout) and only after darts
+// were thrown in the current turn; otherwise nothing happens.
+func (s *Service) Takeout(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
+	g, err := s.throwableGame(ctx, acc, gameID)
+	if err != nil {
+		return GameView{}, err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	v, err := s.view(ctx, acc, g)
+	if err != nil {
+		return GameView{}, err
+	}
+	thrown, over := v.turnProgress()
+	if over || (!waiting(v.State) && thrown == 0) || len(v.Darts) == 0 {
+		return v, nil
+	}
+	if err := s.store.AddTakeout(ctx, &game.Takeout{GameID: g.ID, AfterDart: v.Darts[len(v.Darts)-1].ID}); err != nil {
 		return GameView{}, err
 	}
 	s.notify(g.ID)
@@ -376,7 +432,11 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	if err != nil {
 		return GameView{}, err
 	}
-	v.State, err = g.Play(v.Darts)
+	v.Takeouts, err = s.store.ListTakeouts(ctx, g.ID)
+	if err != nil {
+		return GameView{}, err
+	}
+	v.State, err = g.Play(v.Darts, v.Takeouts)
 	if err != nil {
 		return GameView{}, err
 	}
@@ -401,6 +461,17 @@ func containsPlayer(players []player.Player, id int64) bool {
 		if p.ID == id {
 			return true
 		}
+	}
+	return false
+}
+
+// waiting reports whether the game's state waits for the darts to be pulled out.
+func waiting(state any) bool {
+	switch st := state.(type) {
+	case x01.State:
+		return st.WaitingForTakeout
+	case aroundtheclock.State:
+		return st.WaitingForTakeout
 	}
 	return false
 }

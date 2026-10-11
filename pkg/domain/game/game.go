@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 )
@@ -58,17 +59,42 @@ func (g Game) Validate() error {
 	}
 }
 
-// Play replays the darts and returns the state of the game mode,
-// x01.State or aroundtheclock.State.
-func (g Game) Play(darts []throw.Dart) (any, error) {
+// WaitsForTakeout reports whether a finished turn waits until the darts were pulled out.
+// Games on a board do: its cameras report the takeout, players without them confirm it.
+func (g Game) WaitsForTakeout() bool {
+	return g.BoardID != nil
+}
+
+// Play replays the darts and takeouts and returns the state of the game mode,
+// x01.State or aroundtheclock.State. The darts must be ordered as thrown.
+func (g Game) Play(darts []throw.Dart, takeouts []Takeout) (any, error) {
+	log := turn.Log{Darts: darts, WaitForTakeout: g.WaitsForTakeout()}
+	for _, t := range takeouts {
+		thrown := 0
+		for _, d := range darts {
+			// A dart not stored yet (id 0) is newer than every takeout.
+			if d.ID != 0 && d.ID <= t.AfterDart {
+				thrown++
+			}
+		}
+		log.Takeouts = append(log.Takeouts, thrown)
+	}
+
 	switch g.Mode {
 	case ModeX01:
-		return x01.Play(*g.X01, g.PlayerIDs, darts)
+		return x01.PlayLog(*g.X01, g.PlayerIDs, log)
 	case ModeAroundTheClock:
-		return aroundtheclock.Play(*g.AroundTheClock, g.PlayerIDs, darts)
+		return aroundtheclock.PlayLog(*g.AroundTheClock, g.PlayerIDs, log)
 	default:
 		return nil, fmt.Errorf("unknown mode %q", g.Mode)
 	}
+}
+
+// Takeout records that the darts were pulled out of the board after a dart.
+type Takeout struct {
+	ID        int64 `bun:",pk,autoincrement" json:"id"`
+	GameID    int64 `bun:",notnull" json:"-"`
+	AfterDart int64 `bun:",notnull" json:"after_dart"` // id of the last dart before
 }
 
 type InvitationStatus string

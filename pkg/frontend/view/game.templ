@@ -132,7 +132,25 @@ templ scores(v service.GameView, errMsg string) {
 					}
 				}
 			</div>
-			if v.CanThrow {
+			if p.WaitingForTakeout {
+				<div class="alert theme-warning d-flex justify-content-between align-items-center flex-wrap gap-2" role="status">
+					<span>
+						<span class="fw-bold">Pfeile ziehen</span> – danach ist { nextPlayerName(v, p) } dran.
+						if v.Board != nil {
+							<span class="fs-sm fg-3">Die Kamera erkennt das Herausziehen von selbst.</span>
+						}
+					</span>
+					if v.CanThrow {
+						<button
+							type="button"
+							class="btn-solid theme-warning"
+							hx-post={ gameURL(v.Game.ID, "/takeout") }
+							hx-target="#board"
+							hx-swap="outerHTML"
+						>Pfeile gezogen</button>
+					}
+				</div>
+			} else if v.CanThrow {
 				@keypad(v)
 			}
 		}

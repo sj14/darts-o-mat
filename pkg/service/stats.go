@@ -27,7 +27,11 @@ func (s *Service) Stats(ctx context.Context, acc account.Account) ([]stats.Summa
 		if err != nil {
 			return nil, err
 		}
-		state, err := g.Play(darts)
+		takeouts, err := s.store.ListTakeouts(ctx, g.ID)
+		if err != nil {
+			return nil, err
+		}
+		state, err := g.Play(darts, takeouts)
 		if err != nil {
 			return nil, err
 		}

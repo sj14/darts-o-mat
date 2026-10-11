@@ -8,6 +8,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/repos/store"
@@ -495,5 +496,65 @@ func TestSubscribe(t *testing.T) {
 	_, _ = s.AddDart(ctx, anna, v.Game.ID, t20)
 	if pending() {
 		t.Error("notified after stopping")
+	}
+}
+
+func TestTakeout(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	guest, _ := s.CreateGuest(ctx, anna, "Papa")
+	keller, _ := s.CreateBoard(ctx, anna, "Keller")
+
+	g := x01Game(anna.PlayerID, guest.ID)
+	g.BoardID = &keller.ID
+	v, err := s.CreateGame(ctx, anna, g, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Game.ID
+	current := func(v GameView) int64 { return *v.State.(x01.State).CurrentPlayerID }
+
+	for range 3 {
+		if v, err = s.AddDart(ctx, anna, id, t20); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !waiting(v.State) || current(v) != anna.PlayerID {
+		t.Fatalf("after 3 darts: waiting=%v current=%d, want anna waiting", waiting(v.State), current(v))
+	}
+	if _, err := s.AddDart(ctx, anna, id, t20); !errors.Is(err, turn.ErrWaitingForTakeout) {
+		t.Errorf("fourth dart: got %v, want ErrWaitingForTakeout", err)
+	}
+
+	if v, err = s.Takeout(ctx, anna, id); err != nil {
+		t.Fatal(err)
+	}
+	if waiting(v.State) || current(v) != guest.ID {
+		t.Errorf("after takeout: waiting=%v current=%d, want the guest", waiting(v.State), current(v))
+	}
+	// Another takeout without darts thrown changes nothing.
+	if v, _ = s.Takeout(ctx, anna, id); len(v.Takeouts) != 1 {
+		t.Errorf("empty takeout was recorded: %d takeouts", len(v.Takeouts))
+	}
+
+	// Undo takes back the takeout first, then darts.
+	if v, err = s.UndoDart(ctx, anna, id); err != nil {
+		t.Fatal(err)
+	}
+	if !waiting(v.State) || len(v.Darts) != 3 || len(v.Takeouts) != 0 {
+		t.Errorf("after undo: waiting=%v darts=%d takeouts=%d, want waiting with 3 darts", waiting(v.State), len(v.Darts), len(v.Takeouts))
+	}
+	if v, _ = s.UndoDart(ctx, anna, id); len(v.Darts) != 2 || waiting(v.State) {
+		t.Errorf("second undo: darts=%d waiting=%v, want 2 darts", len(v.Darts), waiting(v.State))
+	}
+
+	// Without a board, the turn passes on right after the third dart.
+	free, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID, guest.ID), nil)
+	for range 3 {
+		v, _ = s.AddDart(ctx, anna, free.Game.ID, t20)
+	}
+	if waiting(v.State) || current(v) != guest.ID {
+		t.Errorf("game without board: waiting=%v current=%d, want the guest", waiting(v.State), current(v))
 	}
 }

@@ -155,3 +155,21 @@ func (store *Store) DeleteLastDart(ctx context.Context, gameID int64) error {
 	}
 	return nil
 }
+
+// AddTakeout records that the darts were pulled out after the game's last dart.
+func (store *Store) AddTakeout(ctx context.Context, t *game.Takeout) error {
+	_, err := store.db.NewInsert().Model(t).Exec(ctx)
+	return err
+}
+
+// ListTakeouts returns a game's takeouts in the order they happened.
+func (store *Store) ListTakeouts(ctx context.Context, gameID int64) ([]game.Takeout, error) {
+	takeouts := []game.Takeout{}
+	err := store.db.NewSelect().Model(&takeouts).Where("game_id = ?", gameID).Order("after_dart", "id").Scan(ctx)
+	return takeouts, err
+}
+
+func (store *Store) DeleteTakeout(ctx context.Context, id int64) error {
+	_, err := store.db.NewDelete().Model((*game.Takeout)(nil)).Where("id = ?", id).Exec(ctx)
+	return err
+}

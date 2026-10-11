@@ -149,6 +149,20 @@ func (c *Controller) undoDart(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// takeout is called by htmx when the players confirm that the darts were pulled out.
+func (c *Controller) takeout(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	v, err := c.svc.Takeout(r.Context(), auth.Account(r.Context()), id)
+	if err != nil {
+		c.handleGameError(w, r, id, err)
+		return
+	}
+	render(w, r, http.StatusOK, view.Board(v, ""))
+}
+
 func (c *Controller) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
@@ -205,6 +219,8 @@ func (c *Controller) handleGameError(w http.ResponseWriter, r *http.Request, id 
 	switch {
 	case errors.Is(err, turn.ErrGameOver):
 		c.renderBoard(w, r, id, "Das Spiel ist schon vorbei.")
+	case errors.Is(err, turn.ErrWaitingForTakeout):
+		c.renderBoard(w, r, id, "Erst die Pfeile ziehen, dann ist der Nächste dran.")
 	case errors.Is(err, service.ErrNotReady):
 		c.renderBoard(w, r, id, "Es haben noch nicht alle Eingeladenen zugesagt.")
 	case errors.Is(err, service.ErrForbidden):

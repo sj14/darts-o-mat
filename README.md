@@ -50,6 +50,6 @@ Die Kamera-Erkennung ist noch in Arbeit, funktioniert aber schon für normale W�
 3. Den Befehl am Rechner mit den Kameras starten. Die Kalibrier-Oberfläche läuft dabei weiter unter <http://localhost:8090>: dort siehst du auch, was die Kameras bei den letzten Würfen erkannt haben, und kannst prüfen, ob das Raster noch auf dem Board liegt.
 4. Beim Spielstart dieses Board auswählen. Würfe erscheinen dann von selbst; Fehlerkennungen korrigierst du wie gewohnt mit „Letzten Dart zurücknehmen“.
 
-Beim Herausziehen der Pfeile wird eine unvollständige Aufnahme mit „Daneben“ aufgefüllt, z. B. wenn ein Pfeil abgeprallt ist.
+Auf einem Board ist der nächste Spieler erst dran, wenn die Pfeile herausgezogen wurden – das erkennt die Kamera, ohne Kamera tippst du auf „Pfeile gezogen“. Fehlt dabei noch ein Pfeil der Aufnahme (z. B. abgeprallt), zählt er als „Daneben“.
 
 Läuft darts-o-mat öffentlich erreichbar, kannst du die Registrierung neuer Accounts abschalten: `go run ./cmd/darts-o-mat -registration=false`.

@@ -20,14 +20,16 @@ type progress struct {
 	DartsInTurn     int
 	GameOver        bool
 	WinnerIDs       []int64
+	// WaitingForTakeout: the turn is over, the darts still have to be pulled out.
+	WaitingForTakeout bool
 }
 
 func progressOf(v service.GameView) progress {
 	switch st := v.State.(type) {
 	case x01.State:
-		return progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.GameOver, st.WinnerIDs}
+		return progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.GameOver, st.WinnerIDs, st.WaitingForTakeout}
 	case aroundtheclock.State:
-		return progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.GameOver, st.WinnerIDs}
+		return progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.GameOver, st.WinnerIDs, st.WaitingForTakeout}
 	}
 	return progress{}
 }
@@ -168,4 +170,17 @@ func dartsLabel(darts []throw.Dart) string {
 		labels[i] = dartLabel(d)
 	}
 	return strings.Join(labels, " · ")
+}
+
+// nextPlayerName returns who throws after the current player.
+func nextPlayerName(v service.GameView, p progress) string {
+	if p.CurrentPlayerID == nil {
+		return ""
+	}
+	for i, id := range v.Game.PlayerIDs {
+		if id == *p.CurrentPlayerID {
+			return playerName(v, v.Game.PlayerIDs[(i+1)%len(v.Game.PlayerIDs)])
+		}
+	}
+	return ""
 }

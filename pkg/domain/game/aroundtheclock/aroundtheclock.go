@@ -40,6 +40,9 @@ type State struct {
 	DartsInTurn     int           `json:"darts_in_turn"`
 	GameOver        bool          `json:"game_over"`
 	WinnerIDs       []int64       `json:"winner_ids"` // more than one on a draw
+	// WaitingForTakeout is set when the turn is over, but the darts weren't pulled out yet
+	// (only in games played on a board, see turn.Log.WaitForTakeout).
+	WaitingForTakeout bool `json:"waiting_for_takeout"`
 }
 
 // Play replays the darts of a game and returns the resulting state.
@@ -47,19 +50,27 @@ type State struct {
 // A player who hits the last target has finished; the game ends after that round,
 // see package turn.
 func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
+	return PlayLog(s, playerIDs, turn.Log{Darts: darts})
+}
+
+// PlayLog replays a game's log of darts and takeouts, see Play.
+func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 	st := State{}
 	for _, id := range playerIDs {
 		st.Players = append(st.Players, PlayerState{PlayerID: id, Target: 1})
 	}
 
 	t := turn.New()
+	if log.WaitForTakeout {
+		t = turn.NewWaitingForTakeouts()
+	}
 
-	for i, d := range darts {
+	err := log.Replay(&t, len(st.Players), func(i int, d throw.Dart) error {
 		if t.Over() {
-			return State{}, fmt.Errorf("dart %d: %w", i+1, turn.ErrGameOver)
+			return fmt.Errorf("dart %d: %w", i+1, turn.ErrGameOver)
 		}
 		if err := d.Validate(); err != nil {
-			return State{}, fmt.Errorf("dart %d: %w", i+1, err)
+			return fmt.Errorf("dart %d: %w", i+1, err)
 		}
 
 		p := &st.Players[t.Player]
@@ -69,10 +80,14 @@ func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
 			p.Target = s.next(p.Target, d.Multiplier)
 			if p.Target == 0 {
 				t.Finish(len(st.Players))
-				continue
+				return nil
 			}
 		}
 		t.Advance(len(st.Players))
+		return nil
+	})
+	if err != nil {
+		return State{}, err
 	}
 
 	for i := range st.Players {
@@ -83,6 +98,7 @@ func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
 
 	st.Round = t.Round
 	st.DartsInTurn = t.Dart
+	st.WaitingForTakeout = t.Waiting()
 	st.GameOver = t.Over()
 	st.WinnerIDs = []int64{}
 	for _, i := range t.Winners() {

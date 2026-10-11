@@ -47,6 +47,7 @@ func newStore(ctx context.Context, db *bun.DB) (*Store, error) {
 		(*account.Friendship)(nil),
 		(*game.Game)(nil),
 		(*game.Invitation)(nil),
+		(*game.Takeout)(nil),
 		(*player.Player)(nil),
 		(*board.Board)(nil),
 		(*board.Token)(nil),

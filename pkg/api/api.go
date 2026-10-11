@@ -58,6 +58,7 @@ func (a *API) Routes() http.Handler {
 		r.Get("/games/{id}", a.getGame)
 		r.Post("/games/{id}/darts", a.addDart)
 		r.Delete("/games/{id}/darts/last", a.undoDart)
+		r.Post("/games/{id}/takeout", a.takeout)
 
 		r.Get("/stats", a.stats)
 		r.Get("/friends", a.listFriends)
@@ -275,6 +276,16 @@ func (a *API) removeFriend(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// takeout confirms that the darts were pulled out, so the next player throws.
+func (a *API) takeout(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	v, err := a.svc.Takeout(r.Context(), auth.Account(r.Context()), id)
+	respond(w, http.StatusOK, v, err)
+}
+
 func (a *API) listInvitations(w http.ResponseWriter, r *http.Request) {
 	games, err := a.svc.Invitations(r.Context(), auth.Account(r.Context()))
 	respond(w, http.StatusOK, games, err)
@@ -360,7 +371,7 @@ func writeError(w http.ResponseWriter, err error) {
 		status = http.StatusForbidden
 	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound
-	case errors.Is(err, turn.ErrGameOver), errors.Is(err, service.ErrNothingToUndo), errors.Is(err, service.ErrNoActiveGame),
+	case errors.Is(err, turn.ErrGameOver), errors.Is(err, turn.ErrWaitingForTakeout), errors.Is(err, service.ErrNothingToUndo), errors.Is(err, service.ErrNoActiveGame),
 		errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrUsernameTaken):
 		status = http.StatusConflict
 	}

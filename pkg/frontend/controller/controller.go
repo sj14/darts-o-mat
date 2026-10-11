@@ -50,6 +50,7 @@ func (c *Controller) Routes() http.Handler {
 		r.Get("/games/{id}/events", c.gameEvents)
 		r.Post("/games/{id}/darts", c.addDart)
 		r.Post("/games/{id}/undo", c.undoDart)
+		r.Post("/games/{id}/takeout", c.takeout)
 		r.Post("/games/{id}/accept", c.acceptInvitation)
 		r.Post("/games/{id}/decline", c.declineInvitation)
 		r.Post("/games/{id}/invitations/{playerID}/withdraw", c.withdrawInvitation)

@@ -72,7 +72,7 @@ func (s *Service) BoardTakeout(ctx context.Context, b board.Board) (GameView, er
 			return GameView{}, err
 		}
 	}
-	return v, nil
+	return s.Takeout(ctx, owner, v.Game.ID)
 }
 
 // activeGame returns the newest game on the board that accepts darts, seen by the board's owner.
