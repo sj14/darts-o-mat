@@ -7,9 +7,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
-	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
-	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/repos/store"
 )
@@ -67,13 +65,13 @@ func (s *Service) BoardTakeout(ctx context.Context, b board.Board) (GameView, er
 	if err != nil {
 		return GameView{}, err
 	}
-	thrown, _ := v.turnProgress()
-	if thrown == 0 {
+	c := v.Common()
+	if c.DartsInTurn == 0 {
 		return v, nil
 	}
 	// A turn that is over (third dart, bust, checkout) needs no misses.
-	missing := turn.DartsPerTurn - thrown
-	if waiting(v.State) {
+	missing := turn.DartsPerTurn - c.DartsInTurn
+	if c.WaitingForTakeout {
 		missing = 0
 	}
 	for range missing {
@@ -102,20 +100,9 @@ func (s *Service) activeGame(ctx context.Context, b board.Board) (account.Accoun
 		if err != nil {
 			return account.Account{}, GameView{}, err
 		}
-		if _, over := v.turnProgress(); v.Ready && !over {
+		if v.Ready && !v.Common().GameOver {
 			return owner, v, nil
 		}
 	}
 	return account.Account{}, GameView{}, ErrNoActiveGame
-}
-
-// turnProgress returns how many darts were thrown in the current turn and whether the game is over.
-func (v GameView) turnProgress() (thrown int, over bool) {
-	switch st := v.State.(type) {
-	case x01.State:
-		return st.DartsInTurn, st.GameOver
-	case aroundtheclock.State:
-		return st.DartsInTurn, st.GameOver
-	}
-	return 0, true
 }

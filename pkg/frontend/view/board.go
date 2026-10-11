@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
-	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/service"
@@ -123,7 +122,7 @@ func fieldCenter(d throw.Dart, nth int) (dartboard.Point, bool) {
 // turn's (faded) right after a turn passed on. While bulling off, and until the first
 // dart of the game, the bull-off darts (the ties' earlier rounds faded).
 func boardDarts(v service.GameView, p progress) []boardDart {
-	if bull := bullOff(v); len(bull) > 0 && (p.BullingOff || onlyTakeoutsAfter(v, bull[len(bull)-1].Entry)) {
+	if bull := p.BullOff; len(bull) > 0 && (p.BullingOff || onlyTakeoutsAfter(v, bull[len(bull)-1].Entry)) {
 		round := bull[len(bull)-1].Round
 		var darts []throw.Dart
 		var faded []bool
@@ -190,7 +189,7 @@ func markDarts(v service.GameView, darts []throw.Dart, faded []bool) []boardDart
 
 // previousTurn returns the darts of the turn before the current one.
 func previousTurn(v service.GameView) []throw.Dart {
-	throwers := game.Throwers(v.State)
+	throwers := v.Common().Throwers
 	end := len(v.Darts)
 	for end > 0 && v.Darts[end-1].Takeout {
 		end--

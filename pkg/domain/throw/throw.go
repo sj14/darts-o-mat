@@ -3,6 +3,7 @@ package throw
 import (
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 // Bull is the number of the bull. A single bull scores 25, a double bull (bullseye) 50.
@@ -52,4 +53,21 @@ func (d Dart) Score() uint64 {
 		return 0
 	}
 	return uint64(d.Number) * uint64(d.Multiplier)
+}
+
+// String returns the dart as players read it: 20, D20, T20, Bull, Bullseye, Daneben (a miss).
+func (d Dart) String() string {
+	switch {
+	case d.Miss:
+		return "Daneben"
+	case d.Number == Bull && d.Multiplier == 2:
+		return "Bullseye"
+	case d.Number == Bull:
+		return "Bull"
+	case d.Multiplier == 2:
+		return "D" + strconv.Itoa(int(d.Number))
+	case d.Multiplier == 3:
+		return "T" + strconv.Itoa(int(d.Number))
+	}
+	return strconv.Itoa(int(d.Number))
 }

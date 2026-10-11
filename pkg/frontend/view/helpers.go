@@ -16,29 +16,12 @@ import (
 
 // progress is the part of the game state that is the same for all modes.
 type progress struct {
-	CurrentPlayerID *int64
-	Round           int
-	DartsInTurn     int
-	Leg             int
-	GameOver        bool
-	WinnerID        *int64
-	// WaitingForTakeout: the turn is over, the darts still have to be pulled out.
-	WaitingForTakeout bool
-	// LegOver: the turn waiting for the takeout won a leg.
-	LegOver bool
-	// BullingOff: the players still bull off for who starts.
-	BullingOff bool
-	Aborted    bool
+	turn.State
+	Aborted bool
 }
 
 func progressOf(v service.GameView) progress {
-	var p progress
-	switch st := v.State.(type) {
-	case x01.State:
-		p = progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.Leg, st.GameOver, st.WinnerID, st.WaitingForTakeout, st.LegOver, st.BullingOff, false}
-	case aroundtheclock.State:
-		p = progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.Leg, st.GameOver, st.WinnerID, st.WaitingForTakeout, st.LegOver, st.BullingOff, false}
-	}
+	p := progress{State: v.Common()}
 	if v.Game.Aborted() {
 		// Nobody is up anymore.
 		p.CurrentPlayerID, p.WaitingForTakeout, p.Aborted = nil, false, true
@@ -82,22 +65,6 @@ func turnDarts(v service.GameView, p progress) []throw.Dart {
 		return nil
 	}
 	return v.Darts[len(v.Darts)-p.DartsInTurn:]
-}
-
-func dartLabel(d throw.Dart) string {
-	switch {
-	case d.Miss:
-		return "Daneben"
-	case d.Number == throw.Bull && d.Multiplier == 2:
-		return "Bullseye"
-	case d.Number == throw.Bull:
-		return "Bull"
-	case d.Multiplier == 2:
-		return fmt.Sprintf("D%d", d.Number)
-	case d.Multiplier == 3:
-		return fmt.Sprintf("T%d", d.Number)
-	}
-	return strconv.Itoa(int(d.Number))
 }
 
 func targetLabel(target uint8) string {
@@ -202,7 +169,7 @@ func dartEditURL(v service.GameView, d throw.Dart) string {
 
 // dartThrower returns the name of the player who threw a dart of the game.
 func dartThrower(v service.GameView, dartID int64) string {
-	throwers := game.Throwers(v.State)
+	throwers := v.Common().Throwers
 	for i, d := range v.Darts {
 		if d.ID == dartID && i < len(throwers) {
 			return playerName(v, throwers[i])
@@ -237,7 +204,7 @@ func dartClass(v service.GameView, d throw.Dart) string {
 // dartTileClasses style a dart's large tile; the dart just thrown flies in.
 func dartTileClasses(v service.GameView, d throw.Dart) string {
 	classes := "flex h-20 items-center justify-center rounded-2xl font-display font-extrabold uppercase shadow-lg transition sm:h-24 " + dartTileColors(v, d)
-	if len(dartLabel(d)) > 4 {
+	if len(d.String()) > 4 {
 		classes += " text-2xl sm:text-3xl"
 	} else {
 		classes += " text-5xl"
@@ -311,49 +278,41 @@ func hitTarget(v service.GameView, d throw.Dart) bool {
 	return false
 }
 
-// sound returns which sound the last entry of the game's log makes (see static/sounds.js)
-// and the entry's id, which tells the page whether it is new.
-func sound(v service.GameView) (kind, id string) {
+// soundKind returns which sound the last entry of the game's log makes (see
+// static/sounds.js); soundID tells the page whether that entry is new.
+func soundKind(v service.GameView) string {
 	if len(v.Darts) == 0 {
-		return "", "0"
+		return ""
 	}
-	last := v.Darts[len(v.Darts)-1]
-	id = strconv.FormatInt(last.ID, 10)
+	last, c := v.Darts[len(v.Darts)-1], v.Common()
+	if event := latestTurnEvent(v); event != "" && !c.GameOver {
+		return event
+	}
 	switch {
 	case last.Takeout:
-		return "takeout", id
-	case progressOf(v).GameOver:
-		return "win", id
-	}
-	if _, won := legWon(v, progressOf(v)); won {
-		return "win", id
-	}
-	if event := latestTurnEvent(v); event != "" {
-		return event, id
-	}
-	switch {
+		return "takeout"
+	case c.GameOver || c.LegWinner != nil:
+		return "win"
 	case last.Miss:
-		return "miss", id
+		return "miss"
 	case hitTarget(v, last):
-		return "hit", id
+		return "hit"
 	case last.Number == throw.Bull:
-		return "bull", id
+		return "bull"
 	case last.Multiplier == 3:
-		return "triple", id
+		return "triple"
 	case last.Multiplier == 2:
-		return "double", id
+		return "double"
 	}
-	return "dart", id
+	return "dart"
 }
 
-func soundKind(v service.GameView) string {
-	kind, _ := sound(v)
-	return kind
-}
-
+// soundID is the id of the last entry of the game's log, 0 without one.
 func soundID(v service.GameView) string {
-	_, id := sound(v)
-	return id
+	if len(v.Darts) == 0 {
+		return "0"
+	}
+	return strconv.FormatInt(v.Darts[len(v.Darts)-1].ID, 10)
 }
 
 // checkoutSuggestion is how the current player can finish with the darts left in the
@@ -371,46 +330,9 @@ func checkoutSuggestion(v service.GameView, p progress) []throw.Dart {
 	return nil
 }
 
-// legWon reports whether the dart just thrown won a leg without ending the game, and
-// whose turn it was.
-func legWon(v service.GameView, p progress) (int64, bool) {
-	if p.GameOver || len(v.Darts) == 0 || v.Darts[len(v.Darts)-1].Takeout {
-		return 0, false
-	}
-	var leg, lastLeg int
-	var player int64
-	switch st := v.State.(type) {
-	case x01.State:
-		if len(st.Turns) == 0 || !st.Turns[len(st.Turns)-1].Checkout {
-			return 0, false
-		}
-		t := st.Turns[len(st.Turns)-1]
-		leg, lastLeg, player = st.Leg, t.Leg, t.PlayerID
-	case aroundtheclock.State:
-		if len(st.Turns) == 0 || st.Turns[len(st.Turns)-1].Target != 0 {
-			return 0, false
-		}
-		t := st.Turns[len(st.Turns)-1]
-		leg, lastLeg, player = st.Leg, t.Leg, t.PlayerID
-	}
-	// Either the next leg already started, or it waits for the takeout.
-	return player, leg > lastLeg || p.LegOver
-}
-
-// bullOff returns the darts thrown to bull off.
-func bullOff(v service.GameView) []turn.BullOffDart {
-	switch st := v.State.(type) {
-	case x01.State:
-		return st.BullOff
-	case aroundtheclock.State:
-		return st.BullOff
-	}
-	return nil
-}
-
 // bullOffDecided returns who won the bull-off, if the dart just thrown decided it.
 func bullOffDecided(v service.GameView, p progress) (int64, bool) {
-	darts := bullOff(v)
+	darts := p.BullOff
 	if p.BullingOff || len(darts) == 0 || darts[len(darts)-1].Entry != len(v.Darts)-1 || p.CurrentPlayerID == nil {
 		return 0, false
 	}
@@ -427,23 +349,16 @@ func bullOffDistance(d throw.Dart) string {
 
 // hasTurns reports whether the game has darts beyond the bull-off.
 func hasTurns(v service.GameView) bool {
-	switch st := v.State.(type) {
-	case x01.State:
-		return len(st.Turns) > 0
-	case aroundtheclock.State:
-		return len(st.Turns) > 0
-	}
-	return false
+	return len(v.Darts) > takeouts(v)+len(v.Common().BullOff)
 }
 
-// bullOffTie returns the players tied when bulling off, who throw again unless the
-// players decide who was closer.
-func bullOffTie(v service.GameView) []int64 {
-	switch st := v.State.(type) {
-	case x01.State:
-		return st.BullOffTie
-	case aroundtheclock.State:
-		return st.BullOffTie
+// takeouts counts the takeouts in the game's log.
+func takeouts(v service.GameView) int {
+	n := 0
+	for _, d := range v.Darts {
+		if d.Takeout {
+			n++
+		}
 	}
-	return nil
+	return n
 }

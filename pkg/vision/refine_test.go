@@ -61,7 +61,7 @@ func TestRefineCalibration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cam, _ := findCamera(calib, "cam3")
+	cam, _ := calib.Camera("cam3")
 	camToBoard, err := cam.ToBoard()
 	if err != nil {
 		t.Fatal(err)

@@ -39,8 +39,8 @@ func TestFinish(t *testing.T) {
 	// The checkout wins at once, also on a board: there is nothing to wait for.
 	tr := Log{WaitForTakeout: true}.Turn(2)
 	tr.Finish()
-	if w, over := tr.Winner(); !over || w != 0 || tr.Waiting() {
-		t.Errorf("winner=%d over=%v waiting=%v, want player 0 to win at once", w, over, tr.Waiting())
+	if !tr.Over() || tr.Player != 0 || tr.Waiting() {
+		t.Errorf("player=%d over=%v waiting=%v, want player 0 to win at once", tr.Player, tr.Over(), tr.Waiting())
 	}
 }
 
@@ -67,8 +67,8 @@ func TestLegs(t *testing.T) {
 		t.Fatalf("leg %d player %d, want leg 4 started by player 0", tr.Leg, tr.Player)
 	}
 	tr.Finish() // player 0 wins a second leg and the game
-	if w, over := tr.Winner(); !over || w != 0 {
-		t.Errorf("winner %d over %v, want player 0", w, over)
+	if !tr.Over() || tr.Player != 0 {
+		t.Errorf("player %d over %v, want player 0 to win", tr.Player, tr.Over())
 	}
 }
 
@@ -161,7 +161,7 @@ func TestBullOffCloser(t *testing.T) {
 	if err := log.Replay(tr, func(int, throw.Dart) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if got := tr.BullOffTie([]int64{10, 11, 12}); len(got) != 2 || got[0] != 10 || got[1] != 12 {
+	if got := tr.State([]int64{10, 11, 12}).BullOffTie; len(got) != 2 || got[0] != 10 || got[1] != 12 {
 		t.Fatalf("tie = %v, want players 10 and 12", got)
 	}
 
@@ -171,7 +171,7 @@ func TestBullOffCloser(t *testing.T) {
 	if err := log.Replay(tr, func(int, throw.Dart) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if tr.BullingOff() || tr.Player != 2 || tr.BullOffTie([]int64{10, 11, 12}) != nil {
+	if tr.BullingOff() || tr.Player != 2 || tr.State([]int64{10, 11, 12}).BullOffTie != nil {
 		t.Errorf("bulling off=%v player=%d, want player 2 to start", tr.BullingOff(), tr.Player)
 	}
 }

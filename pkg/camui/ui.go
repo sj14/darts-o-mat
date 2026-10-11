@@ -20,7 +20,6 @@ import (
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
-	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/frontend/static"
 	"github.com/sj14/darts-o-mat/pkg/vision"
 )
@@ -487,10 +486,10 @@ func dot(img *image.RGBA, p dartboard.Point, c color.Color) {
 func (ui *UI) eventModel(e shownEvent) EventModel {
 	m := EventModel{ID: e.ID, Time: e.Time.Format("15:04:05"), Takeout: e.Event.Kind == vision.EventTakeout}
 	if !m.Takeout {
-		m.Label = DartLabel(e.Event.Dart)
+		m.Label = e.Event.Dart.String()
 		m.Board = e.Event.Board
 		for i, p := range e.Event.Cameras {
-			m.Cameras = append(m.Cameras, CameraPoint{Index: i, Name: ui.calib.Cameras[i].Name, Board: p, Label: DartLabel(dartboard.Score(p))})
+			m.Cameras = append(m.Cameras, CameraPoint{Index: i, Name: ui.calib.Cameras[i].Name, Board: p, Label: dartboard.Score(p).String()})
 		}
 		slices.SortFunc(m.Cameras, func(a, b CameraPoint) int { return a.Index - b.Index })
 	}
@@ -559,21 +558,4 @@ func writeJPEG(w http.ResponseWriter, img image.Image) {
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(buf.Bytes())
-}
-
-// DartLabel names a dart like the scoreboard does, e.g. T20, D16, Bull.
-func DartLabel(d throw.Dart) string {
-	switch {
-	case d.Miss:
-		return "daneben"
-	case d.Number == throw.Bull && d.Multiplier == 2:
-		return "Bullseye"
-	case d.Number == throw.Bull:
-		return "Bull"
-	case d.Multiplier == 2:
-		return fmt.Sprintf("D%d", d.Number)
-	case d.Multiplier == 3:
-		return fmt.Sprintf("T%d", d.Number)
-	}
-	return fmt.Sprintf("S%d", d.Number)
 }

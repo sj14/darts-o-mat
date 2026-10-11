@@ -243,7 +243,7 @@ func TestRealThrows(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name+"-"+tt.camera, func(t *testing.T) {
-			cam, err := findCamera(calib, tt.camera)
+			cam, err := calib.Camera(tt.camera)
 			if err != nil {
 				t.Fatal(err)
 			}

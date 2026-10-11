@@ -176,3 +176,13 @@ func (c Calibration) loadImage(name string) (image.Image, error) {
 	img, _, err := image.Decode(f)
 	return img, err
 }
+
+// Camera returns the calibration of the camera with the given name.
+func (c Calibration) Camera(name string) (CameraCalibration, error) {
+	for _, cam := range c.Cameras {
+		if cam.Name == name {
+			return cam, nil
+		}
+	}
+	return CameraCalibration{}, fmt.Errorf("camera %q not in calibration", name)
+}

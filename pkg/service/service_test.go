@@ -518,8 +518,8 @@ func TestTakeout(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if !waiting(v.State) || current(v) != anna.PlayerID {
-		t.Fatalf("after 3 darts: waiting=%v current=%d, want anna waiting", waiting(v.State), current(v))
+	if !v.Common().WaitingForTakeout || current(v) != anna.PlayerID {
+		t.Fatalf("after 3 darts: waiting=%v current=%d, want anna waiting", v.Common().WaitingForTakeout, current(v))
 	}
 	if _, err := s.AddDart(ctx, anna, id, t20); !errors.Is(err, turn.ErrWaitingForTakeout) {
 		t.Errorf("fourth dart: got %v, want ErrWaitingForTakeout", err)
@@ -528,8 +528,8 @@ func TestTakeout(t *testing.T) {
 	if v, err = s.Takeout(ctx, anna, id); err != nil {
 		t.Fatal(err)
 	}
-	if waiting(v.State) || current(v) != guest.ID {
-		t.Errorf("after takeout: waiting=%v current=%d, want the guest", waiting(v.State), current(v))
+	if v.Common().WaitingForTakeout || current(v) != guest.ID {
+		t.Errorf("after takeout: waiting=%v current=%d, want the guest", v.Common().WaitingForTakeout, current(v))
 	}
 	// Another takeout without darts thrown changes nothing.
 	if v, _ = s.Takeout(ctx, anna, id); len(v.Darts) != 4 {
@@ -540,11 +540,11 @@ func TestTakeout(t *testing.T) {
 	if v, err = s.UndoDart(ctx, anna, id); err != nil {
 		t.Fatal(err)
 	}
-	if !waiting(v.State) || len(v.Darts) != 3 {
-		t.Errorf("after undo: waiting=%v entries=%d, want waiting with 3 darts", waiting(v.State), len(v.Darts))
+	if !v.Common().WaitingForTakeout || len(v.Darts) != 3 {
+		t.Errorf("after undo: waiting=%v entries=%d, want waiting with 3 darts", v.Common().WaitingForTakeout, len(v.Darts))
 	}
-	if v, _ = s.UndoDart(ctx, anna, id); len(v.Darts) != 2 || waiting(v.State) {
-		t.Errorf("second undo: darts=%d waiting=%v, want 2 darts", len(v.Darts), waiting(v.State))
+	if v, _ = s.UndoDart(ctx, anna, id); len(v.Darts) != 2 || v.Common().WaitingForTakeout {
+		t.Errorf("second undo: darts=%d waiting=%v, want 2 darts", len(v.Darts), v.Common().WaitingForTakeout)
 	}
 
 	// Without a board, the turn passes on right after the third dart.
@@ -552,8 +552,8 @@ func TestTakeout(t *testing.T) {
 	for range 3 {
 		v, _ = s.AddDart(ctx, anna, free.Game.ID, t20)
 	}
-	if waiting(v.State) || current(v) != guest.ID {
-		t.Errorf("game without board: waiting=%v current=%d, want the guest", waiting(v.State), current(v))
+	if v.Common().WaitingForTakeout || current(v) != guest.ID {
+		t.Errorf("game without board: waiting=%v current=%d, want the guest", v.Common().WaitingForTakeout, current(v))
 	}
 }
 
@@ -576,8 +576,8 @@ func TestBoardTakeoutAfterBust(t *testing.T) {
 	if v, err = s.AddDart(ctx, anna, v.Game.ID, t20); err != nil { // bust
 		t.Fatal(err)
 	}
-	if !waiting(v.State) || v.State.(x01.State).DartsInTurn != 2 {
-		t.Fatalf("after bust: waiting=%v darts=%d, want waiting after 2 darts", waiting(v.State), v.State.(x01.State).DartsInTurn)
+	if !v.Common().WaitingForTakeout || v.Common().DartsInTurn != 2 {
+		t.Fatalf("after bust: waiting=%v darts=%d, want waiting after 2 darts", v.Common().WaitingForTakeout, v.Common().DartsInTurn)
 	}
 	if v, err = s.BoardTakeout(ctx, keller); err != nil {
 		t.Fatal(err)

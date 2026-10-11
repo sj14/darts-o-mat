@@ -20,7 +20,6 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/camera"
 	"github.com/sj14/darts-o-mat/pkg/camui"
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
-	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/vision"
 )
 
@@ -80,7 +79,7 @@ func overlay(args []string) error {
 	if err != nil {
 		return err
 	}
-	cam, err := findCamera(calib, *camera)
+	cam, err := calib.Camera(*camera)
 	if err != nil {
 		return err
 	}
@@ -126,7 +125,7 @@ func score(args []string) error {
 	if err != nil {
 		return err
 	}
-	cam, err := findCamera(calib, *camera)
+	cam, err := calib.Camera(*camera)
 	if err != nil {
 		return err
 	}
@@ -142,7 +141,7 @@ func score(args []string) error {
 		}
 		b := toBoard.Apply(p)
 		d := dartboard.Score(b)
-		fmt.Printf("%s\t%.1f,%.1f mm\tr=%.1f\t%s\n", arg, b.X, b.Y, b.Radius(), dartLabel(d))
+		fmt.Printf("%s\t%.1f,%.1f mm\tr=%.1f\t%s\n", arg, b.X, b.Y, b.Radius(), d.String())
 	}
 	return nil
 }
@@ -259,7 +258,7 @@ func detect(args []string) error {
 			for i, p := range e.Cameras {
 				cams += fmt.Sprintf(" %s=%.0f,%.0f", calib.Cameras[i].Name, p.X, p.Y)
 			}
-			log.Printf("dart: %s at %.1f,%.1f mm (%d cameras:%s)", dartLabel(e.Dart), e.Board.X, e.Board.Y, len(e.Cameras), cams)
+			log.Printf("dart: %s at %.1f,%.1f mm (%d cameras:%s)", e.Dart.String(), e.Board.X, e.Board.Y, len(e.Cameras), cams)
 			if srv != nil {
 				// The position goes along for statistics and to see how far off the cameras
 				// were when the dart gets corrected.
@@ -357,7 +356,7 @@ func analyze(args []string) error {
 					return err
 				}
 				b := toBoard.Apply(d.Tip)
-				line += fmt.Sprintf(", tip %.0f,%.0f px -> %.0f,%.0f mm %s", d.Tip.X, d.Tip.Y, b.X, b.Y, dartLabel(dartboard.Score(b)))
+				line += fmt.Sprintf(", tip %.0f,%.0f px -> %.0f,%.0f mm %s", d.Tip.X, d.Tip.Y, b.X, b.Y, dartboard.Score(b).String())
 				if b.Radius() > vision.MaxBoardRadius {
 					line += " (off the board, ignored)"
 				} else {
@@ -374,7 +373,7 @@ func analyze(args []string) error {
 			return nil
 		}
 		if p, err := vision.FuseTips(points); err == nil {
-			fmt.Printf("event %d: %s at %.0f,%.0f mm\n", n, dartLabel(dartboard.Score(p)), p.X, p.Y)
+			fmt.Printf("event %d: %s at %.0f,%.0f mm\n", n, dartboard.Score(p).String(), p.X, p.Y)
 		}
 	}
 }
@@ -555,25 +554,4 @@ func loadEmpty(calib vision.Calibration, width, height int) ([]*image.RGBA, erro
 		empty = append(empty, img)
 	}
 	return empty, nil
-}
-
-func dartLabel(d throw.Dart) string {
-	switch {
-	case d.Miss:
-		return "miss"
-	case d.Multiplier == 2:
-		return fmt.Sprintf("D%d", d.Number)
-	case d.Multiplier == 3:
-		return fmt.Sprintf("T%d", d.Number)
-	}
-	return fmt.Sprintf("S%d", d.Number)
-}
-
-func findCamera(c vision.Calibration, name string) (vision.CameraCalibration, error) {
-	for _, cam := range c.Cameras {
-		if cam.Name == name {
-			return cam, nil
-		}
-	}
-	return vision.CameraCalibration{}, fmt.Errorf("camera %q not in calibration", name)
 }

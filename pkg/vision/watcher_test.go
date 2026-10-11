@@ -16,7 +16,7 @@ func TestWatcher(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cam, err := findCamera(calib, "cam3")
+	cam, err := calib.Camera("cam3")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,22 +62,13 @@ func TestWatcherIgnoresStillBoard(t *testing.T) {
 	}
 }
 
-func findCamera(c Calibration, name string) (CameraCalibration, error) {
-	for _, cam := range c.Cameras {
-		if cam.Name == name {
-			return cam, nil
-		}
-	}
-	return CameraCalibration{}, ErrNoDart
-}
-
 // The caller may reuse the slice of frames between calls, like darts-o-cam does.
 func TestWatcherReusedSlice(t *testing.T) {
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cam, _ := findCamera(calib, "cam3")
+	cam, _ := calib.Camera("cam3")
 	toBoard, err := cam.ToBoard()
 	if err != nil {
 		t.Fatal(err)
@@ -117,7 +108,7 @@ func TestWatcherTakeout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cam, _ := findCamera(calib, "cam3")
+	cam, _ := calib.Camera("cam3")
 	toBoard, err := cam.ToBoard()
 	if err != nil {
 		t.Fatal(err)
@@ -162,7 +153,7 @@ func TestWatcherTakeoutOfUnknownDarts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cam, _ := findCamera(calib, "cam3")
+	cam, _ := calib.Camera("cam3")
 	toBoard, err := cam.ToBoard()
 	if err != nil {
 		t.Fatal(err)

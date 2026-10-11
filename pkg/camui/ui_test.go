@@ -64,7 +64,7 @@ func TestEventPages(t *testing.T) {
 	}
 
 	// The overview needs cameras for their live images; without any it still lists events.
-	if code, body := get("/"); code != 200 || !strings.Contains(body, "S4") || !strings.Contains(body, "herausgezogen") {
+	if code, body := get("/"); code != 200 || !strings.Contains(body, ">4<") || !strings.Contains(body, "herausgezogen") {
 		t.Errorf("overview: %d, events missing", code)
 	}
 	code, body := get("/event/1")
@@ -76,19 +76,5 @@ func TestEventPages(t *testing.T) {
 	}
 	if code, _ := get("/event/99"); code != 404 {
 		t.Errorf("unknown event: %d, want 404", code)
-	}
-}
-
-func TestDartLabel(t *testing.T) {
-	for d, want := range map[throw.Dart]string{
-		{Number: 20, Multiplier: 3}:         "T20",
-		{Number: throw.Bull, Multiplier: 2}: "Bullseye",
-		{Number: throw.Bull, Multiplier: 1}: "Bull",
-		{Miss: true}:                        "daneben",
-		{Number: 5, Multiplier: 1}:          "S5",
-	} {
-		if got := DartLabel(d); got != want {
-			t.Errorf("DartLabel(%+v) = %s, want %s", d, got, want)
-		}
 	}
 }

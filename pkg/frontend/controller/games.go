@@ -135,14 +135,7 @@ func (c *Controller) undoDart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v, err := c.svc.UndoDart(r.Context(), auth.Account(r.Context()), id)
-	switch {
-	case err == nil:
-		render(w, r, http.StatusOK, view.Board(v, ""))
-	case errors.Is(err, service.ErrNothingToUndo):
-		c.renderBoard(w, r, id, "Es gibt keinen Dart zum Zurücknehmen.")
-	default:
-		c.handleGameError(w, r, id, err)
-	}
+	c.respondBoard(w, r, id, v, err)
 }
 
 // showBoard returns the board, e.g. to cancel correcting a dart.
@@ -216,11 +209,7 @@ func (c *Controller) takeout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := c.svc.Takeout(r.Context(), auth.Account(r.Context()), id)
-	if err != nil {
-		c.handleGameError(w, r, id, err)
-		return
-	}
-	render(w, r, http.StatusOK, view.Board(v, ""))
+	c.respondBoard(w, r, id, v, err)
 }
 
 // decideBullOff is called by htmx when the players decide who was closer in a bull-off tie.
@@ -251,11 +240,7 @@ func (c *Controller) abortGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := c.svc.AbortGame(r.Context(), auth.Account(r.Context()), id)
-	if err != nil {
-		c.handleGameError(w, r, id, err)
-		return
-	}
-	render(w, r, http.StatusOK, view.Board(v, ""))
+	c.respondBoard(w, r, id, v, err)
 }
 
 func (c *Controller) acceptInvitation(w http.ResponseWriter, r *http.Request) {
@@ -309,6 +294,15 @@ func (c *Controller) withdrawInvitation(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// respondBoard responds to an action on a game with the board, or with the error.
+func (c *Controller) respondBoard(w http.ResponseWriter, r *http.Request, id int64, v service.GameView, err error) {
+	if err != nil {
+		c.handleGameError(w, r, id, err)
+		return
+	}
+	render(w, r, http.StatusOK, view.Board(v, ""))
+}
+
 // handleGameError responds to errors shared by the actions on a game.
 func (c *Controller) handleGameError(w http.ResponseWriter, r *http.Request, id int64, err error) {
 	switch {
@@ -320,6 +314,8 @@ func (c *Controller) handleGameError(w http.ResponseWriter, r *http.Request, id 
 		c.renderBoard(w, r, id, "Es haben noch nicht alle Eingeladenen zugesagt.")
 	case errors.Is(err, service.ErrAborted):
 		c.renderBoard(w, r, id, "Das Spiel wurde abgebrochen.")
+	case errors.Is(err, service.ErrNothingToUndo):
+		c.renderBoard(w, r, id, "Es gibt keinen Dart zum Zurücknehmen.")
 	case errors.Is(err, service.ErrForbidden):
 		c.renderBoard(w, r, id, "Das darfst du in diesem Spiel nicht.")
 	case isNotFound(err):

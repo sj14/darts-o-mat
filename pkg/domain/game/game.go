@@ -122,13 +122,11 @@ type Invitation struct {
 	CreatedAt time.Time        `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
-// Throwers returns the player who threw each entry of a replayed game's state, 0 for takeouts.
-func Throwers(state any) []int64 {
-	switch st := state.(type) {
-	case x01.State:
-		return st.Throwers
-	case aroundtheclock.State:
-		return st.Throwers
+// Common returns the part of a replayed game's state that is the same for all modes
+// (turn.State, which every mode's state embeds).
+func Common(state any) turn.State {
+	if s, ok := state.(interface{ Common() turn.State }); ok {
+		return s.Common()
 	}
-	return nil
+	return turn.State{}
 }
