@@ -339,3 +339,20 @@ func TestBlur(t *testing.T) {
 		}
 	}
 }
+
+// TestFuseTipsDropsOutlier: a real T13 next to a dart already in the board (2026-10-11).
+// cam3 saw only part of the new dart behind the old one (35 mm off); the result must
+// be the middle of the other two instead of the one closer to cam3.
+func TestFuseTipsDropsOutlier(t *testing.T) {
+	cam1, cam2, cam3 := dartboard.Point{X: 93.9, Y: 24.9}, dartboard.Point{X: 99.6, Y: 15.4}, dartboard.Point{X: 60.0, Y: 33.0}
+	p, err := FuseTips([]dartboard.Point{cam1, cam2, cam3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (cam1.Radius() + cam2.Radius()) / 2; math.Abs(p.Radius()-want) > 0.01 {
+		t.Errorf("radius %.2f mm, want %.2f (mean of cam1 and cam2)", p.Radius(), want)
+	}
+	if got := dartboard.Score(p).Number; got != 13 {
+		t.Errorf("segment %d, want 13", got)
+	}
+}

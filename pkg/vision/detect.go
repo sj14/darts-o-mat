@@ -317,7 +317,33 @@ func tipOf(seed, area []image.Point) (Detection, error) {
 // triple by two cameras closer to the center than both: 99.6 and 100.2 mm became 98.0.)
 // Near the center the cameras surround the dart and their angles say nothing: then
 // it is the median of each coordinate.
+//
+// A camera far from that result is dropped and the others are combined again, which
+// for two cameras is their mean. Otherwise the median of three takes whichever of the
+// two good cameras is closer to the bad one, instead of the middle between them.
 func FuseTips(points []dartboard.Point) (dartboard.Point, error) {
+	p, err := fuseMedian(points)
+	if err != nil || len(points) < 3 {
+		return p, err
+	}
+	var inliers []dartboard.Point
+	for _, q := range points {
+		if math.Hypot(q.X-p.X, q.Y-p.Y) <= maxCameraDeviation {
+			inliers = append(inliers, q)
+		}
+	}
+	if len(inliers) < 2 || len(inliers) == len(points) {
+		return p, nil
+	}
+	return fuseMedian(inliers)
+}
+
+// maxCameraDeviation is how far a camera may be from the fused position. Cameras that
+// found the tip were measured up to 16 mm apart; one that only saw part of a dart
+// hidden behind another was 30 mm off.
+const maxCameraDeviation = 20.0
+
+func fuseMedian(points []dartboard.Point) (dartboard.Point, error) {
 	if len(points) == 0 {
 		return dartboard.Point{}, ErrNoDart
 	}
