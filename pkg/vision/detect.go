@@ -145,12 +145,7 @@ func DetectDart(before, after *image.RGBA, opts DetectOptions) (Detection, error
 	if seed == nil {
 		return Detection{}, ErrNotElongated
 	}
-	d, err := tipOf(seed, area)
-	if err != nil {
-		return d, err
-	}
-	d.Tip = refineTip(before, after, d.Tip, d.Axis, opts.WeakThreshold)
-	return d, nil
+	return tipOf(seed, area)
 }
 
 // ChangedArea returns the changed pixels that DetectDart looks at, e.g. to debug a detection.
@@ -262,39 +257,6 @@ func principalAxis(pts []image.Point) (center, axis dartboard.Point, elongation 
 		elongation = math.Sqrt(l1 / l2)
 	}
 	return center, axis, elongation
-}
-
-// refineTip follows the dart's axis beyond the tip in the unblurred images, because
-// blurring fades the last pixels of the thin point. It stops at the first gap.
-func refineTip(before, after *image.RGBA, tip, axis dartboard.Point, weak uint8) dartboard.Point {
-	const maxSteps, step = 30, 0.5
-	changed := func(p dartboard.Point) bool {
-		// A narrow corridor of ±1 px across the axis.
-		for o := -1.0; o <= 1; o++ {
-			x, y := int(math.Round(p.X-axis.Y*o)), int(math.Round(p.Y+axis.X*o))
-			if !image.Pt(x, y).In(after.Bounds()) {
-				continue
-			}
-			i := after.PixOffset(x, y)
-			for c := 0; c < 3; c++ {
-				if abs(int(after.Pix[i+c])-int(before.Pix[i+c])) > int(weak) {
-					return true
-				}
-			}
-		}
-		return false
-	}
-
-	last, misses := tip, 0
-	for i := 1; i <= maxSteps && misses < 4; i++ {
-		p := dartboard.Point{X: tip.X - axis.X*step*float64(i), Y: tip.Y - axis.Y*step*float64(i)}
-		if changed(p) {
-			last, misses = p, 0
-		} else {
-			misses++
-		}
-	}
-	return last
 }
 
 // tipOf finds the tip of the dart: the lower end of the area along the seed's axis.

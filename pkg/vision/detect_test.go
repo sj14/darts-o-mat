@@ -81,7 +81,11 @@ func TestDetectDart(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if dist := math.Hypot(d.Tip.X-tt.tip.X, d.Tip.Y-tt.tip.Y); dist > 2 {
+			// Blurring fades the last pixels of the thin point, so the tip comes out a few
+			// pixels short. Following the axis further in the unblurred images fixed that
+			// here, but on real images it ran into the point's shadow and made the results
+			// worse (2026-10-11, measured on 5 real throws), so it was dropped.
+			if dist := math.Hypot(d.Tip.X-tt.tip.X, d.Tip.Y-tt.tip.Y); dist > 5 {
 				t.Errorf("tip = %.1f,%.1f, want %.0f,%.0f (off by %.1f px)", d.Tip.X, d.Tip.Y, tt.tip.X, tt.tip.Y, dist)
 			}
 		})
@@ -104,7 +108,7 @@ func TestDetectDartIgnoresSpecks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dist := math.Hypot(d.Tip.X-tip.X, d.Tip.Y-tip.Y); dist > 2 {
+	if dist := math.Hypot(d.Tip.X-tip.X, d.Tip.Y-tip.Y); dist > 5 {
 		t.Errorf("tip = %.1f,%.1f, want %.0f,%.0f", d.Tip.X, d.Tip.Y, tip.X, tip.Y)
 	}
 }
@@ -227,6 +231,10 @@ func TestRealThrows(t *testing.T) {
 		{"003", "cam3", throw.Dart{Number: 8, Multiplier: 1}},
 		// The barrel in front of black fields only shows as a dashed line.
 		{"004", "cam1", throw.Dart{Number: 13, Multiplier: 1}},
+		// A dart in the bull, recorded while pulling it out (before and after swapped,
+		// which doesn't matter for the comparison). Following the axis further used to
+		// run 14 px into the shadow, out of the bull.
+		{"005", "cam2", throw.Dart{Number: throw.Bull, Multiplier: 1}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name+"-"+tt.camera, func(t *testing.T) {

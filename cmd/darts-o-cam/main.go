@@ -308,8 +308,12 @@ func analyze(args []string) error {
 					return err
 				}
 				b := toBoard.Apply(d.Tip)
-				points = append(points, b)
 				line += fmt.Sprintf(", tip %.0f,%.0f px -> %.0f,%.0f mm %s", d.Tip.X, d.Tip.Y, b.X, b.Y, dartLabel(dartboard.Score(b)))
+				if b.Radius() > vision.MaxBoardRadius {
+					line += " (off the board, ignored)"
+				} else {
+					points = append(points, b)
+				}
 				vision.DrawCross(annotated, d.Tip, 8, color.RGBA{0, 255, 0, 255})
 			}
 			fmt.Println(line)

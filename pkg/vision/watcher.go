@@ -34,6 +34,10 @@ var DefaultWatchOptions = WatchOptions{
 	TakeoutPixels:   4000,
 }
 
+// MaxBoardRadius is the radius of the whole board including the number ring, in mm.
+// A dart detected farther out is a misdetection.
+const MaxBoardRadius = 225
+
 type EventKind string
 
 const (
@@ -129,6 +133,9 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 			continue
 		}
 		p := w.toBoard[i].Apply(d.Tip)
+		if p.Radius() > MaxBoardRadius {
+			continue // e.g. a reflection outside the board was taken for the dart
+		}
 		e.Cameras[i] = p
 		points = append(points, p)
 	}
