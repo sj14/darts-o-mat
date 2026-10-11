@@ -2,8 +2,9 @@
 //
 // The server marks the board with the kind of the last log entry (data-sound) and its
 // id (data-sound-id). A sound plays when the board is swapped in with a newer entry,
-// i.e. for darts entered on this device, on other devices or by the cameras; not when
-// the page is loaded, a dart is corrected or undone.
+// i.e. for darts entered on this device, on other devices or by the cameras. An older
+// last entry means the last one was undone. Loading the page or correcting a dart
+// (same entry) makes no sound.
 (() => {
   "use strict";
 
@@ -125,6 +126,11 @@
       arpeggio([C5, E5, G5, C6, E6], 0.11, { type: "square", gain: 0.08 });
       [C5, G5, C6, E6].forEach((f) => tone(f, 0.65, 1.6, { type: "triangle", gain: 0.12, attack: 0.02 }));
     },
+    undo() {
+      // The dart flies back out: a rising whoosh and a falling blip.
+      noise(0, 0.25, { gain: 0.12, filter: "bandpass", freq: 400, sweepTo: 2500 });
+      tone(660, 0.05, 0.2, { type: "triangle", gain: 0.15, slideTo: 330 });
+    },
     takeout() {
       noise(0, 0.35, { gain: 0.12, filter: "bandpass", freq: 2500, sweepTo: 400 });
     },
@@ -134,8 +140,8 @@
     const board = document.getElementById("board");
     if (!board || !board.dataset.soundId) return;
     const id = Number(board.dataset.soundId);
-    if (lastID !== null && id > lastID && enabled()) {
-      const play = sounds[board.dataset.sound];
+    if (lastID !== null && enabled()) {
+      const play = id > lastID ? sounds[board.dataset.sound] : id < lastID ? sounds.undo : null;
       if (play) play();
     }
     lastID = id;
