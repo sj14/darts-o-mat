@@ -36,7 +36,7 @@ Neue Funktionen bauen auf dem bestehenden Stack auf; ohne Absprache keine zusät
 - **Statische Dateien:** htmx (samt SSE-Erweiterung) und Bootstrap liegen versioniert in `pkg/frontend/static` und werden per `go:embed` ausgeliefert, kein CDN (darts-o-mat soll auch ohne Internet laufen).
 - **Datenbank:** PostgreSQL und SQLite werden beide unterstützt (Auswahl per `-db sqlite|postgres` und `-dsn`). Persistenz-Code muss mit beiden Datenbanken funktionieren.
 - **ORM/Query-Builder:** [Bun](https://bun.uptrace.dev) (`pgdialect`/`pgdriver` für PostgreSQL, `sqlitedialect` mit dem cgo-freien Treiber `modernc.org/sqlite` für SQLite)
-- **Kamera/Bildverarbeitung:** reines Go ohne cgo (`pkg/vision`); Kamerabilder kommen über **ffmpeg** als Rohbilder per Pipe (macOS: AVFoundation, Linux: V4L2), ffmpeg muss also installiert sein. GoCV war vorgesehen, für Intel-Macs mit macOS 26 gibt es aber keine OpenCV-Pakete (Homebrew müsste OpenCV mit 26 Abhängigkeiten stundenlang selbst bauen); deshalb am 2026-10-11 bewusst verworfen. Siehe [Kamera](#kamera).
+- **Kamera/Bildverarbeitung:** reines Go ohne cgo (`pkg/vision`); Kamerabilder kommen über **ffmpeg** als Rohbilder per Pipe (macOS: AVFoundation, Linux: V4L2), ffmpeg muss also installiert sein. GoCV war vorgesehen, für Intel-Macs mit macOS 26 gibt es aber keine OpenCV-Pakete (Homebrew müsste OpenCV mit 26 Abhängigkeiten stundenlang selbst bauen); deshalb am 2026-10-11 bewusst verworfen. Siehe [Kamera](#kamera). Geplant: ffmpeg durch ein eigenes Kamera-Paket ersetzen, siehe [Plan: Kamerazugriff ohne ffmpeg](#plan-kamerazugriff-ohne-ffmpeg).
 - **Messaging (optional):** [NATS](https://nats.io) darf aufgenommen werden, wenn es gebraucht wird, z. B. um Würfe von der Kamera (`darts-o-cam`) an den Server (`darts-o-mat`) zu übertragen.
 
 ## Struktur
@@ -93,6 +93,22 @@ Weitere Optionen, falls der jetzige Ansatz nicht reicht (Pflegestand der Bibliot
 - **Neuronales Netz über ONNX Runtime** (z. B. [onnxruntime_go](https://github.com/yalue/onnxruntime_go), ebenfalls cgo): ein trainiertes Modell erkennt die Dartspitzen direkt, robuster bei Licht und Verdeckung, braucht aber Trainingsdaten und ein Modell.
   Erst angehen, wenn der klassische Ansatz nicht zuverlässig genug ist.
 - **Python mit OpenCV als eigener Dienst**, der Würfe per NATS/HTTP meldet: nur als letzter Ausweg, weil es den Go-Stack verlässt.
+
+### Plan: Kamerazugriff ohne ffmpeg
+
+Entschieden mit dem Nutzer am 2026-10-11, **noch nicht umgesetzt**:
+
+- **Ziel:** darts-o-cam ohne externe Programme auf Linux, macOS und möglichst Windows. Ohne cgo ist erwünscht, aber kein Muss.
+- **Eigenes Paket** (z. B. `pkg/camera`) mit einem Backend je Betriebssystem und kleiner Schnittstelle: Geräte auflisten (Name, ID, Modell), Kamera mit Breite/Höhe/fps öffnen, Bilder als Stream (neues Bild wird signalisiert, kein „letztes Bild abholen“). `pkg/vision` hängt nur noch an dieser Schnittstelle; Auswahl per Name und Zuordnung per Bild (siehe „Kameras finden“) bleiben.
+- **Reihenfolge:**
+  1. macOS: AVFoundation über [purego](https://github.com/ebitengine/purego) (Apache 2.0, vom Nutzer freigegeben) statt cgo, damit kein Xcode zum Bauen nötig ist und Cross-Kompilieren geht. Zur Laufzeit registrierte Delegate-Klasse, Callbacks auf der Dispatch-Queue, Kamera-Berechtigung beachten. `AVCaptureDevice` liefert `localizedName`, `uniqueID` und `modelID` (bei UVC mit VendorID/ProductID) – damit entfällt auch `system_profiler`.
+  2. Linux: V4L2 per ioctl mit `golang.org/x/sys/unix`, MJPEG mit `image/jpeg` dekodieren (bei 3 Kameras an USB 2.0 nötig); Geräteliste aus `/sys/class/video4linux`.
+  3. Windows: Media Foundation per `syscall` (COM über vtables), am aufwändigsten.
+- **Kein ffmpeg-Rückfall** (Entscheidung des Nutzers): Mit dem Umbau fliegt ffmpeg ganz raus; Linux und Windows gehen dann erst wieder, wenn ihr Backend fertig ist.
+- **Geprüfte Bibliotheken:**
+  - [gen2brain/cam2ip](https://github.com/gen2brain/cam2ip) (Paket `camera`): ohne cgo auf allen drei Systemen. Am Entwicklungs-Board getestet: 3 Kameras gleichzeitig mit 1280×720 bei ~29,5 fps. Verworfen wegen GPL-3.0; außerdem gibt `Read()` nur das letzte Bild im selben Puffer zurück, ohne auf ein neues zu warten, und liefert kein Modell. Den Code nicht übernehmen (GPL), das eigene Backend nach Apple-Doku schreiben.
+  - [svanichkin/gocam](https://github.com/svanichkin/gocam) (MIT): unbrauchbar. Es öffnet nur die Standardkamera bzw. `/dev/video0` mit globalem Zustand (keine drei Kameras), unter macOS fest 352×288, keine Geräteliste, cgo.
+  - Reine Linux-Pakete (go4vl, ch3ri0ur/go-v4l2, korandiz/v4l) decken nur Linux ab.
 
 ## Spielstand
 
