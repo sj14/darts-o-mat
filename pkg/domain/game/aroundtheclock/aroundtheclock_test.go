@@ -29,7 +29,7 @@ func TestPlay(t *testing.T) {
 		darts       []throw.Dart
 		wantTargets []uint8
 		wantCurrent int64 // 0 means the game is over
-		wantWinners []int64
+		wantWinner  int64
 	}{
 		{
 			name:        "no darts",
@@ -56,16 +56,10 @@ func TestPlay(t *testing.T) {
 			wantCurrent: 1,
 		},
 		{
-			name:        "finished after 20 without bull, player 2 may still throw",
+			name:        "hitting the 20 without bull wins at once",
 			darts:       oneplayer(hitsUpTo(20)),
 			wantTargets: []uint8{0, 1},
-			wantCurrent: 2,
-		},
-		{
-			name:        "game is over at the end of the round",
-			darts:       append(oneplayer(hitsUpTo(20)), hit(1, 1), hit(2, 1), hit(3, 1)),
-			wantTargets: []uint8{0, 4},
-			wantWinners: []int64{1},
+			wantWinner:  1,
 		},
 		{
 			name:        "bull is the last target",
@@ -79,7 +73,7 @@ func TestPlay(t *testing.T) {
 			settings:    Settings{Bull: true},
 			darts:       oneplayer(append(hitsUpTo(20), hit(throw.Bull, 1))),
 			wantTargets: []uint8{0, 1},
-			wantCurrent: 2,
+			wantWinner:  1,
 		},
 		{
 			name:        "skipping past 20 goes to bull",
@@ -108,11 +102,12 @@ func TestPlay(t *testing.T) {
 			if current != tt.wantCurrent {
 				t.Errorf("current player = %d, want %d", current, tt.wantCurrent)
 			}
-			if !slices.Equal(st.WinnerIDs, tt.wantWinners) && len(st.WinnerIDs)+len(tt.wantWinners) > 0 {
-				t.Errorf("winners = %v, want %v", st.WinnerIDs, tt.wantWinners)
+			var winner int64
+			if st.WinnerID != nil {
+				winner = *st.WinnerID
 			}
-			if st.GameOver != (len(tt.wantWinners) > 0) {
-				t.Errorf("game over = %v, want %v", st.GameOver, len(tt.wantWinners) > 0)
+			if winner != tt.wantWinner || st.GameOver != (tt.wantWinner != 0) {
+				t.Errorf("winner = %d (game over %v), want %d", winner, st.GameOver, tt.wantWinner)
 			}
 		})
 	}
@@ -179,5 +174,20 @@ func TestTurns(t *testing.T) {
 	st, _ = Play(Settings{}, []int64{1}, hitsUpTo(20))
 	if last := st.Turns[len(st.Turns)-1]; !last.Complete || last.Target != 0 || len(last.Darts) != 2 {
 		t.Errorf("last turn = %+v, want complete after 2 darts with target 0", last)
+	}
+}
+
+func TestLegs(t *testing.T) {
+	log := turn.Log{Legs: 2, Entries: oneplayer(hitsUpTo(20))}
+	st, err := PlayLog(Settings{}, []int64{1, 2}, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.GameOver || st.Leg != 2 || st.Players[0].Legs != 1 || st.Players[0].Target != 1 || *st.CurrentPlayerID != 2 {
+		t.Errorf("after leg 1: over=%v leg=%d legs=%d target=%d, want leg 2 started by player 2 with targets reset",
+			st.GameOver, st.Leg, st.Players[0].Legs, st.Players[0].Target)
+	}
+	if got := st.Players[0].Stats.BestLeg; got != 20 {
+		t.Errorf("best leg = %d darts, want 20", got)
 	}
 }

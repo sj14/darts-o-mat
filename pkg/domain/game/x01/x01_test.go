@@ -3,7 +3,6 @@ package x01
 import (
 	"errors"
 	"reflect"
-	"slices"
 	"testing"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
@@ -25,7 +24,7 @@ func TestPlay(t *testing.T) {
 		wantCurrent   int64 // 0 means the game is over
 		wantRound     int
 		wantDarts     int
-		wantWinners   []int64
+		wantWinner    int64 // 0 while the game goes on
 	}{
 		{
 			name:          "no darts",
@@ -76,60 +75,49 @@ func TestPlay(t *testing.T) {
 			wantRound:     1,
 		},
 		{
-			name:          "after a checkout the remaining players may still throw",
+			name:          "the checkout wins at once, the others don't throw anymore",
 			settings:      Settings{StartScore: 40, OutMode: OutModeDouble},
 			darts:         []throw.Dart{hit(20, 1), hit(10, 2)},
 			wantRemaining: []uint64{0, 40},
-			wantCurrent:   2,
 			wantRound:     1,
-		},
-		{
-			name:          "game is over at the end of the round",
-			settings:      Settings{StartScore: 40, OutMode: OutModeDouble},
-			darts:         []throw.Dart{hit(20, 1), hit(10, 2), miss, miss, miss},
-			wantRemaining: []uint64{0, 40},
-			wantRound:     1,
-			wantWinners:   []int64{1},
-		},
-		{
-			name:          "draw when both check out in the same round",
-			settings:      Settings{StartScore: 40, OutMode: OutModeDouble},
-			darts:         []throw.Dart{hit(20, 2), hit(10, 1), hit(15, 2)},
-			wantRemaining: []uint64{0, 0},
-			wantRound:     1,
-			wantWinners:   []int64{1, 2},
+			wantDarts:     2,
+			wantWinner:    1,
 		},
 		{
 			name:          "bullseye counts as double",
 			settings:      Settings{StartScore: 50, OutMode: OutModeDouble},
 			darts:         []throw.Dart{hit(throw.Bull, 2)},
 			wantRemaining: []uint64{0, 50},
-			wantCurrent:   2,
 			wantRound:     1,
+			wantDarts:     1,
+			wantWinner:    1,
 		},
 		{
-			name:          "checkout by the last player ends the game",
+			name:          "checkout by the second player",
 			settings:      Settings{StartScore: 20, OutMode: OutModeSingle},
 			darts:         []throw.Dart{miss, miss, miss, hit(19, 1), hit(1, 1)},
 			wantRemaining: []uint64{20, 0},
 			wantRound:     1,
-			wantWinners:   []int64{2},
+			wantDarts:     2,
+			wantWinner:    2,
 		},
 		{
 			name:          "master out finishes on a double",
 			settings:      Settings{StartScore: 6, OutMode: OutModeMaster},
 			darts:         []throw.Dart{hit(3, 2)},
 			wantRemaining: []uint64{0, 6},
-			wantCurrent:   2,
 			wantRound:     1,
+			wantDarts:     1,
+			wantWinner:    1,
 		},
 		{
 			name:          "master out finishes on a triple",
 			settings:      Settings{StartScore: 12, OutMode: OutModeMaster},
 			darts:         []throw.Dart{hit(3, 2), hit(2, 3)},
 			wantRemaining: []uint64{0, 12},
-			wantCurrent:   2,
 			wantRound:     1,
+			wantDarts:     2,
+			wantWinner:    1,
 		},
 		{
 			name:          "finishing on a single busts on master out",
@@ -173,11 +161,12 @@ func TestPlay(t *testing.T) {
 			if st.DartsInTurn != tt.wantDarts {
 				t.Errorf("darts in turn = %d, want %d", st.DartsInTurn, tt.wantDarts)
 			}
-			if !slices.Equal(st.WinnerIDs, tt.wantWinners) && len(st.WinnerIDs)+len(tt.wantWinners) > 0 {
-				t.Errorf("winners = %v, want %v", st.WinnerIDs, tt.wantWinners)
+			var winner int64
+			if st.WinnerID != nil {
+				winner = *st.WinnerID
 			}
-			if st.GameOver != (len(tt.wantWinners) > 0) {
-				t.Errorf("game over = %v, want %v", st.GameOver, len(tt.wantWinners) > 0)
+			if winner != tt.wantWinner || st.GameOver != (tt.wantWinner != 0) {
+				t.Errorf("winner = %d (game over %v), want %d", winner, st.GameOver, tt.wantWinner)
 			}
 		})
 	}
@@ -260,10 +249,10 @@ func TestTurns(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []Turn{
-		{PlayerID: 1, Round: 1, Points: 66, Remaining: 34, Complete: true},
-		{PlayerID: 2, Round: 1, Points: 90, Remaining: 10, Complete: true},
-		{PlayerID: 1, Round: 2, Points: 0, Remaining: 34, Bust: true, Complete: true},
-		{PlayerID: 2, Round: 2, Points: 10, Remaining: 0, Checkout: true, Complete: true},
+		{PlayerID: 1, Leg: 1, Round: 1, Points: 66, Remaining: 34, Complete: true},
+		{PlayerID: 2, Leg: 1, Round: 1, Points: 90, Remaining: 10, Complete: true},
+		{PlayerID: 1, Leg: 1, Round: 2, Points: 0, Remaining: 34, Bust: true, Complete: true},
+		{PlayerID: 2, Leg: 1, Round: 2, Points: 10, Remaining: 0, Checkout: true, Complete: true},
 	}
 	wantDarts := []int{3, 3, 3, 1}
 	if len(st.Turns) != len(want) {
@@ -316,5 +305,58 @@ func TestPlayLogWaitForTakeout(t *testing.T) {
 	st, _ = PlayLog(Settings{StartScore: 40, OutMode: OutModeDouble}, []int64{1, 2}, turn.Log{Entries: []throw.Dart{hit(20, 3)}, WaitForTakeout: true})
 	if !st.WaitingForTakeout || st.Players[0].Remaining != 40 || st.DartsInTurn != 1 {
 		t.Errorf("bust: waiting=%v remaining=%d darts=%d, want waiting with 40 left after 1 dart", st.WaitingForTakeout, st.Players[0].Remaining, st.DartsInTurn)
+	}
+}
+
+func TestLegs(t *testing.T) {
+	s := Settings{StartScore: 40, OutMode: OutModeDouble}
+	log := turn.Log{Legs: 2, Entries: []throw.Dart{
+		hit(20, 2), // leg 1: player 1 checks out and wins it at once
+		miss,       // leg 2 is started by player 2
+	}}
+	st, err := PlayLog(s, []int64{1, 2}, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.GameOver || st.Leg != 2 || *st.CurrentPlayerID != 2 || st.Players[0].Legs != 1 || st.Players[0].Remaining != 40 {
+		t.Fatalf("after leg 1: over=%v leg=%d current=%d legs=%d remaining=%d, want leg 2 started by player 2 with the scores reset",
+			st.GameOver, st.Leg, *st.CurrentPlayerID, st.Players[0].Legs, st.Players[0].Remaining)
+	}
+
+	// Player 1 wins the second leg, too, and with it the game.
+	log.Entries = append(log.Entries, miss, miss, hit(20, 2))
+	st, err = PlayLog(s, []int64{1, 2}, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !st.GameOver || *st.WinnerID != 1 || st.Players[0].Legs != 2 {
+		t.Fatalf("over=%v legs=%d, want player 1 to win 2 legs to 0", st.GameOver, st.Players[0].Legs)
+	}
+	stats := st.Players[0].Stats
+	if stats.BestLeg != 1 || stats.Points != 80 || stats.Checkout != 40 {
+		t.Errorf("stats = %+v, want best leg 1 dart, 80 points over both legs", stats)
+	}
+	if _, err := PlayLog(s, []int64{1, 2}, turn.Log{Legs: 2, Entries: append(log.Entries, miss)}); !errors.Is(err, turn.ErrGameOver) {
+		t.Errorf("dart after the game: got %v, want ErrGameOver", err)
+	}
+
+	// On a board the next leg waits for the darts to be pulled out.
+	board := turn.Log{Legs: 2, WaitForTakeout: true, Entries: []throw.Dart{hit(20, 2)}}
+	st, _ = PlayLog(s, []int64{1, 2}, board)
+	if !st.WaitingForTakeout || !st.LegOver || st.Leg != 1 {
+		t.Errorf("waiting=%v legOver=%v leg=%d, want leg 1 won and waiting for the takeout", st.WaitingForTakeout, st.LegOver, st.Leg)
+	}
+	board.Entries = append(board.Entries, throw.Dart{Takeout: true})
+	st, _ = PlayLog(s, []int64{1, 2}, board)
+	if st.WaitingForTakeout || st.Leg != 2 || *st.CurrentPlayerID != 2 {
+		t.Errorf("after the takeout: waiting=%v leg=%d, want leg 2 started by player 2", st.WaitingForTakeout, st.Leg)
+	}
+}
+
+func TestStatsPointsAfterBust(t *testing.T) {
+	// The first dart of a busted turn doesn't count for the average.
+	st, _ := Play(Settings{StartScore: 30, OutMode: OutModeDouble}, []int64{1}, []throw.Dart{hit(20, 1), hit(20, 1)})
+	if got := st.Players[0].Stats.Points; got != 0 {
+		t.Errorf("points = %d, want 0 after a bust", got)
 	}
 }

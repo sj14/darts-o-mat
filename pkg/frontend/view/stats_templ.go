@@ -148,7 +148,7 @@ func Stats(user string, summaries []stats.Summary) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = statRow("Spiele / Siege", strconv.Itoa(s.X01.Games)+" / "+strconv.Itoa(s.X01.Wins)).Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = statRow("Spiele / Siege / Legs", strconv.Itoa(s.X01.Games)+" / "+strconv.Itoa(s.X01.Wins)+" / "+strconv.Itoa(s.X01.Legs)).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -164,7 +164,7 @@ func Stats(user string, summaries []stats.Summary) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = statRow("Bestes Spiel", orDash(s.X01.BestGame > 0, strconv.Itoa(s.X01.BestGame)+" Darts")).Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = statRow("Bestes Leg", orDash(s.X01.BestLeg > 0, strconv.Itoa(s.X01.BestLeg)+" Darts")).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -208,7 +208,7 @@ func Stats(user string, summaries []stats.Summary) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = statTile(orDash(s.AroundTheClock.BestGame > 0, strconv.Itoa(s.AroundTheClock.BestGame)), "Bestes").Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = statTile(orDash(s.AroundTheClock.BestLeg > 0, strconv.Itoa(s.AroundTheClock.BestLeg)), "Bestes Leg").Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -216,7 +216,7 @@ func Stats(user string, summaries []stats.Summary) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = statRow("Spiele / Siege", strconv.Itoa(s.AroundTheClock.Games)+" / "+strconv.Itoa(s.AroundTheClock.Wins)).Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = statRow("Spiele / Siege / Legs", strconv.Itoa(s.AroundTheClock.Games)+" / "+strconv.Itoa(s.AroundTheClock.Wins)+" / "+strconv.Itoa(s.AroundTheClock.Legs)).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -224,7 +224,7 @@ func Stats(user string, summaries []stats.Summary) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = statRow("Bestes Spiel", orDash(s.AroundTheClock.BestGame > 0, strconv.Itoa(s.AroundTheClock.BestGame)+" Darts")).Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = statRow("Bestes Leg", orDash(s.AroundTheClock.BestLeg > 0, strconv.Itoa(s.AroundTheClock.BestLeg)+" Darts")).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}

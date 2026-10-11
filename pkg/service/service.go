@@ -118,6 +118,9 @@ func (v GameView) InvitationOf(playerID int64) *game.Invitation {
 func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Game, inviteUsernames []string) (GameView, error) {
 	g.ID = 0
 	g.OwnerAccountID = acc.ID
+	if g.Legs == 0 {
+		g.Legs = 1 // a single leg unless asked otherwise
+	}
 
 	own, err := s.store.ListPlayers(ctx, acc.ID, acc.PlayerID)
 	if err != nil {

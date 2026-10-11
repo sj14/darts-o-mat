@@ -352,11 +352,9 @@ func TestStats(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	miss := throw.Dart{Miss: true}
-	for _, d := range []throw.Dart{{Number: 20, Multiplier: 2}, miss, miss, miss} {
-		if _, err := s.AddDart(ctx, anna, v.Game.ID, d); err != nil {
-			t.Fatal(err)
-		}
+	// Anna checks out with her first dart and wins at once.
+	if _, err := s.AddDart(ctx, anna, v.Game.ID, throw.Dart{Number: 20, Multiplier: 2}); err != nil {
+		t.Fatal(err)
 	}
 
 	// A running game doesn't count.
@@ -372,10 +370,10 @@ func TestStats(t *testing.T) {
 	if len(summaries) != 2 {
 		t.Fatalf("got %d summaries, want anna and her guest", len(summaries))
 	}
-	if got := summaries[0].X01; got.Games != 1 || got.Wins != 1 || got.Darts != 1 || got.Average != 120 || got.HighestCheckout != 40 || got.BestGame != 1 {
+	if got := summaries[0].X01; got.Games != 1 || got.Wins != 1 || got.Darts != 1 || got.Average != 120 || got.HighestCheckout != 40 || got.BestLeg != 1 {
 		t.Errorf("anna's stats = %+v", got)
 	}
-	if got := summaries[1].X01; got.Games != 1 || got.Wins != 0 || got.Darts != 3 || got.Average != 0 || got.BestGame != 0 {
+	if got := summaries[1].X01; got.Games != 1 || got.Wins != 0 || got.Darts != 0 || got.Average != 0 || got.BestLeg != 0 {
 		t.Errorf("guest's stats = %+v", got)
 	}
 }

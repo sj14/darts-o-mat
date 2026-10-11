@@ -45,6 +45,9 @@ templ gameTitle(v service.GameView, p *progress) {
 				<span class="rounded-full bg-white/10 px-3 py-1">📷 { v.Board.Name }</span>
 			}
 			if p != nil && p.running() {
+				if v.Game.Legs > 1 {
+					<span class="rounded-full bg-amber-400/20 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider text-amber-300">Leg { strconv.Itoa(p.Leg) }</span>
+				}
 				<span class="rounded-full bg-white/10 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider">Runde { strconv.Itoa(p.Round) }</span>
 			}
 		</div>
@@ -131,16 +134,7 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 		@errorAlert(errMsg)
 		if p.GameOver {
 			<div class="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-amber-300 via-amber-400 to-orange-500 p-6 text-pub-950 shadow-2xl shadow-amber-500/30 animate-dart-in" role="status">
-				<div class="font-display text-5xl font-extrabold uppercase sm:text-6xl">
-					if len(p.WinnerIDs) > 1 {
-						Unentschieden!
-					} else {
-						🏆 { playerNames(v, p.WinnerIDs) } gewinnt!
-					}
-				</div>
-				if len(p.WinnerIDs) > 1 {
-					<div class="mt-1 text-lg font-semibold">{ playerNames(v, p.WinnerIDs) }</div>
-				}
+				<div class="font-display text-5xl font-extrabold uppercase sm:text-6xl">🏆 { playerName(v, *p.WinnerID) } gewinnt!</div>
 				<a href="/" class="mt-4 inline-block rounded-xl bg-pub-950 px-5 py-2.5 font-semibold text-amber-300 hover:bg-pub-800">Neues Spiel</a>
 			</div>
 		}
@@ -154,15 +148,15 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 			switch st := v.State.(type) {
 				case x01.State:
 					for _, ps := range st.Players {
-						@playerCard(v, p, ps.PlayerID, strconv.FormatUint(ps.Remaining, 10), "Rest", orDash(ps.Stats.Darts > 0, decimal(ps.Stats.Average)), "Ø 3 Darts")
+						@playerCard(v, p, ps.PlayerID, ps.Legs, strconv.FormatUint(ps.Remaining, 10), "Rest", orDash(ps.Stats.Darts > 0, decimal(ps.Stats.Average)), "Ø 3 Darts")
 					}
 				case aroundtheclock.State:
 					for _, ps := range st.Players {
-						@playerCard(v, p, ps.PlayerID, targetLabel(ps.Target), "Ziel", orDash(ps.Stats.Darts > 0, percent(ps.Stats.HitRate)), "Trefferquote")
+						@playerCard(v, p, ps.PlayerID, ps.Legs, targetLabel(ps.Target), "Ziel", orDash(ps.Stats.Darts > 0, percent(ps.Stats.HitRate)), "Trefferquote")
 					}
 			}
 		</div>
-		@celebration(v)
+		@celebration(v, p)
 		<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
 			<div class="order-2 lg:order-1">
 				@dartboardView(v, p)
@@ -193,7 +187,11 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 						<div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 [--glow-color:var(--color-amber-400)] animate-glow" role="status">
 							<span>
 								<span class="font-display text-2xl font-extrabold uppercase text-amber-300">Pfeile ziehen</span>
-								<span class="block text-white/70">Danach ist { nextPlayerName(v, p) } dran.</span>
+								if p.LegOver {
+									<span class="block text-white/70">Danach beginnt Leg { strconv.Itoa(p.Leg + 1) }.</span>
+								} else {
+									<span class="block text-white/70">Danach ist { nextPlayerName(v, p) } dran.</span>
+								}
 								if v.Board != nil {
 									<span class="block text-sm text-white/50">Die Kamera erkennt das Herausziehen von selbst.</span>
 								}
@@ -246,7 +244,10 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 }
 
 // celebration shows a big effect right after a special turn: 180 or busted.
-templ celebration(v service.GameView) {
+templ celebration(v service.GameView, p progress) {
+	if player, won := legWon(v, p); won {
+		<div class="mb-4 animate-dart-in rounded-2xl bg-gradient-to-r from-amber-300 to-amber-500 px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-pub-950 shadow-lg shadow-amber-500/30">Leg an { playerName(v, player) }!</div>
+	}
 	switch latestTurnEvent(v) {
 		case "180":
 			<div class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
@@ -342,7 +343,8 @@ templ gameStats(v service.GameView) {
 
 // playerCard shows a player's main value (rest, target) and a second key figure next to it.
 // The player whose turn it is glows; the others step back.
-templ playerCard(v service.GameView, p progress, playerID int64, value, caption, stat, statCaption string) {
+// With more than one leg to win, it shows the legs won as dots.
+templ playerCard(v service.GameView, p progress, playerID int64, legs int, value, caption, stat, statCaption string) {
 	{{ current, winner := p.isCurrent(playerID), p.isWinner(playerID) }}
 	<div
 		class={ "relative overflow-hidden rounded-3xl border p-5 transition-all duration-300",
@@ -353,6 +355,13 @@ templ playerCard(v service.GameView, p progress, playerID int64, value, caption,
 	>
 		<div class="flex items-center justify-between gap-2">
 			<span class="truncate font-display text-2xl font-semibold uppercase tracking-wide">{ playerName(v, playerID) }</span>
+			if v.Game.Legs > 1 {
+				<span class="flex gap-1" title={ strconv.Itoa(legs) + " Legs gewonnen" }>
+					for i := range v.Game.Legs {
+						<span class={ "size-3 rounded-full", templ.KV("bg-amber-400 shadow shadow-amber-400/60", i < legs), templ.KV("bg-white/15", i >= legs) }></span>
+					}
+				</span>
+			}
 			if winner {
 				<span class="rounded-full bg-amber-400 px-3 py-0.5 font-display text-lg font-extrabold uppercase text-pub-950">Sieg</span>
 			} else if current {
@@ -487,6 +496,7 @@ templ x01History(v service.GameView, st x01.State) {
 		</thead>
 		<tbody class="divide-y divide-white/5">
 			for i := len(st.Turns) - 1; i >= 0; i-- {
+				@legSeparator(v, st.Turns[i].Leg, i == len(st.Turns)-1 || st.Turns[i+1].Leg != st.Turns[i].Leg, 5)
 				@x01HistoryRow(v, st.Turns[i])
 			}
 		</tbody>
@@ -575,6 +585,7 @@ templ aroundTheClockHistory(v service.GameView, st aroundtheclock.State) {
 		</thead>
 		<tbody class="divide-y divide-white/5">
 			for i := len(st.Turns) - 1; i >= 0; i-- {
+				@legSeparator(v, st.Turns[i].Leg, i == len(st.Turns)-1 || st.Turns[i+1].Leg != st.Turns[i].Leg, 5)
 				@aroundTheClockHistoryRow(v, st.Turns[i])
 			}
 		</tbody>
@@ -599,4 +610,13 @@ templ aroundTheClockHistoryRow(v service.GameView, t aroundtheclock.Turn) {
 			}
 		</td>
 	</tr>
+}
+
+// legSeparator heads the turns of a leg in the history (newest first), with more than one leg to win.
+templ legSeparator(v service.GameView, leg int, first bool, columns int) {
+	if v.Game.Legs > 1 && first {
+		<tr>
+			<td colspan={ strconv.Itoa(columns) } class="pt-4 pb-1 font-display text-lg font-extrabold uppercase tracking-wider text-amber-300">Leg { strconv.Itoa(leg) }</td>
+		</tr>
+	}
 }

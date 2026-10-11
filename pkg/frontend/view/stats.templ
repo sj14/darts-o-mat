@@ -31,11 +31,11 @@ templ Stats(user string, summaries []stats.Summary) {
 									@statTile(strconv.Itoa(s.X01.Turns180), "180er")
 								</div>
 								<dl class="divide-y divide-white/5 text-sm">
-									@statRow("Spiele / Siege", strconv.Itoa(s.X01.Games)+" / "+strconv.Itoa(s.X01.Wins))
+									@statRow("Spiele / Siege / Legs", strconv.Itoa(s.X01.Games)+" / "+strconv.Itoa(s.X01.Wins)+" / "+strconv.Itoa(s.X01.Legs))
 									@statRow("Darts", strconv.Itoa(s.X01.Darts))
 									@statRow("100+ / 140+", strconv.Itoa(s.X01.Turns100)+" / "+strconv.Itoa(s.X01.Turns140))
 									@statRow("Höchstes Finish", orDash(s.X01.HighestCheckout > 0, strconv.FormatUint(s.X01.HighestCheckout, 10)))
-									@statRow("Bestes Spiel", orDash(s.X01.BestGame > 0, strconv.Itoa(s.X01.BestGame)+" Darts"))
+									@statRow("Bestes Leg", orDash(s.X01.BestLeg > 0, strconv.Itoa(s.X01.BestLeg)+" Darts"))
 								</dl>
 							</div>
 						}
@@ -45,12 +45,12 @@ templ Stats(user string, summaries []stats.Summary) {
 								<div class="mb-3 grid grid-cols-3 gap-2">
 									@statTile(percent(s.AroundTheClock.HitRate), "Treffer")
 									@statTile(strconv.Itoa(s.AroundTheClock.Games), "Spiele")
-									@statTile(orDash(s.AroundTheClock.BestGame > 0, strconv.Itoa(s.AroundTheClock.BestGame)), "Bestes")
+									@statTile(orDash(s.AroundTheClock.BestLeg > 0, strconv.Itoa(s.AroundTheClock.BestLeg)), "Bestes Leg")
 								</div>
 								<dl class="divide-y divide-white/5 text-sm">
-									@statRow("Spiele / Siege", strconv.Itoa(s.AroundTheClock.Games)+" / "+strconv.Itoa(s.AroundTheClock.Wins))
+									@statRow("Spiele / Siege / Legs", strconv.Itoa(s.AroundTheClock.Games)+" / "+strconv.Itoa(s.AroundTheClock.Wins)+" / "+strconv.Itoa(s.AroundTheClock.Legs))
 									@statRow("Darts / Treffer", strconv.Itoa(s.AroundTheClock.Darts)+" / "+strconv.Itoa(s.AroundTheClock.Hits))
-									@statRow("Bestes Spiel", orDash(s.AroundTheClock.BestGame > 0, strconv.Itoa(s.AroundTheClock.BestGame)+" Darts"))
+									@statRow("Bestes Leg", orDash(s.AroundTheClock.BestLeg > 0, strconv.Itoa(s.AroundTheClock.BestLeg)+" Darts"))
 								</dl>
 							</div>
 						}

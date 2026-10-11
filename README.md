@@ -10,7 +10,7 @@ Langfristig soll darts-o-mat eine freie Alternative zu Autodarts und Scolia werd
 - **X01** (z. B. 301 oder 501): Von der Startpunktzahl auf genau 0 runterspielen. Zum Beenden je nach Einstellung beliebiger Dart, Doppel, oder Doppel/Triple („Master Out“).
 - **Around the Clock**: Die Zahlen 1 bis 20 der Reihe nach treffen, auf Wunsch zum Schluss das Bull.
 
-Wer als Erstes fertig ist, gewinnt, aber die anderen dürfen die Runde noch zu Ende werfen. Schaffen es mehrere, ist es ein Unentschieden.
+Wer als Erstes fertig ist, gewinnt das Leg sofort. Beim Spielstart wählst du, wie viele Legs zum Sieg nötig sind („First to 3“); jedes Leg beginnt der nächste Spieler.
 
 ## Starten
 

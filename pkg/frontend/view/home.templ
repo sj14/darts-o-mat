@@ -132,6 +132,19 @@ templ fieldset(label string) {
 	</fieldset>
 }
 
+// legsChoice picks how many legs win the game.
+templ legsChoice() {
+	@fieldset("Legs") {
+		<div class="flex flex-wrap gap-2">
+			@choice("legs", "1", "1 Leg", true)
+			for _, n := range []int{2, 3, 4, 5} {
+				@choice("legs", strconv.Itoa(n), "First to "+strconv.Itoa(n), false)
+			}
+		</div>
+		<p class={ hintClass }>Wer auscheckt, gewinnt das Leg sofort; jedes Leg beginnt der Nächste.</p>
+	}
+}
+
 // participants lets the user pick who plays and on which board.
 // The players throw in the listed order, invited accounts last.
 templ participants(m HomeModel) {
@@ -203,6 +216,7 @@ templ newGame(m HomeModel) {
 								@choice("out_mode", "master", "Doppel oder Triple", false)
 							</div>
 						}
+						@legsChoice()
 						@participants(m)
 						<div>
 							<button type="submit" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>X01 starten</button>
@@ -221,6 +235,7 @@ templ newGame(m HomeModel) {
 								}
 							</div>
 						}
+						@legsChoice()
 						@participants(m)
 						<div>
 							<button type="submit" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>Around the Clock starten</button>

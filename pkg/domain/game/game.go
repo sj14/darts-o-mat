@@ -11,6 +11,9 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 )
 
+// MaxLegs is the most legs a game can need to win.
+const MaxLegs = 11
+
 type Mode string
 
 const (
@@ -21,11 +24,13 @@ const (
 // Game holds what is needed to replay a game: the mode, its settings and the players in throwing order.
 // The darts are stored separately and the current state is computed with Play.
 type Game struct {
-	ID             int64                    `bun:",pk,autoincrement" json:"id"`
-	OwnerAccountID int64                    `bun:",notnull" json:"owner_account_id"` // the account that created the game
-	BoardID        *int64                   `json:"board_id,omitempty"`
-	Mode           Mode                     `bun:",notnull" json:"mode"`
-	PlayerIDs      []int64                  `bun:"player_ids,notnull" json:"player_ids"`
+	ID             int64   `bun:",pk,autoincrement" json:"id"`
+	OwnerAccountID int64   `bun:",notnull" json:"owner_account_id"` // the account that created the game
+	BoardID        *int64  `json:"board_id,omitempty"`
+	Mode           Mode    `bun:",notnull" json:"mode"`
+	PlayerIDs      []int64 `bun:"player_ids,notnull" json:"player_ids"`
+	// Legs is how many legs win the game, at least 1.
+	Legs           int                      `bun:",notnull,default:1" json:"legs"`
 	X01            *x01.Settings            `json:"x01,omitempty"`
 	AroundTheClock *aroundtheclock.Settings `json:"around_the_clock,omitempty"`
 	CreatedAt      time.Time                `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
@@ -41,6 +46,9 @@ func (g Game) Aborted() bool {
 func (g Game) Validate() error {
 	if len(g.PlayerIDs) == 0 {
 		return errors.New("a game needs at least one player")
+	}
+	if g.Legs < 1 || g.Legs > MaxLegs {
+		return fmt.Errorf("legs must be between 1 and %d", MaxLegs)
 	}
 	seen := map[int64]bool{}
 	for _, id := range g.PlayerIDs {
@@ -75,7 +83,7 @@ func (g Game) WaitsForTakeout() bool {
 // Play replays the game's log (darts and takeouts, as stored) and returns the state of
 // the game mode, x01.State or aroundtheclock.State.
 func (g Game) Play(entries []throw.Dart) (any, error) {
-	log := turn.Log{Entries: entries, WaitForTakeout: g.WaitsForTakeout()}
+	log := turn.Log{Entries: entries, WaitForTakeout: g.WaitsForTakeout(), Legs: g.Legs}
 	switch g.Mode {
 	case ModeX01:
 		return x01.PlayLog(*g.X01, g.PlayerIDs, log)

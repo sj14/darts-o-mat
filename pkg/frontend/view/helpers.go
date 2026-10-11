@@ -19,20 +19,23 @@ type progress struct {
 	CurrentPlayerID *int64
 	Round           int
 	DartsInTurn     int
+	Leg             int
 	GameOver        bool
-	WinnerIDs       []int64
+	WinnerID        *int64
 	// WaitingForTakeout: the turn is over, the darts still have to be pulled out.
 	WaitingForTakeout bool
-	Aborted           bool
+	// LegOver: the turn waiting for the takeout won a leg.
+	LegOver bool
+	Aborted bool
 }
 
 func progressOf(v service.GameView) progress {
 	var p progress
 	switch st := v.State.(type) {
 	case x01.State:
-		p = progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.GameOver, st.WinnerIDs, st.WaitingForTakeout, false}
+		p = progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.Leg, st.GameOver, st.WinnerID, st.WaitingForTakeout, st.LegOver, false}
 	case aroundtheclock.State:
-		p = progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.GameOver, st.WinnerIDs, st.WaitingForTakeout, false}
+		p = progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.Leg, st.GameOver, st.WinnerID, st.WaitingForTakeout, st.LegOver, false}
 	}
 	if v.Game.Aborted() {
 		// Nobody is up anymore.
@@ -51,12 +54,7 @@ func (p progress) isCurrent(playerID int64) bool {
 }
 
 func (p progress) isWinner(playerID int64) bool {
-	for _, id := range p.WinnerIDs {
-		if id == playerID {
-			return true
-		}
-	}
-	return false
+	return p.WinnerID != nil && *p.WinnerID == playerID
 }
 
 func playerName(v service.GameView, id int64) string {
@@ -123,6 +121,13 @@ func outModeLabel(m x01.OutMode) string {
 }
 
 func modeLabel(g game.Game) string {
+	if g.Legs > 1 {
+		return modeName(g) + " · First to " + strconv.Itoa(g.Legs)
+	}
+	return modeName(g)
+}
+
+func modeName(g game.Game) string {
 	switch g.Mode {
 	case game.ModeX01:
 		return fmt.Sprintf("%d %s", g.X01.StartScore, outModeLabel(g.X01.OutMode))
@@ -318,6 +323,9 @@ func sound(v service.GameView) (kind, id string) {
 	case progressOf(v).GameOver:
 		return "win", id
 	}
+	if _, won := legWon(v, progressOf(v)); won {
+		return "win", id
+	}
 	if event := latestTurnEvent(v); event != "" {
 		return event, id
 	}
@@ -359,4 +367,30 @@ func checkoutSuggestion(v service.GameView, p progress) []throw.Dart {
 		}
 	}
 	return nil
+}
+
+// legWon reports whether the dart just thrown won a leg without ending the game, and
+// whose turn it was.
+func legWon(v service.GameView, p progress) (int64, bool) {
+	if p.GameOver || len(v.Darts) == 0 || v.Darts[len(v.Darts)-1].Takeout {
+		return 0, false
+	}
+	var leg, lastLeg int
+	var player int64
+	switch st := v.State.(type) {
+	case x01.State:
+		if len(st.Turns) == 0 || !st.Turns[len(st.Turns)-1].Checkout {
+			return 0, false
+		}
+		t := st.Turns[len(st.Turns)-1]
+		leg, lastLeg, player = st.Leg, t.Leg, t.PlayerID
+	case aroundtheclock.State:
+		if len(st.Turns) == 0 || st.Turns[len(st.Turns)-1].Target != 0 {
+			return 0, false
+		}
+		t := st.Turns[len(st.Turns)-1]
+		leg, lastLeg, player = st.Leg, t.Leg, t.PlayerID
+	}
+	// Either the next leg already started, or it waits for the takeout.
+	return player, leg > lastLeg || p.LegOver
 }

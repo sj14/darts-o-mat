@@ -1,9 +1,9 @@
-// Package turn contains the turn order shared by all game modes:
-// the players throw three darts each, one after another.
+// Package turn contains the order of play shared by all game modes: the players
+// throw three darts each, one after another.
 //
-// Once a player has finished, the remaining players of that round may still
-// throw their turn. The game is over at the end of the round and everyone who
-// finished in it wins.
+// A game is played over legs. The player who finishes wins the leg at once; whoever
+// first wins the agreed number of legs wins the game. Each leg is started by the next
+// player in turn.
 //
 // Games played on a board with cameras wait after each turn until the darts were
 // pulled out (a takeout), so the next player doesn't start while the darts are
@@ -31,18 +31,28 @@ type Log struct {
 	Entries []throw.Dart
 	// WaitForTakeout keeps a finished turn until the darts were pulled out.
 	WaitForTakeout bool
+	// Legs is how many legs win the game; 0 counts as 1.
+	Legs int
+}
+
+// Turn returns the order of play for the log's settings.
+func (l Log) Turn(players int) *Turn {
+	return &Turn{Round: 1, Leg: 1, LegsWon: make([]int, players), players: players, legs: max(l.Legs, 1), waitForTakeout: l.WaitForTakeout, winner: -1}
 }
 
 // Replay calls dart for every dart of the log in order and handles the takeouts in
 // between. A dart while the turn waits for the takeout is an error.
-func (l Log) Replay(t *Turn, players int, dart func(i int, d throw.Dart) error) error {
+func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
 	for i, d := range l.Entries {
 		if d.Takeout {
-			t.Takeout(players)
+			t.Takeout()
 			continue
 		}
 		if t.Waiting() {
 			return fmt.Errorf("entry %d: %w", i+1, ErrWaitingForTakeout)
+		}
+		if t.Over() {
+			return fmt.Errorf("dart %d: %w", i+1, ErrGameOver)
 		}
 		if err := dart(i, d); err != nil {
 			return err
@@ -52,61 +62,72 @@ func (l Log) Replay(t *Turn, players int, dart func(i int, d throw.Dart) error) 
 }
 
 type Turn struct {
-	Player int // index of the player whose turn it is
-	Round  int // starts at 1
-	Dart   int // darts already thrown in this turn
+	Player  int   // index of the player whose turn it is
+	Round   int   // of the current leg, starts at 1
+	Dart    int   // darts already thrown in this turn
+	Leg     int   // starts at 1
+	LegsWon []int // per player
+	// OnLegStart is called when the next leg starts, so the game mode resets the scores.
+	OnLegStart func()
 
+	players, legs  int
 	waitForTakeout bool
 	waiting        bool
-	finished       []int
-	over           bool
-}
-
-func New() Turn {
-	return Turn{Round: 1}
-}
-
-// NewWaitingForTakeouts returns a turn order that keeps each finished turn until Takeout.
-func NewWaitingForTakeouts() Turn {
-	return Turn{Round: 1, waitForTakeout: true}
+	legOver        bool // the turn waiting for the takeout won a leg
+	winner         int  // -1 until the game is over
 }
 
 // Advance counts a dart thrown; the turn is over after the third dart.
-func (t *Turn) Advance(players int) {
+func (t *Turn) Advance() {
 	t.Dart++
 	if t.Dart == DartsPerTurn {
-		t.complete(players)
+		t.complete()
 	}
 }
 
 // End counts a dart that ends the turn early, e.g. a bust.
-func (t *Turn) End(players int) {
+func (t *Turn) End() {
 	t.Dart++
-	t.complete(players)
+	t.complete()
 }
 
-// Finish counts the dart the current player finished with and ends their turn.
-func (t *Turn) Finish(players int) {
-	t.finished = append(t.finished, t.Player)
-	t.End(players)
+// Finish counts the dart the current player finished with: they win the leg, and the
+// game once they have won enough legs.
+func (t *Turn) Finish() {
+	t.Dart++
+	t.LegsWon[t.Player]++
+	if t.LegsWon[t.Player] >= t.legs {
+		t.winner = t.Player
+		return
+	}
+	t.legOver = true
+	if t.waitForTakeout {
+		t.waiting = true
+		return
+	}
+	t.nextLeg()
 }
 
 // complete ends the turn: the next player throws, or, when waiting for takeouts,
 // after the darts were pulled out.
-func (t *Turn) complete(players int) {
-	if t.waitForTakeout && !t.endsGame(players) {
+func (t *Turn) complete() {
+	if t.waitForTakeout {
 		t.waiting = true
 		return
 	}
-	t.next(players)
+	t.next()
 }
 
 // Takeout handles the darts being pulled out: a turn waiting for it, or one with fewer
-// than three darts (the others bounced off), passes to the next player.
-func (t *Turn) Takeout(players int) {
-	if t.waiting || t.Dart > 0 {
+// than three darts (the others bounced off), passes on.
+func (t *Turn) Takeout() {
+	switch {
+	case t.waiting && t.legOver:
 		t.waiting = false
-		t.next(players)
+		t.nextLeg()
+	case t.waiting || (t.Dart > 0 && !t.Over()):
+		t.waiting = false
+		t.next()
 	}
 }
 
@@ -115,33 +136,38 @@ func (t *Turn) Waiting() bool {
 	return t.waiting
 }
 
+// LegOver reports whether the turn waiting for the takeout won a leg.
+func (t *Turn) LegOver() bool {
+	return t.legOver
+}
+
 func (t *Turn) Over() bool {
-	return t.over
+	return t.winner >= 0
 }
 
-// Winners returns the indices of the players who finished, empty until the game is over.
-func (t *Turn) Winners() []int {
-	if !t.over {
-		return nil
-	}
-	return t.finished
+// Winner returns the index of the player who won the game, false until it is over.
+func (t *Turn) Winner() (int, bool) {
+	return t.winner, t.winner >= 0
 }
 
-// endsGame reports whether passing the turn on now ends the game: the round is complete
-// and someone finished. There's no need to wait for the takeout then.
-func (t *Turn) endsGame(players int) bool {
-	return (t.Player+1)%players == 0 && len(t.finished) > 0
+// starter is the player who began the current leg.
+func (t *Turn) starter() int {
+	return (t.Leg - 1) % t.players
 }
 
-func (t *Turn) next(players int) {
+func (t *Turn) next() {
 	t.Dart = 0
-	t.Player = (t.Player + 1) % players
-	if t.Player != 0 {
-		return
+	t.Player = (t.Player + 1) % t.players
+	if t.Player == t.starter() {
+		t.Round++
 	}
-	if len(t.finished) > 0 {
-		t.over = true
-		return
+}
+
+func (t *Turn) nextLeg() {
+	t.Leg++
+	t.Round, t.Dart, t.legOver = 1, 0, false
+	t.Player = t.starter()
+	if t.OnLegStart != nil {
+		t.OnLegStart()
 	}
-	t.Round++
 }

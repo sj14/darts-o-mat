@@ -32,7 +32,7 @@ func (s *Service) Stats(ctx context.Context, acc account.Account) ([]stats.Summa
 			return nil, err
 		}
 		for i := range summaries {
-			summaries[i].Add(g, state)
+			summaries[i].Add(state)
 		}
 	}
 	return summaries, nil
