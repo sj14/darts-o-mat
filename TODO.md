@@ -5,3 +5,4 @@
 - Turniermodus
 - Kurzbeschreibung der Spielmodi
 - Zeige besten nächsten Wurf zum ausmachen (nur x01)
+- allow to configure camera settings (fps, resolution) and detection settings (is there a polling interval?)
