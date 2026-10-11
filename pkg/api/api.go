@@ -60,6 +60,7 @@ func (a *API) Routes() http.Handler {
 		r.Delete("/games/{id}/darts/last", a.undoDart)
 		r.Put("/games/{id}/darts/{dartID}", a.editDart)
 		r.Post("/games/{id}/takeout", a.takeout)
+		r.Post("/games/{id}/abort", a.abortGame)
 
 		r.Get("/stats", a.stats)
 		r.Get("/friends", a.listFriends)
@@ -305,6 +306,16 @@ func (a *API) takeout(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, v, err)
 }
 
+// abortGame ends a running game without a winner (owner only).
+func (a *API) abortGame(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	v, err := a.svc.AbortGame(r.Context(), auth.Account(r.Context()), id)
+	respond(w, http.StatusOK, v, err)
+}
+
 func (a *API) listInvitations(w http.ResponseWriter, r *http.Request) {
 	games, err := a.svc.Invitations(r.Context(), auth.Account(r.Context()))
 	respond(w, http.StatusOK, games, err)
@@ -391,7 +402,7 @@ func writeError(w http.ResponseWriter, err error) {
 	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound
 	case errors.Is(err, turn.ErrGameOver), errors.Is(err, turn.ErrWaitingForTakeout), errors.Is(err, service.ErrNothingToUndo), errors.Is(err, service.ErrNoActiveGame),
-		errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrUsernameTaken):
+		errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrAborted), errors.Is(err, service.ErrUsernameTaken):
 		status = http.StatusConflict
 	}
 

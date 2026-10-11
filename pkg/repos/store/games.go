@@ -127,6 +127,12 @@ func (store *Store) RemoveInvitedPlayer(ctx context.Context, gameID, playerID in
 	})
 }
 
+// AbortGame marks a game as aborted.
+func (store *Store) AbortGame(ctx context.Context, g *game.Game) error {
+	_, err := store.db.NewUpdate().Model(g).Column("aborted_at").WherePK().Exec(ctx)
+	return err
+}
+
 func (store *Store) AddDart(ctx context.Context, d *throw.Dart) error {
 	_, err := store.db.NewInsert().Model(d).Exec(ctx)
 	return err

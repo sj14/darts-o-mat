@@ -91,6 +91,9 @@ func (s *Service) activeGame(ctx context.Context, b board.Board) (account.Accoun
 		return account.Account{}, GameView{}, err
 	}
 	for _, g := range games {
+		if g.Aborted() {
+			continue
+		}
 		v, err := s.view(ctx, owner, g)
 		if err != nil {
 			return account.Account{}, GameView{}, err

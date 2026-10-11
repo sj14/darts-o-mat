@@ -641,3 +641,79 @@ func TestEditDart(t *testing.T) {
 		t.Errorf("unknown dart: got %v, want ErrNotFound", err)
 	}
 }
+
+func TestAbortGame(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben := register(t, s, "anna"), register(t, s, "ben")
+	befriend(t, s, anna, ben)
+	keller, _ := s.CreateBoard(ctx, anna, "Keller")
+
+	older := x01Game(anna.PlayerID)
+	older.BoardID = &keller.ID
+	olderView, err := s.CreateGame(ctx, anna, older, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := x01Game(anna.PlayerID)
+	g.BoardID = &keller.ID
+	v, err := s.CreateGame(ctx, anna, g, []string{"ben"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AcceptInvitation(ctx, ben, v.Game.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddDart(ctx, anna, v.Game.ID, t20); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.AbortGame(ctx, ben, v.Game.ID); !errors.Is(err, ErrForbidden) {
+		t.Errorf("abort by invited player: got %v, want ErrForbidden", err)
+	}
+	v, err = s.AbortGame(ctx, anna, v.Game.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !v.Game.Aborted() || v.CanThrow || len(v.Darts) != 1 {
+		t.Errorf("aborted game: aborted=%v can_throw=%v darts=%d, want aborted, no throwing, dart kept", v.Game.Aborted(), v.CanThrow, len(v.Darts))
+	}
+	if _, err := s.AbortGame(ctx, anna, v.Game.ID); !errors.Is(err, ErrAborted) {
+		t.Errorf("abort twice: got %v, want ErrAborted", err)
+	}
+	if _, err := s.AddDart(ctx, ben, v.Game.ID, t20); !errors.Is(err, ErrAborted) {
+		t.Errorf("dart after abort: got %v, want ErrAborted", err)
+	}
+	if _, err := s.UndoDart(ctx, anna, v.Game.ID); !errors.Is(err, ErrAborted) {
+		t.Errorf("undo after abort: got %v, want ErrAborted", err)
+	}
+
+	// The camera skips the aborted game and goes on with the older one still running.
+	bv, err := s.AddBoardDart(ctx, keller, t20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bv.Game.ID != olderView.Game.ID {
+		t.Errorf("board dart went to game %d, want the running game %d", bv.Game.ID, olderView.Game.ID)
+	}
+
+	// A finished game can't be aborted.
+	short := x01Game(anna.PlayerID)
+	short.X01.StartScore = 40
+	sv, _ := s.CreateGame(ctx, anna, short, nil)
+	if _, err := s.AddDart(ctx, anna, sv.Game.ID, throw.Dart{Number: 20, Multiplier: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AbortGame(ctx, anna, sv.Game.ID); !errors.Is(err, turn.ErrGameOver) {
+		t.Errorf("abort finished game: got %v, want turn.ErrGameOver", err)
+	}
+
+	// Pending invitations to an aborted game disappear.
+	lobby, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"})
+	if _, err := s.AbortGame(ctx, anna, lobby.Game.ID); err != nil {
+		t.Fatal(err)
+	}
+	if invs, err := s.Invitations(ctx, ben); err != nil || len(invs) != 0 {
+		t.Errorf("invitations after abort: got %d, %v, want none", len(invs), err)
+	}
+}

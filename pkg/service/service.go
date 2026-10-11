@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
@@ -27,6 +29,7 @@ var (
 	ErrForbidden     = errors.New("not allowed")
 	ErrNotReady      = errors.New("waiting for invited players to accept")
 	ErrNothingToUndo = errors.New("no dart to undo")
+	ErrAborted       = errors.New("the game was aborted")
 	// ErrChangesThrowers means a correction would change who threw later darts,
 	// e.g. a bust that ends a turn early: the later darts have to be taken back instead.
 	ErrChangesThrowers = fmt.Errorf("%w: the correction would change who threw the later darts", ErrInvalid)
@@ -95,7 +98,7 @@ type GameView struct {
 
 	// The following fields depend on the account the view was created for.
 	IsOwner  bool `json:"is_owner"`
-	CanThrow bool `json:"can_throw"` // may enter and undo darts (once the game is ready)
+	CanThrow bool `json:"can_throw"` // may enter and undo darts (once the game is ready, never after it was aborted)
 	Invited  bool `json:"invited"`   // has a pending invitation to answer
 }
 
@@ -201,7 +204,9 @@ func (s *Service) Invitations(ctx context.Context, acc account.Account) ([]GameV
 		if err != nil {
 			return nil, err
 		}
-		games = append(games, g)
+		if !g.Aborted() {
+			games = append(games, g)
+		}
 	}
 	return s.views(ctx, acc, games)
 }
@@ -256,6 +261,34 @@ func (s *Service) WithdrawInvitation(ctx context.Context, acc account.Account, g
 	}
 	s.notify(gameID)
 	return s.Game(ctx, acc, gameID)
+}
+
+// AbortGame ends a running game without a winner. Only the owner may abort it; the
+// game stays with its darts, but takes no more and doesn't count in the statistics.
+func (s *Service) AbortGame(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
+	v, err := s.Game(ctx, acc, gameID)
+	if err != nil {
+		return GameView{}, err
+	}
+	if !v.IsOwner {
+		return GameView{}, ErrForbidden
+	}
+	if v.Game.Aborted() {
+		return GameView{}, ErrAborted
+	}
+	if _, over := v.turnProgress(); over {
+		return GameView{}, turn.ErrGameOver
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	v.Game.AbortedAt = &now
+	if err := s.store.AbortGame(ctx, &v.Game); err != nil {
+		return GameView{}, err
+	}
+	s.notify(gameID)
+	return s.view(ctx, acc, v.Game)
 }
 
 // AddDart registers the next dart of a game. The dart is only stored if the
@@ -399,6 +432,9 @@ func (s *Service) throwableGame(ctx context.Context, acc account.Account, gameID
 	if err != nil {
 		return game.Game{}, err
 	}
+	if v.Game.Aborted() {
+		return game.Game{}, ErrAborted
+	}
 	if !v.CanThrow {
 		return game.Game{}, ErrForbidden
 	}
@@ -443,6 +479,9 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 		v.CanThrow = true
 	default:
 		v.Invited = true
+	}
+	if g.Aborted() {
+		v.CanThrow, v.Invited = false, false
 	}
 
 	if g.BoardID != nil {

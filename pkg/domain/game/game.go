@@ -29,6 +29,13 @@ type Game struct {
 	X01            *x01.Settings            `json:"x01,omitempty"`
 	AroundTheClock *aroundtheclock.Settings `json:"around_the_clock,omitempty"`
 	CreatedAt      time.Time                `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	// AbortedAt is set when the owner aborted the game: it takes no more darts and has no winner.
+	AbortedAt *time.Time `bun:",nullzero" json:"aborted_at,omitempty"`
+}
+
+// Aborted reports whether the game was aborted.
+func (g Game) Aborted() bool {
+	return g.AbortedAt != nil
 }
 
 func (g Game) Validate() error {

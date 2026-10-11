@@ -223,6 +223,20 @@ func (c *Controller) takeout(w http.ResponseWriter, r *http.Request) {
 	render(w, r, http.StatusOK, view.Board(v, ""))
 }
 
+// abortGame is called by htmx when the owner aborts the game.
+func (c *Controller) abortGame(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	v, err := c.svc.AbortGame(r.Context(), auth.Account(r.Context()), id)
+	if err != nil {
+		c.handleGameError(w, r, id, err)
+		return
+	}
+	render(w, r, http.StatusOK, view.Board(v, ""))
+}
+
 func (c *Controller) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
@@ -283,6 +297,8 @@ func (c *Controller) handleGameError(w http.ResponseWriter, r *http.Request, id 
 		c.renderBoard(w, r, id, "Erst die Pfeile ziehen, dann ist der Nächste dran.")
 	case errors.Is(err, service.ErrNotReady):
 		c.renderBoard(w, r, id, "Es haben noch nicht alle Eingeladenen zugesagt.")
+	case errors.Is(err, service.ErrAborted):
+		c.renderBoard(w, r, id, "Das Spiel wurde abgebrochen.")
 	case errors.Is(err, service.ErrForbidden):
 		c.renderBoard(w, r, id, "Das darfst du in diesem Spiel nicht.")
 	case isNotFound(err):

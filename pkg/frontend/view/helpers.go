@@ -22,16 +22,27 @@ type progress struct {
 	WinnerIDs       []int64
 	// WaitingForTakeout: the turn is over, the darts still have to be pulled out.
 	WaitingForTakeout bool
+	Aborted           bool
 }
 
 func progressOf(v service.GameView) progress {
+	var p progress
 	switch st := v.State.(type) {
 	case x01.State:
-		return progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.GameOver, st.WinnerIDs, st.WaitingForTakeout}
+		p = progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.GameOver, st.WinnerIDs, st.WaitingForTakeout, false}
 	case aroundtheclock.State:
-		return progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.GameOver, st.WinnerIDs, st.WaitingForTakeout}
+		p = progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.GameOver, st.WinnerIDs, st.WaitingForTakeout, false}
 	}
-	return progress{}
+	if v.Game.Aborted() {
+		// Nobody is up anymore.
+		p.CurrentPlayerID, p.WaitingForTakeout, p.Aborted = nil, false, true
+	}
+	return p
+}
+
+// running reports whether the game still takes darts.
+func (p progress) running() bool {
+	return !p.GameOver && !p.Aborted
 }
 
 func (p progress) isCurrent(playerID int64) bool {

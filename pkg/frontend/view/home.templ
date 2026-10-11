@@ -112,6 +112,8 @@ templ recentGames(views []service.GameView) {
 						<div class="d-flex justify-content-between gap-2">
 							<span class="fw-semibold">{ modeLabel(v.Game) }</span>
 							switch  {
+								case v.Game.Aborted():
+									<span class="badge theme-secondary">abgebrochen</span>
 								case !v.Ready:
 									<span class="badge theme-warning">wartet</span>
 								case progressOf(v).GameOver:

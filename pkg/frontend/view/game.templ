@@ -24,7 +24,7 @@ templ Game(user string, v service.GameView) {
 // Board is the part of the game page that htmx replaces after every dart.
 // Until all invited players have accepted, it shows the lobby instead.
 templ Board(v service.GameView, errMsg string) {
-	if !v.Ready {
+	if !v.Ready && !v.Game.Aborted() {
 		@lobby(v, errMsg)
 	} else {
 		@scores(v, errMsg, nil)
@@ -84,7 +84,24 @@ templ lobby(v service.GameView, errMsg string) {
 				</ul>
 			</div>
 		</div>
+		if v.IsOwner {
+			<div class="mt-3">
+				@abortButton(v)
+			</div>
+		}
 	</div>
+}
+
+// abortButton lets the owner end the game without a winner, after asking.
+templ abortButton(v service.GameView) {
+	<button
+		type="button"
+		class="btn-outline theme-danger"
+		hx-post={ gameURL(v.Game.ID, "/abort") }
+		hx-target="#board"
+		hx-swap="outerHTML"
+		hx-confirm="Spiel wirklich abbrechen? Es zählt dann nicht in die Statistik."
+	>Spiel abbrechen</button>
 }
 
 templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
@@ -96,7 +113,7 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 				if v.Board != nil {
 					📷 { v.Board.Name } ·
 				}
-				if !p.GameOver {
+				if p.running() {
 					Runde { strconv.Itoa(p.Round) }
 				}
 			</span>
@@ -114,6 +131,12 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 				<a href="/" class="btn-solid theme-success mt-3">Neues Spiel</a>
 			</div>
 		}
+		if p.Aborted {
+			<div class="alert theme-secondary mb-4" role="status">
+				<div class="fs-xl fw-bold">Spiel abgebrochen</div>
+				<a href="/" class="btn-solid theme-secondary mt-3">Neues Spiel</a>
+			</div>
+		}
 		<div class="scoreboard mb-4">
 			switch st := v.State.(type) {
 				case x01.State:
@@ -128,7 +151,7 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 		</div>
 		if editing != nil && v.CanThrow {
 			@editPanel(v, *editing)
-		} else if !p.GameOver {
+		} else if p.running() {
 			<div class="mb-3">
 				<div class="turn-darts">
 					for i := range turn.DartsPerTurn {
@@ -162,7 +185,7 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 				@keypad(v, gameURL(v.Game.ID, "/darts"))
 			}
 		}
-		<div class="mt-3">
+		<div class="mt-3 d-flex flex-wrap gap-2">
 			if v.CanThrow {
 				<button
 					type="button"
@@ -172,6 +195,9 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 					hx-swap="outerHTML"
 					disabled?={ len(v.Darts) == 0 }
 				>↶ Letzten Dart zurücknehmen</button>
+			}
+			if v.IsOwner && p.running() {
+				@abortButton(v)
 			}
 		</div>
 		switch st := v.State.(type) {
