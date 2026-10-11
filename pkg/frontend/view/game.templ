@@ -141,7 +141,7 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 			switch st := v.State.(type) {
 				case x01.State:
 					for _, ps := range st.Players {
-						@playerCard(v, p, ps.PlayerID, strconv.FormatUint(ps.Remaining, 10), "Rest · Ø "+decimal(ps.Stats.Average), "", "")
+						@playerCard(v, p, ps.PlayerID, strconv.FormatUint(ps.Remaining, 10), "Rest", orDash(ps.Stats.Darts > 0, decimal(ps.Stats.Average)), "Ø 3 Darts")
 					}
 				case aroundtheclock.State:
 					for _, ps := range st.Players {

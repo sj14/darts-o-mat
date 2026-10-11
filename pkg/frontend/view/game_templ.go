@@ -496,7 +496,7 @@ func scores(v service.GameView, errMsg string, editing *throw.Dart) templ.Compon
 		switch st := v.State.(type) {
 		case x01.State:
 			for _, ps := range st.Players {
-				templ_7745c5c3_Err = playerCard(v, p, ps.PlayerID, strconv.FormatUint(ps.Remaining, 10), "Rest · Ø "+decimal(ps.Stats.Average), "", "").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = playerCard(v, p, ps.PlayerID, strconv.FormatUint(ps.Remaining, 10), "Rest", orDash(ps.Stats.Darts > 0, decimal(ps.Stats.Average)), "Ø 3 Darts").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
