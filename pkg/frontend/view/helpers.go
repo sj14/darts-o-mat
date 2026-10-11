@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -140,4 +141,22 @@ func currentTarget(v service.GameView) uint8 {
 
 func gameURL(id int64, suffix string) string {
 	return fmt.Sprintf("/games/%d%s", id, suffix)
+}
+
+// decimal formats a number with one decimal place and a German decimal comma.
+func decimal(f float64) string {
+	return strings.Replace(strconv.FormatFloat(f, 'f', 1, 64), ".", ",", 1)
+}
+
+// percent formats a ratio from 0 to 1 as a whole percentage.
+func percent(ratio float64) string {
+	return strconv.Itoa(int(math.Round(ratio*100))) + " %"
+}
+
+// orDash returns value if ok, otherwise a dash for "no value yet".
+func orDash(ok bool, value string) string {
+	if !ok {
+		return "–"
+	}
+	return value
 }

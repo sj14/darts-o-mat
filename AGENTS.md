@@ -68,6 +68,15 @@ Spielende (alle Modi, `pkg/domain/game/turn`): Nach dem ersten Checkout dürfen 
 Das Spiel endet mit dieser Runde; alle, die darin auschecken, gewinnen gemeinsam (`winner_ids`).
 X01 kennt die Out-Modi `single`, `double` und `master` (Doppel oder Triple).
 
+## Statistik
+
+Statistiken werden wie der Spielstand beim Abspielen der Darts berechnet und nicht gespeichert:
+
+- Pro Spiel hängt jeder Modus sie an seinen Spielerstand (`x01.PlayerState.Stats`, `aroundtheclock.PlayerState.Stats`), sie stehen also in jedem `state` der API.
+- X01: 3-Dart-Average = erzielte Punkte × 3 / geworfene Darts (Bust-Aufnahmen zählen 0 Punkte, ihre Darts zählen mit); Aufnahmen zählen in Höchste Aufnahme und 100+/140+/180 erst, wenn sie vorbei sind.
+- `pkg/domain/stats` summiert über alle beendeten Spiele (laufende zählen nicht) für den eigenen Spieler und die Gäste eines Accounts; Siege schließen Unentschieden ein.
+- Die Gesamtstatistik spielt dafür alle Spiele des Accounts neu ab. Wird das bei sehr vielen Spielen zu langsam, ist ein Cache pro beendetem Spiel der naheliegende nächste Schritt.
+
 ## API
 
 Alle Endpunkte unter `/api` außer `register`/`login`/`logout` brauchen das Session-Cookie aus `POST /api/login`.
@@ -80,6 +89,7 @@ Alle Endpunkte unter `/api` außer `register`/`login`/`logout` brauchen das Sess
 - `GET /api/games/{id}`: Spiel, Spieler, Einladungen, Darts, berechneter Stand sowie `ready`, `is_owner`, `can_throw`, `invited`
 - `POST /api/games/{id}/darts`: `{"number": 20, "multiplier": 3}` oder `{"miss": true}`; Bull ist `25`
 - `DELETE /api/games/{id}/darts/last`: letzten Dart rückgängig machen
+- `GET /api/stats`: Gesamtstatistik des eigenen Spielers und der Gäste
 - `GET /api/friends` (Freunde, eingehende und gesendete Anfragen), `POST /api/friends` (`{"username"}`, nimmt eine bereits eingegangene Anfrage an), `POST /api/friends/{accountID}/accept`, `DELETE /api/friends/{accountID}` (entfernen, ablehnen oder zurückziehen)
 - `GET /api/invitations`, `POST /api/games/{id}/accept`, `POST /api/games/{id}/decline`, `DELETE /api/games/{id}/invitations/{playerID}` (Gastgeber lädt aus)
 

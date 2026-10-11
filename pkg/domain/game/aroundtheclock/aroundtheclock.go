@@ -23,6 +23,14 @@ type PlayerState struct {
 	PlayerID int64 `json:"player_id"`
 	// Target is the number to hit next (1-20, or 25 for the bull), 0 once the player has finished.
 	Target uint8 `json:"target"`
+	Stats  Stats `json:"stats"`
+}
+
+// Stats of a player in one game.
+type Stats struct {
+	Darts   int     `json:"darts"`
+	Hits    int     `json:"hits"`     // darts that hit the current target
+	HitRate float64 `json:"hit_rate"` // hits per dart, 0 to 1
 }
 
 type State struct {
@@ -55,7 +63,9 @@ func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
 		}
 
 		p := &st.Players[t.Player]
+		p.Stats.Darts++
 		if !d.Miss && d.Number == p.Target {
+			p.Stats.Hits++
 			p.Target = s.next(p.Target, d.Multiplier)
 			if p.Target == 0 {
 				t.Finish(len(st.Players))
@@ -63,6 +73,12 @@ func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
 			}
 		}
 		t.Advance(len(st.Players))
+	}
+
+	for i := range st.Players {
+		if p := &st.Players[i]; p.Stats.Darts > 0 {
+			p.Stats.HitRate = float64(p.Stats.Hits) / float64(p.Stats.Darts)
+		}
 	}
 
 	st.Round = t.Round

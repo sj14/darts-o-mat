@@ -1,0 +1,69 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/sj14/darts-o-mat/pkg/domain/stats"
+)
+
+templ Stats(user string, summaries []stats.Summary) {
+	@layout("Statistik", user) {
+		<h1 class="fs-2xl mb-1">Statistik</h1>
+		<p class="fg-3 mb-4">Über alle beendeten Spiele von dir und deinen Gastspielern.</p>
+		<div class="d-grid gap-4">
+			for i, s := range summaries {
+				<div class="card">
+					<div class="card-body">
+						<h2 class="fs-xl mb-3">
+							{ s.Player.Name }
+							if i > 0 {
+								<span class="fg-3 fs-md">(Gast)</span>
+							}
+						</h2>
+						if s.X01.Games == 0 && s.AroundTheClock.Games == 0 {
+							<p class="fg-3 mb-0">Noch keine beendeten Spiele.</p>
+						}
+						<div class="row g-4">
+							if s.X01.Games > 0 {
+								<div class="md:col-6">
+									<h3 class="fs-lg">X01</h3>
+									<table class="table table-sm mb-0">
+										<tbody>
+											@statRow("Spiele / Siege", strconv.Itoa(s.X01.Games)+" / "+strconv.Itoa(s.X01.Wins))
+											@statRow("Ø pro 3 Darts", decimal(s.X01.Average))
+											@statRow("Darts", strconv.Itoa(s.X01.Darts))
+											@statRow("Höchste Aufnahme", strconv.FormatUint(s.X01.HighestTurn, 10))
+											@statRow("100+ / 140+ / 180", strconv.Itoa(s.X01.Turns100)+" / "+strconv.Itoa(s.X01.Turns140)+" / "+strconv.Itoa(s.X01.Turns180))
+											@statRow("Höchstes Finish", orDash(s.X01.HighestCheckout > 0, strconv.FormatUint(s.X01.HighestCheckout, 10)))
+											@statRow("Bestes Spiel", orDash(s.X01.BestGame > 0, strconv.Itoa(s.X01.BestGame)+" Darts"))
+										</tbody>
+									</table>
+								</div>
+							}
+							if s.AroundTheClock.Games > 0 {
+								<div class="md:col-6">
+									<h3 class="fs-lg">Around the Clock</h3>
+									<table class="table table-sm mb-0">
+										<tbody>
+											@statRow("Spiele / Siege", strconv.Itoa(s.AroundTheClock.Games)+" / "+strconv.Itoa(s.AroundTheClock.Wins))
+											@statRow("Trefferquote", percent(s.AroundTheClock.HitRate))
+											@statRow("Darts / Treffer", strconv.Itoa(s.AroundTheClock.Darts)+" / "+strconv.Itoa(s.AroundTheClock.Hits))
+											@statRow("Bestes Spiel", orDash(s.AroundTheClock.BestGame > 0, strconv.Itoa(s.AroundTheClock.BestGame)+" Darts"))
+										</tbody>
+									</table>
+								</div>
+							}
+						</div>
+					</div>
+				</div>
+			}
+		</div>
+	}
+}
+
+templ statRow(label, value string) {
+	<tr>
+		<th scope="row" class="fw-normal">{ label }</th>
+		<td class="text-end fw-semibold">{ value }</td>
+	</tr>
+}

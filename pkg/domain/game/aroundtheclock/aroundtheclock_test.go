@@ -136,3 +136,17 @@ func TestPlayAfterWin(t *testing.T) {
 		t.Errorf("got %v, want ErrGameOver", err)
 	}
 }
+
+func TestStats(t *testing.T) {
+	darts := []throw.Dart{hit(1, 1), hit(5, 1), hit(2, 1), throw.Dart{Miss: true}}
+	st, err := Play(Settings{}, []int64{1, 2}, darts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := st.Players[0].Stats; got.Darts != 3 || got.Hits != 2 || got.HitRate != 2.0/3 {
+		t.Errorf("player 1 stats = %+v", got)
+	}
+	if got := st.Players[1].Stats; got.Darts != 1 || got.Hits != 0 || got.HitRate != 0 {
+		t.Errorf("player 2 stats = %+v", got)
+	}
+}

@@ -338,3 +338,43 @@ func TestFriends(t *testing.T) {
 		t.Errorf("cara's request after anna declined: %+v", caras)
 	}
 }
+
+func TestStats(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	guest, _ := s.CreateGuest(ctx, anna, "Papa")
+
+	g := x01Game(anna.PlayerID, guest.ID)
+	g.X01.StartScore = 40
+	v, err := s.CreateGame(ctx, anna, g, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	miss := throw.Dart{Miss: true}
+	for _, d := range []throw.Dart{{Number: 20, Multiplier: 2}, miss, miss, miss} {
+		if _, err := s.AddDart(ctx, anna, v.Game.ID, d); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// A running game doesn't count.
+	running, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
+	if _, err := s.AddDart(ctx, anna, running.Game.ID, t20); err != nil {
+		t.Fatal(err)
+	}
+
+	summaries, err := s.Stats(ctx, anna)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(summaries) != 2 {
+		t.Fatalf("got %d summaries, want anna and her guest", len(summaries))
+	}
+	if got := summaries[0].X01; got.Games != 1 || got.Wins != 1 || got.Darts != 1 || got.Average != 120 || got.HighestCheckout != 40 || got.BestGame != 1 {
+		t.Errorf("anna's stats = %+v", got)
+	}
+	if got := summaries[1].X01; got.Games != 1 || got.Wins != 0 || got.Darts != 3 || got.Average != 0 || got.BestGame != 0 {
+		t.Errorf("guest's stats = %+v", got)
+	}
+}

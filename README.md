@@ -37,6 +37,8 @@ go run ./cmd/darts-o-mat -db postgres -dsn "postgres://postgres:geheim@localhost
 4. Nach jedem Wurf eintragen: erst Single, Doppel oder Triple wählen, dann die Zahl antippen. Für das Bull „Bull“ (mit „Doppel“ = Bullseye), für Fehlwürfe „Daneben“. Alle Mitspieler mit Account können auf ihrem eigenen Gerät mit eintragen.
 5. Vertippt? „Letzten Dart zurücknehmen“.
 
+Während des Spiels siehst du für jeden Spieler den Average bzw. die Trefferquote und eine kleine Statistik. Unter „Statistik“ findest du deine Werte und die deiner Gastspieler über alle beendeten Spiele.
+
 Unter „Boards“ kannst du deine Dartboards anlegen (z. B. Keller, Verein) und beim Spielstart auswählen.
 
 Läuft darts-o-mat öffentlich erreichbar, kannst du die Registrierung neuer Accounts abschalten: `go run ./cmd/darts-o-mat -registration=false`.

@@ -35,6 +35,7 @@ func (c *Controller) Routes() http.Handler {
 
 		r.Get("/", c.home)
 		r.Post("/guests", c.createGuest)
+		r.Get("/stats", c.showStats)
 		r.Get("/friends", c.showFriends)
 		r.Post("/friends", c.requestFriend)
 		r.Post("/friends/{id}/accept", c.acceptFriend)

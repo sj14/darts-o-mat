@@ -104,11 +104,11 @@ templ scores(v service.GameView, errMsg string) {
 			switch st := v.State.(type) {
 				case x01.State:
 					for _, ps := range st.Players {
-						@playerCard(v, p, ps.PlayerID, strconv.FormatUint(ps.Remaining, 10), "Rest")
+						@playerCard(v, p, ps.PlayerID, strconv.FormatUint(ps.Remaining, 10), "Rest · Ø "+decimal(ps.Stats.Average))
 					}
 				case aroundtheclock.State:
 					for _, ps := range st.Players {
-						@playerCard(v, p, ps.PlayerID, targetLabel(ps.Target), "Ziel")
+						@playerCard(v, p, ps.PlayerID, targetLabel(ps.Target), "Ziel · "+percent(ps.Stats.HitRate)+" Treffer")
 					}
 			}
 		</div>
@@ -138,6 +138,68 @@ templ scores(v service.GameView, errMsg string) {
 					disabled?={ len(v.Darts) == 0 }
 				>↶ Letzten Dart zurücknehmen</button>
 			}
+		</div>
+		if len(v.Darts) > 0 {
+			@gameStats(v)
+		}
+	</div>
+}
+
+// gameStats shows the statistics of all players in this game.
+templ gameStats(v service.GameView) {
+	<div class="card mt-4">
+		<div class="card-body">
+			<h2 class="fs-xl mb-3">Statistik</h2>
+			<div class="table-responsive">
+				<table class="table table-sm mb-0">
+					switch st := v.State.(type) {
+						case x01.State:
+							<thead>
+								<tr>
+									<th>Spieler</th>
+									<th class="text-end" title="Punkte pro 3 Darts">Ø</th>
+									<th class="text-end">Darts</th>
+									<th class="text-end">Höchste Aufnahme</th>
+									<th class="text-end">100+</th>
+									<th class="text-end">140+</th>
+									<th class="text-end">180</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, ps := range st.Players {
+									<tr>
+										<td>{ playerName(v, ps.PlayerID) }</td>
+										<td class="text-end">{ decimal(ps.Stats.Average) }</td>
+										<td class="text-end">{ strconv.Itoa(ps.Stats.Darts) }</td>
+										<td class="text-end">{ strconv.FormatUint(ps.Stats.HighestTurn, 10) }</td>
+										<td class="text-end">{ strconv.Itoa(ps.Stats.Turns100) }</td>
+										<td class="text-end">{ strconv.Itoa(ps.Stats.Turns140) }</td>
+										<td class="text-end">{ strconv.Itoa(ps.Stats.Turns180) }</td>
+									</tr>
+								}
+							</tbody>
+						case aroundtheclock.State:
+							<thead>
+								<tr>
+									<th>Spieler</th>
+									<th class="text-end">Darts</th>
+									<th class="text-end">Treffer</th>
+									<th class="text-end">Trefferquote</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, ps := range st.Players {
+									<tr>
+										<td>{ playerName(v, ps.PlayerID) }</td>
+										<td class="text-end">{ strconv.Itoa(ps.Stats.Darts) }</td>
+										<td class="text-end">{ strconv.Itoa(ps.Stats.Hits) }</td>
+										<td class="text-end">{ percent(ps.Stats.HitRate) }</td>
+									</tr>
+								}
+							</tbody>
+					}
+				</table>
+			</div>
 		</div>
 	</div>
 }

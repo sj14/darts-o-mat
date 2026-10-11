@@ -205,3 +205,43 @@ func TestOutModeJSON(t *testing.T) {
 		t.Error("unmarshal triple: want error")
 	}
 }
+
+func TestStats(t *testing.T) {
+	s := Settings{StartScore: 501, OutMode: OutModeDouble}
+	darts := []throw.Dart{
+		hit(20, 3), hit(20, 3), hit(20, 3), // player 1: 180
+		hit(20, 1), hit(5, 1), hit(1, 1), // player 2: 26
+		hit(20, 3), hit(20, 3), hit(19, 1), // player 1: 139
+		miss, // player 2: open turn
+	}
+	st, err := Play(s, []int64{1, 2}, darts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p1 := st.Players[0].Stats
+	if p1.Darts != 6 || p1.Average != 159.5 || p1.HighestTurn != 180 || p1.Turns180 != 1 || p1.Turns100 != 1 || p1.Turns140 != 0 {
+		t.Errorf("player 1 stats = %+v", p1)
+	}
+	// The open turn counts its darts for the average, but not as a turn yet.
+	p2 := st.Players[1].Stats
+	if p2.Darts != 4 || p2.Average != 19.5 || p2.HighestTurn != 26 {
+		t.Errorf("player 2 stats = %+v", p2)
+	}
+}
+
+func TestStatsBustAndCheckout(t *testing.T) {
+	s := Settings{StartScore: 100, OutMode: OutModeDouble}
+	darts := []throw.Dart{
+		hit(20, 3), hit(19, 1), hit(20, 1), // 21 left, then 20 leaves 1: bust, the turn scores 0
+		hit(20, 3), hit(20, 2), // 100 checkout
+	}
+	st, err := Play(s, []int64{1}, darts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := st.Players[0].Stats
+	if p.Darts != 5 || p.Checkout != 100 || p.HighestTurn != 100 || p.Turns100 != 1 || p.Average != 60 {
+		t.Errorf("stats = %+v", p)
+	}
+}

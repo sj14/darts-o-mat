@@ -49,6 +49,7 @@ func (a *API) Routes() http.Handler {
 		r.Post("/games/{id}/darts", a.addDart)
 		r.Delete("/games/{id}/darts/last", a.undoDart)
 
+		r.Get("/stats", a.stats)
 		r.Get("/friends", a.listFriends)
 		r.Post("/friends", a.requestFriend)
 		r.Post("/friends/{accountID}/accept", a.acceptFriend)
@@ -186,6 +187,12 @@ func (a *API) undoDart(w http.ResponseWriter, r *http.Request) {
 	}
 	v, err := a.svc.UndoDart(r.Context(), auth.Account(r.Context()), id)
 	respond(w, http.StatusOK, v, err)
+}
+
+// stats returns the statistics of the account's player and its guests over all finished games.
+func (a *API) stats(w http.ResponseWriter, r *http.Request) {
+	summaries, err := a.svc.Stats(r.Context(), auth.Account(r.Context()))
+	respond(w, http.StatusOK, summaries, err)
 }
 
 func (a *API) listFriends(w http.ResponseWriter, r *http.Request) {

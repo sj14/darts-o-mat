@@ -78,6 +78,31 @@ func (s Settings) Validate() error {
 type PlayerState struct {
 	PlayerID  int64  `json:"player_id"`
 	Remaining uint64 `json:"remaining"`
+	Stats     Stats  `json:"stats"`
+}
+
+// Stats of a player in one game. Turns count once they are over:
+// after the third dart, a bust or the checkout.
+type Stats struct {
+	Darts       int     `json:"darts"`
+	Average     float64 `json:"average"` // points per three darts; busted turns score 0
+	HighestTurn uint64  `json:"highest_turn"`
+	Turns100    int     `json:"turns_100"` // turns scoring 100 to 139
+	Turns140    int     `json:"turns_140"` // turns scoring 140 to 179
+	Turns180    int     `json:"turns_180"`
+	Checkout    uint64  `json:"checkout"` // points of the finishing turn, 0 until finished
+}
+
+func (s *Stats) addTurn(points uint64) {
+	s.HighestTurn = max(s.HighestTurn, points)
+	switch {
+	case points == 180:
+		s.Turns180++
+	case points >= 140:
+		s.Turns140++
+	case points >= 100:
+		s.Turns100++
+	}
 }
 
 type State struct {
@@ -114,6 +139,7 @@ func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
 		if t.Dart == 0 {
 			turnStart = p.Remaining
 		}
+		p.Stats.Darts++
 
 		score := d.Score()
 		bust := score > p.Remaining ||
@@ -121,16 +147,29 @@ func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
 			(score < p.Remaining && p.Remaining-score < s.OutMode.minFinish())
 		if bust {
 			p.Remaining = turnStart
+			p.Stats.addTurn(0)
 			t.End(len(st.Players))
 			continue
 		}
 
 		p.Remaining -= score
 		if p.Remaining == 0 {
+			p.Stats.addTurn(turnStart)
+			p.Stats.Checkout = turnStart
 			t.Finish(len(st.Players))
 			continue
 		}
 		t.Advance(len(st.Players))
+		if t.Dart == 0 {
+			p.Stats.addTurn(turnStart - p.Remaining)
+		}
+	}
+
+	for i := range st.Players {
+		p := &st.Players[i]
+		if p.Stats.Darts > 0 {
+			p.Stats.Average = float64(s.StartScore-p.Remaining) * 3 / float64(p.Stats.Darts)
+		}
 	}
 
 	st.Round = t.Round
