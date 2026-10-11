@@ -398,19 +398,22 @@ templ x01HistoryRow(v service.GameView, t x01.Turn) {
 // dartTile shows a dart of the current turn in large; players who may enter darts can tap it to correct it.
 templ dartTile(v service.GameView, d throw.Dart) {
 	if v.CanThrow {
-		<button type="button" class={ "btn-solid theme-primary turn-dart", templ.KV("long", len(dartLabel(d)) > 4) } title="Korrigieren" hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(d) }</button>
+		<button type="button" class={ "btn-solid turn-dart", dartTheme(v, d), templ.KV("long", len(dartLabel(d)) > 4) } title="Korrigieren" hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(d) }</button>
 	} else {
-		<span class={ "btn-solid theme-primary turn-dart", templ.KV("long", len(dartLabel(d)) > 4) }>{ dartLabel(d) }</span>
+		<span class={ "btn-solid turn-dart", dartTheme(v, d), templ.KV("long", len(dartLabel(d)) > 4) }>{ dartLabel(d) }</span>
 	}
 }
 
 // dartLink shows a dart in the history; players who may enter darts can click it to correct it.
+// Misses are red, in around the clock darts that hit the target green.
 templ dartLink(v service.GameView, d throw.Dart) {
-	if v.CanThrow {
-		<a href="#" title="Korrigieren" hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(d) }</a>
-	} else {
-		{ dartLabel(d) }
-	}
+	<span class={ dartClass(v, d) }>
+		if v.CanThrow {
+			<a href="#" title="Korrigieren" hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(d) }</a>
+		} else {
+			{ dartLabel(d) }
+		}
+	</span>
 }
 
 // editPanel corrects an earlier dart with the keypad.
@@ -425,7 +428,7 @@ templ editPanel(v service.GameView, d throw.Dart) {
 	@keypad(v, dartEditURL(v, d))
 }
 
-// aroundTheClockHistory lists the turns, newest first; darts that hit the target are highlighted.
+// aroundTheClockHistory lists the turns, newest first; dartLink colors hits and misses.
 templ aroundTheClockHistory(v service.GameView, st aroundtheclock.State) {
 	<div class="card mt-4">
 		<div class="card-body">
@@ -461,9 +464,7 @@ templ aroundTheClockHistoryRow(v service.GameView, t aroundtheclock.Turn) {
 				if i > 0 {
 					<span class="fg-3">·</span>
 				}
-				<span class={ templ.KV("hit", t.Hits[i]) }>
-					@dartLink(v, d)
-				</span>
+				@dartLink(v, d)
 			}
 			if !t.Complete {
 				<span class="fg-3">…</span>

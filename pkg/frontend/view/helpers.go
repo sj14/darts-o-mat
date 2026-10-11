@@ -213,3 +213,42 @@ func countTrue(flags []bool) int {
 	}
 	return n
 }
+
+// dartClass marks a dart for coloring: "miss" for misses, "hit" for darts that hit the
+// target in around the clock, empty otherwise.
+func dartClass(v service.GameView, d throw.Dart) string {
+	switch {
+	case d.Miss:
+		return "miss"
+	case hitTarget(v, d):
+		return "hit"
+	}
+	return ""
+}
+
+// dartTheme is the color of a dart's tile: like dartClass, blue for other darts.
+func dartTheme(v service.GameView, d throw.Dart) string {
+	switch dartClass(v, d) {
+	case "miss":
+		return "theme-danger"
+	case "hit":
+		return "theme-success"
+	}
+	return "theme-primary"
+}
+
+// hitTarget reports whether a dart hit the player's target in around the clock.
+func hitTarget(v service.GameView, d throw.Dart) bool {
+	st, ok := v.State.(aroundtheclock.State)
+	if !ok {
+		return false
+	}
+	for _, t := range st.Turns {
+		for i, td := range t.Darts {
+			if td.ID == d.ID {
+				return t.Hits[i]
+			}
+		}
+	}
+	return false
+}

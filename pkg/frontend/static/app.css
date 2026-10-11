@@ -54,11 +54,16 @@ body {
   line-height: 1;
 }
 
-/* Darts in the history that hit the target. */
+/* Darts in the history: hits of the target (around the clock) and misses. */
 .hit,
 .hit a {
   color: var(--bs-success-fg);
   font-weight: 700;
+}
+
+.miss,
+.miss a {
+  color: var(--bs-danger-fg);
 }
 
 .keypad .span-3 {
