@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"fmt"
 	"image"
 	"math"
 	"slices"
@@ -204,6 +205,35 @@ func TestWatcherRemovedReal(t *testing.T) {
 			w.Empty = []*image.RGBA{loadRGBA(t, "testdata/"+tt.camera+"-empty.jpg")}
 			area := ChangedArea(before, after, DefaultDetectOptions)
 			if got := w.removed([]*image.RGBA{before}, []*image.RGBA{after}, [][]image.Point{area}); got != tt.removed {
+				t.Errorf("removed = %v, want %v", got, tt.removed)
+			}
+		})
+	}
+}
+
+// TestWatcherRemovedExposure: while the darts were pulled out, one camera adjusted its
+// exposure, so its whole image changed. The other two cameras clearly saw the takeout.
+func TestWatcherRemovedExposure(t *testing.T) {
+	for _, tt := range []struct {
+		event   string
+		removed bool
+	}{
+		{"takeout", true},
+		{"throw", false},
+	} {
+		t.Run(tt.event, func(t *testing.T) {
+			var before, after, empty []*image.RGBA
+			var areas [][]image.Point
+			for c := 1; c <= 3; c++ {
+				name := fmt.Sprintf("testdata/exposure/%s-cam%d-", tt.event, c)
+				b, a := loadRGBA(t, name+"before.jpg"), loadRGBA(t, name+"after.jpg")
+				before, after = append(before, b), append(after, a)
+				empty = append(empty, loadRGBA(t, fmt.Sprintf("testdata/exposure/cam%d-empty.jpg", c)))
+				areas = append(areas, ChangedArea(b, a, DefaultDetectOptions))
+			}
+			w := NewWatcher(nil, DefaultWatchOptions)
+			w.Empty = empty
+			if got := w.removed(before, after, areas); got != tt.removed {
 				t.Errorf("removed = %v, want %v", got, tt.removed)
 			}
 		})

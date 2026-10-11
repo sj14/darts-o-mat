@@ -179,16 +179,32 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 // afterwards. Without them: the change lies mostly where darts seen earlier are.
 func (w *Watcher) removed(before, after []*image.RGBA, areas [][]image.Point) bool {
 	if len(w.Empty) == len(after) {
-		var beforeDiff, afterDiff int
+		// Each camera votes on its own: one camera whose exposure changed while a hand was
+		// in front of it differs from the empty board almost everywhere and would outweigh
+		// the others in a sum (seen on a real takeout: 0.06 and 0.08 vs. 1.9).
+		var votes, cameras, beforeSum, afterSum int
 		for i, area := range areas {
+			if len(area) == 0 {
+				continue
+			}
+			var beforeDiff, afterDiff int
 			for _, p := range area {
 				beforeDiff += pixelDiff(before[i], w.Empty[i], p)
 				afterDiff += pixelDiff(after[i], w.Empty[i], p)
 			}
+			// Measured on real events: about 0.05 for darts pulled out (0.55 when a
+			// neighboring dart moved, too), 4 to 17 for darts thrown.
+			if afterDiff < beforeDiff {
+				votes++
+			}
+			cameras++
+			beforeSum += beforeDiff
+			afterSum += afterDiff
 		}
-		// Measured on real events: about 0.05 for darts pulled out (0.55 when a neighboring
-		// dart moved, too), 4 to 17 for darts thrown.
-		return afterDiff < beforeDiff
+		if votes*2 == cameras {
+			return afterSum < beforeSum // a tie
+		}
+		return votes*2 > cameras
 	}
 
 	var inside, total int
