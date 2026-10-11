@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
@@ -46,13 +47,16 @@ func (s *Service) AuthenticateBoard(ctx context.Context, token string) (board.Bo
 }
 
 // AddBoardDart enters a dart detected by the board's cameras into the running game on
-// the board, on behalf of the board's owner.
+// the board, on behalf of the board's owner, with the position the cameras saw it at.
 func (s *Service) AddBoardDart(ctx context.Context, b board.Board, d throw.Dart) (GameView, error) {
 	owner, v, err := s.activeGame(ctx, b)
 	if err != nil {
 		return GameView{}, err
 	}
-	return s.AddDart(ctx, owner, v.Game.ID, d)
+	if (d.X == nil) != (d.Y == nil) {
+		return GameView{}, fmt.Errorf("%w: give both x and y of the position, or neither", ErrInvalid)
+	}
+	return s.addDart(ctx, owner, v.Game.ID, d)
 }
 
 // BoardTakeout handles darts being pulled out of the board. If the current turn isn't

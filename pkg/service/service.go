@@ -293,8 +293,14 @@ func (s *Service) AbortGame(ctx context.Context, acc account.Account, gameID int
 
 // AddDart registers the next dart of a game. The dart is only stored if the
 // game accepts it; otherwise the error wraps throw.ErrInvalid or turn.ErrGameOver.
-// A missing multiplier counts as single.
+// A missing multiplier counts as single. Positions only come from the cameras
+// (AddBoardDart), so a position given here is dropped.
 func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64, d throw.Dart) (GameView, error) {
+	d.X, d.Y = nil, nil
+	return s.addDart(ctx, acc, gameID, d)
+}
+
+func (s *Service) addDart(ctx context.Context, acc account.Account, gameID int64, d throw.Dart) (GameView, error) {
 	g, err := s.throwableGame(ctx, acc, gameID)
 	if err != nil {
 		return GameView{}, err

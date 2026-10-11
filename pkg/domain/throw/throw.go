@@ -20,6 +20,12 @@ type Dart struct {
 	Multiplier uint8 `json:"multiplier"`
 	Miss       bool  `json:"miss"`
 	Takeout    bool  `bun:",notnull,default:false" json:"takeout,omitempty"`
+	// X and Y are where the cameras saw the dart, in mm on the board (origin in the
+	// bull, Y towards the 20); nil for darts entered by hand. Correcting a dart changes
+	// its field, not its position, so a field that doesn't match the position at X/Y
+	// shows how far off the cameras were.
+	X *float64 `json:"x,omitempty"`
+	Y *float64 `json:"y,omitempty"`
 }
 
 // Validate checks that the dart hit a field that exists on the board.

@@ -261,7 +261,11 @@ func detect(args []string) error {
 			}
 			log.Printf("dart: %s at %.1f,%.1f mm (%d cameras:%s)", dartLabel(e.Dart), e.Board.X, e.Board.Y, len(e.Cameras), cams)
 			if srv != nil {
-				if id, err := srv.dart(e.Dart); err != nil {
+				// The position goes along for statistics and to see how far off the cameras
+				// were when the dart gets corrected.
+				d := e.Dart
+				d.X, d.Y = &e.Board.X, &e.Board.Y
+				if id, err := srv.dart(d); err != nil {
 					log.Printf("  not entered: %v", err)
 				} else {
 					log.Printf("  entered in game %d", id)

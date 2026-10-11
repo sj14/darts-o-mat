@@ -717,3 +717,48 @@ func TestAbortGame(t *testing.T) {
 		t.Errorf("invitations after abort: got %d, %v, want none", len(invs), err)
 	}
 }
+
+func TestDartPosition(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	keller, _ := s.CreateBoard(ctx, anna, "Keller")
+	g := x01Game(anna.PlayerID)
+	g.BoardID = &keller.ID
+	v, err := s.CreateGame(ctx, anna, g, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, y := 97.6, 21.0
+
+	// The cameras' position is stored with the dart.
+	seen := throw.Dart{Number: 13, Multiplier: 1, X: &x, Y: &y}
+	if _, err := s.AddBoardDart(ctx, keller, seen); err != nil {
+		t.Fatal(err)
+	}
+	// Darts entered by hand have none, even if one is given.
+	if _, err := s.AddDart(ctx, anna, v.Game.ID, seen); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddBoardDart(ctx, keller, throw.Dart{Number: 1, Multiplier: 1, X: &x}); !errors.Is(err, ErrInvalid) {
+		t.Errorf("only x: got %v, want ErrInvalid", err)
+	}
+
+	v, _ = s.Game(ctx, anna, v.Game.ID)
+	camera, hand := v.Darts[0], v.Darts[1]
+	if camera.X == nil || *camera.X != x || *camera.Y != y {
+		t.Errorf("camera dart position = %v,%v, want %v,%v", camera.X, camera.Y, x, y)
+	}
+	if hand.X != nil || hand.Y != nil {
+		t.Errorf("hand-entered dart has a position")
+	}
+
+	// A correction changes the field and keeps where the cameras saw the dart.
+	v, err = s.EditDart(ctx, anna, v.Game.ID, camera.ID, throw.Dart{Number: 13, Multiplier: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := v.Darts[0]; got.Multiplier != 3 || got.X == nil || *got.X != x {
+		t.Errorf("corrected dart = %+v, want T13 at the cameras' position", got)
+	}
+}
