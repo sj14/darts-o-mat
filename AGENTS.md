@@ -31,29 +31,45 @@ Neue Funktionen bauen auf dem bestehenden Stack auf; ohne Absprache keine zusät
 - **Statische Dateien:** htmx und Bootstrap liegen versioniert in `pkg/frontend/static` und werden per `go:embed` ausgeliefert, kein CDN (darts-o-mat soll auch ohne Internet laufen).
 - **Datenbank:** PostgreSQL und SQLite werden beide unterstützt (Auswahl per `-db sqlite|postgres` und `-dsn`). Persistenz-Code muss mit beiden Datenbanken funktionieren.
 - **ORM/Query-Builder:** [Bun](https://bun.uptrace.dev) (`pgdialect`/`pgdriver` für PostgreSQL, `sqlitedialect` mit dem cgo-freien Treiber `modernc.org/sqlite` für SQLite)
-- **Kamera/Bildverarbeitung:** [GoCV](https://github.com/hybridgroup/gocv) (OpenCV-Anbindung für Go) verwenden, wo es sinnvoll ist. GoCV braucht cgo und ein installiertes OpenCV; das betrifft nur `darts-o-cam`. Der Server (`darts-o-mat`) bleibt cgo-frei und darf GoCV nicht importieren. Alternativen siehe [Kamera](#kamera).
+- **Kamera/Bildverarbeitung:** reines Go ohne cgo (`pkg/vision`); Kamerabilder kommen über **ffmpeg** als Rohbilder per Pipe (macOS: AVFoundation, Linux: V4L2), ffmpeg muss also installiert sein. GoCV war vorgesehen, für Intel-Macs mit macOS 26 gibt es aber keine OpenCV-Pakete (Homebrew müsste OpenCV mit 26 Abhängigkeiten stundenlang selbst bauen); deshalb am 2026-10-11 bewusst verworfen. Siehe [Kamera](#kamera).
 - **Messaging (optional):** [NATS](https://nats.io) darf aufgenommen werden, wenn es gebraucht wird, z. B. um Würfe von der Kamera (`darts-o-cam`) an den Server (`darts-o-mat`) zu übertragen.
 
 ## Struktur
 
 - `cmd/darts-o-mat`: Webserver
-- `cmd/darts-o-cam`: Kamera-Client, der Würfe erkennt und an den Server meldet
+- `cmd/darts-o-cam`: Kamera-Werkzeug: `detect` (Würfe live erkennen), `overlay` (Kalibrierung prüfen), `score` (Bildpunkte aufs Board umrechnen). Meldet noch nichts an den Server.
 - `pkg/api`: JSON-API unter `/api`
 - `pkg/service`: Anwendungslogik inklusive Berechtigungsprüfung (Accounts, Gäste, Boards, Spiele, Einladungen, Darts), gemeinsam genutzt von API und Weboberfläche. Neue Logik gehört hierher, nicht in die Handler; Methoden bekommen den angemeldeten Account übergeben.
 - `pkg/auth`: Session-Cookie (HttpOnly, SameSite=Lax) und Middleware, die den angemeldeten Account in den Request-Kontext legt. In der DB steht nur der SHA-256-Hash des Session-Tokens, Passwörter als bcrypt-Hash.
 - `pkg/domain`: Fachlogik (Board, Spieler, Würfe, Spielmodi X01 und Around the Clock)
+- `pkg/vision`: Kamera-Geometrie und Pfeilerkennung in reinem Go (Homographie, Kalibrierung, Bildvergleich, Watcher, ffmpeg-Kamerazugriff)
 - `pkg/frontend`: Weboberfläche: Controller, templ-Views (`view`) und eingebettete statische Dateien (`static`)
 - `pkg/repos/store`: Persistenz; ein gemeinsamer Bun-Store für beide Datenbanken, nur der Verbindungsaufbau (`NewPostgres`/`NewSQLite`) unterscheidet sich
 
 ## Kamera
 
-Noch nicht umgesetzt. Vorgesehener Ansatz für den Start ist klassische Bildverarbeitung: Bild vor und nach dem Wurf vergleichen, die Dart-Linie finden und per Homographie auf das Board umrechnen. Dafür spart GoCV am meisten Arbeit.
+`cmd/darts-o-cam` erkennt Würfe mit klassischer Bildverarbeitung in reinem Go (`pkg/vision`). Noch nicht mit dem Server verbunden: erkannte Würfe werden nur ausgegeben.
 
-Alternativen, falls sich GoCV nicht bewährt (Pflegestand der Bibliotheken vor der Entscheidung prüfen):
+- **Board-Geometrie:** `pkg/domain/dartboard` (Normmaße in mm, Ursprung im Bull, Y zeigt zur 20; `Score` wertet eine Position).
+- **Kalibrierung:** pro Kamera mindestens 4 (besser 6–8, rundum verteilt) Bildpunkte, an denen die Außenkante des Doppelrings einen Draht kreuzt (`between: [a, b]` im Uhrzeigersinn). Daraus eine Homographie Bild → Board (`vision.EstimateHomography`, Least Squares). Zum Finden der Punkte: Zuschnitte mit Raster per ffmpeg, Gegenprobe über die Ringfarben (Doppel/Triple der 20 rot, der 1 grün, abwechselnd). `darts-o-cam overlay` zeichnet das berechnete Raster ins Kamerabild; erst wenn es sichtbar passt, gilt die Kalibrierung. Kalibrierung des Entwicklungs-Boards: `pkg/vision/testdata/calibration.json`.
+- **Erkennung** (`vision.DetectDart`): Farbdifferenz zum Bild vor dem Wurf (Graustufen reichen nicht: silberner Pfeil auf rotem/grünem Bull ist gleich hell), 5×5 weichgezeichnet, Hysterese-Schwellwerte 25/12, Flecken < 15 px verworfen, alle übrigen Flächen zusammen sind der Pfeil. Hauptachse per PCA; Spitze ist das **untere** Ende im Bild (die Kameras schauen vom Rand flach über das Board, Pfeile stehen nach oben). Danach wird die Spitze im nicht weichgezeichneten Bild entlang der Achse verlängert, weil das Weichzeichnen die dünne Spitze verwäscht. Synthetische Pfeile: Spitze auf ≤ 2 px genau.
+- **Fusion:** Spitze jeder Kamera aufs Board umrechnen, Median pro Koordinate. Eine Kamera, die die Einstichstelle nicht sieht (Pfeil zeigt von ihr weg, gestauchter Bildrand), lag im Test 15 mm daneben; der Median fängt das ab.
+- **Ablauf** (`vision.Watcher`): Bewegung über jedes 4. Pixel mit Schwellwert 40 (Kamerarauschen ≤ 5 Stichproben, ein Pfeil ~160), warten bis 3 Bilder ruhig sind, dann auswerten. Sehr große Änderungen oder keine erkennbare Spitze gelten als Herausziehen (`takeout`).
+- **Stand der Genauigkeit:** Mit den 4 echten Referenzpfeilen (S5 außen, S5 innen, S1 innen, S3 innen, Spitzen von Hand verortet) stimmen 3; der vierte liegt 1 mm neben dem Draht auf der falschen Seite (`TestRealDarts`). Echte Würfe mit automatischer Erkennung sind noch nicht getestet.
+- **Bekannte Grenzen:** keine Behandlung von Abprallern, verdeckten Spitzen durch bereits steckende Pfeile, Pfeilen die beim Herausziehen hängen bleiben; Kalibrierung per Hand; Index der Kameras unter macOS nicht stabil an den USB-Port gebunden.
 
-- **Reines Go ohne cgo:** [go4vl](https://github.com/vladimirvivien/go4vl) für die Kamera (nur Linux/V4L2, z. B. Raspberry Pi), [bild](https://github.com/anthonynsimon/bild) oder [imaging](https://github.com/disintegration/imaging) für Bildoperationen, [gonum](https://gonum.org) für Homographie und Geradenanpassung.
-  Vorteil: kein OpenCV, einfaches Cross-Compiling, ein Binary. Nachteil: Konturen, Linienanpassung und Kalibrierung selbst schreiben; Kamerazugriff auf macOS bräuchte wieder cgo.
-  Sinnvoll, wenn einfaches Ausliefern (z. B. auf einen Raspberry Pi) wichtiger ist als schnelles Vorankommen.
+### Hardware (Entwicklungsrechner, Stand 2026-10-11)
+
+Board mit drei Kameras („Autodarts DIY Cam“), angeschlossen über einen USB-C-Adapter an ein MacBook Pro (Intel, macOS 26):
+
+- Die drei Kameras hängen an einem USB-2.0-Hub auf dem Board (`0x214b:0x7250`), alle mit `0x1e45:0x8022` und **derselben Seriennummer** `200910120001`. Unterscheidbar sind sie nur über den USB-Port (macOS Location ID `0x14111200`, `0x14111300`, `0x14111400`; Kamera-Unique-ID = Location ID + Vendor + Product, z. B. `0x141112001e458022`). Die Zuordnung gilt nur, solange Board und Adapter gleich gesteckt sind.
+- UVC, unter macOS per AVFoundation (ffmpeg-Index 1–3; Index 0 ist die eingebaute FaceTime-Kamera). Modi bis 1280×720 bei 30 fps; alle drei liefern gleichzeitig volle 30 fps in 720p (komprimiert über USB 2.0).
+- Die Kameras sitzen rundum am Lichtring und schauen schräg von verschiedenen Seiten auf das Board. Welcher ffmpeg-Index welche Location ID hat, ist noch nicht ermittelt (AVFoundation-Reihenfolge ist nicht garantiert).
+- Im selben Adapter stecken außerdem ein VIA-Hub, Kartenleser und Realtek-LAN; die gehören nicht zum Board.
+
+Weitere Optionen, falls der jetzige Ansatz nicht reicht (Pflegestand der Bibliotheken vor der Entscheidung prüfen):
+
+- **GoCV/OpenCV:** wenn auf der Zielplattform ein OpenCV-Paket verfügbar ist (z. B. Linux/Raspberry Pi), für robustere Bausteine (Konturen, Linienanpassung, Kamerakalibrierung gegen Linsenverzeichnung).
 - **Neuronales Netz über ONNX Runtime** (z. B. [onnxruntime_go](https://github.com/yalue/onnxruntime_go), ebenfalls cgo): ein trainiertes Modell erkennt die Dartspitzen direkt, robuster bei Licht und Verdeckung, braucht aber Trainingsdaten und ein Modell.
   Erst angehen, wenn der klassische Ansatz nicht zuverlässig genug ist.
 - **Python mit OpenCV als eigener Dienst**, der Würfe per NATS/HTTP meldet: nur als letzter Ausweg, weil es den Go-Stack verlässt.

@@ -1,0 +1,264 @@
+{
+  "cameras": [
+    {
+      "name": "cam1",
+      "device": "1",
+      "points": [
+        {
+          "image": {
+            "X": 626,
+            "Y": 496
+          },
+          "between": [
+            6,
+            10
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 755.5,
+            "Y": 498
+          },
+          "between": [
+            13,
+            6
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 1001,
+            "Y": 289
+          },
+          "between": [
+            20,
+            1
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 999,
+            "Y": 353
+          },
+          "between": [
+            1,
+            18
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 410,
+            "Y": 213
+          },
+          "between": [
+            3,
+            19
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 387.5,
+            "Y": 269.5
+          },
+          "between": [
+            17,
+            3
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 382.5,
+            "Y": 334
+          },
+          "between": [
+            2,
+            17
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 663,
+            "Y": 114
+          },
+          "between": [
+            8,
+            11
+          ],
+          "ring": "double_outer"
+        }
+      ]
+    },
+    {
+      "name": "cam2",
+      "device": "2",
+      "points": [
+        {
+          "image": {
+            "X": 632,
+            "Y": 470
+          },
+          "between": [
+            12,
+            5
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 760,
+            "Y": 461
+          },
+          "between": [
+            9,
+            12
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 937.5,
+            "Y": 185.5
+          },
+          "between": [
+            7,
+            16
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 972.5,
+            "Y": 237.5
+          },
+          "between": [
+            16,
+            8
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 976.5,
+            "Y": 298.5
+          },
+          "between": [
+            8,
+            11
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 378.75,
+            "Y": 212.5
+          },
+          "between": [
+            4,
+            13
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 357,
+            "Y": 270.5
+          },
+          "between": [
+            18,
+            4
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 363.75,
+            "Y": 336.5
+          },
+          "between": [
+            1,
+            18
+          ],
+          "ring": "double_outer"
+        }
+      ]
+    },
+    {
+      "name": "cam3",
+      "device": "3",
+      "points": [
+        {
+          "image": {
+            "X": 1016,
+            "Y": 298
+          },
+          "between": [
+            10,
+            15
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 740,
+            "Y": 540
+          },
+          "between": [
+            19,
+            7
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 430,
+            "Y": 367
+          },
+          "between": [
+            11,
+            14
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 431,
+            "Y": 310
+          },
+          "between": [
+            14,
+            9
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 590,
+            "Y": 200
+          },
+          "between": [
+            5,
+            20
+          ],
+          "ring": "double_outer"
+        },
+        {
+          "image": {
+            "X": 650,
+            "Y": 185
+          },
+          "between": [
+            20,
+            1
+          ],
+          "ring": "double_outer"
+        }
+      ]
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 Ein Dart-Zähler für zu Hause: Würfe eintragen, Punkte werden automatisch gezählt.
 Langfristig soll darts-o-mat eine freie Alternative zu Autodarts und Scolia werden, mit Kamera, die die Würfe selbst erkennt.
 
-> **Stand:** frühe Entwicklung. Die Kamera-Erkennung gibt es noch nicht, Würfe werden von Hand eingetragen.
+> **Stand:** frühe Entwicklung. Würfe werden von Hand eingetragen. Eine erste Kamera-Erkennung gibt es, sie ist aber noch nicht mit dem Spiel verbunden.
 
 ## Spielmodi
 
