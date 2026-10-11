@@ -93,8 +93,13 @@ func (c CameraCalibration) FromPoints() (Homography, error) {
 
 type Calibration struct {
 	// DeviceName is the name of the board's capture devices, e.g. "Autodarts DIY Cam".
-	DeviceName string              `json:"device_name,omitempty"`
-	Cameras    []CameraCalibration `json:"cameras"`
+	// It selects the board's cameras independent of the USB port; which camera is which
+	// is told by its view (see AssignCameras).
+	DeviceName string `json:"device_name,omitempty"`
+	// DeviceModel is the USB vendor:product id of the devices, e.g. "1e45:8022",
+	// to recognize them when shown; it is not used to select them.
+	DeviceModel string              `json:"device_model,omitempty"`
+	Cameras     []CameraCalibration `json:"cameras"`
 
 	dir string // of the calibration file, for the reference images
 }

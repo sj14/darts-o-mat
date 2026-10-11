@@ -483,6 +483,9 @@ func runUI(args []string) error {
 		cams, err = vision.OpenCamerasNamed(*deviceName, width, height, fps)
 	case err != nil:
 		return err
+	case len(calib.Cameras) == 0:
+		// The cameras were chosen, but none is calibrated yet.
+		cams, err = vision.OpenCamerasNamed(calib.DeviceName, width, height, fps)
 	default:
 		cams, err = vision.OpenCameras(calib, width, height, fps)
 		if errors.Is(err, vision.ErrAmbiguousCameras) {
@@ -492,7 +495,9 @@ func runUI(args []string) error {
 		}
 	}
 	if err != nil {
-		return err
+		// Still serve the interface, so the cameras can be chosen there.
+		log.Printf("no cameras opened (%v): choose them in the interface and restart", err)
+		cams = nil
 	}
 
 	var live []*vision.Live

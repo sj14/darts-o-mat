@@ -110,6 +110,8 @@ func (ui *UI) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServerFS(static.FS)))
 	r.Get("/", ui.overview)
+	r.Get("/devices", ui.devicesPage)
+	r.Post("/devices", ui.chooseDevices)
 	r.Get("/cam/{i}/frame.jpg", ui.frame)
 	r.Get("/cam/{i}/calibrate", ui.calibratePage)
 	r.Get("/cam/{i}/clicked.jpg", ui.clickedImage)
@@ -149,7 +151,50 @@ func (ui *UI) overview(w http.ResponseWriter, r *http.Request) {
 		events = append(events, ui.eventModel(ui.events[i]))
 	}
 	ui.mu.Unlock()
-	render(w, r, Overview(OverviewModel{Path: ui.path, Cameras: cams, Events: events}))
+	m := OverviewModel{Path: ui.path, Cameras: cams, Events: events, DeviceName: ui.calib.DeviceName, DeviceModel: ui.calib.DeviceModel}
+	render(w, r, Overview(m))
+}
+
+// devicesPage lists the kinds of cameras connected, to choose the board's cameras.
+func (ui *UI) devicesPage(w http.ResponseWriter, r *http.Request) {
+	ui.renderDevices(w, r, "", false)
+}
+
+func (ui *UI) renderDevices(w http.ResponseWriter, r *http.Request, errMsg string, saved bool) {
+	groups, err := vision.ListDeviceGroups()
+	m := DevicesModel{Groups: groups, Saved: saved, Error: errMsg}
+	if err != nil {
+		m.Error = err.Error()
+	}
+	ui.mu.Lock()
+	m.Current, m.Open = ui.calib.DeviceName, len(ui.cams)
+	ui.mu.Unlock()
+	render(w, r, Devices(m))
+}
+
+// chooseDevices saves which cameras belong to the board. They are opened at the next start.
+func (ui *UI) chooseDevices(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	groups, err := vision.ListDeviceGroups()
+	if err != nil {
+		ui.renderDevices(w, r, err.Error(), false)
+		return
+	}
+	i := slices.IndexFunc(groups, func(g vision.DeviceGroup) bool { return g.Name == name })
+	if i < 0 {
+		ui.renderDevices(w, r, "Diese Kameras sind nicht (mehr) angeschlossen.", false)
+		return
+	}
+
+	ui.mu.Lock()
+	ui.calib.DeviceName, ui.calib.DeviceModel = groups[i].Name, groups[i].Model
+	err = ui.calib.Save(ui.path)
+	ui.mu.Unlock()
+	if err != nil {
+		ui.renderDevices(w, r, err.Error(), false)
+		return
+	}
+	ui.renderDevices(w, r, "", true)
 }
 
 // frame serves the camera's newest frame, with the board drawn on it if calibrated.

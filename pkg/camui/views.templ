@@ -6,12 +6,15 @@ import (
 	"strconv"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
+	"github.com/sj14/darts-o-mat/pkg/vision"
 )
 
 type OverviewModel struct {
-	Path    string // of the calibration file
-	Cameras []CameraModel
-	Events  []EventModel // newest first
+	Path        string // of the calibration file
+	DeviceName  string // of the chosen cameras
+	DeviceModel string
+	Cameras     []CameraModel
+	Events      []EventModel // newest first
 }
 
 type EventModel struct {
@@ -39,6 +42,14 @@ type CheckModel struct {
 	Matches                    int
 	RMS                        float64
 	Good, Fair, Poor, Outliers int
+}
+
+type DevicesModel struct {
+	Groups  []vision.DeviceGroup
+	Current string // the chosen device name
+	Open    int    // cameras opened at the start
+	Saved   bool
+	Error   string
 }
 
 type CameraModel struct {
@@ -91,7 +102,23 @@ templ Overview(m OverviewModel) {
 			Die Kalibrierung wird auf diesem Rechner gespeichert ({ m.Path }) und funktioniert mit jedem darts-o-mat-Server.
 			Kalibriere jede Kamera einmal mit <strong>leerem Board</strong>; danach liegt auf ihrem Bild das Raster des Boards.
 		</p>
-		<p><a href="/">Bilder aktualisieren</a></p>
+		<p class="d-flex gap-3 flex-wrap align-items-center">
+			if m.DeviceName != "" {
+				<span>
+					Kameras: <strong>{ m.DeviceName }</strong>
+					if m.DeviceModel != "" {
+						<span class="fg-3 fs-sm">({ m.DeviceModel })</span>
+					}
+				</span>
+			}
+			<a href="/devices">Kameras wählen</a>
+			<a href="/">Bilder aktualisieren</a>
+		</p>
+		if len(m.Cameras) == 0 {
+			<div class="alert theme-warning" role="status">
+				Keine Kameras geöffnet. Wähle unter <a href="/devices">Kameras wählen</a>, welche Kameras zum Board gehören, und starte darts-o-cam neu.
+			</div>
+		}
 		<div class="row g-4">
 			for _, c := range m.Cameras {
 				<div class="md:col-6">
@@ -329,4 +356,43 @@ func num(f float64) string {
 
 func mm(f float64) string {
 	return strconv.FormatFloat(f, 'f', 1, 64)
+}
+
+templ Devices(m DevicesModel) {
+	@layout("Kameras wählen") {
+		<h1 class="fs-2xl mb-2">Kameras wählen</h1>
+		<p class="fg-3">
+			Wähle, welche Kameras zum Board gehören. Gespeichert wird ihr Name (mit Modell zur Erkennung), nicht der USB-Anschluss:
+			nach dem Umstecken an andere Ports werden dieselben Kameras wieder gefunden. Welche Kamera welche ist, erkennt darts-o-cam an ihrem Bild vom Board.
+		</p>
+		if m.Error != "" {
+			<div class="alert theme-danger" role="alert">{ m.Error }</div>
+		}
+		if m.Saved {
+			<div class="alert theme-success" role="status">Gespeichert. Starte darts-o-cam neu, damit die Kameras geöffnet werden.</div>
+		}
+		<form method="post" action="/devices" class="d-grid gap-3">
+			<div class="list-group">
+				for _, g := range m.Groups {
+					<label class="list-group-item d-flex gap-3 align-items-center">
+						<input type="radio" class="radio" name="name" value={ g.Name } checked?={ g.Name == m.Current }/>
+						<span>
+							<span class="fw-semibold">{ g.Name }</span>
+							<span class="fg-3 fs-sm">
+								{ strconv.Itoa(g.Count) } ×
+								if g.Model != "" {
+									· Modell { g.Model }
+								}
+							</span>
+						</span>
+					</label>
+				}
+			</div>
+			<div>
+				<button type="submit" class="btn-solid theme-primary">Speichern</button>
+				<a href="/" class="ms-2">Zurück</a>
+			</div>
+		</form>
+		<p class="fs-sm fg-3 mt-3">Gerade geöffnet: { strconv.Itoa(m.Open) } Kameras.</p>
+	}
 }
