@@ -129,15 +129,16 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 		if editing != nil && v.CanThrow {
 			@editPanel(v, *editing)
 		} else if !p.GameOver {
-			<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
-				<span class="fw-semibold">{ playerName(v, *p.CurrentPlayerID) } ist dran</span>
-				for i := range turn.DartsPerTurn {
-					if i < len(turnDarts(v, p)) {
-						@dartBadge(v, turnDarts(v, p)[i])
-					} else {
-						<span class="badge">–</span>
+			<div class="mb-3">
+				<div class="turn-darts">
+					for i := range turn.DartsPerTurn {
+						if i < len(turnDarts(v, p)) {
+							@dartTile(v, turnDarts(v, p)[i])
+						} else {
+							<span class="turn-dart empty">–</span>
+						}
 					}
-				}
+				</div>
 			</div>
 			if p.WaitingForTakeout {
 				<div class="alert theme-warning d-flex justify-content-between align-items-center flex-wrap gap-2" role="status">
@@ -353,12 +354,12 @@ templ x01HistoryRow(v service.GameView, t x01.Turn) {
 	</tr>
 }
 
-// dartBadge shows a dart of the current turn; players who may enter darts can click it to correct it.
-templ dartBadge(v service.GameView, d throw.Dart) {
+// dartTile shows a dart of the current turn in large; players who may enter darts can tap it to correct it.
+templ dartTile(v service.GameView, d throw.Dart) {
 	if v.CanThrow {
-		<button type="button" class="badge theme-primary border-0" title="Korrigieren" hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(d) }</button>
+		<button type="button" class={ "btn-solid theme-primary turn-dart", templ.KV("long", len(dartLabel(d)) > 4) } title="Korrigieren" hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(d) }</button>
 	} else {
-		<span class="badge theme-primary">{ dartLabel(d) }</span>
+		<span class={ "btn-solid theme-primary turn-dart", templ.KV("long", len(dartLabel(d)) > 4) }>{ dartLabel(d) }</span>
 	}
 }
 

@@ -50,3 +50,32 @@ body {
 .keypad .span-3 {
   grid-column: span 3;
 }
+
+/* The darts of the current turn, large enough to read from the oche. */
+.turn-darts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 9rem));
+  gap: .75rem;
+}
+
+.turn-dart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 4.5rem;
+  font-size: 2.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Words like "Daneben" or "Bullseye" don't fit in the large font. */
+.turn-dart.long {
+  font-size: 1.25rem;
+}
+
+.turn-dart.empty {
+  border: 2px dashed var(--bs-border-color);
+  border-radius: var(--bs-radius-5);
+  color: var(--bs-fg-3);
+}
