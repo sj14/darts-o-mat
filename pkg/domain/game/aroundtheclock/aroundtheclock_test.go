@@ -150,3 +150,34 @@ func TestStats(t *testing.T) {
 		t.Errorf("player 2 stats = %+v", got)
 	}
 }
+
+func TestTurns(t *testing.T) {
+	darts := []throw.Dart{hit(1, 1), hit(5, 1), hit(2, 1), {Miss: true}, hit(3, 1)}
+	st, err := Play(Settings{}, []int64{1, 2}, darts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(st.Turns) != 2 {
+		t.Fatalf("got %d turns, want 2", len(st.Turns))
+	}
+	first := st.Turns[0]
+	if first.PlayerID != 1 || first.From != 1 || first.Target != 3 || !first.Complete || !slices.Equal(first.Hits, []bool{true, false, true}) {
+		t.Errorf("first turn = %+v", first)
+	}
+	second := st.Turns[1]
+	if second.PlayerID != 2 || second.From != 1 || second.Target != 1 || second.Complete || !slices.Equal(second.Hits, []bool{false, false}) {
+		t.Errorf("turn in progress = %+v", second)
+	}
+
+	// On a board the turn is over while waiting for the takeout.
+	st, _ = PlayLog(Settings{}, []int64{1, 2}, turn.Log{Entries: darts[:3], WaitForTakeout: true})
+	if !st.WaitingForTakeout || !st.Turns[0].Complete {
+		t.Errorf("waiting=%v complete=%v, want a complete turn waiting for the takeout", st.WaitingForTakeout, st.Turns[0].Complete)
+	}
+
+	// Finishing ends the turn early.
+	st, _ = Play(Settings{}, []int64{1}, hitsUpTo(20))
+	if last := st.Turns[len(st.Turns)-1]; !last.Complete || last.Target != 0 || len(last.Darts) != 2 {
+		t.Errorf("last turn = %+v, want complete after 2 darts with target 0", last)
+	}
+}

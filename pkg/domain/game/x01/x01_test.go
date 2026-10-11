@@ -299,6 +299,13 @@ func TestPlayLogWaitForTakeout(t *testing.T) {
 	if !st.WaitingForTakeout || *st.CurrentPlayerID != 1 || st.DartsInTurn != 3 {
 		t.Errorf("waiting=%v current=%d darts=%d, want player 1 waiting after 3 darts", st.WaitingForTakeout, *st.CurrentPlayerID, st.DartsInTurn)
 	}
+	// The turn is over while waiting: it counts in the stats and the history.
+	if got := st.Players[0].Stats; got.Turns180 != 1 || got.HighestTurn != 180 {
+		t.Errorf("stats while waiting = %+v, want the 180 counted", got)
+	}
+	if !st.Turns[0].Complete {
+		t.Error("turn while waiting: not complete")
+	}
 
 	st, _ = PlayLog(s, []int64{1, 2}, turn.Log{Entries: append(darts, throw.Dart{Takeout: true}), WaitForTakeout: true})
 	if st.WaitingForTakeout || *st.CurrentPlayerID != 2 {

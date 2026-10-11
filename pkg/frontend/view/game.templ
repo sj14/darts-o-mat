@@ -141,11 +141,11 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 			switch st := v.State.(type) {
 				case x01.State:
 					for _, ps := range st.Players {
-						@playerCard(v, p, ps.PlayerID, strconv.FormatUint(ps.Remaining, 10), "Rest · Ø "+decimal(ps.Stats.Average))
+						@playerCard(v, p, ps.PlayerID, strconv.FormatUint(ps.Remaining, 10), "Rest · Ø "+decimal(ps.Stats.Average), "", "")
 					}
 				case aroundtheclock.State:
 					for _, ps := range st.Players {
-						@playerCard(v, p, ps.PlayerID, targetLabel(ps.Target), "Ziel · "+percent(ps.Stats.HitRate)+" Treffer")
+						@playerCard(v, p, ps.PlayerID, targetLabel(ps.Target), "Ziel", orDash(ps.Stats.Darts > 0, percent(ps.Stats.HitRate)), "Trefferquote")
 					}
 			}
 		</div>
@@ -204,6 +204,10 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 			case x01.State:
 				if len(st.Turns) > 0 {
 					@x01History(v, st)
+				}
+			case aroundtheclock.State:
+				if len(st.Turns) > 0 {
+					@aroundTheClockHistory(v, st)
 				}
 		}
 		if len(v.Darts) > 0 {
@@ -271,7 +275,8 @@ templ gameStats(v service.GameView) {
 	</div>
 }
 
-templ playerCard(v service.GameView, p progress, playerID int64, value, caption string) {
+// playerCard shows a player's main value (rest, target) and optionally a second key figure next to it.
+templ playerCard(v service.GameView, p progress, playerID int64, value, caption, stat, statCaption string) {
 	<div class={ "card", templ.KV("border-primary border-3", p.isCurrent(playerID)), templ.KV("border-success border-3", p.isWinner(playerID)) }>
 		<div class="card-body">
 			<div class="d-flex justify-content-between align-items-center gap-2">
@@ -280,8 +285,18 @@ templ playerCard(v service.GameView, p progress, playerID int64, value, caption 
 					<span class="badge theme-success">Sieg</span>
 				}
 			</div>
-			<div class="score fw-bold my-2">{ value }</div>
-			<div class="fs-sm fg-3">{ caption }</div>
+			<div class="d-flex justify-content-between align-items-end gap-3">
+				<div>
+					<div class="score fw-bold my-2">{ value }</div>
+					<div class="fs-sm fg-3">{ caption }</div>
+				</div>
+				if stat != "" {
+					<div class="text-end">
+						<div class="score-side fw-bold my-2">{ stat }</div>
+						<div class="fs-sm fg-3">{ statCaption }</div>
+					</div>
+				}
+			</div>
 		</div>
 	</div>
 }
@@ -408,4 +423,61 @@ templ editPanel(v service.GameView, d throw.Dart) {
 		<button type="button" class="btn-outline theme-secondary" hx-get={ gameURL(v.Game.ID, "/board") } hx-target="#board" hx-swap="outerHTML">Abbrechen</button>
 	</div>
 	@keypad(v, dartEditURL(v, d))
+}
+
+// aroundTheClockHistory lists the turns, newest first; darts that hit the target are highlighted.
+templ aroundTheClockHistory(v service.GameView, st aroundtheclock.State) {
+	<div class="card mt-4">
+		<div class="card-body">
+			<h2 class="fs-xl mb-3">Verlauf</h2>
+			<div class="table-responsive">
+				<table class="table table-sm mb-0">
+					<thead>
+						<tr>
+							<th>Runde</th>
+							<th>Spieler</th>
+							<th>Darts</th>
+							<th class="text-end">Treffer</th>
+							<th class="text-end">Ziel</th>
+						</tr>
+					</thead>
+					<tbody>
+						for i := len(st.Turns) - 1; i >= 0; i-- {
+							@aroundTheClockHistoryRow(v, st.Turns[i])
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+}
+
+templ aroundTheClockHistoryRow(v service.GameView, t aroundtheclock.Turn) {
+	<tr>
+		<td>{ strconv.Itoa(t.Round) }</td>
+		<td>{ playerName(v, t.PlayerID) }</td>
+		<td>
+			for i, d := range t.Darts {
+				if i > 0 {
+					<span class="fg-3">·</span>
+				}
+				<span class={ templ.KV("hit", t.Hits[i]) }>
+					@dartLink(v, d)
+				</span>
+			}
+			if !t.Complete {
+				<span class="fg-3">…</span>
+			}
+		</td>
+		<td class="text-end">{ strconv.Itoa(countTrue(t.Hits)) }</td>
+		<td class="text-end">
+			if t.Target == 0 {
+				<span class="badge theme-success">✓ fertig</span>
+			} else if t.Target != t.From {
+				<span class="fg-3">{ targetLabel(t.From) } →</span> { targetLabel(t.Target) }
+			} else {
+				{ targetLabel(t.Target) }
+			}
+		</td>
+	</tr>
 }

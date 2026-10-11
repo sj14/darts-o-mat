@@ -196,7 +196,9 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 			return nil
 		}
 		t.Advance(len(st.Players))
-		if t.Dart == 0 {
+		// The turn is over after the third dart: the next player throws, or on a board
+		// everyone waits for the takeout.
+		if t.Dart == 0 || t.Waiting() {
 			p.Stats.addTurn(turnStart - p.Remaining)
 			cur.Complete = true
 		}

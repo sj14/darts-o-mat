@@ -47,6 +47,20 @@ body {
   line-height: 1;
 }
 
+/* A second key figure next to the score, e.g. the hit rate in around the clock. */
+.score-side {
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Darts in the history that hit the target. */
+.hit,
+.hit a {
+  color: var(--bs-success-fg);
+  font-weight: 700;
+}
+
 .keypad .span-3 {
   grid-column: span 3;
 }

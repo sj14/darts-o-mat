@@ -45,6 +45,19 @@ type State struct {
 	WaitingForTakeout bool `json:"waiting_for_takeout"`
 	// Throwers is the player who threw each entry of the log, 0 for takeouts.
 	Throwers []int64 `json:"-"`
+	// Turns lists every turn in the order they were thrown; the last one may still be in progress.
+	Turns []Turn `json:"turns"`
+}
+
+// Turn is one player's turn of up to three darts.
+type Turn struct {
+	PlayerID int64        `json:"player_id"`
+	Round    int          `json:"round"`
+	Darts    []throw.Dart `json:"darts"`
+	Hits     []bool       `json:"hits"`     // per dart: whether it hit the target at that moment
+	From     uint8        `json:"from"`     // target at the start of the turn
+	Target   uint8        `json:"target"`   // after this turn, 0 once finished
+	Complete bool         `json:"complete"` // false while the player still throws
 }
 
 // Play replays the darts of a game and returns the resulting state.
@@ -57,7 +70,7 @@ func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
 
 // PlayLog replays a game's log of darts and takeouts, see Play.
 func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
-	st := State{}
+	st := State{Turns: []Turn{}}
 	for _, id := range playerIDs {
 		st.Players = append(st.Players, PlayerState{PlayerID: id, Target: 1})
 	}
@@ -66,6 +79,8 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 	if log.WaitForTakeout {
 		t = turn.NewWaitingForTakeouts()
 	}
+
+	var cur *Turn // the turn being thrown
 
 	st.Throwers = make([]int64, len(log.Entries))
 	err := log.Replay(&t, len(st.Players), func(i int, d throw.Dart) error {
@@ -78,16 +93,25 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 		}
 
 		p := &st.Players[t.Player]
+		if t.Dart == 0 {
+			st.Turns = append(st.Turns, Turn{PlayerID: p.PlayerID, Round: t.Round, From: p.Target})
+			cur = &st.Turns[len(st.Turns)-1]
+		}
 		p.Stats.Darts++
-		if !d.Miss && d.Number == p.Target {
+		hit := !d.Miss && d.Number == p.Target
+		cur.Darts, cur.Hits = append(cur.Darts, d), append(cur.Hits, hit)
+		if hit {
 			p.Stats.Hits++
 			p.Target = s.next(p.Target, d.Multiplier)
-			if p.Target == 0 {
-				t.Finish(len(st.Players))
-				return nil
-			}
+		}
+		cur.Target = p.Target
+		if p.Target == 0 {
+			cur.Complete = true
+			t.Finish(len(st.Players))
+			return nil
 		}
 		t.Advance(len(st.Players))
+		cur.Complete = t.Dart == 0 || t.Waiting()
 		return nil
 	})
 	if err != nil {

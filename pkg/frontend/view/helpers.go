@@ -202,3 +202,14 @@ func dartThrower(v service.GameView, dartID int64) string {
 	}
 	return "?"
 }
+
+// countTrue counts the set flags, e.g. the hits of a turn.
+func countTrue(flags []bool) int {
+	n := 0
+	for _, f := range flags {
+		if f {
+			n++
+		}
+	}
+	return n
+}
