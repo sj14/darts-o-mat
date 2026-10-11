@@ -2,6 +2,7 @@ package board
 
 import (
 	"net/url"
+	"time"
 )
 
 type Server struct {
@@ -9,11 +10,12 @@ type Server struct {
 	Token string
 }
 
+// Board is a physical dartboard of an account.
 type Board struct {
-	// gorm.Model
-	ID uint64
-	// Servers []Server
-	// Registered string // GameID
+	ID        int64     `bun:",pk,autoincrement" json:"id"`
+	AccountID int64     `bun:",notnull" json:"-"`
+	Name      string    `bun:",notnull" json:"name"`
+	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
 func Status() (string, error) {

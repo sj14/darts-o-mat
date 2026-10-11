@@ -21,6 +21,8 @@ const (
 // The darts are stored separately and the current state is computed with Play.
 type Game struct {
 	ID             int64                    `bun:",pk,autoincrement" json:"id"`
+	OwnerAccountID int64                    `bun:",notnull" json:"owner_account_id"` // the account that created the game
+	BoardID        *int64                   `json:"board_id,omitempty"`
 	Mode           Mode                     `bun:",notnull" json:"mode"`
 	PlayerIDs      []int64                  `bun:"player_ids,notnull" json:"player_ids"`
 	X01            *x01.Settings            `json:"x01,omitempty"`
@@ -67,4 +69,21 @@ func (g Game) Play(darts []throw.Dart) (any, error) {
 	default:
 		return nil, fmt.Errorf("unknown mode %q", g.Mode)
 	}
+}
+
+type InvitationStatus string
+
+const (
+	InvitationPending  InvitationStatus = "pending"
+	InvitationAccepted InvitationStatus = "accepted"
+)
+
+// Invitation invites the player of another account to a game.
+// The game accepts darts once no invitation is pending anymore;
+// a declined or withdrawn invitation is deleted and the player removed from the game.
+type Invitation struct {
+	GameID    int64            `bun:",pk" json:"game_id"`
+	PlayerID  int64            `bun:",pk" json:"player_id"`
+	Status    InvitationStatus `bun:",notnull" json:"status"`
+	CreatedAt time.Time        `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }

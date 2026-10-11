@@ -6,8 +6,12 @@ Ziel des Projekts ist es, eine Alternative zu [Autodarts](https://autodarts.io) 
 
 ## Anforderungen
 
-- **Mehrere Accounts mit Login:** Das System soll mehrere Accounts unterstützen, die sich anmelden. Noch nicht umgesetzt.
-  Vor der Umsetzung mit dem Nutzer klären: wie Accounts und Spieler zusammenhängen und welche Daten (Spieler, Spiele, Boards) einem Account gehören bzw. für andere sichtbar sind.
+- **Mehrere Accounts mit Login** (umgesetzt):
+  - Ein Account gehört fest zu genau einem Spieler (wird bei der Registrierung mit angelegt) und kann mehrere Boards haben.
+  - Gastspieler haben keinen Account; sie gehören dem Account, der sie angelegt hat (`player.GuestOf`), und nur er kann sie in Spiele aufnehmen.
+  - Andere Accounts werden per Benutzername zu einem Spiel eingeladen und müssen zusagen. Solange eine Einladung offen ist, ist das Spiel in der Lobby und nimmt keine Darts an. Absagen oder Ausladen entfernt den Spieler aus dem Spiel; ein Spiel ohne Spieler wird gelöscht.
+  - Darts eintragen/zurücknehmen dürfen der Gastgeber und zugesagte Accounts. Wer an einem Spiel nicht beteiligt ist, bekommt `ErrNotFound` (404), damit die Existenz nicht verraten wird.
+  - Registrierung ist offen, abschaltbar mit `-registration=false`.
 
 ## Dokumentation
 
@@ -34,7 +38,8 @@ Neue Funktionen bauen auf dem bestehenden Stack auf; ohne Absprache keine zusät
 - `cmd/darts-o-mat`: Webserver
 - `cmd/darts-o-cam`: Kamera-Client, der Würfe erkennt und an den Server meldet
 - `pkg/api`: JSON-API unter `/api`
-- `pkg/service`: Anwendungslogik (Spieler/Spiele anlegen, Darts eintragen, Undo), gemeinsam genutzt von API und Weboberfläche. Neue Logik gehört hierher, nicht in die Handler.
+- `pkg/service`: Anwendungslogik inklusive Berechtigungsprüfung (Accounts, Gäste, Boards, Spiele, Einladungen, Darts), gemeinsam genutzt von API und Weboberfläche. Neue Logik gehört hierher, nicht in die Handler; Methoden bekommen den angemeldeten Account übergeben.
+- `pkg/auth`: Session-Cookie (HttpOnly, SameSite=Lax) und Middleware, die den angemeldeten Account in den Request-Kontext legt. In der DB steht nur der SHA-256-Hash des Session-Tokens, Passwörter als bcrypt-Hash.
 - `pkg/domain`: Fachlogik (Board, Spieler, Würfe, Spielmodi X01 und Around the Clock)
 - `pkg/frontend`: Weboberfläche: Controller, templ-Views (`view`) und eingebettete statische Dateien (`static`)
 - `pkg/repos/store`: Persistenz; ein gemeinsamer Bun-Store für beide Datenbanken, nur der Verbindungsaufbau (`NewPostgres`/`NewSQLite`) unterscheidet sich
@@ -64,15 +69,20 @@ X01 kennt die Out-Modi `single`, `double` und `master` (Doppel oder Triple).
 
 ## API
 
-- `GET /api/players`, `POST /api/players` (`{"name": "…"}`)
-- `POST /api/games`, z. B. `{"mode": "x01", "player_ids": [1, 2], "x01": {"start_score": 501, "out_mode": "double"}}`
-  oder `{"mode": "around_the_clock", "player_ids": [1], "around_the_clock": {"bull": true, "multiplier_skips": false}}`
-- `GET /api/games/{id}`: Spiel, Darts und berechneter Stand
+Alle Endpunkte unter `/api` außer `register`/`login`/`logout` brauchen das Session-Cookie aus `POST /api/login`.
+
+- `POST /api/register` (`{"username", "name", "password"}`), `POST /api/login` (`{"username", "password"}`), `POST /api/logout`
+- `GET /api/players` (eigener Spieler + Gäste), `POST /api/players` (`{"name"}`, legt einen Gast an)
+- `GET /api/boards`, `POST /api/boards` (`{"name"}`), `DELETE /api/boards/{id}`
+- `GET /api/games`, `POST /api/games`, z. B. `{"mode": "x01", "player_ids": [1, 2], "invite": ["ben"], "board_id": 1, "x01": {"start_score": 501, "out_mode": "double"}}`
+  oder `{"mode": "around_the_clock", "player_ids": [1], "around_the_clock": {"bull": true, "multiplier_skips": false}}`; `player_ids` nur eigener Spieler und eigene Gäste, Eingeladene kommen ans Ende der Wurfreihenfolge
+- `GET /api/games/{id}`: Spiel, Spieler, Einladungen, Darts, berechneter Stand sowie `ready`, `is_owner`, `can_throw`, `invited`
 - `POST /api/games/{id}/darts`: `{"number": 20, "multiplier": 3}` oder `{"miss": true}`; Bull ist `25`
 - `DELETE /api/games/{id}/darts/last`: letzten Dart rückgängig machen
+- `GET /api/invitations`, `POST /api/games/{id}/accept`, `POST /api/games/{id}/decline`, `DELETE /api/games/{id}/invitations/{playerID}` (Gastgeber lädt aus)
 
 ## Testen
 
-- Regeln: `go test ./pkg/...`
+- Regeln und Service (Accounts, Rechte, Einladungen gegen In-Memory-SQLite): `go test ./pkg/...`
 - Weboberfläche: mit [Lightpanda](https://github.com/lightpanda-io/browser) statt Headless Chrome, z. B. `lightpanda fetch <url> --inject-script-file klicks.js --wait-script '…' --dump semantic_tree_text --dump-selector '#board'`.
   Lightpanda führt JavaScript/htmx aus, rendert aber keine Pixel; für echte Screenshots gibt es damit keinen Ersatz.

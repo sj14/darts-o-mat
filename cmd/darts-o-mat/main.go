@@ -19,6 +19,7 @@ func main() {
 		dbType = flag.String("db", "sqlite", "database to use: sqlite or postgres")
 		dbDSN  = flag.String("dsn", "file:darts-o-mat.db", "data source name of the database")
 		addr   = flag.String("addr", ":3000", "address to listen on")
+		reg    = flag.Bool("registration", true, "allow anyone to create an account")
 	)
 	flag.Parse()
 
@@ -45,7 +46,7 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 
-	svc := service.New(repo)
+	svc := service.New(repo, service.Options{Registration: *reg})
 	r.Mount("/api", api.New(svc).Routes())
 	r.Mount("/", controller.New(svc).Routes())
 

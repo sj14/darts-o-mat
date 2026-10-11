@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/sj14/darts-o-mat/pkg/auth"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/frontend/view"
@@ -12,11 +13,12 @@ import (
 )
 
 func (c *Controller) showGame(w http.ResponseWriter, r *http.Request) {
-	id, ok := gameID(w, r)
+	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
 	}
-	v, err := c.svc.Game(r.Context(), id)
+	acc := auth.Account(r.Context())
+	v, err := c.svc.Game(r.Context(), acc, id)
 	if isNotFound(err) {
 		http.NotFound(w, r)
 		return
@@ -25,12 +27,21 @@ func (c *Controller) showGame(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	render(w, r, http.StatusOK, view.Game(v))
+	render(w, r, http.StatusOK, view.Game(acc.Username, v))
+}
+
+// showBoard returns only the board, used by the lobby to refresh itself.
+func (c *Controller) showBoard(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	c.renderBoard(w, r, id, "")
 }
 
 // addDart is called by htmx and responds with the updated board.
 func (c *Controller) addDart(w http.ResponseWriter, r *http.Request) {
-	id, ok := gameID(w, r)
+	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
 	}
@@ -46,7 +57,7 @@ func (c *Controller) addDart(w http.ResponseWriter, r *http.Request) {
 		d.Number, d.Multiplier = uint8(number), uint8(multiplier)
 	}
 
-	v, err := c.svc.AddDart(r.Context(), id, d)
+	v, err := c.svc.AddDart(r.Context(), auth.Account(r.Context()), id, d)
 	switch {
 	case err == nil:
 		render(w, r, http.StatusOK, view.Board(v, ""))
@@ -54,27 +65,88 @@ func (c *Controller) addDart(w http.ResponseWriter, r *http.Request) {
 		c.renderBoard(w, r, id, "Es gibt kein Triple-Bull.")
 	case errors.Is(err, throw.ErrInvalid):
 		c.renderBoard(w, r, id, "Diesen Treffer gibt es nicht.")
-	case errors.Is(err, turn.ErrGameOver):
-		c.renderBoard(w, r, id, "Das Spiel ist schon vorbei.")
-	case isNotFound(err):
-		http.NotFound(w, r)
 	default:
-		serverError(w, err)
+		c.handleGameError(w, r, id, err)
 	}
 }
 
 func (c *Controller) undoDart(w http.ResponseWriter, r *http.Request) {
-	id, ok := gameID(w, r)
+	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
 	}
 
-	v, err := c.svc.UndoDart(r.Context(), id)
+	v, err := c.svc.UndoDart(r.Context(), auth.Account(r.Context()), id)
 	switch {
 	case err == nil:
 		render(w, r, http.StatusOK, view.Board(v, ""))
 	case errors.Is(err, service.ErrNothingToUndo):
 		c.renderBoard(w, r, id, "Es gibt keinen Dart zum Zurücknehmen.")
+	default:
+		c.handleGameError(w, r, id, err)
+	}
+}
+
+func (c *Controller) acceptInvitation(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	_, err := c.svc.AcceptInvitation(r.Context(), auth.Account(r.Context()), id)
+	if err != nil && !isNotFound(err) {
+		serverError(w, err)
+		return
+	}
+	http.Redirect(w, r, gameURL(id), http.StatusSeeOther)
+}
+
+func (c *Controller) declineInvitation(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	err := c.svc.DeclineInvitation(r.Context(), auth.Account(r.Context()), id)
+	if err != nil && !isNotFound(err) {
+		serverError(w, err)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// withdrawInvitation is called by htmx from the lobby and responds with the updated board.
+func (c *Controller) withdrawInvitation(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	playerID, ok := urlID(w, r, "playerID")
+	if !ok {
+		return
+	}
+
+	v, err := c.svc.WithdrawInvitation(r.Context(), auth.Account(r.Context()), id, playerID)
+	switch {
+	case err == nil:
+		render(w, r, http.StatusOK, view.Board(v, ""))
+	case isNotFound(err):
+		// No player left, the game was deleted.
+		w.Header().Set("HX-Redirect", "/")
+	case errors.Is(err, service.ErrInvalid):
+		c.renderBoard(w, r, id, "Diese Einladung gibt es nicht mehr.")
+	default:
+		c.handleGameError(w, r, id, err)
+	}
+}
+
+// handleGameError responds to errors shared by the actions on a game.
+func (c *Controller) handleGameError(w http.ResponseWriter, r *http.Request, id int64, err error) {
+	switch {
+	case errors.Is(err, turn.ErrGameOver):
+		c.renderBoard(w, r, id, "Das Spiel ist schon vorbei.")
+	case errors.Is(err, service.ErrNotReady):
+		c.renderBoard(w, r, id, "Es haben noch nicht alle Eingeladenen zugesagt.")
+	case errors.Is(err, service.ErrForbidden):
+		c.renderBoard(w, r, id, "Das darfst du in diesem Spiel nicht.")
 	case isNotFound(err):
 		http.NotFound(w, r)
 	default:
@@ -85,7 +157,7 @@ func (c *Controller) undoDart(w http.ResponseWriter, r *http.Request) {
 // renderBoard shows the current board with a message. It responds with 200,
 // because htmx does not swap in error responses by default.
 func (c *Controller) renderBoard(w http.ResponseWriter, r *http.Request, id int64, msg string) {
-	v, err := c.svc.Game(r.Context(), id)
+	v, err := c.svc.Game(r.Context(), auth.Account(r.Context()), id)
 	if isNotFound(err) {
 		http.NotFound(w, r)
 		return
@@ -95,4 +167,8 @@ func (c *Controller) renderBoard(w http.ResponseWriter, r *http.Request, id int6
 		return
 	}
 	render(w, r, http.StatusOK, view.Board(v, msg))
+}
+
+func gameURL(id int64) string {
+	return "/games/" + strconv.FormatInt(id, 10)
 }

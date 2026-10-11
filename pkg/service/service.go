@@ -1,13 +1,14 @@
 // Package service contains the use cases shared by the JSON API and the web frontend.
+// All game operations are done on behalf of a logged-in account and check its permissions.
 package service
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 
+	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
@@ -16,94 +17,216 @@ import (
 
 var (
 	// ErrInvalid wraps errors caused by invalid input, e.g. unknown players or wrong settings.
-	ErrInvalid       = errors.New("invalid input")
+	ErrInvalid = errors.New("invalid input")
+	// ErrNotFound is also returned for games the account takes no part in, so their existence isn't revealed.
 	ErrNotFound      = store.ErrNotFound
+	ErrForbidden     = errors.New("not allowed")
+	ErrNotReady      = errors.New("waiting for invited players to accept")
 	ErrNothingToUndo = errors.New("no dart to undo")
+	ErrInviteSelf    = fmt.Errorf("%w: you can't invite yourself", ErrInvalid)
 )
+
+// UnknownUserError is returned when inviting a username that doesn't exist. It wraps ErrInvalid.
+type UnknownUserError struct {
+	Username string
+}
+
+func (e UnknownUserError) Error() string {
+	return fmt.Sprintf("%v: unknown user %q", ErrInvalid, e.Username)
+}
+
+func (e UnknownUserError) Unwrap() error {
+	return ErrInvalid
+}
+
+type Options struct {
+	// Registration allows anyone to create an account.
+	Registration bool
+}
 
 type Service struct {
 	store *store.Store
-	// dartsMu serializes changes to the darts, so two darts can't both pass
-	// the replay check against the same previous state.
-	dartsMu sync.Mutex
+	opts  Options
+	// mu serializes changes to the darts and players of games, so two darts
+	// can't both pass the replay check against the same previous state.
+	mu sync.Mutex
 }
 
-func New(store *store.Store) *Service {
-	return &Service{store: store}
+func New(store *store.Store, opts Options) *Service {
+	return &Service{store: store, opts: opts}
 }
 
-// GameView is a game together with everything needed to show it.
+func (s *Service) RegistrationOpen() bool {
+	return s.opts.Registration
+}
+
+// GameView is a game together with everything needed to show it to an account.
 type GameView struct {
-	Game    game.Game       `json:"game"`
-	Players []player.Player `json:"players"` // in throwing order
-	Darts   []throw.Dart    `json:"darts"`
-	State   any             `json:"state"` // x01.State or aroundtheclock.State, depending on the mode
+	Game        game.Game         `json:"game"`
+	Players     []player.Player   `json:"players"` // in throwing order
+	Invitations []game.Invitation `json:"invitations"`
+	Darts       []throw.Dart      `json:"darts"`
+	State       any               `json:"state"` // x01.State or aroundtheclock.State, depending on the mode
+	// Ready is true once no invitation is pending anymore; only then darts can be thrown.
+	Ready bool `json:"ready"`
+
+	// The following fields depend on the account the view was created for.
+	IsOwner  bool `json:"is_owner"`
+	CanThrow bool `json:"can_throw"` // may enter and undo darts (once the game is ready)
+	Invited  bool `json:"invited"`   // has a pending invitation to answer
 }
 
-func (s *Service) ListPlayers(ctx context.Context) ([]player.Player, error) {
-	return s.store.ListPlayers(ctx)
-}
-
-func (s *Service) CreatePlayer(ctx context.Context, name string) (player.Player, error) {
-	p := player.Player{Name: strings.TrimSpace(name)}
-	if p.Name == "" {
-		return p, fmt.Errorf("%w: name must not be empty", ErrInvalid)
+// InvitationOf returns the invitation of a player, nil if the player wasn't invited (owner or guest).
+func (v GameView) InvitationOf(playerID int64) *game.Invitation {
+	for _, inv := range v.Invitations {
+		if inv.PlayerID == playerID {
+			return &inv
+		}
 	}
-	err := s.store.StorePlayer(ctx, &p)
-	return p, err
+	return nil
 }
 
-func (s *Service) CreateGame(ctx context.Context, g game.Game) (GameView, error) {
+// CreateGame creates a game owned by the account. PlayerIDs may only contain the
+// account's own player and its guests; other accounts are invited by username
+// and added to the end of the throwing order.
+func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Game, inviteUsernames []string) (GameView, error) {
 	g.ID = 0
-	if err := g.Validate(); err != nil {
-		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
-	}
+	g.OwnerAccountID = acc.ID
 
-	players, err := s.store.GetPlayers(ctx, g.PlayerIDs)
+	own, err := s.store.ListPlayers(ctx, acc.ID, acc.PlayerID)
 	if err != nil {
 		return GameView{}, err
 	}
-	if len(players) != len(g.PlayerIDs) {
-		return GameView{}, fmt.Errorf("%w: unknown player in player_ids", ErrInvalid)
+	for _, id := range g.PlayerIDs {
+		if !containsPlayer(own, id) {
+			return GameView{}, fmt.Errorf("%w: player %d is neither you nor one of your guests", ErrInvalid, id)
+		}
 	}
 
-	if err := s.store.CreateGame(ctx, &g); err != nil {
+	var invited []int64
+	for _, username := range inviteUsernames {
+		username = account.NormalizeUsername(username)
+		if username == "" {
+			continue
+		}
+		other, err := s.store.GetAccountByUsername(ctx, username)
+		if errors.Is(err, store.ErrNotFound) {
+			return GameView{}, UnknownUserError{Username: username}
+		}
+		if err != nil {
+			return GameView{}, err
+		}
+		if other.ID == acc.ID {
+			return GameView{}, ErrInviteSelf
+		}
+		g.PlayerIDs = append(g.PlayerIDs, other.PlayerID)
+		invited = append(invited, other.PlayerID)
+	}
+
+	if g.BoardID != nil {
+		b, err := s.store.GetBoard(ctx, *g.BoardID)
+		if errors.Is(err, store.ErrNotFound) || (err == nil && b.AccountID != acc.ID) {
+			return GameView{}, fmt.Errorf("%w: unknown board", ErrInvalid)
+		}
+		if err != nil {
+			return GameView{}, err
+		}
+	}
+
+	if err := g.Validate(); err != nil {
+		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	if err := s.store.CreateGame(ctx, &g, invited); err != nil {
 		return GameView{}, err
 	}
-	return s.view(ctx, g)
+	return s.view(ctx, acc, g)
 }
 
-func (s *Service) Game(ctx context.Context, id int64) (GameView, error) {
+func (s *Service) Game(ctx context.Context, acc account.Account, id int64) (GameView, error) {
 	g, err := s.store.GetGame(ctx, id)
 	if err != nil {
 		return GameView{}, err
 	}
-	return s.view(ctx, g)
+	return s.view(ctx, acc, g)
 }
 
-// ListGames returns the most recent games, newest first.
-func (s *Service) ListGames(ctx context.Context, limit int) ([]GameView, error) {
-	games, err := s.store.ListGames(ctx, limit)
+// ListGames returns the most recent games the account created or was invited to, newest first.
+func (s *Service) ListGames(ctx context.Context, acc account.Account, limit int) ([]GameView, error) {
+	games, err := s.store.ListGames(ctx, acc.ID, acc.PlayerID, limit)
 	if err != nil {
 		return nil, err
 	}
+	return s.views(ctx, acc, games)
+}
 
-	views := []GameView{}
-	for _, g := range games {
-		v, err := s.view(ctx, g)
+// Invitations returns the games the account was invited to and hasn't answered yet.
+func (s *Service) Invitations(ctx context.Context, acc account.Account) ([]GameView, error) {
+	invitations, err := s.store.ListPendingInvitations(ctx, acc.PlayerID)
+	if err != nil {
+		return nil, err
+	}
+	var games []game.Game
+	for _, inv := range invitations {
+		g, err := s.store.GetGame(ctx, inv.GameID)
 		if err != nil {
 			return nil, err
 		}
-		views = append(views, v)
+		games = append(games, g)
 	}
-	return views, nil
+	return s.views(ctx, acc, games)
+}
+
+func (s *Service) AcceptInvitation(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
+	if err := s.store.AcceptInvitation(ctx, gameID, acc.PlayerID); err != nil {
+		return GameView{}, err
+	}
+	return s.Game(ctx, acc, gameID)
+}
+
+// DeclineInvitation removes the account's player from a game it was invited to.
+func (s *Service) DeclineInvitation(ctx context.Context, acc account.Account, gameID int64) error {
+	v, err := s.Game(ctx, acc, gameID)
+	if err != nil {
+		return err
+	}
+	if !v.Invited {
+		return ErrNotFound
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.store.RemoveInvitedPlayer(ctx, gameID, acc.PlayerID)
+}
+
+// WithdrawInvitation lets the owner remove an invited player who hasn't accepted yet.
+// Returns ErrNotFound if the game was deleted because no player is left.
+func (s *Service) WithdrawInvitation(ctx context.Context, acc account.Account, gameID, playerID int64) (GameView, error) {
+	v, err := s.Game(ctx, acc, gameID)
+	if err != nil {
+		return GameView{}, err
+	}
+	if !v.IsOwner {
+		return GameView{}, ErrForbidden
+	}
+	inv := v.InvitationOf(playerID)
+	if inv == nil || inv.Status != game.InvitationPending {
+		return GameView{}, fmt.Errorf("%w: player %d has no pending invitation", ErrInvalid, playerID)
+	}
+
+	s.mu.Lock()
+	err = s.store.RemoveInvitedPlayer(ctx, gameID, playerID)
+	s.mu.Unlock()
+	if err != nil {
+		return GameView{}, err
+	}
+	return s.Game(ctx, acc, gameID)
 }
 
 // AddDart registers the next dart of a game. The dart is only stored if the
 // game accepts it; otherwise the error wraps throw.ErrInvalid or turn.ErrGameOver.
 // A missing multiplier counts as single.
-func (s *Service) AddDart(ctx context.Context, gameID int64, d throw.Dart) (GameView, error) {
-	g, err := s.store.GetGame(ctx, gameID)
+func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64, d throw.Dart) (GameView, error) {
+	g, err := s.throwableGame(ctx, acc, gameID)
 	if err != nil {
 		return GameView{}, err
 	}
@@ -116,8 +239,8 @@ func (s *Service) AddDart(ctx context.Context, gameID int64, d throw.Dart) (Game
 		d.Multiplier = 1
 	}
 
-	s.dartsMu.Lock()
-	defer s.dartsMu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	darts, err := s.store.ListDarts(ctx, g.ID)
 	if err != nil {
@@ -132,17 +255,17 @@ func (s *Service) AddDart(ctx context.Context, gameID int64, d throw.Dart) (Game
 	if err := s.store.AddDart(ctx, &d); err != nil {
 		return GameView{}, err
 	}
-	return s.view(ctx, g)
+	return s.view(ctx, acc, g)
 }
 
-func (s *Service) UndoDart(ctx context.Context, gameID int64) (GameView, error) {
-	g, err := s.store.GetGame(ctx, gameID)
+func (s *Service) UndoDart(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
+	g, err := s.throwableGame(ctx, acc, gameID)
 	if err != nil {
 		return GameView{}, err
 	}
 
-	s.dartsMu.Lock()
-	defer s.dartsMu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	err = s.store.DeleteLastDart(ctx, g.ID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -151,15 +274,67 @@ func (s *Service) UndoDart(ctx context.Context, gameID int64) (GameView, error) 
 	if err != nil {
 		return GameView{}, err
 	}
-	return s.view(ctx, g)
+	return s.view(ctx, acc, g)
 }
 
-func (s *Service) view(ctx context.Context, g game.Game) (GameView, error) {
-	darts, err := s.store.ListDarts(ctx, g.ID)
+// throwableGame returns the game if the account may enter darts right now.
+// A game only gets ready once, invitations can't be added later.
+func (s *Service) throwableGame(ctx context.Context, acc account.Account, gameID int64) (game.Game, error) {
+	v, err := s.Game(ctx, acc, gameID)
+	if err != nil {
+		return game.Game{}, err
+	}
+	if !v.CanThrow {
+		return game.Game{}, ErrForbidden
+	}
+	if !v.Ready {
+		return game.Game{}, ErrNotReady
+	}
+	return v.Game, nil
+}
+
+func (s *Service) views(ctx context.Context, acc account.Account, games []game.Game) ([]GameView, error) {
+	views := []GameView{}
+	for _, g := range games {
+		v, err := s.view(ctx, acc, g)
+		if err != nil {
+			return nil, err
+		}
+		views = append(views, v)
+	}
+	return views, nil
+}
+
+// view builds the view of a game for an account, ErrNotFound if the account takes no part in it.
+func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (GameView, error) {
+	invitations, err := s.store.ListInvitations(ctx, g.ID)
 	if err != nil {
 		return GameView{}, err
 	}
-	state, err := g.Play(darts)
+
+	v := GameView{Game: g, Invitations: invitations, Ready: true, IsOwner: g.OwnerAccountID == acc.ID}
+	for _, inv := range invitations {
+		if inv.Status == game.InvitationPending {
+			v.Ready = false
+		}
+	}
+	mine := v.InvitationOf(acc.PlayerID)
+	switch {
+	case v.IsOwner:
+		v.CanThrow = true
+	case mine == nil:
+		return GameView{}, ErrNotFound
+	case mine.Status == game.InvitationAccepted:
+		v.CanThrow = true
+	default:
+		v.Invited = true
+	}
+
+	v.Darts, err = s.store.ListDarts(ctx, g.ID)
+	if err != nil {
+		return GameView{}, err
+	}
+	v.State, err = g.Play(v.Darts)
 	if err != nil {
 		return GameView{}, err
 	}
@@ -168,14 +343,22 @@ func (s *Service) view(ctx context.Context, g game.Game) (GameView, error) {
 	if err != nil {
 		return GameView{}, err
 	}
-	byID := map[int64]player.Player{}
-	for _, p := range players {
-		byID[p.ID] = p
-	}
-	ordered := []player.Player{}
+	v.Players = []player.Player{}
 	for _, id := range g.PlayerIDs {
-		ordered = append(ordered, byID[id])
+		for _, p := range players {
+			if p.ID == id {
+				v.Players = append(v.Players, p)
+			}
+		}
 	}
+	return v, nil
+}
 
-	return GameView{Game: g, Players: ordered, Darts: darts, State: state}, nil
+func containsPlayer(players []player.Player, id int64) bool {
+	for _, p := range players {
+		if p.ID == id {
+			return true
+		}
+	}
+	return false
 }

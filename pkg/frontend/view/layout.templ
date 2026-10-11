@@ -1,6 +1,7 @@
 package view
 
-templ layout(title string) {
+// layout is the frame of every page. user is the username of the logged-in account, empty on the login pages.
+templ layout(title, user string) {
 	<!DOCTYPE html>
 	<html lang="de">
 		<head>
@@ -13,8 +14,17 @@ templ layout(title string) {
 		</head>
 		<body>
 			<header class="border-bottom mb-4">
-				<div class="container py-3">
+				<div class="container py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
 					<a href="/" class="fs-xl fw-bold text-decoration-none">🎯 darts-o-mat</a>
+					if user != "" {
+						<nav class="d-flex align-items-center gap-3">
+							<a href="/boards">Boards</a>
+							<span class="fg-3">{ user }</span>
+							<form method="post" action="/logout" class="mb-0">
+								<button type="submit" class="btn-outline theme-secondary btn-sm">Abmelden</button>
+							</form>
+						</nav>
+					}
 				</div>
 			</header>
 			<main class="container pb-5">

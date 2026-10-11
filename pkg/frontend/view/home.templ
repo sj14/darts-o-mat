@@ -3,69 +3,117 @@ package view
 import (
 	"strconv"
 
+	"github.com/sj14/darts-o-mat/pkg/domain/account"
+	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
 
 type HomeModel struct {
-	Players []player.Player
-	Games   []service.GameView
-	Mode    game.Mode // selected mode of the new game, empty until the user picked one
-	Error   string
+	Account     account.Account
+	Players     []player.Player // the account's own player followed by its guests
+	Boards      []board.Board
+	Games       []service.GameView
+	Invitations []service.GameView
+	Mode        game.Mode // selected mode of the new game, empty until the user picked one
+	Error       string
 }
 
 templ Home(m HomeModel) {
-	@layout("Start") {
+	@layout("Start", m.Account.Username) {
 		@errorAlert(m.Error)
+		if len(m.Invitations) > 0 {
+			@invitations(m.Invitations)
+		}
 		<div class="row g-4">
 			<div class="md:col-8">
 				@newGame(m)
 			</div>
 			<div class="md:col-4 d-grid gap-4 align-content-start">
-				<div class="card">
-					<div class="card-body">
-						<h2 class="fs-xl mb-3">Spieler</h2>
-						if len(m.Players) == 0 {
-							<p class="fg-3">Noch keine Spieler. Lege zuerst Spieler an.</p>
-						} else {
-							<ul class="list-group mb-3">
-								for _, p := range m.Players {
-									<li class="list-group-item">{ p.Name }</li>
-								}
-							</ul>
-						}
-						<form method="post" action="/players" class="d-flex gap-2">
-							<input type="text" name="name" class="form-control" placeholder="Name" required aria-label="Name"/>
-							<button type="submit" class="btn-solid theme-secondary">Anlegen</button>
-						</form>
-					</div>
-				</div>
+				@guests(m.Players)
 				if len(m.Games) > 0 {
-					<div class="card">
-						<div class="card-body">
-							<h2 class="fs-xl mb-3">Letzte Spiele</h2>
-							<div class="list-group">
-								for _, g := range m.Games {
-									<a href={ templ.URL(gameURL(g.Game.ID, "")) } class="list-group-item list-group-item-action">
-										<div class="d-flex justify-content-between gap-2">
-											<span class="fw-semibold">{ modeLabel(g.Game) }</span>
-											if progressOf(g).GameOver {
-												<span class="badge theme-success">beendet</span>
-											} else {
-												<span class="badge theme-primary">läuft</span>
-											}
-										</div>
-										<div class="fs-sm fg-3">{ playerNames(g, g.Game.PlayerIDs) }</div>
-									</a>
-								}
-							</div>
-						</div>
-					</div>
+					@recentGames(m.Games)
 				}
 			</div>
 		</div>
 	}
+}
+
+templ invitations(views []service.GameView) {
+	<div class="card mb-4 border-primary border-2">
+		<div class="card-body">
+			<h2 class="fs-xl mb-3">Einladungen</h2>
+			<div class="list-group">
+				for _, v := range views {
+					<div class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+						<div>
+							<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="fw-semibold">{ modeLabel(v.Game) }</a>
+							<div class="fs-sm fg-3">mit { playerNames(v, v.Game.PlayerIDs) }</div>
+						</div>
+						@answerInvitation(v.Game.ID)
+					</div>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+templ answerInvitation(gameID int64) {
+	<div class="d-flex gap-2">
+		<form method="post" action={ templ.URL(gameURL(gameID, "/accept")) } class="mb-0">
+			<button type="submit" class="btn-solid theme-success">Zusagen</button>
+		</form>
+		<form method="post" action={ templ.URL(gameURL(gameID, "/decline")) } class="mb-0">
+			<button type="submit" class="btn-outline theme-danger">Absagen</button>
+		</form>
+	</div>
+}
+
+templ guests(players []player.Player) {
+	<div class="card">
+		<div class="card-body">
+			<h2 class="fs-xl mb-1">Gastspieler</h2>
+			<p class="fs-sm fg-3">Für Mitspieler ohne eigenen Account. Nur du siehst sie.</p>
+			if len(players) > 1 {
+				<ul class="list-group mb-3">
+					for _, p := range players[1:] {
+						<li class="list-group-item">{ p.Name }</li>
+					}
+				</ul>
+			}
+			<form method="post" action="/guests" class="d-flex gap-2">
+				<input type="text" name="name" class="form-control" placeholder="Name" required aria-label="Name des Gastspielers"/>
+				<button type="submit" class="btn-solid theme-secondary">Anlegen</button>
+			</form>
+		</div>
+	</div>
+}
+
+templ recentGames(views []service.GameView) {
+	<div class="card">
+		<div class="card-body">
+			<h2 class="fs-xl mb-3">Letzte Spiele</h2>
+			<div class="list-group">
+				for _, v := range views {
+					<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="list-group-item list-group-item-action">
+						<div class="d-flex justify-content-between gap-2">
+							<span class="fw-semibold">{ modeLabel(v.Game) }</span>
+							switch  {
+								case !v.Ready:
+									<span class="badge theme-warning">wartet</span>
+								case progressOf(v).GameOver:
+									<span class="badge theme-success">beendet</span>
+								default:
+									<span class="badge theme-primary">läuft</span>
+							}
+						</div>
+						<div class="fs-sm fg-3">{ playerNames(v, v.Game.PlayerIDs) }</div>
+					</a>
+				}
+			</div>
+		</div>
+	</div>
 }
 
 templ radioButton(name, value, label string, checked bool) {
@@ -75,20 +123,40 @@ templ radioButton(name, value, label string, checked bool) {
 	</label>
 }
 
-// playerChoice lets the user pick the players of a new game; they throw in the listed order.
-templ playerChoice(players []player.Player) {
+// participants lets the user pick who plays and on which board.
+// The players throw in the listed order, invited accounts last.
+templ participants(m HomeModel) {
 	<div class="form-group">
 		<span class="form-label">Mitspieler</span>
-		if len(players) == 0 {
-			<p class="fg-3 mb-0">Lege zuerst rechts Spieler an.</p>
-		}
-		for _, p := range players {
+		for i, p := range m.Players {
 			<div class="form-field">
-				<input type="checkbox" class="check" id={ "player-" + strconv.FormatInt(p.ID, 10) } name="player_ids" value={ strconv.FormatInt(p.ID, 10) }/>
-				<label for={ "player-" + strconv.FormatInt(p.ID, 10) }>{ p.Name }</label>
+				<input type="checkbox" class="check" id={ "player-" + strconv.FormatInt(p.ID, 10) } name="player_ids" value={ strconv.FormatInt(p.ID, 10) } checked?={ i == 0 }/>
+				<label for={ "player-" + strconv.FormatInt(p.ID, 10) }>
+					if i == 0 {
+						Ich ({ p.Name })
+					} else {
+						{ p.Name } <span class="fg-3">(Gast)</span>
+					}
+				</label>
 			</div>
 		}
 	</div>
+	<div class="form-group">
+		<label for="invite" class="form-label">Spieler mit Account einladen</label>
+		<input type="text" id="invite" name="invite" class="form-control" placeholder="Benutzernamen, z. B. ben, cara" autocapitalize="none"/>
+		<div class="form-text">Das Spiel beginnt, sobald alle Eingeladenen zugesagt haben.</div>
+	</div>
+	if len(m.Boards) > 0 {
+		<div class="form-group">
+			<span class="form-label">Board</span>
+			<div class="btn-group flex-wrap" role="group">
+				@radioButton("board_id", "", "ohne", true)
+				for _, b := range m.Boards {
+					@radioButton("board_id", strconv.FormatInt(b.ID, 10), b.Name, false)
+				}
+			</div>
+		</div>
+	}
 }
 
 // newGame first lets the user pick a mode and then shows the options of that mode.
@@ -125,7 +193,7 @@ templ newGame(m HomeModel) {
 								@radioButton("out_mode", "master", "Doppel oder Triple", false)
 							</div>
 						</div>
-						@playerChoice(m.Players)
+						@participants(m)
 						<div>
 							<button type="submit" class="btn-solid theme-primary">X01 starten</button>
 						</div>
@@ -141,7 +209,7 @@ templ newGame(m HomeModel) {
 							<input type="checkbox" class="check" id="atc-skips" name="multiplier_skips"/>
 							<label for="atc-skips">Doppel springt 2 Felder, Triple 3 Felder weiter</label>
 						</div>
-						@playerChoice(m.Players)
+						@participants(m)
 						<div>
 							<button type="submit" class="btn-solid theme-primary">Around the Clock starten</button>
 						</div>
@@ -171,4 +239,36 @@ templ modeTile(mode, selected game.Mode, title, description string) {
 			<div class="fs-sm fg-3">{ description }</div>
 		</div>
 	</a>
+}
+
+templ Boards(user string, boards []board.Board, errMsg string) {
+	@layout("Boards", user) {
+		<div class="row justify-content-center">
+			<div class="md:col-8">
+				@errorAlert(errMsg)
+				<div class="card">
+					<div class="card-body">
+						<h1 class="fs-2xl mb-1">Boards</h1>
+						<p class="fg-3">Deine Dartboards, z. B. eins im Keller und eins im Vereinsheim. Beim Spielstart kannst du wählen, auf welchem Board gespielt wird.</p>
+						if len(boards) > 0 {
+							<ul class="list-group mb-3">
+								for _, b := range boards {
+									<li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+										<span>{ b.Name }</span>
+										<form method="post" action={ templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/delete") } class="mb-0">
+											<button type="submit" class="btn-outline theme-danger btn-sm">Löschen</button>
+										</form>
+									</li>
+								}
+							</ul>
+						}
+						<form method="post" action="/boards" class="d-flex gap-2">
+							<input type="text" name="name" class="form-control" placeholder="Name, z. B. Keller" required aria-label="Name des Boards"/>
+							<button type="submit" class="btn-solid theme-secondary">Anlegen</button>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
 }

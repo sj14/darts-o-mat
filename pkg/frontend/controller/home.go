@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
+	"github.com/sj14/darts-o-mat/pkg/auth"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
@@ -24,21 +26,30 @@ func (c *Controller) renderHome(w http.ResponseWriter, r *http.Request, status i
 		mode = ""
 	}
 
-	players, err := c.svc.ListPlayers(r.Context())
-	if err != nil {
+	ctx := r.Context()
+	m := view.HomeModel{Account: auth.Account(ctx), Mode: mode, Error: errMsg}
+	var err error
+	if m.Players, err = c.svc.Players(ctx, m.Account); err != nil {
 		serverError(w, err)
 		return
 	}
-	games, err := c.svc.ListGames(r.Context(), 10)
-	if err != nil {
+	if m.Boards, err = c.svc.Boards(ctx, m.Account); err != nil {
 		serverError(w, err)
 		return
 	}
-	render(w, r, status, view.Home(view.HomeModel{Players: players, Games: games, Mode: mode, Error: errMsg}))
+	if m.Games, err = c.svc.ListGames(ctx, m.Account, 10); err != nil {
+		serverError(w, err)
+		return
+	}
+	if m.Invitations, err = c.svc.Invitations(ctx, m.Account); err != nil {
+		serverError(w, err)
+		return
+	}
+	render(w, r, status, view.Home(m))
 }
 
-func (c *Controller) createPlayer(w http.ResponseWriter, r *http.Request) {
-	_, err := c.svc.CreatePlayer(r.Context(), r.FormValue("name"))
+func (c *Controller) createGuest(w http.ResponseWriter, r *http.Request) {
+	_, err := c.svc.CreateGuest(r.Context(), auth.Account(r.Context()), r.FormValue("name"))
 	if errors.Is(err, service.ErrInvalid) {
 		c.renderHome(w, r, http.StatusBadRequest, "", "Bitte einen Namen eingeben.")
 		return
@@ -51,7 +62,7 @@ func (c *Controller) createPlayer(w http.ResponseWriter, r *http.Request) {
 }
 
 // homeURL returns the start page the request came from, so a selected mode
-// stays selected after adding a player.
+// stays selected after adding a guest.
 func homeURL(r *http.Request) string {
 	ref, err := url.Parse(r.Referer())
 	if err != nil || ref.Host != r.Host || ref.Path != "/" || ref.RawQuery == "" {
@@ -61,10 +72,10 @@ func homeURL(r *http.Request) string {
 }
 
 func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
-	g, err := gameFromForm(r)
+	g, invite, err := gameFromForm(r)
 	if err == nil {
 		var v service.GameView
-		v, err = c.svc.CreateGame(r.Context(), g)
+		v, err = c.svc.CreateGame(r.Context(), auth.Account(r.Context()), g, invite)
 		if err == nil {
 			http.Redirect(w, r, fmt.Sprintf("/games/%d", v.Game.ID), http.StatusSeeOther)
 			return
@@ -76,35 +87,55 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg := "Das Spiel konnte nicht gestartet werden. Bitte die Einstellungen prüfen."
-	if len(r.Form["player_ids"]) == 0 {
-		msg = "Bitte mindestens einen Mitspieler auswählen."
+	var unknown service.UnknownUserError
+	switch {
+	case len(g.PlayerIDs) == 0 && len(invite) == 0:
+		msg = "Bitte mindestens einen Mitspieler auswählen oder einladen."
+	case errors.As(err, &unknown):
+		msg = fmt.Sprintf("Einen Account mit dem Benutzernamen „%s“ gibt es nicht.", unknown.Username)
+	case errors.Is(err, service.ErrInviteSelf):
+		msg = "Du kannst dich nicht selbst einladen. Kreuze dich stattdessen bei den Mitspielern an."
 	}
 	c.renderHome(w, r, http.StatusBadRequest, game.Mode(r.FormValue("mode")), msg)
 }
 
-func gameFromForm(r *http.Request) (game.Game, error) {
+// gameFromForm reads the new game and the usernames to invite from the form.
+func gameFromForm(r *http.Request) (game.Game, []string, error) {
 	if err := r.ParseForm(); err != nil {
-		return game.Game{}, fmt.Errorf("%w: %w", service.ErrInvalid, err)
+		return game.Game{}, nil, fmt.Errorf("%w: %w", service.ErrInvalid, err)
 	}
 
 	g := game.Game{Mode: game.Mode(r.FormValue("mode"))}
 	for _, s := range r.Form["player_ids"] {
 		id, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
-			return g, fmt.Errorf("%w: invalid player id", service.ErrInvalid)
+			return g, nil, fmt.Errorf("%w: invalid player id", service.ErrInvalid)
 		}
 		g.PlayerIDs = append(g.PlayerIDs, id)
+	}
+
+	var invite []string
+	for _, name := range strings.FieldsFunc(r.FormValue("invite"), func(r rune) bool { return r == ',' || r == ' ' }) {
+		invite = append(invite, name)
+	}
+
+	if s := r.FormValue("board_id"); s != "" {
+		id, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return g, nil, fmt.Errorf("%w: invalid board id", service.ErrInvalid)
+		}
+		g.BoardID = &id
 	}
 
 	switch g.Mode {
 	case game.ModeX01:
 		score, err := strconv.ParseUint(r.FormValue("start_score"), 10, 64)
 		if err != nil {
-			return g, fmt.Errorf("%w: invalid start score", service.ErrInvalid)
+			return g, nil, fmt.Errorf("%w: invalid start score", service.ErrInvalid)
 		}
 		var out x01.OutMode
 		if err := out.UnmarshalText([]byte(r.FormValue("out_mode"))); err != nil {
-			return g, fmt.Errorf("%w: %w", service.ErrInvalid, err)
+			return g, nil, fmt.Errorf("%w: %w", service.ErrInvalid, err)
 		}
 		g.X01 = &x01.Settings{StartScore: score, OutMode: out}
 	case game.ModeAroundTheClock:
@@ -113,5 +144,5 @@ func gameFromForm(r *http.Request) (game.Game, error) {
 			MultiplierSkips: r.FormValue("multiplier_skips") != "",
 		}
 	}
-	return g, nil
+	return g, invite, nil
 }

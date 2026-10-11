@@ -31,9 +31,12 @@ go run ./cmd/darts-o-mat -db postgres -dsn "postgres://postgres:geheim@localhost
 
 ## Spielen
 
-1. Auf der Startseite rechts die Spieler anlegen.
-2. Spielmodus wählen, Mitspieler ankreuzen und starten. Geworfen wird in der Reihenfolge der Spielerliste.
-3. Nach jedem Wurf eintragen: erst Single, Doppel oder Triple wählen, dann die Zahl antippen. Für das Bull „Bull“ (mit „Doppel“ = Bullseye), für Fehlwürfe „Daneben“.
-4. Vertippt? „Letzten Dart zurücknehmen“.
+1. Beim ersten Besuch einen Account anlegen („Registrieren“). Jeder Account ist zugleich dein Spieler.
+2. Mitspieler ohne Account legst du auf der Startseite als **Gastspieler** an. Wer einen eigenen Account hat, wird beim Spielstart per Benutzername **eingeladen** und muss zusagen; bis alle zugesagt haben, wartet das Spiel.
+3. Spielmodus wählen, Mitspieler ankreuzen bzw. einladen und starten.
+4. Nach jedem Wurf eintragen: erst Single, Doppel oder Triple wählen, dann die Zahl antippen. Für das Bull „Bull“ (mit „Doppel“ = Bullseye), für Fehlwürfe „Daneben“. Alle Mitspieler mit Account können auf ihrem eigenen Gerät mit eintragen.
+5. Vertippt? „Letzten Dart zurücknehmen“.
 
-Angefangene Spiele findest du auf der Startseite unter „Letzte Spiele“.
+Unter „Boards“ kannst du deine Dartboards anlegen (z. B. Keller, Verein) und beim Spielstart auswählen.
+
+Läuft darts-o-mat öffentlich erreichbar, kannst du die Registrierung neuer Accounts abschalten: `go run ./cmd/darts-o-mat -registration=false`.

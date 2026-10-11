@@ -12,9 +12,14 @@ func (store *Store) StorePlayer(ctx context.Context, p *player.Player) error {
 	return err
 }
 
-func (store *Store) ListPlayers(ctx context.Context) ([]player.Player, error) {
+// ListPlayers returns the player of an account followed by its guests.
+func (store *Store) ListPlayers(ctx context.Context, accountID, playerID int64) ([]player.Player, error) {
 	result := []player.Player{}
-	err := store.db.NewSelect().Model(&result).Order("id").Scan(ctx)
+	err := store.db.NewSelect().Model(&result).
+		Where("id = ?", playerID).
+		WhereOr("guest_of = ?", accountID).
+		OrderExpr("guest_of IS NOT NULL, id").
+		Scan(ctx)
 	return result, err
 }
 
