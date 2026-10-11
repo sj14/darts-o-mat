@@ -146,6 +146,12 @@ templ scores(v service.GameView, errMsg string) {
 				>↶ Letzten Dart zurücknehmen</button>
 			}
 		</div>
+		switch st := v.State.(type) {
+			case x01.State:
+				if len(st.Turns) > 0 {
+					@x01History(v, st)
+				}
+		}
 		if len(v.Darts) > 0 {
 			@gameStats(v)
 		}
@@ -258,4 +264,59 @@ templ keypad(v service.GameView) {
 			<button type="submit" name="miss" value="true" class="btn-solid theme-danger span-3">Daneben</button>
 		</div>
 	</form>
+}
+
+// x01History lists the turns, newest first, so everyone can see what was thrown
+// after the next player's turn started.
+templ x01History(v service.GameView, st x01.State) {
+	<div class="card mt-4">
+		<div class="card-body">
+			<h2 class="fs-xl mb-3">Verlauf</h2>
+			<div class="table-responsive">
+				<table class="table table-sm mb-0">
+					<thead>
+						<tr>
+							<th>Runde</th>
+							<th>Spieler</th>
+							<th>Darts</th>
+							<th class="text-end">Punkte</th>
+							<th class="text-end">Rest</th>
+						</tr>
+					</thead>
+					<tbody>
+						for i := len(st.Turns) - 1; i >= 0; i-- {
+							@x01HistoryRow(v, st.Turns[i])
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+}
+
+templ x01HistoryRow(v service.GameView, t x01.Turn) {
+	<tr>
+		<td>{ strconv.Itoa(t.Round) }</td>
+		<td>{ playerName(v, t.PlayerID) }</td>
+		<td>
+			{ dartsLabel(t.Darts) }
+			if !t.Complete {
+				<span class="fg-3">…</span>
+			}
+		</td>
+		<td class="text-end">
+			if t.Bust {
+				<span class="badge theme-danger">überworfen</span>
+			} else {
+				{ strconv.FormatUint(t.Points, 10) }
+			}
+		</td>
+		<td class="text-end">
+			if t.Checkout {
+				<span class="badge theme-success">✓ Checkout</span>
+			} else {
+				{ strconv.FormatUint(t.Remaining, 10) }
+			}
+		</td>
+	</tr>
 }

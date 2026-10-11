@@ -176,3 +176,12 @@ func BoardVersion(v service.GameView) string {
 	}
 	return fmt.Sprintf("%d-%d-%d-%d", len(v.Darts), lastDart, len(v.Invitations), accepted)
 }
+
+// dartsLabel lists darts like "T20 · 5 · D1".
+func dartsLabel(darts []throw.Dart) string {
+	labels := make([]string, len(darts))
+	for i, d := range darts {
+		labels[i] = dartLabel(d)
+	}
+	return strings.Join(labels, " · ")
+}

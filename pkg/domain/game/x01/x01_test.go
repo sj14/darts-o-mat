@@ -2,6 +2,7 @@ package x01
 
 import (
 	"errors"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -243,5 +244,46 @@ func TestStatsBustAndCheckout(t *testing.T) {
 	p := st.Players[0].Stats
 	if p.Darts != 5 || p.Checkout != 100 || p.HighestTurn != 100 || p.Turns100 != 1 || p.Average != 60 {
 		t.Errorf("stats = %+v", p)
+	}
+}
+
+func TestTurns(t *testing.T) {
+	s := Settings{StartScore: 100, OutMode: OutModeDouble}
+	darts := []throw.Dart{
+		hit(20, 3), hit(5, 1), hit(1, 1), // player 1 scores 66, 34 left
+		hit(20, 1), hit(20, 3), hit(10, 1), // player 2 scores 90, 10 left
+		hit(20, 1), hit(10, 1), hit(5, 1), // player 1: 14, 4, then the 5 busts
+		hit(5, 2), // player 2 checks out
+	}
+	st, err := Play(s, []int64{1, 2}, darts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Turn{
+		{PlayerID: 1, Round: 1, Points: 66, Remaining: 34, Complete: true},
+		{PlayerID: 2, Round: 1, Points: 90, Remaining: 10, Complete: true},
+		{PlayerID: 1, Round: 2, Points: 0, Remaining: 34, Bust: true, Complete: true},
+		{PlayerID: 2, Round: 2, Points: 10, Remaining: 0, Checkout: true, Complete: true},
+	}
+	wantDarts := []int{3, 3, 3, 1}
+	if len(st.Turns) != len(want) {
+		t.Fatalf("got %d turns, want %d: %+v", len(st.Turns), len(want), st.Turns)
+	}
+	for i, w := range want {
+		got := st.Turns[i]
+		if len(got.Darts) != wantDarts[i] {
+			t.Errorf("turn %d has %d darts, want %d", i, len(got.Darts), wantDarts[i])
+		}
+		got.Darts, w.Darts = nil, nil
+		if !reflect.DeepEqual(got, w) {
+			t.Errorf("turn %d = %+v, want %+v", i, got, w)
+		}
+	}
+
+	// A turn in progress.
+	st, _ = Play(s, []int64{1, 2}, darts[:4])
+	last := st.Turns[len(st.Turns)-1]
+	if last.Complete || last.Points != 20 || last.Remaining != 80 || len(last.Darts) != 1 {
+		t.Errorf("turn in progress = %+v", last)
 	}
 }

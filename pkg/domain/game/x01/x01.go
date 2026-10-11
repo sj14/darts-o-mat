@@ -112,6 +112,20 @@ type State struct {
 	DartsInTurn     int           `json:"darts_in_turn"`
 	GameOver        bool          `json:"game_over"`
 	WinnerIDs       []int64       `json:"winner_ids"` // more than one on a draw
+	// Turns lists every turn in the order they were thrown; the last one may still be in progress.
+	Turns []Turn `json:"turns"`
+}
+
+// Turn is one player's turn of up to three darts.
+type Turn struct {
+	PlayerID  int64        `json:"player_id"`
+	Round     int          `json:"round"`
+	Darts     []throw.Dart `json:"darts"`
+	Points    uint64       `json:"points"`    // scored in this turn, 0 when busted
+	Remaining uint64       `json:"remaining"` // after this turn
+	Bust      bool         `json:"bust"`
+	Checkout  bool         `json:"checkout"`
+	Complete  bool         `json:"complete"` // false while the player still throws
 }
 
 // Play replays the darts of a game and returns the resulting state.
@@ -119,13 +133,14 @@ type State struct {
 // A player who reaches exactly 0 has finished; the game ends after that round,
 // see package turn.
 func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
-	st := State{}
+	st := State{Turns: []Turn{}}
 	for _, id := range playerIDs {
 		st.Players = append(st.Players, PlayerState{PlayerID: id, Remaining: s.StartScore})
 	}
 
 	t := turn.New()
 	var turnStart uint64
+	var cur *Turn // the turn being thrown
 
 	for i, d := range darts {
 		if t.Over() {
@@ -138,8 +153,11 @@ func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
 		p := &st.Players[t.Player]
 		if t.Dart == 0 {
 			turnStart = p.Remaining
+			st.Turns = append(st.Turns, Turn{PlayerID: p.PlayerID, Round: t.Round})
+			cur = &st.Turns[len(st.Turns)-1]
 		}
 		p.Stats.Darts++
+		cur.Darts = append(cur.Darts, d)
 
 		score := d.Score()
 		bust := score > p.Remaining ||
@@ -148,20 +166,24 @@ func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
 		if bust {
 			p.Remaining = turnStart
 			p.Stats.addTurn(0)
+			cur.Points, cur.Remaining, cur.Bust, cur.Complete = 0, turnStart, true, true
 			t.End(len(st.Players))
 			continue
 		}
 
 		p.Remaining -= score
+		cur.Points, cur.Remaining = turnStart-p.Remaining, p.Remaining
 		if p.Remaining == 0 {
 			p.Stats.addTurn(turnStart)
 			p.Stats.Checkout = turnStart
+			cur.Checkout, cur.Complete = true, true
 			t.Finish(len(st.Players))
 			continue
 		}
 		t.Advance(len(st.Players))
 		if t.Dart == 0 {
 			p.Stats.addTurn(turnStart - p.Remaining)
+			cur.Complete = true
 		}
 	}
 

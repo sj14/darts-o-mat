@@ -94,6 +94,7 @@ Neue Spielmodi folgen demselben Muster; Spielstand wird nicht zusätzlich in der
 Spielende (alle Modi, `pkg/domain/game/turn`): Nach dem ersten Checkout dürfen die übrigen Spieler der Runde nachziehen.
 Das Spiel endet mit dieser Runde; alle, die darin auschecken, gewinnen gemeinsam (`winner_ids`).
 X01 kennt die Out-Modi `single`, `double` und `master` (Doppel oder Triple).
+Der X01-Stand enthält zusätzlich den Verlauf aller Aufnahmen (`x01.State.Turns`: Darts, Punkte, Rest, überworfen, Checkout; die letzte kann noch laufen); die Spielseite zeigt ihn neueste zuerst.
 
 ## Statistik
 
@@ -135,3 +136,6 @@ Alle Endpunkte unter `/api` außer `register`/`login`/`logout` brauchen das Sess
   Zur Wahl stehen:
   1. **Klein:** Kalibrierung des Entwicklungs-Boards an einen sinnvollen Ort im Repo (nicht `testdata`) verschieben, Boards-Seite zeigt den richtigen Pfad, README erklärt, wo die Datei liegt.
   2. **Richtig:** Kalibrierung pro Board auf dem Server speichern; `darts-o-cam` lädt sie mit dem Board-Token selbst (Befehl braucht nur `-server` und `-token`). Für neue Boards ein Kalibrier-Schritt, z. B. vier Punkte im Browser auf dem Kamerabild anklicken, danach automatische Feinkalibrierung.
+- **TODO: Sekündliches Polling der Spielseite ersetzen** (Lösung noch offen, mit dem Nutzer klären).
+  Heute fragt jede offene Spielseite jede Sekunde `GET /games/{id}/board?v=<version>` ab (die Lobby alle 2 s); der Server spielt dafür jedes Mal das Spiel nach und antwortet meist mit 204. Das erzeugt Last und Verzögerung bis zu 1 s. Stattdessen soll der Server Änderungen aktiv melden (Push/„Notifications“), sobald ein Dart eingetragen, zurückgenommen oder eine Einladung beantwortet wird – egal ob über Weboberfläche, API oder Kamera.
+  Mögliche Wege: Server-Sent Events mit der htmx-SSE-Erweiterung (ins `static`-Verzeichnis vendoren wie htmx), WebSockets, oder intern NATS als Nachrichtenbus zwischen Service und den offenen Verbindungen (NATS ist im Stack bereits als optional vorgesehen). Betrifft `view.BoardVersion`, `controller.showBoard` und die `hx-trigger="every …"` in `game.templ`.
