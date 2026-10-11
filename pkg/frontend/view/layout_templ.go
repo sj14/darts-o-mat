@@ -48,14 +48,14 @@ func layout(title, user string) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if user != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<nav class=\"d-flex align-items-center gap-3\"><a href=\"/boards\">Boards</a> <span class=\"fg-3\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<nav class=\"d-flex align-items-center gap-3\"><a href=\"/friends\">Freunde</a> <a href=\"/boards\">Boards</a> <span class=\"fg-3\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(user)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/layout.templ`, Line: 22, Col: 32}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/layout.templ`, Line: 23, Col: 32}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -111,7 +111,7 @@ func errorAlert(msg string) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/layout.templ`, Line: 39, Col: 57}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/layout.templ`, Line: 40, Col: 57}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {

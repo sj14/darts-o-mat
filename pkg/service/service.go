@@ -26,6 +26,19 @@ var (
 	ErrInviteSelf    = fmt.Errorf("%w: you can't invite yourself", ErrInvalid)
 )
 
+// NotFriendError is returned when inviting an account that isn't a friend. It wraps ErrInvalid.
+type NotFriendError struct {
+	Username string
+}
+
+func (e NotFriendError) Error() string {
+	return fmt.Sprintf("%v: %q is not your friend", ErrInvalid, e.Username)
+}
+
+func (e NotFriendError) Unwrap() error {
+	return ErrInvalid
+}
+
 // UnknownUserError is returned when inviting a username that doesn't exist. It wraps ErrInvalid.
 type UnknownUserError struct {
 	Username string
@@ -87,7 +100,7 @@ func (v GameView) InvitationOf(playerID int64) *game.Invitation {
 }
 
 // CreateGame creates a game owned by the account. PlayerIDs may only contain the
-// account's own player and its guests; other accounts are invited by username
+// account's own player and its guests; friends are invited by username
 // and added to the end of the throwing order.
 func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Game, inviteUsernames []string) (GameView, error) {
 	g.ID = 0
@@ -118,6 +131,13 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 		}
 		if other.ID == acc.ID {
 			return GameView{}, ErrInviteSelf
+		}
+		friends, err := s.areFriends(ctx, acc.ID, other.ID)
+		if err != nil {
+			return GameView{}, err
+		}
+		if !friends {
+			return GameView{}, NotFriendError{Username: username}
 		}
 		g.PlayerIDs = append(g.PlayerIDs, other.PlayerID)
 		invited = append(invited, other.PlayerID)

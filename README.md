@@ -32,7 +32,7 @@ go run ./cmd/darts-o-mat -db postgres -dsn "postgres://postgres:geheim@localhost
 ## Spielen
 
 1. Beim ersten Besuch einen Account anlegen („Registrieren“). Jeder Account ist zugleich dein Spieler.
-2. Mitspieler ohne Account legst du auf der Startseite als **Gastspieler** an. Wer einen eigenen Account hat, wird beim Spielstart per Benutzername **eingeladen** und muss zusagen; bis alle zugesagt haben, wartet das Spiel.
+2. Mitspieler ohne Account legst du auf der Startseite als **Gastspieler** an. Wer einen eigenen Account hat, fügst du unter **Freunde** per Benutzername hinzu. Sobald er die Anfrage annimmt, kannst du ihn beim Spielstart **einladen**; er muss zusagen, bis dahin wartet das Spiel.
 3. Spielmodus wählen, Mitspieler ankreuzen bzw. einladen und starten.
 4. Nach jedem Wurf eintragen: erst Single, Doppel oder Triple wählen, dann die Zahl antippen. Für das Bull „Bull“ (mit „Doppel“ = Bullseye), für Fehlwürfe „Daneben“. Alle Mitspieler mit Account können auf ihrem eigenen Gerät mit eintragen.
 5. Vertippt? „Letzten Dart zurücknehmen“.

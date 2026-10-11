@@ -55,3 +55,27 @@ type Session struct {
 	AccountID int64     `bun:",notnull"`
 	ExpiresAt time.Time `bun:",notnull"`
 }
+
+type FriendshipStatus string
+
+const (
+	FriendshipPending  FriendshipStatus = "pending"
+	FriendshipAccepted FriendshipStatus = "accepted"
+)
+
+// Friendship between two accounts. It starts as a request from the requester
+// and counts once the addressee accepted. There is at most one per pair, in either direction.
+type Friendship struct {
+	RequesterID int64            `bun:",pk"`
+	AddresseeID int64            `bun:",pk"`
+	Status      FriendshipStatus `bun:",notnull"`
+	CreatedAt   time.Time        `bun:",nullzero,notnull,default:current_timestamp"`
+}
+
+// Other returns the account on the other side of the friendship.
+func (f Friendship) Other(accountID int64) int64 {
+	if f.RequesterID == accountID {
+		return f.AddresseeID
+	}
+	return f.RequesterID
+}

@@ -44,6 +44,7 @@ func newStore(ctx context.Context, db *bun.DB) (*Store, error) {
 	models := []any{
 		(*account.Account)(nil),
 		(*account.Session)(nil),
+		(*account.Friendship)(nil),
 		(*game.Game)(nil),
 		(*game.Invitation)(nil),
 		(*player.Player)(nil),

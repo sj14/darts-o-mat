@@ -31,6 +31,18 @@ func register(t *testing.T, s *Service, username string) account.Account {
 	return a
 }
 
+// befriend makes a and b friends.
+func befriend(t *testing.T, s *Service, a, b account.Account) {
+	t.Helper()
+	ctx := context.Background()
+	if err := s.RequestFriend(ctx, a, b.Username); err != nil {
+		t.Fatalf("%s requests %s: %v", a.Username, b.Username, err)
+	}
+	if err := s.AcceptFriend(ctx, b, a.ID); err != nil {
+		t.Fatalf("%s accepts %s: %v", b.Username, a.Username, err)
+	}
+}
+
 func x01Game(playerIDs ...int64) game.Game {
 	return game.Game{
 		Mode:      game.ModeX01,
@@ -119,6 +131,7 @@ func TestInvitationFlow(t *testing.T) {
 	s := newService(t)
 	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")
 	guest, _ := s.CreateGuest(ctx, anna, "Papa")
+	befriend(t, s, anna, ben)
 
 	v, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID, guest.ID), []string{"Ben"})
 	if err != nil {
@@ -181,6 +194,8 @@ func TestDeclineAndWithdraw(t *testing.T) {
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")
+	befriend(t, s, anna, ben)
+	befriend(t, s, cara, anna)
 
 	v, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben", "cara"})
 	if err != nil {
@@ -212,6 +227,7 @@ func TestGameWithoutPlayersLeftIsDeleted(t *testing.T) {
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
+	befriend(t, s, anna, ben)
 
 	// Anna only hosts, she doesn't play herself.
 	v, err := s.CreateGame(ctx, anna, x01Game(), []string{"ben"})
@@ -248,5 +264,77 @@ func TestBoards(t *testing.T) {
 	g.PlayerIDs = []int64{anna.PlayerID}
 	if _, err := s.CreateGame(ctx, anna, g, nil); err != nil {
 		t.Errorf("anna uses her board: %v", err)
+	}
+}
+
+func TestFriends(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")
+
+	var notFriend NotFriendError
+	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"}); !errors.As(err, &notFriend) {
+		t.Errorf("invite before befriending: got %v, want NotFriendError", err)
+	}
+
+	if err := s.RequestFriend(ctx, anna, "Ben"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestFriend(ctx, anna, "ben"); !errors.Is(err, ErrAlreadyFriends) {
+		t.Errorf("second request: got %v, want ErrAlreadyFriends", err)
+	}
+	if err := s.RequestFriend(ctx, anna, "anna"); !errors.Is(err, ErrInvalid) {
+		t.Errorf("befriend yourself: got %v, want ErrInvalid", err)
+	}
+	var unknown UnknownUserError
+	if err := s.RequestFriend(ctx, anna, "nobody"); !errors.As(err, &unknown) {
+		t.Errorf("unknown user: got %v, want UnknownUserError", err)
+	}
+
+	annas, _ := s.Friends(ctx, anna)
+	bens, _ := s.Friends(ctx, ben)
+	if len(annas.Outgoing) != 1 || annas.Outgoing[0].Username != "ben" || len(bens.Incoming) != 1 || bens.Incoming[0].Username != "anna" {
+		t.Fatalf("pending request: anna %+v, ben %+v", annas, bens)
+	}
+	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"}); !errors.As(err, &notFriend) {
+		t.Errorf("invite with pending request: got %v, want NotFriendError", err)
+	}
+	if err := s.AcceptFriend(ctx, anna, ben.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("requester accepts own request: got %v, want ErrNotFound", err)
+	}
+
+	// Ben requesting back accepts Anna's request.
+	if err := s.RequestFriend(ctx, ben, "anna"); err != nil {
+		t.Fatal(err)
+	}
+	annas, _ = s.Friends(ctx, anna)
+	if len(annas.Friends) != 1 || annas.Friends[0].Name != "ben" || len(annas.Outgoing) != 0 {
+		t.Fatalf("after mutual request: %+v", annas)
+	}
+	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"}); err != nil {
+		t.Errorf("invite friend: %v", err)
+	}
+	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"cara"}); !errors.As(err, &notFriend) {
+		t.Errorf("invite stranger: got %v, want NotFriendError", err)
+	}
+
+	if err := s.RemoveFriend(ctx, ben, anna.ID); err != nil {
+		t.Fatal(err)
+	}
+	if annas, _ = s.Friends(ctx, anna); len(annas.Friends) != 0 {
+		t.Errorf("after removing: %+v", annas)
+	}
+	// The game they already share stays.
+	if games, _ := s.ListGames(ctx, ben, 10); len(games) != 1 {
+		t.Errorf("ben's games after unfriending = %d, want 1", len(games))
+	}
+
+	// Declining a request removes it.
+	_ = s.RequestFriend(ctx, cara, "anna")
+	if err := s.RemoveFriend(ctx, anna, cara.ID); err != nil {
+		t.Fatal(err)
+	}
+	if caras, _ := s.Friends(ctx, cara); len(caras.Outgoing) != 0 {
+		t.Errorf("cara's request after anna declined: %+v", caras)
 	}
 }

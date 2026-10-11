@@ -18,6 +18,7 @@ templ layout(title, user string) {
 					<a href="/" class="fs-xl fw-bold text-decoration-none">🎯 darts-o-mat</a>
 					if user != "" {
 						<nav class="d-flex align-items-center gap-3">
+							<a href="/friends">Freunde</a>
 							<a href="/boards">Boards</a>
 							<span class="fg-3">{ user }</span>
 							<form method="post" action="/logout" class="mb-0">

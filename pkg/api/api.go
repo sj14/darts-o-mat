@@ -49,6 +49,11 @@ func (a *API) Routes() http.Handler {
 		r.Post("/games/{id}/darts", a.addDart)
 		r.Delete("/games/{id}/darts/last", a.undoDart)
 
+		r.Get("/friends", a.listFriends)
+		r.Post("/friends", a.requestFriend)
+		r.Post("/friends/{accountID}/accept", a.acceptFriend)
+		r.Delete("/friends/{accountID}", a.removeFriend)
+
 		r.Get("/invitations", a.listInvitations)
 		r.Post("/games/{id}/accept", a.acceptInvitation)
 		r.Post("/games/{id}/decline", a.declineInvitation)
@@ -183,6 +188,51 @@ func (a *API) undoDart(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, v, err)
 }
 
+func (a *API) listFriends(w http.ResponseWriter, r *http.Request) {
+	friends, err := a.svc.Friends(r.Context(), auth.Account(r.Context()))
+	respond(w, http.StatusOK, friends, err)
+}
+
+// requestFriend sends a friend request, or accepts the request the other account already sent.
+func (a *API) requestFriend(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Username string `json:"username"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	if err := a.svc.RequestFriend(r.Context(), auth.Account(r.Context()), req.Username); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *API) acceptFriend(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "accountID")
+	if !ok {
+		return
+	}
+	if err := a.svc.AcceptFriend(r.Context(), auth.Account(r.Context()), id); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// removeFriend ends a friendship, or declines or withdraws a request.
+func (a *API) removeFriend(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "accountID")
+	if !ok {
+		return
+	}
+	if err := a.svc.RemoveFriend(r.Context(), auth.Account(r.Context()), id); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a *API) listInvitations(w http.ResponseWriter, r *http.Request) {
 	games, err := a.svc.Invitations(r.Context(), auth.Account(r.Context()))
 	respond(w, http.StatusOK, games, err)
@@ -258,6 +308,8 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 func writeError(w http.ResponseWriter, err error) {
 	status := http.StatusInternalServerError
 	switch {
+	case errors.Is(err, service.ErrAlreadyFriends):
+		status = http.StatusConflict
 	case errors.Is(err, service.ErrInvalid), errors.Is(err, throw.ErrInvalid):
 		status = http.StatusBadRequest
 	case errors.Is(err, service.ErrUnauthenticated):

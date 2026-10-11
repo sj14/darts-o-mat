@@ -16,6 +16,7 @@ type HomeModel struct {
 	Boards      []board.Board
 	Games       []service.GameView
 	Invitations []service.GameView
+	Friends     service.FriendList
 	Mode        game.Mode // selected mode of the new game, empty until the user picked one
 	Error       string
 }
@@ -23,6 +24,18 @@ type HomeModel struct {
 templ Home(m HomeModel) {
 	@layout("Start", m.Account.Username) {
 		@errorAlert(m.Error)
+		if len(m.Friends.Incoming) > 0 {
+			<div class="alert theme-primary mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+				<span>
+					if len(m.Friends.Incoming) == 1 {
+						Du hast eine neue Freundschaftsanfrage.
+					} else {
+						Du hast { strconv.Itoa(len(m.Friends.Incoming)) } neue Freundschaftsanfragen.
+					}
+				</span>
+				<a href="/friends" class="btn-solid theme-primary btn-sm">Ansehen</a>
+			</div>
+		}
 		if len(m.Invitations) > 0 {
 			@invitations(m.Invitations)
 		}
@@ -142,9 +155,19 @@ templ participants(m HomeModel) {
 		}
 	</div>
 	<div class="form-group">
-		<label for="invite" class="form-label">Spieler mit Account einladen</label>
-		<input type="text" id="invite" name="invite" class="form-control" placeholder="Benutzernamen, z. B. ben, cara" autocapitalize="none"/>
-		<div class="form-text">Das Spiel beginnt, sobald alle Eingeladenen zugesagt haben.</div>
+		<span class="form-label">Freunde einladen</span>
+		if len(m.Friends.Friends) == 0 {
+			<p class="fg-3 mb-0">Füge unter <a href="/friends">Freunde</a> andere Accounts hinzu, um sie einzuladen.</p>
+		}
+		for _, f := range m.Friends.Friends {
+			<div class="form-field">
+				<input type="checkbox" class="check" id={ "invite-" + f.Username } name="invite" value={ f.Username }/>
+				<label for={ "invite-" + f.Username }>{ f.Name }</label>
+			</div>
+		}
+		if len(m.Friends.Friends) > 0 {
+			<div class="form-text">Das Spiel beginnt, sobald alle Eingeladenen zugesagt haben.</div>
+		}
 	</div>
 	if len(m.Boards) > 0 {
 		<div class="form-group">

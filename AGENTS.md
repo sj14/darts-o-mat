@@ -9,7 +9,8 @@ Ziel des Projekts ist es, eine Alternative zu [Autodarts](https://autodarts.io) 
 - **Mehrere Accounts mit Login** (umgesetzt):
   - Ein Account gehört fest zu genau einem Spieler (wird bei der Registrierung mit angelegt) und kann mehrere Boards haben.
   - Gastspieler haben keinen Account; sie gehören dem Account, der sie angelegt hat (`player.GuestOf`), und nur er kann sie in Spiele aufnehmen.
-  - Andere Accounts werden per Benutzername zu einem Spiel eingeladen und müssen zusagen. Solange eine Einladung offen ist, ist das Spiel in der Lobby und nimmt keine Darts an. Absagen oder Ausladen entfernt den Spieler aus dem Spiel; ein Spiel ohne Spieler wird gelöscht.
+  - Freundesliste: Freundschaft ist gegenseitig (Anfrage, die andere Seite nimmt an; schicken sich beide eine Anfrage, gilt sie als angenommen). Entfernen beendet die Freundschaft, laufende gemeinsame Spiele bleiben.
+  - Nur Freunde können zu Spielen eingeladen werden. Sie werden per Benutzername eingeladen und müssen zusagen. Solange eine Einladung offen ist, ist das Spiel in der Lobby und nimmt keine Darts an. Absagen oder Ausladen entfernt den Spieler aus dem Spiel; ein Spiel ohne Spieler wird gelöscht.
   - Darts eintragen/zurücknehmen dürfen der Gastgeber und zugesagte Accounts. Wer an einem Spiel nicht beteiligt ist, bekommt `ErrNotFound` (404), damit die Existenz nicht verraten wird.
   - Registrierung ist offen, abschaltbar mit `-registration=false`.
 
@@ -75,10 +76,11 @@ Alle Endpunkte unter `/api` außer `register`/`login`/`logout` brauchen das Sess
 - `GET /api/players` (eigener Spieler + Gäste), `POST /api/players` (`{"name"}`, legt einen Gast an)
 - `GET /api/boards`, `POST /api/boards` (`{"name"}`), `DELETE /api/boards/{id}`
 - `GET /api/games`, `POST /api/games`, z. B. `{"mode": "x01", "player_ids": [1, 2], "invite": ["ben"], "board_id": 1, "x01": {"start_score": 501, "out_mode": "double"}}`
-  oder `{"mode": "around_the_clock", "player_ids": [1], "around_the_clock": {"bull": true, "multiplier_skips": false}}`; `player_ids` nur eigener Spieler und eigene Gäste, Eingeladene kommen ans Ende der Wurfreihenfolge
+  oder `{"mode": "around_the_clock", "player_ids": [1], "around_the_clock": {"bull": true, "multiplier_skips": false}}`; `player_ids` nur eigener Spieler und eigene Gäste; `invite` nur Freunde, sie kommen ans Ende der Wurfreihenfolge
 - `GET /api/games/{id}`: Spiel, Spieler, Einladungen, Darts, berechneter Stand sowie `ready`, `is_owner`, `can_throw`, `invited`
 - `POST /api/games/{id}/darts`: `{"number": 20, "multiplier": 3}` oder `{"miss": true}`; Bull ist `25`
 - `DELETE /api/games/{id}/darts/last`: letzten Dart rückgängig machen
+- `GET /api/friends` (Freunde, eingehende und gesendete Anfragen), `POST /api/friends` (`{"username"}`, nimmt eine bereits eingegangene Anfrage an), `POST /api/friends/{accountID}/accept`, `DELETE /api/friends/{accountID}` (entfernen, ablehnen oder zurückziehen)
 - `GET /api/invitations`, `POST /api/games/{id}/accept`, `POST /api/games/{id}/decline`, `DELETE /api/games/{id}/invitations/{playerID}` (Gastgeber lädt aus)
 
 ## Testen

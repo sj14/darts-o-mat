@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/sj14/darts-o-mat/pkg/auth"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
@@ -42,6 +41,10 @@ func (c *Controller) renderHome(w http.ResponseWriter, r *http.Request, status i
 		return
 	}
 	if m.Invitations, err = c.svc.Invitations(ctx, m.Account); err != nil {
+		serverError(w, err)
+		return
+	}
+	if m.Friends, err = c.svc.Friends(ctx, m.Account); err != nil {
 		serverError(w, err)
 		return
 	}
@@ -88,11 +91,14 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 	}
 	msg := "Das Spiel konnte nicht gestartet werden. Bitte die Einstellungen prüfen."
 	var unknown service.UnknownUserError
+	var notFriend service.NotFriendError
 	switch {
 	case len(g.PlayerIDs) == 0 && len(invite) == 0:
 		msg = "Bitte mindestens einen Mitspieler auswählen oder einladen."
 	case errors.As(err, &unknown):
 		msg = fmt.Sprintf("Einen Account mit dem Benutzernamen „%s“ gibt es nicht.", unknown.Username)
+	case errors.As(err, &notFriend):
+		msg = fmt.Sprintf("„%s“ ist nicht mit dir befreundet und kann deshalb nicht eingeladen werden.", notFriend.Username)
 	case errors.Is(err, service.ErrInviteSelf):
 		msg = "Du kannst dich nicht selbst einladen. Kreuze dich stattdessen bei den Mitspielern an."
 	}
@@ -114,10 +120,7 @@ func gameFromForm(r *http.Request) (game.Game, []string, error) {
 		g.PlayerIDs = append(g.PlayerIDs, id)
 	}
 
-	var invite []string
-	for _, name := range strings.FieldsFunc(r.FormValue("invite"), func(r rune) bool { return r == ',' || r == ' ' }) {
-		invite = append(invite, name)
-	}
+	invite := r.Form["invite"]
 
 	if s := r.FormValue("board_id"); s != "" {
 		id, err := strconv.ParseInt(s, 10, 64)
