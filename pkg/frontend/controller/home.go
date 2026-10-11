@@ -121,6 +121,7 @@ func gameFromForm(r *http.Request) (game.Game, []string, error) {
 	}
 
 	invite := r.Form["invite"]
+	g.BullOff = r.FormValue("bull_off") != ""
 
 	if s := r.FormValue("legs"); s != "" {
 		legs, err := strconv.Atoi(s)

@@ -223,6 +223,27 @@ func (c *Controller) takeout(w http.ResponseWriter, r *http.Request) {
 	render(w, r, http.StatusOK, view.Board(v, ""))
 }
 
+// decideBullOff is called by htmx when the players decide who was closer in a bull-off tie.
+func (c *Controller) decideBullOff(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	playerID, ok := urlID(w, r, "playerID")
+	if !ok {
+		return
+	}
+	v, err := c.svc.DecideBullOff(r.Context(), auth.Account(r.Context()), id, playerID)
+	switch {
+	case err == nil:
+		render(w, r, http.StatusOK, view.Board(v, ""))
+	case errors.Is(err, service.ErrInvalid):
+		c.renderBoard(w, r, id, "Gerade ist beim Ausbullen niemand gleichauf.")
+	default:
+		c.handleGameError(w, r, id, err)
+	}
+}
+
 // abortGame is called by htmx when the owner aborts the game.
 func (c *Controller) abortGame(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")

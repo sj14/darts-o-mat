@@ -5,6 +5,9 @@
 // first wins the agreed number of legs wins the game. Each leg is started by the next
 // player in turn.
 //
+// Optionally the players bull off first: each throws one dart at the bull, the closest
+// starts the first leg. Players who are equally close throw again.
+//
 // Games played on a board with cameras wait after each turn until the darts were
 // pulled out (a takeout), so the next player doesn't start while the darts are
 // still in the board.
@@ -33,26 +36,51 @@ type Log struct {
 	WaitForTakeout bool
 	// Legs is how many legs win the game; 0 counts as 1.
 	Legs int
+	// BullOff lets the players bull off for who starts (with more than one player).
+	BullOff bool
+	// BullOffCloser is the index of the player the players found closer when bulling
+	// off ended in a tie (e.g. both hit the bull, entered by hand), nil if they didn't
+	// decide. It takes the place of throwing again.
+	BullOffCloser *int
 }
 
 // Turn returns the order of play for the log's settings.
 func (l Log) Turn(players int) *Turn {
-	return &Turn{Round: 1, Leg: 1, LegsWon: make([]int, players), players: players, legs: max(l.Legs, 1), waitForTakeout: l.WaitForTakeout, winner: -1}
+	t := &Turn{Round: 1, Leg: 1, LegsWon: make([]int, players), players: players, legs: max(l.Legs, 1), waitForTakeout: l.WaitForTakeout, winner: -1}
+	if l.BullOff && players > 1 {
+		for i := range players {
+			t.contenders = append(t.contenders, i)
+		}
+		t.closer = l.BullOffCloser
+	}
+	return t
 }
 
-// Replay calls dart for every dart of the log in order and handles the takeouts in
-// between. A dart while the turn waits for the takeout is an error.
+// Replay calls dart for every dart of the log in order, except those thrown to bull
+// off, and handles the takeouts in between. A dart while the turn waits for the
+// takeout is an error. Afterwards t.Throwers tells who threw each entry.
 func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
+	t.Throwers = make([]int, len(l.Entries))
 	for i, d := range l.Entries {
-		if d.Takeout {
-			t.Takeout()
+		t.Throwers[i] = t.Player
+		switch {
+		case d.Takeout:
+			// Bull-off darts are pulled out whenever the players like.
+			t.Throwers[i] = -1
+			if !t.BullingOff() {
+				t.Takeout()
+			}
 			continue
-		}
-		if t.Waiting() {
+		case t.Waiting():
 			return fmt.Errorf("entry %d: %w", i+1, ErrWaitingForTakeout)
-		}
-		if t.Over() {
+		case t.Over():
 			return fmt.Errorf("dart %d: %w", i+1, ErrGameOver)
+		case t.BullingOff():
+			if err := d.Validate(); err != nil {
+				return fmt.Errorf("dart %d: %w", i+1, err)
+			}
+			t.bullOff(i, d)
+			continue
 		}
 		if err := dart(i, d); err != nil {
 			return err
@@ -69,7 +97,15 @@ type Turn struct {
 	LegsWon []int // per player
 	// OnLegStart is called when the next leg starts, so the game mode resets the scores.
 	OnLegStart func()
+	// Throwers is the index of the player who threw each log entry, -1 for takeouts.
+	Throwers []int
+	// BullOff lists the darts thrown to bull off, in order.
+	BullOff []BullOffThrow
 
+	contenders     []int // players still bulling off
+	closer         *int  // see Log.BullOffCloser
+	bullOffRound   int   // 0 for the first throw of everyone, then the ties
+	first          int   // the player who starts the first leg
 	players, legs  int
 	waitForTakeout bool
 	waiting        bool
@@ -152,7 +188,7 @@ func (t *Turn) Winner() (int, bool) {
 
 // starter is the player who began the current leg.
 func (t *Turn) starter() int {
-	return (t.Leg - 1) % t.players
+	return (t.first + t.Leg - 1) % t.players
 }
 
 func (t *Turn) next() {

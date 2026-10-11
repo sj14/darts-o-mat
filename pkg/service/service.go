@@ -294,6 +294,33 @@ func (s *Service) AbortGame(ctx context.Context, acc account.Account, gameID int
 	return s.view(ctx, acc, v.Game)
 }
 
+// DecideBullOff settles a tie when bulling off: the players found playerID closer, so
+// they start instead of throwing again. Without cameras the darts are only entered by
+// field, e.g. both hit the bull.
+func (s *Service) DecideBullOff(ctx context.Context, acc account.Account, gameID, playerID int64) (GameView, error) {
+	g, err := s.throwableGame(ctx, acc, gameID)
+	if err != nil {
+		return GameView{}, err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	v, err := s.view(ctx, acc, g)
+	if err != nil {
+		return GameView{}, err
+	}
+	if !slices.Contains(bullOffTie(v.State), playerID) {
+		return GameView{}, fmt.Errorf("%w: player %d isn't tied when bulling off", ErrInvalid, playerID)
+	}
+	g.BullOffCloser = &playerID
+	if err := s.store.SetBullOffCloser(ctx, &g); err != nil {
+		return GameView{}, err
+	}
+	s.notify(g.ID)
+	return s.view(ctx, acc, g)
+}
+
 // AddDart registers the next dart of a game. The dart is only stored if the
 // game accepts it; otherwise the error wraps throw.ErrInvalid or turn.ErrGameOver.
 // A missing multiplier counts as single. Positions only come from the cameras
@@ -545,4 +572,15 @@ func waiting(state any) bool {
 		return st.WaitingForTakeout
 	}
 	return false
+}
+
+// bullOffTie returns the players tied when bulling off.
+func bullOffTie(state any) []int64 {
+	switch st := state.(type) {
+	case x01.State:
+		return st.BullOffTie
+	case aroundtheclock.State:
+		return st.BullOffTie
+	}
+	return nil
 }

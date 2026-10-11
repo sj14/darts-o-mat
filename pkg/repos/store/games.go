@@ -133,6 +133,12 @@ func (store *Store) AbortGame(ctx context.Context, g *game.Game) error {
 	return err
 }
 
+// SetBullOffCloser stores who the players found closer when bulling off ended in a tie.
+func (store *Store) SetBullOffCloser(ctx context.Context, g *game.Game) error {
+	_, err := store.db.NewUpdate().Model(g).Column("bull_off_closer").WherePK().Exec(ctx)
+	return err
+}
+
 func (store *Store) AddDart(ctx context.Context, d *throw.Dart) error {
 	_, err := store.db.NewInsert().Model(d).Exec(ctx)
 	return err

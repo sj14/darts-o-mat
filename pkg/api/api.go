@@ -61,6 +61,7 @@ func (a *API) Routes() http.Handler {
 		r.Put("/games/{id}/darts/{dartID}", a.editDart)
 		r.Post("/games/{id}/takeout", a.takeout)
 		r.Post("/games/{id}/abort", a.abortGame)
+		r.Post("/games/{id}/bull-off", a.decideBullOff)
 
 		r.Get("/stats", a.stats)
 		r.Get("/friends", a.listFriends)
@@ -303,6 +304,22 @@ func (a *API) takeout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := a.svc.Takeout(r.Context(), auth.Account(r.Context()), id)
+	respond(w, http.StatusOK, v, err)
+}
+
+// decideBullOff settles a tie when bulling off: {"player_id": 2} was closer.
+func (a *API) decideBullOff(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	var req struct {
+		PlayerID int64 `json:"player_id"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	v, err := a.svc.DecideBullOff(r.Context(), auth.Account(r.Context()), id, req.PlayerID)
 	respond(w, http.StatusOK, v, err)
 }
 

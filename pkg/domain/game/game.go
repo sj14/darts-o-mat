@@ -3,6 +3,7 @@ package game
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
@@ -29,6 +30,11 @@ type Game struct {
 	BoardID        *int64  `json:"board_id,omitempty"`
 	Mode           Mode    `bun:",notnull" json:"mode"`
 	PlayerIDs      []int64 `bun:"player_ids,notnull" json:"player_ids"`
+	// BullOff lets the players bull off for who starts the first leg.
+	BullOff bool `bun:",notnull,default:false" json:"bull_off"`
+	// BullOffCloser is the player the players found closer when bulling off ended in a
+	// tie, see turn.Log.BullOffCloser.
+	BullOffCloser *int64 `json:"bull_off_closer,omitempty"`
 	// Legs is how many legs win the game, at least 1.
 	Legs           int                      `bun:",notnull,default:1" json:"legs"`
 	X01            *x01.Settings            `json:"x01,omitempty"`
@@ -83,7 +89,12 @@ func (g Game) WaitsForTakeout() bool {
 // Play replays the game's log (darts and takeouts, as stored) and returns the state of
 // the game mode, x01.State or aroundtheclock.State.
 func (g Game) Play(entries []throw.Dart) (any, error) {
-	log := turn.Log{Entries: entries, WaitForTakeout: g.WaitsForTakeout(), Legs: g.Legs}
+	log := turn.Log{Entries: entries, WaitForTakeout: g.WaitsForTakeout(), Legs: g.Legs, BullOff: g.BullOff}
+	if g.BullOffCloser != nil {
+		if i := slices.Index(g.PlayerIDs, *g.BullOffCloser); i >= 0 {
+			log.BullOffCloser = &i
+		}
+	}
 	switch g.Mode {
 	case ModeX01:
 		return x01.PlayLog(*g.X01, g.PlayerIDs, log)

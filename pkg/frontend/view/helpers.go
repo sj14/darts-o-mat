@@ -26,16 +26,18 @@ type progress struct {
 	WaitingForTakeout bool
 	// LegOver: the turn waiting for the takeout won a leg.
 	LegOver bool
-	Aborted bool
+	// BullingOff: the players still bull off for who starts.
+	BullingOff bool
+	Aborted    bool
 }
 
 func progressOf(v service.GameView) progress {
 	var p progress
 	switch st := v.State.(type) {
 	case x01.State:
-		p = progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.Leg, st.GameOver, st.WinnerID, st.WaitingForTakeout, st.LegOver, false}
+		p = progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.Leg, st.GameOver, st.WinnerID, st.WaitingForTakeout, st.LegOver, st.BullingOff, false}
 	case aroundtheclock.State:
-		p = progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.Leg, st.GameOver, st.WinnerID, st.WaitingForTakeout, st.LegOver, false}
+		p = progress{st.CurrentPlayerID, st.Round, st.DartsInTurn, st.Leg, st.GameOver, st.WinnerID, st.WaitingForTakeout, st.LegOver, st.BullingOff, false}
 	}
 	if v.Game.Aborted() {
 		// Nobody is up anymore.
@@ -358,7 +360,7 @@ func soundID(v service.GameView) string {
 // turn (X01 only), nil if that isn't possible.
 func checkoutSuggestion(v service.GameView, p progress) []throw.Dart {
 	st, ok := v.State.(x01.State)
-	if !ok || !p.running() || p.WaitingForTakeout || p.CurrentPlayerID == nil {
+	if !ok || !p.running() || p.WaitingForTakeout || p.BullingOff || p.CurrentPlayerID == nil {
 		return nil
 	}
 	for _, ps := range st.Players {
@@ -393,4 +395,55 @@ func legWon(v service.GameView, p progress) (int64, bool) {
 	}
 	// Either the next leg already started, or it waits for the takeout.
 	return player, leg > lastLeg || p.LegOver
+}
+
+// bullOff returns the darts thrown to bull off.
+func bullOff(v service.GameView) []turn.BullOffDart {
+	switch st := v.State.(type) {
+	case x01.State:
+		return st.BullOff
+	case aroundtheclock.State:
+		return st.BullOff
+	}
+	return nil
+}
+
+// bullOffDecided returns who won the bull-off, if the dart just thrown decided it.
+func bullOffDecided(v service.GameView, p progress) (int64, bool) {
+	darts := bullOff(v)
+	if p.BullingOff || len(darts) == 0 || darts[len(darts)-1].Entry != len(v.Darts)-1 || p.CurrentPlayerID == nil {
+		return 0, false
+	}
+	return *p.CurrentPlayerID, true
+}
+
+// bullOffDistance describes how close a bull-off dart came: in mm if the cameras saw it.
+func bullOffDistance(d throw.Dart) string {
+	if d.X == nil || d.Y == nil {
+		return ""
+	}
+	return decimal(math.Hypot(*d.X, *d.Y)) + " mm"
+}
+
+// hasTurns reports whether the game has darts beyond the bull-off.
+func hasTurns(v service.GameView) bool {
+	switch st := v.State.(type) {
+	case x01.State:
+		return len(st.Turns) > 0
+	case aroundtheclock.State:
+		return len(st.Turns) > 0
+	}
+	return false
+}
+
+// bullOffTie returns the players tied when bulling off, who throw again unless the
+// players decide who was closer.
+func bullOffTie(v service.GameView) []int64 {
+	switch st := v.State.(type) {
+	case x01.State:
+		return st.BullOffTie
+	case aroundtheclock.State:
+		return st.BullOffTie
+	}
+	return nil
 }

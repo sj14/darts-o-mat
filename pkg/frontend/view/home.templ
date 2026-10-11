@@ -143,6 +143,11 @@ templ legsChoice() {
 		</div>
 		<p class={ hintClass }>Wer auscheckt, gewinnt das Leg sofort; jedes Leg beginnt der Nächste.</p>
 	}
+	@fieldset("Wer beginnt") {
+		@checkbox("bull-off", "bull_off", "on", false) {
+			Ausbullen <span class="text-white/40">– wer am nächsten am Bull ist; mit Kamera auf den Millimeter</span>
+		}
+	}
 }
 
 // participants lets the user pick who plays and on which board.

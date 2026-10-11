@@ -7,4 +7,4 @@
 - beim eingabe feld soll bei doppel überall Dx und Bullseye stehen, bei tripple über Tx
 - füge legs hinzu
 - statistik: add headmap
-- füge Ausbullen hinzu
+- translations (EN)

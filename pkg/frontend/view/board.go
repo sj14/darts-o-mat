@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -119,13 +120,38 @@ func fieldCenter(d throw.Dart, nth int) (dartboard.Point, bool) {
 }
 
 // boardDarts returns the darts to mark: those of the current turn, or the previous
-// turn's (faded) right after a turn passed on.
+// turn's (faded) right after a turn passed on. While bulling off, and until the first
+// dart of the game, the bull-off darts (the ties' earlier rounds faded).
 func boardDarts(v service.GameView, p progress) []boardDart {
+	if bull := bullOff(v); len(bull) > 0 && (p.BullingOff || onlyTakeoutsAfter(v, bull[len(bull)-1].Entry)) {
+		round := bull[len(bull)-1].Round
+		var darts []throw.Dart
+		var faded []bool
+		for _, b := range bull {
+			darts, faded = append(darts, v.Darts[b.Entry]), append(faded, b.Round != round)
+		}
+		return markDarts(v, darts, faded)
+	}
 	darts, faded := turnDarts(v, p), false
 	if len(darts) == 0 {
 		darts, faded = previousTurn(v), true
 	}
-	latest := len(v.Darts) > 0 && !v.Darts[len(v.Darts)-1].Takeout
+	return markDarts(v, darts, slices.Repeat([]bool{faded}, len(darts)))
+}
+
+// onlyTakeoutsAfter reports whether the log has nothing but takeouts after entry.
+func onlyTakeoutsAfter(v service.GameView, entry int) bool {
+	for _, d := range v.Darts[entry+1:] {
+		if !d.Takeout {
+			return false
+		}
+	}
+	return true
+}
+
+// markDarts places darts on the board, numbered in order: at the position the cameras
+// saw, or in the middle of their field.
+func markDarts(v service.GameView, darts []throw.Dart, faded []bool) []boardDart {
 	var marks []boardDart
 	for i, d := range darts {
 		pos, ok := dartboard.Point{}, false
@@ -155,8 +181,8 @@ func boardDarts(v service.GameView, p progress) []boardDart {
 			Y:      svgY(pos),
 			Label:  strconv.Itoa(i + 1),
 			Fill:   fill,
-			Latest: !faded && latest && d.ID == v.Darts[len(v.Darts)-1].ID,
-			Faded:  faded,
+			Latest: !faded[i] && isLatest(v, d),
+			Faded:  faded[i],
 		})
 	}
 	return marks

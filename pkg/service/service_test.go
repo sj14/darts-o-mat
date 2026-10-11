@@ -760,3 +760,33 @@ func TestDartPosition(t *testing.T) {
 		t.Errorf("corrected dart = %+v, want T13 at the cameras' position", got)
 	}
 }
+
+func TestDecideBullOff(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	papa, _ := s.CreateGuest(ctx, anna, "Papa")
+	g := x01Game(anna.PlayerID, papa.ID)
+	g.BullOff = true
+	v, err := s.CreateGame(ctx, anna, g, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DecideBullOff(ctx, anna, v.Game.ID, papa.ID); !errors.Is(err, ErrInvalid) {
+		t.Errorf("decide without a tie: got %v, want ErrInvalid", err)
+	}
+	bull := throw.Dart{Number: throw.Bull, Multiplier: 1}
+	for range 2 {
+		if _, err := s.AddDart(ctx, anna, v.Game.ID, bull); err != nil {
+			t.Fatal(err)
+		}
+	}
+	v, err = s.DecideBullOff(ctx, anna, v.Game.ID, papa.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := v.State.(x01.State)
+	if st.BullingOff || *st.CurrentPlayerID != papa.ID {
+		t.Errorf("bulling off=%v current=%d, want Papa to start", st.BullingOff, *st.CurrentPlayerID)
+	}
+}

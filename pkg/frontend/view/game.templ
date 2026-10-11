@@ -44,7 +44,9 @@ templ gameTitle(v service.GameView, p *progress) {
 			if v.Board != nil {
 				<span class="rounded-full bg-white/10 px-3 py-1">📷 { v.Board.Name }</span>
 			}
-			if p != nil && p.running() {
+			if p != nil && p.BullingOff && p.running() {
+				<span class="rounded-full bg-board-red/25 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider text-red-300">Ausbullen</span>
+			} else if p != nil && p.running() {
 				if v.Game.Legs > 1 {
 					<span class="rounded-full bg-amber-400/20 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider text-amber-300">Leg { strconv.Itoa(p.Leg) }</span>
 				}
@@ -164,6 +166,8 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 			<div class="order-1 flex flex-col gap-4 lg:order-2">
 				if editing != nil && v.CanThrow {
 					@editPanel(v, *editing)
+				} else if p.BullingOff && p.running() {
+					@bullOffPanel(v, p)
 				} else if p.running() {
 					<div class="grid grid-cols-3 gap-3">
 						{{ thrown, suggestion := turnDarts(v, p), checkoutSuggestion(v, p) }}
@@ -237,7 +241,7 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 					@aroundTheClockHistory(v, st)
 				}
 		}
-		if len(v.Darts) > 0 {
+		if hasTurns(v) {
 			@gameStats(v)
 		}
 	</div>
@@ -245,6 +249,9 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 
 // celebration shows a big effect right after a special turn: 180 or busted.
 templ celebration(v service.GameView, p progress) {
+	if player, decided := bullOffDecided(v, p); decided {
+		<div class="mb-4 animate-dart-in rounded-2xl bg-gradient-to-r from-board-red to-board-green px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-white shadow-lg">{ playerName(v, player) } beginnt!</div>
+	}
 	if player, won := legWon(v, p); won {
 		<div class="mb-4 animate-dart-in rounded-2xl bg-gradient-to-r from-amber-300 to-amber-500 px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-pub-950 shadow-lg shadow-amber-500/30">Leg an { playerName(v, player) }!</div>
 	}
@@ -618,5 +625,59 @@ templ legSeparator(v service.GameView, leg int, first bool, columns int) {
 		<tr>
 			<td colspan={ strconv.Itoa(columns) } class="pt-4 pb-1 font-display text-lg font-extrabold uppercase tracking-wider text-amber-300">Leg { strconv.Itoa(leg) }</td>
 		</tr>
+	}
+}
+
+// bullOffPanel shows the bull-off: who throws, the darts so far and, for entering them by
+// hand, what counts (the bullseye beats the bull, which beats the rest). The cameras
+// enter the darts with their position, so the closest wins.
+templ bullOffPanel(v service.GameView, p progress) {
+	<div class="rounded-2xl border border-board-red/50 bg-board-red/10 px-4 py-3">
+		<div class="font-display text-2xl font-extrabold uppercase text-red-300">Ausbullen</div>
+		<div class="text-white/70">
+			{ playerName(v, *p.CurrentPlayerID) } wirft auf das Bull. Wer am nächsten dran ist, beginnt; bei Gleichstand werfen die Gleichen nochmal.
+		</div>
+		if darts := bullOff(v); len(darts) > 0 {
+			<ul class="mt-3 flex flex-col gap-1">
+				for i, b := range darts {
+					if b.Round > 0 && (i == 0 || darts[i-1].Round != b.Round) {
+						<li class="pt-1 text-xs font-semibold uppercase tracking-widest text-white/50">Stechen</li>
+					}
+					<li class="flex items-center justify-between gap-2">
+						<span class="font-semibold">{ playerName(v, b.PlayerID) }</span>
+						<span class="flex items-center gap-2">
+							<span class="text-sm text-white/50">{ bullOffDistance(v.Darts[b.Entry]) }</span>
+							@dartLink(v, v.Darts[b.Entry])
+						</span>
+					</li>
+				}
+			</ul>
+		}
+	</div>
+	if tie := bullOffTie(v); len(tie) > 0 && v.CanThrow {
+		<div class="rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3">
+			<div class="font-semibold text-amber-200">Gleichstand! Wer war näher dran? Sonst werft nochmal.</div>
+			<div class="mt-2 flex flex-wrap gap-2">
+				for _, id := range tie {
+					<button
+						type="button"
+						class={ btnAccent }
+						hx-post={ gameURL(v.Game.ID, "/bull-off/"+strconv.FormatInt(id, 10)) }
+						hx-target="#board"
+						hx-swap="outerHTML"
+					>{ playerName(v, id) } war näher</button>
+				}
+			</div>
+		</div>
+	}
+	if v.CanThrow {
+		{{ action := gameURL(v.Game.ID, "/darts") }}
+		<div class="grid grid-cols-3 gap-2">
+			@quickDart(action, throw.Bull, 2, "Bullseye", false, "h-20 bg-board-red text-3xl shadow-board-red/40")
+			@quickDart(action, throw.Bull, 1, "Bull", false, "h-20 bg-board-green text-3xl shadow-board-green/40")
+			<form hx-post={ action } hx-target="#board" hx-swap="outerHTML">
+				<button type="submit" name="miss" value="true" class="h-20 w-full rounded-2xl bg-pub-700 font-display text-3xl font-extrabold uppercase text-white/80 shadow-lg transition hover:bg-pub-700/70 active:scale-95">Daneben</button>
+			</form>
+		</div>
 	}
 }

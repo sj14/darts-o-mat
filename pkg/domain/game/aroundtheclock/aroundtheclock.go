@@ -51,6 +51,13 @@ type State struct {
 	// WaitingForTakeout is set when the turn is over, but the darts weren't pulled out yet
 	// (only in games played on a board, see turn.Log.WaitForTakeout).
 	WaitingForTakeout bool `json:"waiting_for_takeout"`
+	// BullingOff is set while the players bull off for who starts; CurrentPlayerID throws next.
+	BullingOff bool `json:"bulling_off"`
+	// BullOff lists the darts thrown to bull off.
+	BullOff []turn.BullOffDart `json:"bull_off"`
+	// BullOffTie lists the players who are equally close and throw again, unless the
+	// players decide who was closer.
+	BullOffTie []int64 `json:"bull_off_tie,omitempty"`
 	// Throwers is the player who threw each entry of the log, 0 for takeouts.
 	Throwers []int64 `json:"-"`
 	// Turns lists every turn in the order they were thrown; the last one may still be in progress.
@@ -92,9 +99,7 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 	}
 	var cur *Turn // the turn being thrown
 
-	st.Throwers = make([]int64, len(log.Entries))
 	err := log.Replay(t, func(i int, d throw.Dart) error {
-		st.Throwers[i] = st.Players[t.Player].PlayerID
 		if err := d.Validate(); err != nil {
 			return fmt.Errorf("dart %d: %w", i+1, err)
 		}
@@ -135,6 +140,8 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 		}
 	}
 
+	st.Throwers = t.ThrowerIDs(playerIDs)
+	st.BullingOff, st.BullOff, st.BullOffTie = t.BullingOff(), t.BullOffDarts(playerIDs), t.BullOffTie(playerIDs)
 	st.Round, st.Leg = t.Round, t.Leg
 	st.DartsInTurn = t.Dart
 	st.WaitingForTakeout, st.LegOver = t.Waiting(), t.LegOver()
