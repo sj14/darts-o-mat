@@ -127,3 +127,11 @@ Alle Endpunkte unter `/api` außer `register`/`login`/`logout` brauchen das Sess
 - Regeln und Service (Accounts, Rechte, Einladungen gegen In-Memory-SQLite): `go test ./pkg/...`
 - Weboberfläche: mit [Lightpanda](https://github.com/lightpanda-io/browser) statt Headless Chrome, z. B. `lightpanda fetch <url> --inject-script-file klicks.js --wait-script '…' --dump semantic_tree_text --dump-selector '#board'`.
   Lightpanda führt JavaScript/htmx aus, rendert aber keine Pixel; für echte Screenshots gibt es damit keinen Ersatz.
+
+## Offene Punkte
+
+- **TODO: Kalibrierung für Nutzer zugänglich machen** (Entscheidung offen, nicht eigenmächtig umsetzen – erst mit dem Nutzer klären).
+  Problem: Die einzige Kalibrierung liegt in `pkg/vision/testdata/calibration.json` (Entwicklungs-Board). Die Boards-Seite zeigt nach dem Erzeugen eines Kamera-Tokens einen Befehl mit `-calibration calibration.json`, die Datei gibt es dort aber nicht. Für ein neues Board müssten Kalibrierpunkte von Hand in JSON geschrieben und dann `darts-o-cam calibrate` ausgeführt werden.
+  Zur Wahl stehen:
+  1. **Klein:** Kalibrierung des Entwicklungs-Boards an einen sinnvollen Ort im Repo (nicht `testdata`) verschieben, Boards-Seite zeigt den richtigen Pfad, README erklärt, wo die Datei liegt.
+  2. **Richtig:** Kalibrierung pro Board auf dem Server speichern; `darts-o-cam` lädt sie mit dem Board-Token selbst (Befehl braucht nur `-server` und `-token`). Für neue Boards ein Kalibrier-Schritt, z. B. vier Punkte im Browser auf dem Kamerabild anklicken, danach automatische Feinkalibrierung.
