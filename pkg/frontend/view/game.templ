@@ -36,56 +36,76 @@ templ BoardEditing(v service.GameView, errMsg string, dart throw.Dart) {
 	@scores(v, errMsg, &dart)
 }
 
+// gameTitle is the heading of the game with the board it is played on.
+templ gameTitle(v service.GameView, p *progress) {
+	<div class="mb-5 flex flex-wrap items-end justify-between gap-2">
+		<h1 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl">{ modeLabel(v.Game) }</h1>
+		<div class="flex items-center gap-2 text-sm text-white/60">
+			if v.Board != nil {
+				<span class="rounded-full bg-white/10 px-3 py-1">📷 { v.Board.Name }</span>
+			}
+			if p != nil && p.running() {
+				<span class="rounded-full bg-white/10 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider">Runde { strconv.Itoa(p.Round) }</span>
+			}
+		</div>
+	</div>
+}
+
 // lobby turns into the board once everyone has accepted, pushed by the server.
 templ lobby(v service.GameView, errMsg string) {
-	<div id="board" sse-swap="board" hx-swap="outerHTML">
-		<h1 class="fs-2xl mb-3">{ modeLabel(v.Game) }</h1>
+	<div id="board" sse-swap="board" hx-swap="outerHTML" data-sound={ soundKind(v) } data-sound-id={ soundID(v) }>
+		@gameTitle(v, nil)
 		@errorAlert(errMsg)
 		if v.Invited {
-			<div class="alert theme-primary mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
-				<span class="fw-semibold">Du bist zu diesem Spiel eingeladen.</span>
-				@answerInvitation(v.Game.ID)
+			<div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-board-green/40 bg-board-green/15 px-4 py-3">
+				<span class="font-semibold">Du bist zu diesem Spiel eingeladen.</span>
+				<div class="flex gap-2">
+					<form method="post" action={ templ.URL(gameURL(v.Game.ID, "/accept")) }>
+						<button type="submit" class="rounded-xl bg-board-green px-4 py-2 font-semibold text-white hover:brightness-110">Zusagen</button>
+					</form>
+					<form method="post" action={ templ.URL(gameURL(v.Game.ID, "/decline")) }>
+						<button type="submit" class="rounded-xl border border-board-red/60 px-4 py-2 font-semibold text-red-300 hover:bg-board-red/20">Absagen</button>
+					</form>
+				</div>
 			</div>
 		}
-		<div class="card">
-			<div class="card-body">
-				<p>Das Spiel beginnt, sobald alle Eingeladenen zugesagt haben.</p>
-				<ul class="list-group">
-					for _, pl := range v.Players {
-						<li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
-							<span>
-								{ pl.Name }
-								if pl.IsGuest() {
-									<span class="fg-3">(Gast)</span>
-								}
-							</span>
-							{{ inv := v.InvitationOf(pl.ID) }}
-							switch  {
-								case inv == nil:
-									<span class="badge theme-success">dabei</span>
-								case inv.Status == game.InvitationAccepted:
-									<span class="badge theme-success">zugesagt</span>
-								default:
-									<span class="d-flex align-items-center gap-2">
-										<span class="badge theme-warning">eingeladen</span>
-										if v.IsOwner {
-											<button
-												type="button"
-												class="btn-outline theme-danger btn-sm"
-												hx-post={ gameURL(v.Game.ID, "/invitations/"+strconv.FormatInt(pl.ID, 10)+"/withdraw") }
-												hx-target="#board"
-												hx-swap="outerHTML"
-											>Ausladen</button>
-										}
-									</span>
+		@panel("") {
+			<p class="mb-4 text-white/70">Das Spiel beginnt, sobald alle Eingeladenen zugesagt haben.</p>
+			<ul class="divide-y divide-white/10">
+				for _, pl := range v.Players {
+					<li class="flex flex-wrap items-center justify-between gap-2 py-3">
+						<span class="font-display text-2xl font-semibold">
+							{ pl.Name }
+							if pl.IsGuest() {
+								<span class="font-sans text-sm font-normal text-white/50">(Gast)</span>
 							}
-						</li>
-					}
-				</ul>
-			</div>
-		</div>
+						</span>
+						{{ inv := v.InvitationOf(pl.ID) }}
+						switch  {
+							case inv == nil:
+								<span class="rounded-full bg-board-green/20 px-3 py-1 text-sm text-emerald-300">dabei</span>
+							case inv.Status == game.InvitationAccepted:
+								<span class="rounded-full bg-board-green/20 px-3 py-1 text-sm text-emerald-300">zugesagt</span>
+							default:
+								<span class="flex items-center gap-2">
+									<span class="animate-pulse rounded-full bg-amber-400/20 px-3 py-1 text-sm text-amber-300">eingeladen</span>
+									if v.IsOwner {
+										<button
+											type="button"
+											class="rounded-lg border border-board-red/60 px-3 py-1 text-sm text-red-300 hover:bg-board-red/20"
+											hx-post={ gameURL(v.Game.ID, "/invitations/"+strconv.FormatInt(pl.ID, 10)+"/withdraw") }
+											hx-target="#board"
+											hx-swap="outerHTML"
+										>Ausladen</button>
+									}
+								</span>
+						}
+					</li>
+				}
+			</ul>
+		}
 		if v.IsOwner {
-			<div class="mt-3">
+			<div class="mt-4">
 				@abortButton(v)
 			</div>
 		}
@@ -96,7 +116,7 @@ templ lobby(v service.GameView, errMsg string) {
 templ abortButton(v service.GameView) {
 	<button
 		type="button"
-		class="btn-outline theme-danger"
+		class="rounded-xl border border-board-red/50 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-board-red/20"
 		hx-post={ gameURL(v.Game.ID, "/abort") }
 		hx-target="#board"
 		hx-swap="outerHTML"
@@ -106,38 +126,31 @@ templ abortButton(v service.GameView) {
 
 templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 	{{ p := progressOf(v) }}
-	<div id="board" sse-swap="board" hx-swap="outerHTML">
-		<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-			<h1 class="fs-2xl mb-0">{ modeLabel(v.Game) }</h1>
-			<span class="fg-3">
-				if v.Board != nil {
-					📷 { v.Board.Name } ·
-				}
-				if p.running() {
-					Runde { strconv.Itoa(p.Round) }
-				}
-			</span>
-		</div>
+	<div id="board" sse-swap="board" hx-swap="outerHTML" data-sound={ soundKind(v) } data-sound-id={ soundID(v) }>
+		@gameTitle(v, &p)
 		@errorAlert(errMsg)
 		if p.GameOver {
-			<div class="alert theme-success mb-4" role="status">
-				<div class="fs-xl fw-bold">
+			<div class="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-amber-300 via-amber-400 to-orange-500 p-6 text-pub-950 shadow-2xl shadow-amber-500/30 animate-dart-in" role="status">
+				<div class="font-display text-5xl font-extrabold uppercase sm:text-6xl">
 					if len(p.WinnerIDs) > 1 {
-						Unentschieden: { playerNames(v, p.WinnerIDs) }
+						Unentschieden!
 					} else {
 						🏆 { playerNames(v, p.WinnerIDs) } gewinnt!
 					}
 				</div>
-				<a href="/" class="btn-solid theme-success mt-3">Neues Spiel</a>
+				if len(p.WinnerIDs) > 1 {
+					<div class="mt-1 text-lg font-semibold">{ playerNames(v, p.WinnerIDs) }</div>
+				}
+				<a href="/" class="mt-4 inline-block rounded-xl bg-pub-950 px-5 py-2.5 font-semibold text-amber-300 hover:bg-pub-800">Neues Spiel</a>
 			</div>
 		}
 		if p.Aborted {
-			<div class="alert theme-secondary mb-4" role="status">
-				<div class="fs-xl fw-bold">Spiel abgebrochen</div>
-				<a href="/" class="btn-solid theme-secondary mt-3">Neues Spiel</a>
+			<div class="mb-6 rounded-3xl border border-white/10 bg-pub-800 p-6" role="status">
+				<div class="font-display text-4xl font-extrabold uppercase text-white/80">Spiel abgebrochen</div>
+				<a href="/" class="mt-4 inline-block rounded-xl bg-white/10 px-5 py-2.5 font-semibold hover:bg-white/20">Neues Spiel</a>
 			</div>
 		}
-		<div class="scoreboard mb-4">
+		<div class="mb-6 grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-4">
 			switch st := v.State.(type) {
 				case x01.State:
 					for _, ps := range st.Players {
@@ -149,56 +162,63 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 					}
 			}
 		</div>
-		if editing != nil && v.CanThrow {
-			@editPanel(v, *editing)
-		} else if p.running() {
-			<div class="mb-3">
-				<div class="turn-darts">
-					for i := range turn.DartsPerTurn {
-						if i < len(turnDarts(v, p)) {
-							@dartTile(v, turnDarts(v, p)[i])
-						} else {
-							<span class="turn-dart empty">–</span>
-						}
-					}
-				</div>
+		@celebration(v)
+		<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+			<div class="order-2 lg:order-1">
+				@dartboardView(v, p)
 			</div>
-			if p.WaitingForTakeout {
-				<div class="alert theme-warning d-flex justify-content-between align-items-center flex-wrap gap-2" role="status">
-					<span>
-						<span class="fw-bold">Pfeile ziehen</span> – danach ist { nextPlayerName(v, p) } dran.
-						if v.Board != nil {
-							<span class="fs-sm fg-3">Die Kamera erkennt das Herausziehen von selbst.</span>
+			<div class="order-1 flex flex-col gap-4 lg:order-2">
+				if editing != nil && v.CanThrow {
+					@editPanel(v, *editing)
+				} else if p.running() {
+					<div class="grid grid-cols-3 gap-3">
+						for i := range turn.DartsPerTurn {
+							if i < len(turnDarts(v, p)) {
+								@dartTile(v, turnDarts(v, p)[i])
+							} else {
+								<span class="flex h-20 items-center justify-center rounded-2xl border-2 border-dashed border-white/15 font-display text-4xl text-white/20 sm:h-24">{ strconv.Itoa(i + 1) }</span>
+							}
 						}
-					</span>
+					</div>
+					if p.WaitingForTakeout {
+						<div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 [--glow-color:var(--color-amber-400)] animate-glow" role="status">
+							<span>
+								<span class="font-display text-2xl font-extrabold uppercase text-amber-300">Pfeile ziehen</span>
+								<span class="block text-white/70">Danach ist { nextPlayerName(v, p) } dran.</span>
+								if v.Board != nil {
+									<span class="block text-sm text-white/50">Die Kamera erkennt das Herausziehen von selbst.</span>
+								}
+							</span>
+							if v.CanThrow {
+								<button
+									type="button"
+									class="rounded-xl bg-amber-400 px-5 py-3 font-display text-xl font-extrabold uppercase text-pub-950 transition hover:bg-amber-300 active:scale-95"
+									hx-post={ gameURL(v.Game.ID, "/takeout") }
+									hx-target="#board"
+									hx-swap="outerHTML"
+								>Pfeile gezogen</button>
+							}
+						</div>
+					} else if v.CanThrow {
+						@keypad(v, gameURL(v.Game.ID, "/darts"))
+					}
+				}
+				<div class="flex flex-wrap gap-2">
 					if v.CanThrow {
 						<button
 							type="button"
-							class="btn-solid theme-warning"
-							hx-post={ gameURL(v.Game.ID, "/takeout") }
+							class="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 disabled:opacity-30"
+							hx-post={ gameURL(v.Game.ID, "/undo") }
 							hx-target="#board"
 							hx-swap="outerHTML"
-						>Pfeile gezogen</button>
+							disabled?={ len(v.Darts) == 0 }
+						>↶ Letzten Dart zurücknehmen</button>
+					}
+					if v.IsOwner && p.running() {
+						@abortButton(v)
 					}
 				</div>
-			} else if v.CanThrow {
-				@keypad(v, gameURL(v.Game.ID, "/darts"))
-			}
-		}
-		<div class="mt-3 d-flex flex-wrap gap-2">
-			if v.CanThrow {
-				<button
-					type="button"
-					class="btn-outline theme-secondary"
-					hx-post={ gameURL(v.Game.ID, "/undo") }
-					hx-target="#board"
-					hx-swap="outerHTML"
-					disabled?={ len(v.Darts) == 0 }
-				>↶ Letzten Dart zurücknehmen</button>
-			}
-			if v.IsOwner && p.running() {
-				@abortButton(v)
-			}
+			</div>
 		</div>
 		switch st := v.State.(type) {
 			case x01.State:
@@ -216,86 +236,128 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 	</div>
 }
 
-// gameStats shows the statistics of all players in this game.
-templ gameStats(v service.GameView) {
-	<div class="card mt-4">
-		<div class="card-body">
-			<h2 class="fs-xl mb-3">Statistik</h2>
-			<div class="table-responsive">
-				<table class="table table-sm mb-0">
-					switch st := v.State.(type) {
-						case x01.State:
-							<thead>
-								<tr>
-									<th>Spieler</th>
-									<th class="text-end" title="Punkte pro 3 Darts">Ø</th>
-									<th class="text-end">Darts</th>
-									<th class="text-end">Höchste Aufnahme</th>
-									<th class="text-end">100+</th>
-									<th class="text-end">140+</th>
-									<th class="text-end">180</th>
-								</tr>
-							</thead>
-							<tbody>
-								for _, ps := range st.Players {
-									<tr>
-										<td>{ playerName(v, ps.PlayerID) }</td>
-										<td class="text-end">{ decimal(ps.Stats.Average) }</td>
-										<td class="text-end">{ strconv.Itoa(ps.Stats.Darts) }</td>
-										<td class="text-end">{ strconv.FormatUint(ps.Stats.HighestTurn, 10) }</td>
-										<td class="text-end">{ strconv.Itoa(ps.Stats.Turns100) }</td>
-										<td class="text-end">{ strconv.Itoa(ps.Stats.Turns140) }</td>
-										<td class="text-end">{ strconv.Itoa(ps.Stats.Turns180) }</td>
-									</tr>
-								}
-							</tbody>
-						case aroundtheclock.State:
-							<thead>
-								<tr>
-									<th>Spieler</th>
-									<th class="text-end">Darts</th>
-									<th class="text-end">Treffer</th>
-									<th class="text-end">Trefferquote</th>
-								</tr>
-							</thead>
-							<tbody>
-								for _, ps := range st.Players {
-									<tr>
-										<td>{ playerName(v, ps.PlayerID) }</td>
-										<td class="text-end">{ strconv.Itoa(ps.Stats.Darts) }</td>
-										<td class="text-end">{ strconv.Itoa(ps.Stats.Hits) }</td>
-										<td class="text-end">{ percent(ps.Stats.HitRate) }</td>
-									</tr>
-								}
-							</tbody>
-					}
-				</table>
+// celebration shows a big effect right after a special turn: 180 or busted.
+templ celebration(v service.GameView) {
+	switch latestTurnEvent(v) {
+		case "180":
+			<div class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+				<div class="animate-celebrate font-display text-[10rem] font-extrabold leading-none text-amber-300 drop-shadow-[0_0_2rem_rgba(251,191,36,0.8)] sm:text-[16rem]">180!</div>
 			</div>
-		</div>
+		case "bust":
+			<div class="mb-4 animate-shake rounded-2xl bg-board-red px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-white shadow-lg shadow-board-red/40">Überworfen!</div>
+	}
+}
+
+// dartboardView draws the board with the darts of the current turn.
+templ dartboardView(v service.GameView, p progress) {
+	<div class="mx-auto aspect-square w-full max-w-md">
+		<svg viewBox={ boardViewBox } class="h-full w-full drop-shadow-[0_1rem_2rem_rgba(0,0,0,0.6)]" role="img" aria-label="Dartboard">
+			<circle cx="228" cy="228" r="226" fill="#0b0c0f" stroke="#2b2e35" stroke-width="3"></circle>
+			for _, s := range boardShapes {
+				<path d={ s.Path } fill={ s.Fill } stroke={ boardWire } stroke-width="0.8"></path>
+			}
+			<circle cx="228" cy="228" r={ strconv.FormatFloat(15.9, 'f', 1, 64) } fill={ boardGreen } stroke={ boardWire } stroke-width="0.8"></circle>
+			<circle cx="228" cy="228" r={ strconv.FormatFloat(6.35, 'f', 2, 64) } fill={ boardRed } stroke={ boardWire } stroke-width="0.8"></circle>
+			for _, n := range boardNumbers {
+				<text x={ n.X } y={ n.Y } fill="#e9dcc0" font-size="24" font-family="Barlow Condensed, sans-serif" font-weight="800" text-anchor="middle" dominant-baseline="central">{ n.Text }</text>
+			}
+			for _, d := range boardDarts(v, p) {
+				<g class={ templ.KV("opacity-40", d.Faded) }>
+					if d.Latest {
+						<circle cx={ d.X } cy={ d.Y } r="9" fill={ d.Fill } class="svg-center animate-ping"></circle>
+					}
+					<circle cx={ d.X } cy={ d.Y } r="9" fill={ d.Fill } stroke="#0b0c0f" stroke-width="2.5" class={ "svg-center", templ.KV("animate-dart-in", d.Latest) }></circle>
+					<text x={ d.X } y={ d.Y } fill="#0b0c0f" font-size="13" font-weight="800" text-anchor="middle" dominant-baseline="central">{ d.Label }</text>
+				</g>
+			}
+		</svg>
 	</div>
 }
 
-// playerCard shows a player's main value (rest, target) and optionally a second key figure next to it.
+// gameStats shows the statistics of all players in this game.
+templ gameStats(v service.GameView) {
+	@panel("mt-6") {
+		<h2 class="mb-3 font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">Statistik</h2>
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm tabular-nums">
+				switch st := v.State.(type) {
+					case x01.State:
+						<thead class="text-left text-xs uppercase tracking-wider text-white/50">
+							<tr>
+								<th class="py-2 font-semibold">Spieler</th>
+								<th class="py-2 text-right font-semibold" title="Punkte pro 3 Darts">Ø</th>
+								<th class="py-2 text-right font-semibold">Darts</th>
+								<th class="py-2 text-right font-semibold">Höchste</th>
+								<th class="py-2 text-right font-semibold">100+</th>
+								<th class="py-2 text-right font-semibold">140+</th>
+								<th class="py-2 text-right font-semibold">180</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-white/5">
+							for _, ps := range st.Players {
+								<tr>
+									<td class="py-2 font-semibold">{ playerName(v, ps.PlayerID) }</td>
+									<td class="py-2 text-right">{ decimal(ps.Stats.Average) }</td>
+									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Darts) }</td>
+									<td class="py-2 text-right">{ strconv.FormatUint(ps.Stats.HighestTurn, 10) }</td>
+									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Turns100) }</td>
+									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Turns140) }</td>
+									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Turns180) }</td>
+								</tr>
+							}
+						</tbody>
+					case aroundtheclock.State:
+						<thead class="text-left text-xs uppercase tracking-wider text-white/50">
+							<tr>
+								<th class="py-2 font-semibold">Spieler</th>
+								<th class="py-2 text-right font-semibold">Darts</th>
+								<th class="py-2 text-right font-semibold">Treffer</th>
+								<th class="py-2 text-right font-semibold">Trefferquote</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-white/5">
+							for _, ps := range st.Players {
+								<tr>
+									<td class="py-2 font-semibold">{ playerName(v, ps.PlayerID) }</td>
+									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Darts) }</td>
+									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Hits) }</td>
+									<td class="py-2 text-right">{ percent(ps.Stats.HitRate) }</td>
+								</tr>
+							}
+						</tbody>
+				}
+			</table>
+		</div>
+	}
+}
+
+// playerCard shows a player's main value (rest, target) and a second key figure next to it.
+// The player whose turn it is glows; the others step back.
 templ playerCard(v service.GameView, p progress, playerID int64, value, caption, stat, statCaption string) {
-	<div class={ "card", templ.KV("border-primary border-3", p.isCurrent(playerID)), templ.KV("border-success border-3", p.isWinner(playerID)) }>
-		<div class="card-body">
-			<div class="d-flex justify-content-between align-items-center gap-2">
-				<span class="fw-semibold text-truncate">{ playerName(v, playerID) }</span>
-				if p.isWinner(playerID) {
-					<span class="badge theme-success">Sieg</span>
-				}
+	{{ current, winner := p.isCurrent(playerID), p.isWinner(playerID) }}
+	<div
+		class={ "relative overflow-hidden rounded-3xl border p-5 transition-all duration-300",
+			templ.KV("border-board-green/70 bg-gradient-to-br from-board-green/25 to-pub-900 [--glow-color:var(--color-board-green)] animate-glow", current),
+			templ.KV("border-amber-400/80 bg-gradient-to-br from-amber-400/25 to-pub-900 [--glow-color:var(--color-amber-400)] animate-glow", winner),
+			templ.KV("border-white/10 bg-pub-900/70", !current && !winner),
+			templ.KV("opacity-60", !current && !winner && p.running()) }
+	>
+		<div class="flex items-center justify-between gap-2">
+			<span class="truncate font-display text-2xl font-semibold uppercase tracking-wide">{ playerName(v, playerID) }</span>
+			if winner {
+				<span class="rounded-full bg-amber-400 px-3 py-0.5 font-display text-lg font-extrabold uppercase text-pub-950">Sieg</span>
+			} else if current {
+				<span class="rounded-full bg-board-green px-3 py-0.5 font-display text-lg font-extrabold uppercase text-white">am Zug</span>
+			}
+		</div>
+		<div class="mt-2 flex items-end justify-between gap-3">
+			<div>
+				<div class="font-display text-7xl leading-none font-extrabold tabular-nums sm:text-8xl">{ value }</div>
+				<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ caption }</div>
 			</div>
-			<div class="d-flex justify-content-between align-items-end gap-3">
-				<div>
-					<div class="score fw-bold my-2">{ value }</div>
-					<div class="fs-sm fg-3">{ caption }</div>
-				</div>
-				if stat != "" {
-					<div class="text-end">
-						<div class="score-side fw-bold my-2">{ stat }</div>
-						<div class="fs-sm fg-3">{ statCaption }</div>
-					</div>
-				}
+			<div class="text-right">
+				<div class="font-display text-4xl leading-none font-semibold tabular-nums text-white/90">{ stat }</div>
+				<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ statCaption }</div>
 			</div>
 		</div>
 	</div>
@@ -308,86 +370,95 @@ templ keypad(v service.GameView, action string) {
 		hx-post={ action }
 		hx-target="#board"
 		hx-swap="outerHTML"
-		class="d-grid gap-3"
+		class="flex flex-col gap-3"
 	>
-		<div class="btn-group" role="group" aria-label="Multiplikator">
-			@radioButton("multiplier", "1", "Single", true)
-			@radioButton("multiplier", "2", "Doppel", false)
-			@radioButton("multiplier", "3", "Triple", false)
+		<div class="grid grid-cols-3 gap-1 rounded-2xl bg-pub-800 p-1" role="group" aria-label="Multiplikator">
+			@multiplierButton("1", "Single", true)
+			@multiplierButton("2", "Doppel", false)
+			@multiplierButton("3", "Triple", false)
 		</div>
-		<div class="keypad">
+		<div class="grid grid-cols-5 gap-2">
 			for n := 1; n <= 20; n++ {
 				<button
 					type="submit"
 					name="number"
 					value={ strconv.Itoa(n) }
-					class={ "btn-solid", templ.KV("theme-primary", uint8(n) == target), templ.KV("theme-secondary", uint8(n) != target) }
+					class={ "h-14 rounded-xl font-display text-3xl font-semibold transition active:scale-90 sm:h-16",
+						templ.KV("bg-board-green text-white shadow-lg shadow-board-green/40 hover:brightness-110", uint8(n) == target),
+						templ.KV("bg-pub-700 text-board-cream hover:bg-pub-700/70", uint8(n) != target) }
 				>{ strconv.Itoa(n) }</button>
 			}
 			<button
 				type="submit"
 				name="number"
 				value="25"
-				class={ "btn-solid span-2", templ.KV("theme-primary", target == throw.Bull), templ.KV("theme-success", target != throw.Bull) }
+				class={ "col-span-2 h-14 rounded-xl font-display text-3xl font-extrabold uppercase text-white transition active:scale-95 sm:h-16",
+					templ.KV("bg-board-green shadow-lg shadow-board-green/40 ring-2 ring-white", target == throw.Bull),
+					templ.KV("bg-board-green/80 hover:bg-board-green", target != throw.Bull) }
 			>Bull</button>
-			<button type="submit" name="miss" value="true" class="btn-solid theme-danger span-3">Daneben</button>
+			<button type="submit" name="miss" value="true" class="col-span-3 h-14 rounded-xl bg-board-red/85 font-display text-3xl font-extrabold uppercase text-white transition hover:bg-board-red active:scale-95 sm:h-16">Daneben</button>
 		</div>
 	</form>
+}
+
+// multiplierButton is one option of the segmented single/double/triple control.
+templ multiplierButton(value, label string, checked bool) {
+	<label class="cursor-pointer">
+		<input type="radio" name="multiplier" value={ value } checked?={ checked } class="peer sr-only"/>
+		<span class="block rounded-xl py-2 text-center font-display text-xl font-semibold uppercase tracking-wide text-white/60 transition peer-checked:bg-board-cream peer-checked:text-pub-950 peer-checked:shadow peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400">{ label }</span>
+	</label>
+}
+
+// historyPanel is the frame of the turn history.
+templ historyPanel() {
+	@panel("mt-6") {
+		<h2 class="mb-3 font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">Verlauf</h2>
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm tabular-nums">
+				{ children... }
+			</table>
+		</div>
+	}
 }
 
 // x01History lists the turns, newest first, so everyone can see what was thrown
 // after the next player's turn started.
 templ x01History(v service.GameView, st x01.State) {
-	<div class="card mt-4">
-		<div class="card-body">
-			<h2 class="fs-xl mb-3">Verlauf</h2>
-			<div class="table-responsive">
-				<table class="table table-sm mb-0">
-					<thead>
-						<tr>
-							<th>Runde</th>
-							<th>Spieler</th>
-							<th>Darts</th>
-							<th class="text-end">Punkte</th>
-							<th class="text-end">Rest</th>
-						</tr>
-					</thead>
-					<tbody>
-						for i := len(st.Turns) - 1; i >= 0; i-- {
-							@x01HistoryRow(v, st.Turns[i])
-						}
-					</tbody>
-				</table>
-			</div>
-		</div>
-	</div>
+	@historyPanel() {
+		<thead class="text-left text-xs uppercase tracking-wider text-white/50">
+			<tr>
+				<th class="py-2 font-semibold">Runde</th>
+				<th class="py-2 font-semibold">Spieler</th>
+				<th class="py-2 font-semibold">Darts</th>
+				<th class="py-2 text-right font-semibold">Punkte</th>
+				<th class="py-2 text-right font-semibold">Rest</th>
+			</tr>
+		</thead>
+		<tbody class="divide-y divide-white/5">
+			for i := len(st.Turns) - 1; i >= 0; i-- {
+				@x01HistoryRow(v, st.Turns[i])
+			}
+		</tbody>
+	}
 }
 
 templ x01HistoryRow(v service.GameView, t x01.Turn) {
 	<tr>
-		<td>{ strconv.Itoa(t.Round) }</td>
-		<td>{ playerName(v, t.PlayerID) }</td>
-		<td>
-			for i, d := range t.Darts {
-				if i > 0 {
-					<span class="fg-3">·</span>
-				}
-				@dartLink(v, d)
-			}
-			if !t.Complete {
-				<span class="fg-3">…</span>
-			}
+		<td class="py-2 text-white/50">{ strconv.Itoa(t.Round) }</td>
+		<td class="py-2 font-semibold">{ playerName(v, t.PlayerID) }</td>
+		<td class="py-2">
+			@turnDartsList(v, t.Darts, t.Complete)
 		</td>
-		<td class="text-end">
+		<td class="py-2 text-right">
 			if t.Bust {
-				<span class="badge theme-danger">überworfen</span>
+				<span class="rounded-full bg-board-red/25 px-2 py-0.5 text-xs font-semibold text-red-300">überworfen</span>
 			} else {
-				{ strconv.FormatUint(t.Points, 10) }
+				<span class={ templ.KV("font-display text-lg font-extrabold text-amber-300", t.Points >= 100) }>{ strconv.FormatUint(t.Points, 10) }</span>
 			}
 		</td>
-		<td class="text-end">
+		<td class="py-2 text-right">
 			if t.Checkout {
-				<span class="badge theme-success">✓ Checkout</span>
+				<span class="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-pub-950">✓ Checkout</span>
 			} else {
 				{ strconv.FormatUint(t.Remaining, 10) }
 			}
@@ -395,87 +466,83 @@ templ x01HistoryRow(v service.GameView, t x01.Turn) {
 	</tr>
 }
 
+// turnDartsList lists the darts of a turn in the history.
+templ turnDartsList(v service.GameView, darts []throw.Dart, complete bool) {
+	<span class="inline-flex flex-wrap items-center gap-1.5">
+		for _, d := range darts {
+			@dartLink(v, d)
+		}
+		if !complete {
+			<span class="text-white/40">…</span>
+		}
+	</span>
+}
+
 // dartTile shows a dart of the current turn in large; players who may enter darts can tap it to correct it.
+// The dart just thrown flies in.
 templ dartTile(v service.GameView, d throw.Dart) {
 	if v.CanThrow {
-		<button type="button" class={ "btn-solid turn-dart", dartTheme(v, d), templ.KV("long", len(dartLabel(d)) > 4) } title="Korrigieren" hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(d) }</button>
+		<button type="button" class={ dartTileClasses(v, d), "hover:brightness-110 active:scale-95" } title="Korrigieren" hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(d) }</button>
 	} else {
-		<span class={ "btn-solid turn-dart", dartTheme(v, d), templ.KV("long", len(dartLabel(d)) > 4) }>{ dartLabel(d) }</span>
+		<span class={ dartTileClasses(v, d) }>{ dartLabel(d) }</span>
 	}
 }
 
 // dartLink shows a dart in the history; players who may enter darts can click it to correct it.
 // Misses are red, in around the clock darts that hit the target green.
 templ dartLink(v service.GameView, d throw.Dart) {
-	<span class={ dartClass(v, d) }>
-		if v.CanThrow {
-			<a href="#" title="Korrigieren" hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(d) }</a>
-		} else {
-			{ dartLabel(d) }
-		}
-	</span>
+	if v.CanThrow {
+		<a href="#" title="Korrigieren" class={ "rounded-md px-1.5 py-0.5 font-semibold transition hover:ring-1 hover:ring-white/40", dartChipColors(v, d) } hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(d) }</a>
+	} else {
+		<span class={ "rounded-md px-1.5 py-0.5 font-semibold", dartChipColors(v, d) }>{ dartLabel(d) }</span>
+	}
 }
 
 // editPanel corrects an earlier dart with the keypad.
 templ editPanel(v service.GameView, d throw.Dart) {
-	<div class="alert theme-primary d-flex justify-content-between align-items-center flex-wrap gap-2">
+	<div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-400/50 bg-sky-400/10 px-4 py-3">
 		<span>
-			<span class="fw-bold">Dart korrigieren:</span> { dartLabel(d) } von { dartThrower(v, d.ID) }.
-			<span class="fs-sm">Wähle, was stattdessen getroffen wurde; Punkte, Rest und Statistik rechnen sich neu.</span>
+			<span class="font-display text-xl font-extrabold uppercase text-sky-300">Dart korrigieren:</span> { dartLabel(d) } von { dartThrower(v, d.ID) }
+			<span class="block text-sm text-white/60">Wähle, was stattdessen getroffen wurde; Punkte, Rest und Statistik rechnen sich neu.</span>
 		</span>
-		<button type="button" class="btn-outline theme-secondary" hx-get={ gameURL(v.Game.ID, "/board") } hx-target="#board" hx-swap="outerHTML">Abbrechen</button>
+		<button type="button" class="rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold hover:bg-white/10" hx-get={ gameURL(v.Game.ID, "/board") } hx-target="#board" hx-swap="outerHTML">Abbrechen</button>
 	</div>
 	@keypad(v, dartEditURL(v, d))
 }
 
 // aroundTheClockHistory lists the turns, newest first; dartLink colors hits and misses.
 templ aroundTheClockHistory(v service.GameView, st aroundtheclock.State) {
-	<div class="card mt-4">
-		<div class="card-body">
-			<h2 class="fs-xl mb-3">Verlauf</h2>
-			<div class="table-responsive">
-				<table class="table table-sm mb-0">
-					<thead>
-						<tr>
-							<th>Runde</th>
-							<th>Spieler</th>
-							<th>Darts</th>
-							<th class="text-end">Treffer</th>
-							<th class="text-end">Ziel</th>
-						</tr>
-					</thead>
-					<tbody>
-						for i := len(st.Turns) - 1; i >= 0; i-- {
-							@aroundTheClockHistoryRow(v, st.Turns[i])
-						}
-					</tbody>
-				</table>
-			</div>
-		</div>
-	</div>
+	@historyPanel() {
+		<thead class="text-left text-xs uppercase tracking-wider text-white/50">
+			<tr>
+				<th class="py-2 font-semibold">Runde</th>
+				<th class="py-2 font-semibold">Spieler</th>
+				<th class="py-2 font-semibold">Darts</th>
+				<th class="py-2 text-right font-semibold">Treffer</th>
+				<th class="py-2 text-right font-semibold">Ziel</th>
+			</tr>
+		</thead>
+		<tbody class="divide-y divide-white/5">
+			for i := len(st.Turns) - 1; i >= 0; i-- {
+				@aroundTheClockHistoryRow(v, st.Turns[i])
+			}
+		</tbody>
+	}
 }
 
 templ aroundTheClockHistoryRow(v service.GameView, t aroundtheclock.Turn) {
 	<tr>
-		<td>{ strconv.Itoa(t.Round) }</td>
-		<td>{ playerName(v, t.PlayerID) }</td>
-		<td>
-			for i, d := range t.Darts {
-				if i > 0 {
-					<span class="fg-3">·</span>
-				}
-				@dartLink(v, d)
-			}
-			if !t.Complete {
-				<span class="fg-3">…</span>
-			}
+		<td class="py-2 text-white/50">{ strconv.Itoa(t.Round) }</td>
+		<td class="py-2 font-semibold">{ playerName(v, t.PlayerID) }</td>
+		<td class="py-2">
+			@turnDartsList(v, t.Darts, t.Complete)
 		</td>
-		<td class="text-end">{ strconv.Itoa(countTrue(t.Hits)) }</td>
-		<td class="text-end">
+		<td class="py-2 text-right">{ strconv.Itoa(countTrue(t.Hits)) }</td>
+		<td class="py-2 text-right">
 			if t.Target == 0 {
-				<span class="badge theme-success">✓ fertig</span>
+				<span class="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-pub-950">✓ fertig</span>
 			} else if t.Target != t.From {
-				<span class="fg-3">{ targetLabel(t.From) } →</span> { targetLabel(t.Target) }
+				<span class="text-white/40">{ targetLabel(t.From) } →</span> <span class="font-display text-lg font-extrabold text-emerald-300">{ targetLabel(t.Target) }</span>
 			} else {
 				{ targetLabel(t.Target) }
 			}

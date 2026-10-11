@@ -8,89 +8,76 @@ import (
 
 templ Friends(user string, list service.FriendList, errMsg, info string) {
 	@layout("Freunde", user) {
-		<div class="row justify-content-center">
-			<div class="md:col-8 d-grid gap-4">
+		<div class="mx-auto flex max-w-3xl flex-col gap-6">
+			<div>
+				@pageTitle("Freunde", "Nur Freunde kannst du zu Spielen einladen. Eine Freundschaft gilt, sobald die andere Seite deine Anfrage annimmt.")
 				@errorAlert(errMsg)
-				if info != "" {
-					<div class="alert theme-success mb-0" role="status">{ info }</div>
-				}
-				<div class="card">
-					<div class="card-body">
-						<h1 class="fs-2xl mb-1">Freunde</h1>
-						<p class="fg-3">Nur Freunde kannst du zu Spielen einladen. Eine Freundschaft gilt, sobald die andere Seite deine Anfrage annimmt.</p>
-						<form method="post" action="/friends" class="d-flex gap-2">
-							<input type="text" name="username" class="form-control" placeholder="Benutzername" autocapitalize="none" required aria-label="Benutzername"/>
-							<button type="submit" class="btn-solid theme-primary">Anfrage senden</button>
-						</form>
-					</div>
-				</div>
-				if len(list.Incoming) > 0 {
-					<div class="card border-primary border-2">
-						<div class="card-body">
-							<h2 class="fs-xl mb-3">Anfragen an dich</h2>
-							<ul class="list-group">
-								for _, f := range list.Incoming {
-									@friendItem(f) {
-										@friendAction(f, "/accept", "Annehmen", "btn-solid theme-success")
-										@friendAction(f, "/remove", "Ablehnen", "btn-outline theme-danger")
-									}
-								}
-							</ul>
-						</div>
-					</div>
-				}
-				<div class="card">
-					<div class="card-body">
-						<h2 class="fs-xl mb-3">Deine Freunde</h2>
-						if len(list.Friends) == 0 {
-							<p class="fg-3 mb-0">Noch keine Freunde.</p>
-						} else {
-							<ul class="list-group">
-								for _, f := range list.Friends {
-									@friendItem(f) {
-										@friendAction(f, "/remove", "Entfernen", "btn-outline theme-danger")
-									}
-								}
-							</ul>
-						}
-					</div>
-				</div>
-				if len(list.Outgoing) > 0 {
-					<div class="card">
-						<div class="card-body">
-							<h2 class="fs-xl mb-3">Gesendete Anfragen</h2>
-							<ul class="list-group">
-								for _, f := range list.Outgoing {
-									@friendItem(f) {
-										@friendAction(f, "/remove", "Zurückziehen", "btn-outline theme-secondary")
-									}
-								}
-							</ul>
-						</div>
-					</div>
-				}
+				@notice(info)
+				<form method="post" action="/friends" class="flex gap-2">
+					<input type="text" name="username" class={ inputClass } placeholder="Benutzername" autocapitalize="none" required aria-label="Benutzername"/>
+					<button type="submit" class={ btnPrimary, "shrink-0" }>Anfrage senden</button>
+				</form>
 			</div>
+			if len(list.Incoming) > 0 {
+				@panel("border-sky-400/50 [--glow-color:var(--color-sky-400)] animate-glow") {
+					@sectionTitle("Anfragen an dich")
+					<ul class="divide-y divide-white/10">
+						for _, f := range list.Incoming {
+							@friendItem(f) {
+								@friendAction(f, "/accept", "Annehmen", btnPrimary)
+								@friendAction(f, "/remove", "Ablehnen", btnDanger)
+							}
+						}
+					</ul>
+				}
+			}
+			@panel("") {
+				@sectionTitle("Deine Freunde")
+				if len(list.Friends) == 0 {
+					<p class="text-white/50">Noch keine Freunde.</p>
+				} else {
+					<ul class="divide-y divide-white/10">
+						for _, f := range list.Friends {
+							@friendItem(f) {
+								@friendAction(f, "/remove", "Entfernen", btnDanger)
+							}
+						}
+					</ul>
+				}
+			}
+			if len(list.Outgoing) > 0 {
+				@panel("") {
+					@sectionTitle("Gesendete Anfragen")
+					<ul class="divide-y divide-white/10">
+						for _, f := range list.Outgoing {
+							@friendItem(f) {
+								@friendAction(f, "/remove", "Zurückziehen", btnSecondary)
+							}
+						}
+					</ul>
+				}
+			}
 		</div>
 	}
 }
 
 // friendItem shows a friend with the actions passed as children.
 templ friendItem(f service.Friend) {
-	<li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+	<li class="flex flex-wrap items-center justify-between gap-3 py-3">
 		<span>
-			{ f.Name }
+			<span class="font-display text-2xl font-semibold uppercase">{ f.Name }</span>
 			if f.Name != f.Username {
-				<span class="fg-3">({ f.Username })</span>
+				<span class="text-white/40">{ "@" + f.Username }</span>
 			}
 		</span>
-		<span class="d-flex gap-2">
+		<span class="flex gap-2">
 			{ children... }
 		</span>
 	</li>
 }
 
 templ friendAction(f service.Friend, action, label, class string) {
-	<form method="post" action={ templ.URL("/friends/" + strconv.FormatInt(f.AccountID, 10) + action) } class="mb-0">
-		<button type="submit" class={ class, "btn-sm" }>{ label }</button>
+	<form method="post" action={ templ.URL("/friends/" + strconv.FormatInt(f.AccountID, 10) + action) }>
+		<button type="submit" class={ class, btnSmall }>{ label }</button>
 	</form>
 }

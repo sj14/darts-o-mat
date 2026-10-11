@@ -8,62 +8,70 @@ import (
 
 templ Stats(user string, summaries []stats.Summary) {
 	@layout("Statistik", user) {
-		<h1 class="fs-2xl mb-1">Statistik</h1>
-		<p class="fg-3 mb-4">Über alle beendeten Spiele von dir und deinen Gastspielern.</p>
-		<div class="d-grid gap-4">
+		@pageTitle("Statistik", "Über alle beendeten Spiele von dir und deinen Gastspielern.")
+		<div class="flex flex-col gap-6">
 			for i, s := range summaries {
-				<div class="card">
-					<div class="card-body">
-						<h2 class="fs-xl mb-3">
-							{ s.Player.Name }
-							if i > 0 {
-								<span class="fg-3 fs-md">(Gast)</span>
-							}
-						</h2>
-						if s.X01.Games == 0 && s.AroundTheClock.Games == 0 {
-							<p class="fg-3 mb-0">Noch keine beendeten Spiele.</p>
+				@panel("") {
+					<h2 class="mb-4 font-display text-3xl font-extrabold uppercase tracking-wide text-board-cream">
+						{ s.Player.Name }
+						if i > 0 {
+							<span class="font-sans text-base font-normal normal-case text-white/40">(Gast)</span>
 						}
-						<div class="row g-4">
-							if s.X01.Games > 0 {
-								<div class="md:col-6">
-									<h3 class="fs-lg">X01</h3>
-									<table class="table table-sm mb-0">
-										<tbody>
-											@statRow("Spiele / Siege", strconv.Itoa(s.X01.Games)+" / "+strconv.Itoa(s.X01.Wins))
-											@statRow("Ø pro 3 Darts", decimal(s.X01.Average))
-											@statRow("Darts", strconv.Itoa(s.X01.Darts))
-											@statRow("Höchste Aufnahme", strconv.FormatUint(s.X01.HighestTurn, 10))
-											@statRow("100+ / 140+ / 180", strconv.Itoa(s.X01.Turns100)+" / "+strconv.Itoa(s.X01.Turns140)+" / "+strconv.Itoa(s.X01.Turns180))
-											@statRow("Höchstes Finish", orDash(s.X01.HighestCheckout > 0, strconv.FormatUint(s.X01.HighestCheckout, 10)))
-											@statRow("Bestes Spiel", orDash(s.X01.BestGame > 0, strconv.Itoa(s.X01.BestGame)+" Darts"))
-										</tbody>
-									</table>
+					</h2>
+					if s.X01.Games == 0 && s.AroundTheClock.Games == 0 {
+						<p class="text-white/50">Noch keine beendeten Spiele.</p>
+					}
+					<div class="grid gap-6 md:grid-cols-2">
+						if s.X01.Games > 0 {
+							<div>
+								<h3 class={ labelClass }>X01</h3>
+								<div class="mb-3 grid grid-cols-3 gap-2">
+									@statTile(decimal(s.X01.Average), "Ø 3 Darts")
+									@statTile(strconv.FormatUint(s.X01.HighestTurn, 10), "Höchste")
+									@statTile(strconv.Itoa(s.X01.Turns180), "180er")
 								</div>
-							}
-							if s.AroundTheClock.Games > 0 {
-								<div class="md:col-6">
-									<h3 class="fs-lg">Around the Clock</h3>
-									<table class="table table-sm mb-0">
-										<tbody>
-											@statRow("Spiele / Siege", strconv.Itoa(s.AroundTheClock.Games)+" / "+strconv.Itoa(s.AroundTheClock.Wins))
-											@statRow("Trefferquote", percent(s.AroundTheClock.HitRate))
-											@statRow("Darts / Treffer", strconv.Itoa(s.AroundTheClock.Darts)+" / "+strconv.Itoa(s.AroundTheClock.Hits))
-											@statRow("Bestes Spiel", orDash(s.AroundTheClock.BestGame > 0, strconv.Itoa(s.AroundTheClock.BestGame)+" Darts"))
-										</tbody>
-									</table>
+								<dl class="divide-y divide-white/5 text-sm">
+									@statRow("Spiele / Siege", strconv.Itoa(s.X01.Games)+" / "+strconv.Itoa(s.X01.Wins))
+									@statRow("Darts", strconv.Itoa(s.X01.Darts))
+									@statRow("100+ / 140+", strconv.Itoa(s.X01.Turns100)+" / "+strconv.Itoa(s.X01.Turns140))
+									@statRow("Höchstes Finish", orDash(s.X01.HighestCheckout > 0, strconv.FormatUint(s.X01.HighestCheckout, 10)))
+									@statRow("Bestes Spiel", orDash(s.X01.BestGame > 0, strconv.Itoa(s.X01.BestGame)+" Darts"))
+								</dl>
+							</div>
+						}
+						if s.AroundTheClock.Games > 0 {
+							<div>
+								<h3 class={ labelClass }>Around the Clock</h3>
+								<div class="mb-3 grid grid-cols-3 gap-2">
+									@statTile(percent(s.AroundTheClock.HitRate), "Treffer")
+									@statTile(strconv.Itoa(s.AroundTheClock.Games), "Spiele")
+									@statTile(orDash(s.AroundTheClock.BestGame > 0, strconv.Itoa(s.AroundTheClock.BestGame)), "Bestes")
 								</div>
-							}
-						</div>
+								<dl class="divide-y divide-white/5 text-sm">
+									@statRow("Spiele / Siege", strconv.Itoa(s.AroundTheClock.Games)+" / "+strconv.Itoa(s.AroundTheClock.Wins))
+									@statRow("Darts / Treffer", strconv.Itoa(s.AroundTheClock.Darts)+" / "+strconv.Itoa(s.AroundTheClock.Hits))
+									@statRow("Bestes Spiel", orDash(s.AroundTheClock.BestGame > 0, strconv.Itoa(s.AroundTheClock.BestGame)+" Darts"))
+								</dl>
+							</div>
+						}
 					</div>
-				</div>
+				}
 			}
 		</div>
 	}
 }
 
+// statTile is a key figure in large.
+templ statTile(value, label string) {
+	<div class="rounded-2xl bg-pub-800 px-3 py-3 text-center">
+		<div class="font-display text-4xl leading-none font-extrabold tabular-nums">{ value }</div>
+		<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ label }</div>
+	</div>
+}
+
 templ statRow(label, value string) {
-	<tr>
-		<th scope="row" class="fw-normal">{ label }</th>
-		<td class="text-end fw-semibold">{ value }</td>
-	</tr>
+	<div class="flex justify-between gap-4 py-2">
+		<dt class="text-white/60">{ label }</dt>
+		<dd class="font-semibold tabular-nums">{ value }</dd>
+	</div>
 }

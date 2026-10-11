@@ -5,7 +5,10 @@ import "embed"
 
 // htmx.min.js: htmx 2.0.11 (https://htmx.org)
 // htmx-ext-sse.min.js: htmx SSE extension 2.2.4 (https://htmx.org/extensions/sse/)
-// bootstrap.min.css: Bootstrap 6.0.0-alpha.1 (https://getbootstrap.com), without the JavaScript part
+// tailwind.css: built from pkg/frontend/view/tailwind.css with Tailwind CSS (see go:generate below)
+// barlow-condensed-*.woff2: Barlow Condensed (https://github.com/jpt/barlow), SIL Open Font License, see barlow-condensed-OFL.txt
 //
-//go:embed *.css *.js
+//go:embed *.css *.js *.woff2 *.txt
 var FS embed.FS
+
+//go:generate go run ../../../tools/tailwind --input ../view/tailwind.css --output tailwind.css --minify

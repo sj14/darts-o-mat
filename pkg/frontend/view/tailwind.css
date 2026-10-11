@@ -1,0 +1,105 @@
+/*
+ * Source of pkg/frontend/static/tailwind.css, built with `go generate ./pkg/frontend/static`.
+ * Only the classes used in the templates and view helpers end up in the output.
+ */
+@import "tailwindcss" source(none);
+@source "./*.templ";
+@source "./*.go";
+@source "../../camui/*.templ";
+@source "../../camui/*.go";
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/static/barlow-condensed-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-weight: 800;
+  font-display: swap;
+  src: url("/static/barlow-condensed-800.woff2") format("woff2");
+}
+
+@theme {
+  --font-display: "Barlow Condensed", ui-sans-serif, system-ui, sans-serif;
+
+  /* The board's own colors, used as accents. */
+  --color-board-red: oklch(58% 0.21 25);
+  --color-board-green: oklch(62% 0.16 150);
+  --color-board-cream: oklch(93% 0.04 85);
+  --color-board-black: oklch(18% 0.01 260);
+
+  /* Surfaces of the dark pub look. */
+  --color-pub-950: oklch(14% 0.012 260);
+  --color-pub-900: oklch(19% 0.014 260);
+  --color-pub-800: oklch(25% 0.016 260);
+  --color-pub-700: oklch(33% 0.018 260);
+
+  --animate-dart-in: dart-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  --animate-shake: shake 0.5s ease-in-out both;
+  --animate-celebrate: celebrate 2.4s ease-out both;
+  --animate-glow: glow 2.4s ease-in-out infinite;
+
+  @keyframes dart-in {
+    from {
+      opacity: 0;
+      transform: scale(1.6) translateY(-0.5rem);
+    }
+  }
+
+  @keyframes shake {
+    20%,
+    60% {
+      transform: translateX(-0.4rem);
+    }
+    40%,
+    80% {
+      transform: translateX(0.4rem);
+    }
+  }
+
+  @keyframes celebrate {
+    0% {
+      opacity: 0;
+      transform: scale(0.4) rotate(-8deg);
+    }
+    15% {
+      opacity: 1;
+      transform: scale(1.1) rotate(2deg);
+    }
+    25% {
+      transform: scale(1) rotate(0);
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.3);
+    }
+  }
+
+  @keyframes glow {
+    50% {
+      box-shadow: 0 0 2.5rem -0.25rem var(--glow-color);
+    }
+  }
+}
+
+@layer base {
+  body {
+    background:
+      radial-gradient(ellipse 90% 50% at 15% 0%, oklch(58% 0.21 25 / 0.14), transparent 70%),
+      radial-gradient(ellipse 90% 50% at 85% 0%, oklch(62% 0.16 150 / 0.12), transparent 70%),
+      var(--color-pub-950);
+    background-attachment: fixed;
+  }
+}
+
+/* SVG elements scale around their own center (the hit markers on the board). */
+.svg-center {
+  transform-box: fill-box;
+  transform-origin: center;
+}

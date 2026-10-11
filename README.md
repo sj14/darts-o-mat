@@ -36,7 +36,8 @@ go run ./cmd/darts-o-mat -db postgres -dsn "postgres://postgres:geheim@localhost
 3. Spielmodus wählen, Mitspieler ankreuzen bzw. einladen und starten.
 4. Nach jedem Wurf eintragen: erst Single, Doppel oder Triple wählen, dann die Zahl antippen. Für das Bull „Bull“ (mit „Doppel“ = Bullseye), für Fehlwürfe „Daneben“. Alle Mitspieler mit Account können auf ihrem eigenen Gerät mit eintragen.
 5. Vertippt oder falsch erkannt? Tippe den Dart in der laufenden Aufnahme oder im Verlauf an und wähle, was wirklich getroffen wurde. „Letzten Dart zurücknehmen“ gibt es weiterhin.
-6. Keine Lust mehr? Wer das Spiel angelegt hat, kann es mit „Spiel abbrechen“ beenden. Es bleibt in der Liste, zählt aber nicht in die Statistik.
+6. Auf der Spielseite gibt es Töne für Treffer, Fehlwürfe, Überworfen und 180; oben mit „🔊 Ton an“ ein- und ausschalten.
+7. Keine Lust mehr? Wer das Spiel angelegt hat, kann es mit „Spiel abbrechen“ beenden. Es bleibt in der Liste, zählt aber nicht in die Statistik.
 
 Während des Spiels siehst du für jeden Spieler den Average bzw. die Trefferquote und eine kleine Statistik. Bei X01 zeigt der Verlauf jede Aufnahme mit den geworfenen Darts, auch wenn schon der Nächste dran ist. Unter „Statistik“ findest du deine Werte und die deiner Gastspieler über alle beendeten Spiele.
 

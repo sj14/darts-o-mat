@@ -7,73 +7,70 @@ type AuthModel struct {
 	Registration bool // whether new accounts may register
 }
 
+// authCard is the frame of the login and register forms.
+templ authCard(title string) {
+	<div class="mx-auto mt-6 max-w-md">
+		<div class="mb-6 text-center">
+			<div class="mx-auto mb-4 size-20 rounded-full bg-[radial-gradient(circle,var(--color-board-red)_0_14%,var(--color-board-green)_15%_26%,var(--color-board-cream)_27%_48%,var(--color-board-red)_49%_56%,var(--color-board-black)_57%)] shadow-2xl shadow-board-red/30 ring-4 ring-white/10"></div>
+			<h1 class="font-display text-5xl font-extrabold uppercase tracking-wide text-board-cream">{ title }</h1>
+		</div>
+		@panel("flex flex-col gap-4") {
+			{ children... }
+		}
+	</div>
+}
+
+templ formField(label, id, hint string) {
+	<div>
+		<label for={ id } class={ labelClass }>{ label }</label>
+		{ children... }
+		if hint != "" {
+			<p class={ hintClass }>{ hint }</p>
+		}
+	</div>
+}
+
 templ Login(m AuthModel) {
 	@layout("Anmelden", "") {
-		<div class="row justify-content-center">
-			<div class="md:col-6">
-				<div class="card">
-					<div class="card-body d-grid gap-3">
-						<h1 class="fs-2xl mb-0">Anmelden</h1>
-						@errorAlert(m.Error)
-						<form method="post" action="/login" class="d-grid gap-3">
-							<div class="form-group">
-								<label for="username" class="form-label">Benutzername</label>
-								<input type="text" id="username" name="username" class="form-control" value={ m.Username } autocomplete="username" autocapitalize="none" required autofocus/>
-							</div>
-							<div class="form-group">
-								<label for="password" class="form-label">Passwort</label>
-								<input type="password" id="password" name="password" class="form-control" autocomplete="current-password" required/>
-							</div>
-							<div>
-								<button type="submit" class="btn-solid theme-primary">Anmelden</button>
-							</div>
-						</form>
-						if m.Registration {
-							<p class="mb-0">Noch kein Account? <a href="/register">Registrieren</a></p>
-						}
-					</div>
-				</div>
-			</div>
-		</div>
+		@authCard("Anmelden") {
+			@errorAlert(m.Error)
+			<form method="post" action="/login" class="flex flex-col gap-4">
+				@formField("Benutzername", "username", "") {
+					<input type="text" id="username" name="username" class={ inputClass } value={ m.Username } autocomplete="username" autocapitalize="none" required autofocus/>
+				}
+				@formField("Passwort", "password", "") {
+					<input type="password" id="password" name="password" class={ inputClass } autocomplete="current-password" required/>
+				}
+				<button type="submit" class={ btnPrimary, "py-3 font-display text-2xl uppercase" }>Anmelden</button>
+			</form>
+			if m.Registration {
+				<p class="text-center text-white/60">Noch kein Account? <a href="/register" class={ linkClass }>Registrieren</a></p>
+			}
+		}
 	}
 }
 
 templ Register(m AuthModel) {
 	@layout("Registrieren", "") {
-		<div class="row justify-content-center">
-			<div class="md:col-6">
-				<div class="card">
-					<div class="card-body d-grid gap-3">
-						<h1 class="fs-2xl mb-0">Registrieren</h1>
-						@errorAlert(m.Error)
-						if m.Registration {
-							<form method="post" action="/register" class="d-grid gap-3">
-								<div class="form-group">
-									<label for="username" class="form-label">Benutzername</label>
-									<input type="text" id="username" name="username" class="form-control" value={ m.Username } autocomplete="username" autocapitalize="none" pattern="[A-Za-z0-9._\-]{3,32}" required autofocus/>
-									<div class="form-text">3 bis 32 Zeichen: Buchstaben, Ziffern, Punkt, Bindestrich oder Unterstrich. Damit laden dich andere zu Spielen ein.</div>
-								</div>
-								<div class="form-group">
-									<label for="name" class="form-label">Anzeigename</label>
-									<input type="text" id="name" name="name" class="form-control" value={ m.Name } autocomplete="nickname"/>
-									<div class="form-text">So heißt du im Spiel. Leer lassen, um den Benutzernamen zu verwenden.</div>
-								</div>
-								<div class="form-group">
-									<label for="password" class="form-label">Passwort</label>
-									<input type="password" id="password" name="password" class="form-control" autocomplete="new-password" minlength="8" required/>
-									<div class="form-text">Mindestens 8 Zeichen.</div>
-								</div>
-								<div>
-									<button type="submit" class="btn-solid theme-primary">Account anlegen</button>
-								</div>
-							</form>
-						} else {
-							<p class="mb-0">Die Registrierung ist auf diesem Server abgeschaltet.</p>
-						}
-						<p class="mb-0">Schon registriert? <a href="/login">Anmelden</a></p>
-					</div>
-				</div>
-			</div>
-		</div>
+		@authCard("Registrieren") {
+			@errorAlert(m.Error)
+			if m.Registration {
+				<form method="post" action="/register" class="flex flex-col gap-4">
+					@formField("Benutzername", "username", "3 bis 32 Zeichen: Buchstaben, Ziffern, Punkt, Bindestrich oder Unterstrich. Damit laden dich andere zu Spielen ein.") {
+						<input type="text" id="username" name="username" class={ inputClass } value={ m.Username } autocomplete="username" autocapitalize="none" pattern="[A-Za-z0-9._\-]{3,32}" required autofocus/>
+					}
+					@formField("Anzeigename", "name", "So heißt du im Spiel. Leer lassen, um den Benutzernamen zu verwenden.") {
+						<input type="text" id="name" name="name" class={ inputClass } value={ m.Name } autocomplete="nickname"/>
+					}
+					@formField("Passwort", "password", "Mindestens 8 Zeichen.") {
+						<input type="password" id="password" name="password" class={ inputClass } autocomplete="new-password" minlength="8" required/>
+					}
+					<button type="submit" class={ btnPrimary, "py-3 font-display text-2xl uppercase" }>Account anlegen</button>
+				</form>
+			} else {
+				<p>Die Registrierung ist auf diesem Server abgeschaltet.</p>
+			}
+			<p class="text-center text-white/60">Schon registriert? <a href="/login" class={ linkClass }>Anmelden</a></p>
+		}
 	}
 }

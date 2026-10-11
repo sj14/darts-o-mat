@@ -24,7 +24,7 @@ templ Home(m HomeModel) {
 	@layout("Start", m.Account.Username) {
 		@errorAlert(m.Error)
 		if len(m.Friends.Incoming) > 0 {
-			<div class="alert theme-primary mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+			<div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-400/40 bg-sky-400/10 px-4 py-3">
 				<span>
 					if len(m.Friends.Incoming) == 1 {
 						Du hast eine neue Freundschaftsanfrage.
@@ -32,220 +32,208 @@ templ Home(m HomeModel) {
 						Du hast { strconv.Itoa(len(m.Friends.Incoming)) } neue Freundschaftsanfragen.
 					}
 				</span>
-				<a href="/friends" class="btn-solid theme-primary btn-sm">Ansehen</a>
+				<a href="/friends" class={ btnSecondary, btnSmall }>Ansehen</a>
 			</div>
 		}
 		if len(m.Invitations) > 0 {
 			@invitations(m.Invitations)
 		}
-		<div class="row g-4">
-			<div class="md:col-8">
-				@newGame(m)
-			</div>
-			<div class="md:col-4 d-grid gap-4 align-content-start">
-				@guests(m.Players)
+		<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+			@newGame(m)
+			<div class="flex flex-col gap-6">
 				if len(m.Games) > 0 {
 					@recentGames(m.Games)
 				}
+				@guests(m.Players)
 			</div>
 		</div>
 	}
 }
 
 templ invitations(views []service.GameView) {
-	<div class="card mb-4 border-primary border-2">
-		<div class="card-body">
-			<h2 class="fs-xl mb-3">Einladungen</h2>
-			<div class="list-group">
-				for _, v := range views {
-					<div class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
-						<div>
-							<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="fw-semibold">{ modeLabel(v.Game) }</a>
-							<div class="fs-sm fg-3">mit { playerNames(v, v.Game.PlayerIDs) }</div>
-						</div>
-						@answerInvitation(v.Game.ID)
+	@panel("mb-6 border-amber-400/50 [--glow-color:var(--color-amber-400)] animate-glow") {
+		@sectionTitle("Einladungen")
+		<ul class="divide-y divide-white/10">
+			for _, v := range views {
+				<li class="flex flex-wrap items-center justify-between gap-3 py-3">
+					<div>
+						<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">{ modeLabel(v.Game) }</a>
+						<div class="text-sm text-white/50">mit { playerNames(v, v.Game.PlayerIDs) }</div>
 					</div>
-				}
-			</div>
-		</div>
-	</div>
+					@answerInvitation(v.Game.ID)
+				</li>
+			}
+		</ul>
+	}
 }
 
 templ answerInvitation(gameID int64) {
-	<div class="d-flex gap-2">
-		<form method="post" action={ templ.URL(gameURL(gameID, "/accept")) } class="mb-0">
-			<button type="submit" class="btn-solid theme-success">Zusagen</button>
+	<div class="flex gap-2">
+		<form method="post" action={ templ.URL(gameURL(gameID, "/accept")) }>
+			<button type="submit" class={ btnPrimary }>Zusagen</button>
 		</form>
-		<form method="post" action={ templ.URL(gameURL(gameID, "/decline")) } class="mb-0">
-			<button type="submit" class="btn-outline theme-danger">Absagen</button>
+		<form method="post" action={ templ.URL(gameURL(gameID, "/decline")) }>
+			<button type="submit" class={ btnDanger }>Absagen</button>
 		</form>
 	</div>
 }
 
 templ guests(players []player.Player) {
-	<div class="card">
-		<div class="card-body">
-			<h2 class="fs-xl mb-1">Gastspieler</h2>
-			<p class="fs-sm fg-3">Für Mitspieler ohne eigenen Account. Nur du siehst sie.</p>
-			if len(players) > 1 {
-				<ul class="list-group mb-3">
-					for _, p := range players[1:] {
-						<li class="list-group-item">{ p.Name }</li>
-					}
-				</ul>
-			}
-			<form method="post" action="/guests" class="d-flex gap-2">
-				<input type="text" name="name" class="form-control" placeholder="Name" required aria-label="Name des Gastspielers"/>
-				<button type="submit" class="btn-solid theme-secondary">Anlegen</button>
-			</form>
-		</div>
-	</div>
+	@panel("") {
+		@sectionTitle("Gastspieler")
+		<p class="mb-3 text-sm text-white/50">Für Mitspieler ohne eigenen Account. Nur du siehst sie.</p>
+		if len(players) > 1 {
+			<ul class="mb-4 flex flex-wrap gap-2">
+				for _, p := range players[1:] {
+					<li class="rounded-full bg-white/10 px-3 py-1 font-semibold">{ p.Name }</li>
+				}
+			</ul>
+		}
+		<form method="post" action="/guests" class="flex gap-2">
+			<input type="text" name="name" class={ inputClass } placeholder="Name" required aria-label="Name des Gastspielers"/>
+			<button type="submit" class={ btnSecondary }>Anlegen</button>
+		</form>
+	}
 }
 
 templ recentGames(views []service.GameView) {
-	<div class="card">
-		<div class="card-body">
-			<h2 class="fs-xl mb-3">Letzte Spiele</h2>
-			<div class="list-group">
-				for _, v := range views {
-					<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="list-group-item list-group-item-action">
-						<div class="d-flex justify-content-between gap-2">
-							<span class="fw-semibold">{ modeLabel(v.Game) }</span>
+	@panel("") {
+		@sectionTitle("Letzte Spiele")
+		<ul class="-mx-2 flex flex-col gap-1">
+			for _, v := range views {
+				<li>
+					<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="block rounded-2xl px-3 py-2.5 transition hover:bg-white/5">
+						<div class="flex items-center justify-between gap-2">
+							<span class="font-display text-xl font-semibold uppercase">{ modeLabel(v.Game) }</span>
 							switch  {
 								case v.Game.Aborted():
-									<span class="badge theme-secondary">abgebrochen</span>
+									@statusBadge("abgebrochen", "bg-white/10 text-white/50")
 								case !v.Ready:
-									<span class="badge theme-warning">wartet</span>
+									@statusBadge("wartet", "bg-amber-400/20 text-amber-300")
 								case progressOf(v).GameOver:
-									<span class="badge theme-success">beendet</span>
+									@statusBadge("beendet", "bg-board-cream/15 text-board-cream")
 								default:
-									<span class="badge theme-primary">läuft</span>
+									@statusBadge("läuft", "bg-board-green/25 text-emerald-300")
 							}
 						</div>
-						<div class="fs-sm fg-3">{ playerNames(v, v.Game.PlayerIDs) }</div>
+						<div class="text-sm text-white/50">{ playerNames(v, v.Game.PlayerIDs) }</div>
 					</a>
-				}
-			</div>
-		</div>
-	</div>
+				</li>
+			}
+		</ul>
+	}
 }
 
-templ radioButton(name, value, label string, checked bool) {
-	<label class="btn-check btn-outline theme-primary">
-		<input type="radio" name={ name } value={ value } checked?={ checked }/>
-		{ label }
-	</label>
+// fieldset is a labeled group of form fields.
+templ fieldset(label string) {
+	<fieldset>
+		<legend class={ labelClass }>{ label }</legend>
+		{ children... }
+	</fieldset>
 }
 
 // participants lets the user pick who plays and on which board.
 // The players throw in the listed order, invited accounts last.
 templ participants(m HomeModel) {
-	<div class="form-group">
-		<span class="form-label">Mitspieler</span>
-		for i, p := range m.Players {
-			<div class="form-field">
-				<input type="checkbox" class="check" id={ "player-" + strconv.FormatInt(p.ID, 10) } name="player_ids" value={ strconv.FormatInt(p.ID, 10) } checked?={ i == 0 }/>
-				<label for={ "player-" + strconv.FormatInt(p.ID, 10) }>
+	@fieldset("Mitspieler") {
+		<div class="flex flex-col gap-1">
+			for i, p := range m.Players {
+				@checkbox("player-"+strconv.FormatInt(p.ID, 10), "player_ids", strconv.FormatInt(p.ID, 10), i == 0) {
 					if i == 0 {
 						Ich ({ p.Name })
 					} else {
-						{ p.Name } <span class="fg-3">(Gast)</span>
+						{ p.Name } <span class="text-white/40">(Gast)</span>
 					}
-				</label>
-			</div>
-		}
-	</div>
-	<div class="form-group">
-		<span class="form-label">Freunde einladen</span>
+				}
+			}
+		</div>
+	}
+	@fieldset("Freunde einladen") {
 		if len(m.Friends.Friends) == 0 {
-			<p class="fg-3 mb-0">Füge unter <a href="/friends">Freunde</a> andere Accounts hinzu, um sie einzuladen.</p>
+			<p class="text-white/50">Füge unter <a href="/friends" class={ linkClass }>Freunde</a> andere Accounts hinzu, um sie einzuladen.</p>
 		}
-		for _, f := range m.Friends.Friends {
-			<div class="form-field">
-				<input type="checkbox" class="check" id={ "invite-" + f.Username } name="invite" value={ f.Username }/>
-				<label for={ "invite-" + f.Username }>{ f.Name }</label>
-			</div>
-		}
+		<div class="flex flex-col gap-1">
+			for _, f := range m.Friends.Friends {
+				@checkbox("invite-"+f.Username, "invite", f.Username, false) {
+					{ f.Name }
+				}
+			}
+		</div>
 		if len(m.Friends.Friends) > 0 {
-			<div class="form-text">Das Spiel beginnt, sobald alle Eingeladenen zugesagt haben.</div>
+			<p class={ hintClass }>Das Spiel beginnt, sobald alle Eingeladenen zugesagt haben.</p>
 		}
-	</div>
+	}
 	if len(m.Boards) > 0 {
-		<div class="form-group">
-			<span class="form-label">Board</span>
-			<div class="btn-group flex-wrap" role="group">
-				@radioButton("board_id", "", "ohne", true)
+		@fieldset("Board") {
+			<div class="flex flex-wrap gap-2">
+				@choice("board_id", "", "ohne", true)
 				for _, b := range m.Boards {
-					@radioButton("board_id", strconv.FormatInt(b.ID, 10), b.Name, false)
+					@choice("board_id", strconv.FormatInt(b.ID, 10), "📷 "+b.Name, false)
 				}
 			</div>
-		</div>
+		}
 	}
 }
 
 // newGame first lets the user pick a mode and then shows the options of that mode.
 // Picking a mode reloads only this section via htmx; without JavaScript the links still work.
 templ newGame(m HomeModel) {
-	<div id="new-game" class="card">
-		<div class="card-body d-grid gap-4">
-			<h2 class="fs-xl mb-0">Neues Spiel</h2>
-			<div class="row g-3">
-				<div class="col-6">
-					@modeTile(game.ModeX01, m.Mode, "X01", "Von 301, 501 oder 701 auf genau 0 runterspielen.")
-				</div>
-				<div class="col-6">
-					@modeTile(game.ModeAroundTheClock, m.Mode, "Around the Clock", "Die Zahlen 1 bis 20 der Reihe nach treffen.")
-				</div>
+	<div id="new-game">
+		@panel("flex flex-col gap-5") {
+			<h2 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream">Neues Spiel</h2>
+			<div class="grid gap-3 sm:grid-cols-2">
+				@modeTile(game.ModeX01, m.Mode, "X01", "Von 301, 501 oder 701 auf genau 0 runterspielen.", "501")
+				@modeTile(game.ModeAroundTheClock, m.Mode, "Around the Clock", "Die Zahlen 1 bis 20 der Reihe nach treffen.", "1→20")
 			</div>
 			switch m.Mode {
 				case game.ModeX01:
-					<form method="post" action="/games" class="d-grid gap-3">
+					<form method="post" action="/games" class="flex flex-col gap-5">
 						<input type="hidden" name="mode" value="x01"/>
-						<div class="form-group">
-							<span class="form-label">Startpunkte</span>
-							<div class="btn-group" role="group">
+						@fieldset("Startpunkte") {
+							<div class="flex flex-wrap gap-2">
 								for _, score := range []int{301, 501, 701} {
-									@radioButton("start_score", strconv.Itoa(score), strconv.Itoa(score), score == 501)
+									@choice("start_score", strconv.Itoa(score), strconv.Itoa(score), score == 501)
 								}
 							</div>
-						</div>
-						<div class="form-group">
-							<span class="form-label">Auschecken mit</span>
-							<div class="btn-group" role="group">
-								@radioButton("out_mode", "single", "beliebigem Dart", false)
-								@radioButton("out_mode", "double", "Doppel", true)
-								@radioButton("out_mode", "master", "Doppel oder Triple", false)
+						}
+						@fieldset("Auschecken mit") {
+							<div class="flex flex-wrap gap-2">
+								@choice("out_mode", "single", "beliebigem Dart", false)
+								@choice("out_mode", "double", "Doppel", true)
+								@choice("out_mode", "master", "Doppel oder Triple", false)
 							</div>
-						</div>
+						}
 						@participants(m)
 						<div>
-							<button type="submit" class="btn-solid theme-primary">X01 starten</button>
+							<button type="submit" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>X01 starten</button>
 						</div>
 					</form>
 				case game.ModeAroundTheClock:
-					<form method="post" action="/games" class="d-grid gap-3">
+					<form method="post" action="/games" class="flex flex-col gap-5">
 						<input type="hidden" name="mode" value="around_the_clock"/>
-						<div class="form-field">
-							<input type="checkbox" class="check" id="atc-bull" name="bull" checked/>
-							<label for="atc-bull">Zum Schluss das Bull treffen</label>
-						</div>
-						<div class="form-field">
-							<input type="checkbox" class="check" id="atc-skips" name="multiplier_skips"/>
-							<label for="atc-skips">Doppel springt 2 Felder, Triple 3 Felder weiter</label>
-						</div>
+						@fieldset("Regeln") {
+							<div class="flex flex-col gap-1">
+								@checkbox("atc-bull", "bull", "on", true) {
+									Zum Schluss das Bull treffen
+								}
+								@checkbox("atc-skips", "multiplier_skips", "on", false) {
+									Doppel springt 2 Felder, Triple 3 Felder weiter
+								}
+							</div>
+						}
 						@participants(m)
 						<div>
-							<button type="submit" class="btn-solid theme-primary">Around the Clock starten</button>
+							<button type="submit" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>Around the Clock starten</button>
 						</div>
 					</form>
 				default:
-					<p class="fg-3 mb-0">Wähle zuerst einen Spielmodus.</p>
+					<p class="text-white/50">Wähle zuerst einen Spielmodus.</p>
 			}
-		</div>
+		}
 	</div>
 }
 
-templ modeTile(mode, selected game.Mode, title, description string) {
+templ modeTile(mode, selected game.Mode, title, description, symbol string) {
 	<a
 		href={ templ.URL("/?mode=" + string(mode)) }
 		hx-get={ "/?mode=" + string(mode) }
@@ -253,15 +241,16 @@ templ modeTile(mode, selected game.Mode, title, description string) {
 		hx-select="#new-game"
 		hx-swap="outerHTML"
 		hx-push-url="true"
-		class={ "card h-100 text-decoration-none", templ.KV("border-primary border-3", mode == selected) }
+		class={ "group relative block overflow-hidden rounded-2xl border p-4 transition",
+			templ.KV("border-board-green bg-board-green/15 [--glow-color:var(--color-board-green)] animate-glow", mode == selected),
+			templ.KV("border-white/10 bg-pub-800 hover:border-white/30", mode != selected) }
 		if mode == selected {
 			aria-current="true"
 		}
 	>
-		<div class="card-body">
-			<div class="fs-lg fw-bold mb-1">{ title }</div>
-			<div class="fs-sm fg-3">{ description }</div>
-		</div>
+		<div class="pointer-events-none absolute -right-2 -bottom-4 font-display text-7xl font-extrabold text-white/5 transition group-hover:text-white/10">{ symbol }</div>
+		<div class="font-display text-3xl font-extrabold uppercase">{ title }</div>
+		<div class="mt-1 text-sm text-white/60">{ description }</div>
 	</a>
 }
 
@@ -274,56 +263,51 @@ type NewBoardToken struct {
 
 templ Boards(user string, boards []service.BoardView, errMsg string, newToken *NewBoardToken) {
 	@layout("Boards", user) {
-		<div class="row justify-content-center">
-			<div class="md:col-8 d-grid gap-4">
-				@errorAlert(errMsg)
-				if newToken != nil {
-					<div class="alert theme-success mb-0" role="status">
-						<div class="fw-bold mb-2">Kamera-Token für „{ newToken.BoardName }“</div>
-						<p class="mb-2">Er wird nur jetzt angezeigt. Starte damit die Kamera-Erkennung am Rechner mit den Kameras:</p>
-						<pre class="mb-2 text-wrap text-break"><code>go run ./cmd/darts-o-cam detect -calibration calibration.json -server { newToken.Server } -token { newToken.Token }</code></pre>
-						<p class="mb-0 fs-sm">Die Kalibrierung (<code>calibration.json</code>) liegt auf dem Rechner mit den Kameras, nicht auf diesem Server. Noch keine? Erstelle sie dort mit <code>go run ./cmd/darts-o-cam ui</code> und öffne <code>http://localhost:8090</code>.</p>
-					</div>
-				}
-				<div class="card">
-					<div class="card-body">
-						<h1 class="fs-2xl mb-1">Boards</h1>
-						<p class="fg-3">Deine Dartboards, z. B. eins im Keller und eins im Vereinsheim. Beim Spielstart kannst du wählen, auf welchem Board gespielt wird; dessen Kameras tragen die Würfe dann automatisch ein.</p>
-						if len(boards) > 0 {
-							<ul class="list-group mb-3">
-								for _, b := range boards {
-									<li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
-										<span>
-											{ b.Name }
-											if b.HasToken {
-												<span class="badge theme-success ms-2">Kamera-Token aktiv</span>
-											}
-										</span>
-										<span class="d-flex gap-2">
-											<form method="post" action={ templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/token") } class="mb-0">
-												<button type="submit" class="btn-outline theme-primary btn-sm">
-													if b.HasToken {
-														Neuen Kamera-Token erzeugen
-													} else {
-														Kamera-Token erzeugen
-													}
-												</button>
-											</form>
-											<form method="post" action={ templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/delete") } class="mb-0">
-												<button type="submit" class="btn-outline theme-danger btn-sm">Löschen</button>
-											</form>
-										</span>
-									</li>
-								}
-							</ul>
-						}
-						<form method="post" action="/boards" class="d-flex gap-2">
-							<input type="text" name="name" class="form-control" placeholder="Name, z. B. Keller" required aria-label="Name des Boards"/>
-							<button type="submit" class="btn-solid theme-secondary">Anlegen</button>
-						</form>
-					</div>
+		<div class="mx-auto max-w-3xl">
+			@pageTitle("Boards", "Deine Dartboards, z. B. eins im Keller und eins im Vereinsheim. Beim Spielstart wählst du, auf welchem Board gespielt wird; dessen Kameras tragen die Würfe dann automatisch ein.")
+			@errorAlert(errMsg)
+			if newToken != nil {
+				<div class="mb-6 rounded-3xl border border-board-green/50 bg-board-green/10 p-5" role="status">
+					<div class="font-display text-2xl font-extrabold uppercase text-emerald-300">Kamera-Token für „{ newToken.BoardName }“</div>
+					<p class="mt-2">Er wird nur jetzt angezeigt. Starte damit die Kamera-Erkennung am Rechner mit den Kameras:</p>
+					<pre class="mt-3 overflow-x-auto rounded-xl bg-pub-950 p-3 text-sm whitespace-pre-wrap break-all text-emerald-200"><code>go run ./cmd/darts-o-cam detect -calibration calibration.json -server { newToken.Server } -token { newToken.Token }</code></pre>
+					<p class="mt-3 text-sm text-white/60">Die Kalibrierung (<code>calibration.json</code>) liegt auf dem Rechner mit den Kameras, nicht auf diesem Server. Noch keine? Erstelle sie dort mit <code>go run ./cmd/darts-o-cam ui</code> und öffne <code>http://localhost:8090</code>.</p>
 				</div>
-			</div>
+			}
+			@panel("") {
+				if len(boards) > 0 {
+					<ul class="mb-4 divide-y divide-white/10">
+						for _, b := range boards {
+							<li class="flex flex-wrap items-center justify-between gap-3 py-3">
+								<span class="flex items-center gap-3">
+									<span class="font-display text-2xl font-semibold uppercase">📷 { b.Name }</span>
+									if b.HasToken {
+										@statusBadge("Kamera-Token aktiv", "bg-board-green/25 text-emerald-300")
+									}
+								</span>
+								<span class="flex gap-2">
+									<form method="post" action={ templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/token") }>
+										<button type="submit" class={ btnSecondary, btnSmall }>
+											if b.HasToken {
+												Neuen Kamera-Token erzeugen
+											} else {
+												Kamera-Token erzeugen
+											}
+										</button>
+									</form>
+									<form method="post" action={ templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/delete") }>
+										<button type="submit" class={ btnDanger, btnSmall }>Löschen</button>
+									</form>
+								</span>
+							</li>
+						}
+					</ul>
+				}
+				<form method="post" action="/boards" class="flex gap-2">
+					<input type="text" name="name" class={ inputClass } placeholder="Name, z. B. Keller" required aria-label="Name des Boards"/>
+					<button type="submit" class={ btnPrimary }>Anlegen</button>
+				</form>
+			}
 		</div>
 	}
 }

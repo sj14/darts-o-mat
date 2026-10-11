@@ -226,15 +226,65 @@ func dartClass(v service.GameView, d throw.Dart) string {
 	return ""
 }
 
-// dartTheme is the color of a dart's tile: like dartClass, blue for other darts.
-func dartTheme(v service.GameView, d throw.Dart) string {
+// dartTileClasses style a dart's large tile; the dart just thrown flies in.
+func dartTileClasses(v service.GameView, d throw.Dart) string {
+	classes := "flex h-20 items-center justify-center rounded-2xl font-display font-extrabold uppercase shadow-lg transition sm:h-24 " + dartTileColors(v, d)
+	if len(dartLabel(d)) > 4 {
+		classes += " text-2xl sm:text-3xl"
+	} else {
+		classes += " text-5xl"
+	}
+	if isLatest(v, d) {
+		classes += " animate-dart-in"
+	}
+	return classes
+}
+
+// dartTileColors are the colors of a dart's large tile: like dartClass, cream for other darts.
+func dartTileColors(v service.GameView, d throw.Dart) string {
 	switch dartClass(v, d) {
 	case "miss":
-		return "theme-danger"
+		return "bg-board-red text-white shadow-board-red/30"
 	case "hit":
-		return "theme-success"
+		return "bg-board-green text-white shadow-board-green/30"
 	}
-	return "theme-primary"
+	return "bg-board-cream text-pub-950 shadow-black/30"
+}
+
+// dartChipColors are the colors of a dart in the history.
+func dartChipColors(v service.GameView, d throw.Dart) string {
+	switch dartClass(v, d) {
+	case "miss":
+		return "bg-board-red/20 text-red-300"
+	case "hit":
+		return "bg-board-green/25 text-emerald-300"
+	}
+	return "bg-white/10 text-board-cream"
+}
+
+// isLatest reports whether d is the last entry of the game's log, i.e. just thrown.
+func isLatest(v service.GameView, d throw.Dart) bool {
+	return len(v.Darts) > 0 && v.Darts[len(v.Darts)-1].ID == d.ID && !d.Takeout
+}
+
+// latestTurnEvent is "180" or "bust" if the dart just thrown completed such a turn in X01,
+// empty otherwise.
+func latestTurnEvent(v service.GameView) string {
+	st, ok := v.State.(x01.State)
+	if !ok || len(st.Turns) == 0 || len(v.Darts) == 0 || v.Darts[len(v.Darts)-1].Takeout {
+		return ""
+	}
+	t := st.Turns[len(st.Turns)-1]
+	if len(t.Darts) == 0 || t.Darts[len(t.Darts)-1].ID != v.Darts[len(v.Darts)-1].ID || !t.Complete {
+		return ""
+	}
+	switch {
+	case t.Bust:
+		return "bust"
+	case t.Points == 180:
+		return "180"
+	}
+	return ""
 }
 
 // hitTarget reports whether a dart hit the player's target in around the clock.
@@ -251,4 +301,46 @@ func hitTarget(v service.GameView, d throw.Dart) bool {
 		}
 	}
 	return false
+}
+
+// sound returns which sound the last entry of the game's log makes (see static/sounds.js)
+// and the entry's id, which tells the page whether it is new.
+func sound(v service.GameView) (kind, id string) {
+	if len(v.Darts) == 0 {
+		return "", "0"
+	}
+	last := v.Darts[len(v.Darts)-1]
+	id = strconv.FormatInt(last.ID, 10)
+	switch {
+	case last.Takeout:
+		return "takeout", id
+	case progressOf(v).GameOver:
+		return "win", id
+	}
+	if event := latestTurnEvent(v); event != "" {
+		return event, id
+	}
+	switch {
+	case last.Miss:
+		return "miss", id
+	case hitTarget(v, last):
+		return "hit", id
+	case last.Number == throw.Bull:
+		return "bull", id
+	case last.Multiplier == 3:
+		return "triple", id
+	case last.Multiplier == 2:
+		return "double", id
+	}
+	return "dart", id
+}
+
+func soundKind(v service.GameView) string {
+	kind, _ := sound(v)
+	return kind
+}
+
+func soundID(v service.GameView) string {
+	_, id := sound(v)
+	return id
 }
