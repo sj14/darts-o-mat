@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
@@ -26,7 +27,10 @@ var (
 	ErrForbidden     = errors.New("not allowed")
 	ErrNotReady      = errors.New("waiting for invited players to accept")
 	ErrNothingToUndo = errors.New("no dart to undo")
-	ErrInviteSelf    = fmt.Errorf("%w: you can't invite yourself", ErrInvalid)
+	// ErrChangesThrowers means a correction would change who threw later darts,
+	// e.g. a bust that ends a turn early: the later darts have to be taken back instead.
+	ErrChangesThrowers = fmt.Errorf("%w: the correction would change who threw the later darts", ErrInvalid)
+	ErrInviteSelf      = fmt.Errorf("%w: you can't invite yourself", ErrInvalid)
 )
 
 // NotFriendError is returned when inviting an account that isn't a friend. It wraps ErrInvalid.
@@ -265,12 +269,7 @@ func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64
 
 	d.ID = 0
 	d.GameID = g.ID
-	d.Takeout = false // takeouts go through Takeout
-	if d.Miss {
-		d.Number, d.Multiplier = 0, 0
-	} else if d.Multiplier == 0 {
-		d.Multiplier = 1
-	}
+	normalizeDart(&d)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -311,6 +310,59 @@ func (s *Service) UndoDart(ctx context.Context, acc account.Account, gameID int6
 	}
 	s.notify(g.ID)
 	return s.view(ctx, acc, g)
+}
+
+// EditDart corrects what an earlier dart hit, e.g. when the cameras or a player got it
+// wrong. The whole game is replayed with the correction. It is refused if the game
+// doesn't add up anymore (the replay's error), or if the correction ends a turn at a
+// different dart, so that later darts would count for another player (ErrChangesThrowers).
+func (s *Service) EditDart(ctx context.Context, acc account.Account, gameID, dartID int64, d throw.Dart) (GameView, error) {
+	g, err := s.throwableGame(ctx, acc, gameID)
+	if err != nil {
+		return GameView{}, err
+	}
+	normalizeDart(&d)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	darts, err := s.store.ListDarts(ctx, g.ID)
+	if err != nil {
+		return GameView{}, err
+	}
+	i := slices.IndexFunc(darts, func(e throw.Dart) bool { return e.ID == dartID && !e.Takeout })
+	if i < 0 {
+		return GameView{}, ErrNotFound
+	}
+	before, err := g.Play(darts)
+	if err != nil {
+		return GameView{}, err
+	}
+	d.ID, d.GameID = dartID, g.ID
+	darts[i] = d
+	after, err := g.Play(darts)
+	if err != nil {
+		return GameView{}, err
+	}
+	if !slices.Equal(game.Throwers(before), game.Throwers(after)) {
+		return GameView{}, ErrChangesThrowers
+	}
+	if err := s.store.UpdateDart(ctx, &d); err != nil {
+		return GameView{}, err
+	}
+	s.notify(g.ID)
+	return s.view(ctx, acc, g)
+}
+
+// normalizeDart clears what doesn't matter for a dart: a miss has no field, and a
+// missing multiplier counts as single. Takeouts go through Takeout.
+func normalizeDart(d *throw.Dart) {
+	d.Takeout = false
+	if d.Miss {
+		d.Number, d.Multiplier = 0, 0
+	} else if d.Multiplier == 0 {
+		d.Multiplier = 1
+	}
 }
 
 // Takeout records that the darts were pulled out, so the next player throws. It only

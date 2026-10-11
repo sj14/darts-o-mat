@@ -35,7 +35,7 @@ go run ./cmd/darts-o-mat -db postgres -dsn "postgres://postgres:geheim@localhost
 2. Mitspieler ohne Account legst du auf der Startseite als **Gastspieler** an. Wer einen eigenen Account hat, fügst du unter **Freunde** per Benutzername hinzu. Sobald er die Anfrage annimmt, kannst du ihn beim Spielstart **einladen**; er muss zusagen, bis dahin wartet das Spiel.
 3. Spielmodus wählen, Mitspieler ankreuzen bzw. einladen und starten.
 4. Nach jedem Wurf eintragen: erst Single, Doppel oder Triple wählen, dann die Zahl antippen. Für das Bull „Bull“ (mit „Doppel“ = Bullseye), für Fehlwürfe „Daneben“. Alle Mitspieler mit Account können auf ihrem eigenen Gerät mit eintragen.
-5. Vertippt? „Letzten Dart zurücknehmen“.
+5. Vertippt oder falsch erkannt? Tippe den Dart in der laufenden Aufnahme oder im Verlauf an und wähle, was wirklich getroffen wurde. „Letzten Dart zurücknehmen“ gibt es weiterhin.
 
 Während des Spiels siehst du für jeden Spieler den Average bzw. die Trefferquote und eine kleine Statistik. Bei X01 zeigt der Verlauf jede Aufnahme mit den geworfenen Darts, auch wenn schon der Nächste dran ist. Unter „Statistik“ findest du deine Werte und die deiner Gastspieler über alle beendeten Spiele.
 

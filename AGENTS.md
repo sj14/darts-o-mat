@@ -104,6 +104,7 @@ Spielende (alle Modi, `pkg/domain/game/turn`): Nach dem ersten Checkout dürfen 
 Das Spiel endet mit dieser Runde; alle, die darin auschecken, gewinnen gemeinsam (`winner_ids`).
 X01 kennt die Out-Modi `single`, `double` und `master` (Doppel oder Triple).
 Spiele auf einem Board (`game.Game.WaitsForTakeout`) warten nach jeder Aufnahme (auch nach Bust) aufs Herausziehen der Pfeile, bevor der Nächste dran ist; der letzte Wurf, der das Spiel beendet, wartet nicht. Das Herausziehen ist ein Eintrag im selben Protokoll wie die Darts (`throw.Dart.Takeout`, Tabelle `darts`, Reihenfolge = ID) und wird beim Nachrechnen berücksichtigt (`turn.Log.Replay`). Rückgängig löscht einfach den letzten Eintrag. Die Kamera meldet es (`POST /api/board/takeout`), sonst bestätigen die Spieler es auf der Spielseite („Pfeile gezogen“, `POST /games/{id}/takeout` bzw. `/api/games/{id}/takeout`). Ein Dart, während gewartet wird, ist beim Nachrechnen ein Fehler (`turn.ErrWaitingForTakeout`), neue Darts werden deshalb abgelehnt. `turn.End`/`Finish` zählen den Dart mit, der die Aufnahme beendet (Bust, Checkout), damit die wartende Aufnahme die richtige Dartzahl zeigt. Spiele ohne Board wechseln wie bisher nach drei Darts.
+Darts lassen sich nachträglich korrigieren (`service.EditDart`; in der Oberfläche jeden Dart im Verlauf bzw. der laufenden Aufnahme anklicken): Der Eintrag wird geändert und alles neu nachgerechnet. Abgelehnt wird, wenn das Protokoll danach nicht mehr aufgeht (Replay-Fehler, z. B. Spiel wäre vor späteren Darts vorbei) oder wenn sich ändern würde, wer spätere Darts geworfen hat (`ErrChangesThrowers`, z. B. Überworfen mitten in der Aufnahme) – dann stattdessen zurücknehmen. Dafür liefern die Modi pro Protokolleintrag den Werfer (`State.Throwers`, `game.Throwers`).
 Der X01-Stand enthält zusätzlich den Verlauf aller Aufnahmen (`x01.State.Turns`: Darts, Punkte, Rest, überworfen, Checkout; die letzte kann noch laufen); die Spielseite zeigt ihn neueste zuerst.
 
 ## Statistik
@@ -128,6 +129,7 @@ Alle Endpunkte unter `/api` außer `register`/`login`/`logout` brauchen das Sess
 - `POST /api/games/{id}/darts`: `{"number": 20, "multiplier": 3}` oder `{"miss": true}`; Bull ist `25`
 - `POST /api/games/{id}/takeout`: Pfeile wurden gezogen (nur bei Spielen auf einem Board von Bedeutung)
 - `DELETE /api/games/{id}/darts/last`: letzten Dart rückgängig machen
+- `PUT /api/games/{id}/darts/{dartID}`: Dart korrigieren (Body wie beim Eintragen)
 - `POST /api/boards/{id}/token`: neuer Kamera-Token für ein eigenes Board (ersetzt den alten), `GET /api/boards` zeigt `has_token`
 - Für Kameras, mit `Authorization: Bearer <Board-Token>` statt Session: `POST /api/board/darts` (Dart wie oben, geht ans laufende Spiel des Boards), `POST /api/board/takeout`
 - `GET /api/stats`: Gesamtstatistik des eigenen Spielers und der Gäste

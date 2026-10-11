@@ -43,6 +43,8 @@ type State struct {
 	// WaitingForTakeout is set when the turn is over, but the darts weren't pulled out yet
 	// (only in games played on a board, see turn.Log.WaitForTakeout).
 	WaitingForTakeout bool `json:"waiting_for_takeout"`
+	// Throwers is the player who threw each entry of the log, 0 for takeouts.
+	Throwers []int64 `json:"-"`
 }
 
 // Play replays the darts of a game and returns the resulting state.
@@ -65,7 +67,9 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 		t = turn.NewWaitingForTakeouts()
 	}
 
+	st.Throwers = make([]int64, len(log.Entries))
 	err := log.Replay(&t, len(st.Players), func(i int, d throw.Dart) error {
+		st.Throwers[i] = st.Players[t.Player].PlayerID
 		if t.Over() {
 			return fmt.Errorf("dart %d: %w", i+1, turn.ErrGameOver)
 		}

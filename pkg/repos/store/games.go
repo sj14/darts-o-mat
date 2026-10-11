@@ -156,3 +156,19 @@ func (store *Store) DeleteLastDart(ctx context.Context, gameID int64) error {
 	}
 	return nil
 }
+
+// UpdateDart changes what a dart hit.
+func (store *Store) UpdateDart(ctx context.Context, d *throw.Dart) error {
+	res, err := store.db.NewUpdate().Model(d).Column("number", "multiplier", "miss").WherePK().Where("game_id = ?", d.GameID).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

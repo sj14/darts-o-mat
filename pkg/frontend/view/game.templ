@@ -27,8 +27,13 @@ templ Board(v service.GameView, errMsg string) {
 	if !v.Ready {
 		@lobby(v, errMsg)
 	} else {
-		@scores(v, errMsg)
+		@scores(v, errMsg, nil)
 	}
+}
+
+// BoardEditing is the board with the keypad correcting an earlier dart.
+templ BoardEditing(v service.GameView, errMsg string, dart throw.Dart) {
+	@scores(v, errMsg, &dart)
 }
 
 // lobby turns into the board once everyone has accepted, pushed by the server.
@@ -82,7 +87,7 @@ templ lobby(v service.GameView, errMsg string) {
 	</div>
 }
 
-templ scores(v service.GameView, errMsg string) {
+templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 	{{ p := progressOf(v) }}
 	<div id="board" sse-swap="board" hx-swap="outerHTML">
 		<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
@@ -121,12 +126,14 @@ templ scores(v service.GameView, errMsg string) {
 					}
 			}
 		</div>
-		if !p.GameOver {
+		if editing != nil && v.CanThrow {
+			@editPanel(v, *editing)
+		} else if !p.GameOver {
 			<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
 				<span class="fw-semibold">{ playerName(v, *p.CurrentPlayerID) } ist dran</span>
 				for i := range turn.DartsPerTurn {
 					if i < len(turnDarts(v, p)) {
-						<span class="badge theme-primary">{ dartLabel(turnDarts(v, p)[i]) }</span>
+						@dartBadge(v, turnDarts(v, p)[i])
 					} else {
 						<span class="badge">–</span>
 					}
@@ -151,7 +158,7 @@ templ scores(v service.GameView, errMsg string) {
 					}
 				</div>
 			} else if v.CanThrow {
-				@keypad(v)
+				@keypad(v, gameURL(v.Game.ID, "/darts"))
 			}
 		}
 		<div class="mt-3">
@@ -252,11 +259,11 @@ templ playerCard(v service.GameView, p progress, playerID int64, value, caption 
 	</div>
 }
 
-// keypad enters a dart: choose single, double or triple, then tap the number.
-templ keypad(v service.GameView) {
+// keypad enters a dart (posted to action): choose single, double or triple, then tap the number.
+templ keypad(v service.GameView, action string) {
 	{{ target := currentTarget(v) }}
 	<form
-		hx-post={ gameURL(v.Game.ID, "/darts") }
+		hx-post={ action }
 		hx-target="#board"
 		hx-swap="outerHTML"
 		class="d-grid gap-3"
@@ -319,7 +326,12 @@ templ x01HistoryRow(v service.GameView, t x01.Turn) {
 		<td>{ strconv.Itoa(t.Round) }</td>
 		<td>{ playerName(v, t.PlayerID) }</td>
 		<td>
-			{ dartsLabel(t.Darts) }
+			for i, d := range t.Darts {
+				if i > 0 {
+					<span class="fg-3">·</span>
+				}
+				@dartLink(v, d)
+			}
 			if !t.Complete {
 				<span class="fg-3">…</span>
 			}
@@ -339,4 +351,34 @@ templ x01HistoryRow(v service.GameView, t x01.Turn) {
 			}
 		</td>
 	</tr>
+}
+
+// dartBadge shows a dart of the current turn; players who may enter darts can click it to correct it.
+templ dartBadge(v service.GameView, d throw.Dart) {
+	if v.CanThrow {
+		<button type="button" class="badge theme-primary border-0" title="Korrigieren" hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(d) }</button>
+	} else {
+		<span class="badge theme-primary">{ dartLabel(d) }</span>
+	}
+}
+
+// dartLink shows a dart in the history; players who may enter darts can click it to correct it.
+templ dartLink(v service.GameView, d throw.Dart) {
+	if v.CanThrow {
+		<a href="#" title="Korrigieren" hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(d) }</a>
+	} else {
+		{ dartLabel(d) }
+	}
+}
+
+// editPanel corrects an earlier dart with the keypad.
+templ editPanel(v service.GameView, d throw.Dart) {
+	<div class="alert theme-primary d-flex justify-content-between align-items-center flex-wrap gap-2">
+		<span>
+			<span class="fw-bold">Dart korrigieren:</span> { dartLabel(d) } von { dartThrower(v, d.ID) }.
+			<span class="fs-sm">Wähle, was stattdessen getroffen wurde; Punkte, Rest und Statistik rechnen sich neu.</span>
+		</span>
+		<button type="button" class="btn-outline theme-secondary" hx-get={ gameURL(v.Game.ID, "/board") } hx-target="#board" hx-swap="outerHTML">Abbrechen</button>
+	</div>
+	@keypad(v, dartEditURL(v, d))
 }

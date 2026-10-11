@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -108,15 +109,10 @@ func (c *Controller) addDart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := throw.Dart{Miss: r.FormValue("miss") == "true"}
-	if !d.Miss {
-		number, err1 := strconv.ParseUint(r.FormValue("number"), 10, 8)
-		multiplier, err2 := strconv.ParseUint(r.FormValue("multiplier"), 10, 8)
-		if err1 != nil || err2 != nil {
-			c.renderBoard(w, r, id, "Ungültige Eingabe.")
-			return
-		}
-		d.Number, d.Multiplier = uint8(number), uint8(multiplier)
+	d, ok := dartFromForm(r)
+	if !ok {
+		c.renderBoard(w, r, id, "Ungültige Eingabe.")
+		return
 	}
 
 	v, err := c.svc.AddDart(r.Context(), auth.Account(r.Context()), id, d)
@@ -144,6 +140,70 @@ func (c *Controller) undoDart(w http.ResponseWriter, r *http.Request) {
 		render(w, r, http.StatusOK, view.Board(v, ""))
 	case errors.Is(err, service.ErrNothingToUndo):
 		c.renderBoard(w, r, id, "Es gibt keinen Dart zum Zurücknehmen.")
+	default:
+		c.handleGameError(w, r, id, err)
+	}
+}
+
+// showBoard returns the board, e.g. to cancel correcting a dart.
+func (c *Controller) showBoard(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	c.renderBoard(w, r, id, "")
+}
+
+// showEditDart returns the board with the keypad to correct a dart.
+func (c *Controller) showEditDart(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	dartID, ok := urlID(w, r, "dartID")
+	if !ok {
+		return
+	}
+	v, err := c.svc.Game(r.Context(), auth.Account(r.Context()), id)
+	if err != nil {
+		c.handleGameError(w, r, id, err)
+		return
+	}
+	i := slices.IndexFunc(v.Darts, func(d throw.Dart) bool { return d.ID == dartID && !d.Takeout })
+	if i < 0 {
+		http.NotFound(w, r)
+		return
+	}
+	render(w, r, http.StatusOK, view.BoardEditing(v, "", v.Darts[i]))
+}
+
+// editDart saves the correction of a dart.
+func (c *Controller) editDart(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	dartID, ok := urlID(w, r, "dartID")
+	if !ok {
+		return
+	}
+	d, ok := dartFromForm(r)
+	if !ok {
+		c.renderBoard(w, r, id, "Ungültige Eingabe.")
+		return
+	}
+	v, err := c.svc.EditDart(r.Context(), auth.Account(r.Context()), id, dartID, d)
+	switch {
+	case err == nil:
+		render(w, r, http.StatusOK, view.Board(v, ""))
+	case errors.Is(err, service.ErrChangesThrowers):
+		c.renderBoard(w, r, id, "Diese Korrektur würde ändern, wer die folgenden Darts geworfen hat (z. B. Überworfen mitten in der Aufnahme). Nimm stattdessen die späteren Darts zurück und trage sie neu ein.")
+	case errors.Is(err, turn.ErrGameOver):
+		c.renderBoard(w, r, id, "Mit dieser Korrektur wäre das Spiel schon vor späteren Darts vorbei. Nimm stattdessen die späteren Darts zurück.")
+	case d.Number == throw.Bull && d.Multiplier == 3:
+		c.renderBoard(w, r, id, "Es gibt kein Triple-Bull.")
+	case errors.Is(err, throw.ErrInvalid):
+		c.renderBoard(w, r, id, "Diesen Treffer gibt es nicht.")
 	default:
 		c.handleGameError(w, r, id, err)
 	}
@@ -249,4 +309,19 @@ func (c *Controller) renderBoard(w http.ResponseWriter, r *http.Request, id int6
 
 func gameURL(id int64) string {
 	return "/games/" + strconv.FormatInt(id, 10)
+}
+
+// dartFromForm reads the dart entered with the keypad.
+func dartFromForm(r *http.Request) (throw.Dart, bool) {
+	d := throw.Dart{Miss: r.FormValue("miss") == "true"}
+	if d.Miss {
+		return d, true
+	}
+	number, err1 := strconv.ParseUint(r.FormValue("number"), 10, 8)
+	multiplier, err2 := strconv.ParseUint(r.FormValue("multiplier"), 10, 8)
+	if err1 != nil || err2 != nil {
+		return d, false
+	}
+	d.Number, d.Multiplier = uint8(number), uint8(multiplier)
+	return d, true
 }

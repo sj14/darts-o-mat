@@ -95,3 +95,14 @@ type Invitation struct {
 	Status    InvitationStatus `bun:",notnull" json:"status"`
 	CreatedAt time.Time        `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
+
+// Throwers returns the player who threw each entry of a replayed game's state, 0 for takeouts.
+func Throwers(state any) []int64 {
+	switch st := state.(type) {
+	case x01.State:
+		return st.Throwers
+	case aroundtheclock.State:
+		return st.Throwers
+	}
+	return nil
+}

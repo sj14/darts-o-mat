@@ -58,6 +58,7 @@ func (a *API) Routes() http.Handler {
 		r.Get("/games/{id}", a.getGame)
 		r.Post("/games/{id}/darts", a.addDart)
 		r.Delete("/games/{id}/darts/last", a.undoDart)
+		r.Put("/games/{id}/darts/{dartID}", a.editDart)
 		r.Post("/games/{id}/takeout", a.takeout)
 
 		r.Get("/stats", a.stats)
@@ -214,6 +215,24 @@ func (a *API) addDart(w http.ResponseWriter, r *http.Request) {
 	}
 	v, err := a.svc.AddDart(r.Context(), auth.Account(r.Context()), id, d)
 	respond(w, http.StatusCreated, v, err)
+}
+
+// editDart corrects what an earlier dart hit.
+func (a *API) editDart(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	dartID, ok := urlID(w, r, "dartID")
+	if !ok {
+		return
+	}
+	var d throw.Dart
+	if !decode(w, r, &d) {
+		return
+	}
+	v, err := a.svc.EditDart(r.Context(), auth.Account(r.Context()), id, dartID, d)
+	respond(w, http.StatusOK, v, err)
 }
 
 func (a *API) undoDart(w http.ResponseWriter, r *http.Request) {

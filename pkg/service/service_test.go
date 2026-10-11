@@ -588,3 +588,56 @@ func TestBoardTakeoutAfterBust(t *testing.T) {
 		t.Errorf("after takeout: %d entries, current %d; want 2 darts, the takeout and the guest's turn", len(v.Darts), *v.State.(x01.State).CurrentPlayerID)
 	}
 }
+
+func TestEditDart(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	guest, _ := s.CreateGuest(ctx, anna, "Papa")
+	g := x01Game(anna.PlayerID, guest.ID)
+	g.X01.StartScore = 101
+	v, err := s.CreateGame(ctx, anna, g, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Game.ID
+	remaining := func(v GameView) uint64 { return v.State.(x01.State).Players[0].Remaining }
+	single := func(n uint8) throw.Dart { return throw.Dart{Number: n, Multiplier: 1} }
+
+	// Anna throws T20, 1, 1: 39 left. Then the guest throws a 5.
+	for _, d := range []throw.Dart{t20, single(1), single(1), single(5)} {
+		if v, err = s.AddDart(ctx, anna, id, d); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first, second := v.Darts[0].ID, v.Darts[1].ID
+
+	// The second dart was a 19: 101 - 60 - 19 - 1 = 21 left.
+	if v, err = s.EditDart(ctx, anna, id, second, single(19)); err != nil {
+		t.Fatal(err)
+	}
+	if remaining(v) != 21 || v.Darts[1].Number != 19 || len(v.Darts) != 4 {
+		t.Errorf("after correcting: %d left, darts %+v; want 21 left", remaining(v), v.Darts)
+	}
+
+	// The first dart was the bullseye: 101 - 50 - 19 - 1 = 31 left.
+	if v, err = s.EditDart(ctx, anna, id, first, throw.Dart{Number: throw.Bull, Multiplier: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if remaining(v) != 31 {
+		t.Errorf("after second correction: %d left, want 31", remaining(v))
+	}
+
+	// A T20 as second dart overshoots (101 - 50 - 60 < 0): Anna's turn would end there and
+	// her third dart would count for the guest. Refused, nothing changes.
+	if _, err := s.EditDart(ctx, anna, id, second, t20); !errors.Is(err, ErrChangesThrowers) {
+		t.Errorf("bust on the second dart: got %v, want ErrChangesThrowers", err)
+	}
+	if v, _ = s.Game(ctx, anna, id); remaining(v) != 31 {
+		t.Errorf("refused correction changed the game: %d left", remaining(v))
+	}
+
+	if _, err := s.EditDart(ctx, anna, id, 999, t20); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown dart: got %v, want ErrNotFound", err)
+	}
+}

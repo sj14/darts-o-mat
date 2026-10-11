@@ -163,15 +163,6 @@ func orDash(ok bool, value string) string {
 	return value
 }
 
-// dartsLabel lists darts like "T20 · 5 · D1".
-func dartsLabel(darts []throw.Dart) string {
-	labels := make([]string, len(darts))
-	for i, d := range darts {
-		labels[i] = dartLabel(d)
-	}
-	return strings.Join(labels, " · ")
-}
-
 // nextPlayerName returns who throws after the current player.
 func nextPlayerName(v service.GameView, p progress) string {
 	if p.CurrentPlayerID == nil {
@@ -183,4 +174,20 @@ func nextPlayerName(v service.GameView, p progress) string {
 		}
 	}
 	return ""
+}
+
+// dartEditURL is where a dart is corrected; GET shows the keypad, POST saves it.
+func dartEditURL(v service.GameView, d throw.Dart) string {
+	return gameURL(v.Game.ID, "/darts/"+strconv.FormatInt(d.ID, 10))
+}
+
+// dartThrower returns the name of the player who threw a dart of the game.
+func dartThrower(v service.GameView, dartID int64) string {
+	throwers := game.Throwers(v.State)
+	for i, d := range v.Darts {
+		if d.ID == dartID && i < len(throwers) {
+			return playerName(v, throwers[i])
+		}
+	}
+	return "?"
 }
