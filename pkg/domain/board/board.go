@@ -1,14 +1,6 @@
 package board
 
-import (
-	"net/url"
-	"time"
-)
-
-type Server struct {
-	Host  url.URL
-	Token string
-}
+import "time"
 
 // Board is a physical dartboard of an account.
 type Board struct {
@@ -18,14 +10,10 @@ type Board struct {
 	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
-func Status() (string, error) {
-	return "", nil
-}
-
-func Register() error {
-	return nil
-}
-
-func Release() error {
-	return nil
+// Token lets the board's cameras (darts-o-cam) report darts without a user login.
+// Only the SHA-256 hash of the token is stored; a board has at most one.
+type Token struct {
+	BoardID   int64     `bun:",pk" json:"board_id"`
+	TokenHash string    `bun:",notnull,unique" json:"-"`
+	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }

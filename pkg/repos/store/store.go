@@ -49,6 +49,7 @@ func newStore(ctx context.Context, db *bun.DB) (*Store, error) {
 		(*game.Invitation)(nil),
 		(*player.Player)(nil),
 		(*board.Board)(nil),
+		(*board.Token)(nil),
 		(*throw.Dart)(nil),
 	}
 

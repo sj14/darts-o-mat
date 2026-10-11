@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
+	"github.com/uptrace/bun"
 )
 
 func (store *Store) CreateBoard(ctx context.Context, b *board.Board) error {
@@ -36,5 +37,31 @@ func (store *Store) DeleteBoard(ctx context.Context, accountID, id int64) error 
 	if n == 0 {
 		return ErrNotFound
 	}
-	return nil
+	_, err = store.db.NewDelete().Model((*board.Token)(nil)).Where("board_id = ?", id).Exec(ctx)
+	return err
+}
+
+// SetBoardToken stores the hash of a board's token, replacing an older one.
+func (store *Store) SetBoardToken(ctx context.Context, boardID int64, tokenHash string) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewDelete().Model((*board.Token)(nil)).Where("board_id = ?", boardID).Exec(ctx); err != nil {
+			return err
+		}
+		_, err := tx.NewInsert().Model(&board.Token{BoardID: boardID, TokenHash: tokenHash}).Exec(ctx)
+		return err
+	})
+}
+
+// HasBoardToken reports whether a token was created for the board.
+func (store *Store) HasBoardToken(ctx context.Context, boardID int64) (bool, error) {
+	return store.db.NewSelect().Model((*board.Token)(nil)).Where("board_id = ?", boardID).Exists(ctx)
+}
+
+// GetBoardByToken returns the board a token hash belongs to.
+func (store *Store) GetBoardByToken(ctx context.Context, tokenHash string) (board.Board, error) {
+	var t board.Token
+	if err := store.db.NewSelect().Model(&t).Where("token_hash = ?", tokenHash).Scan(ctx); err != nil {
+		return board.Board{}, notFound(err)
+	}
+	return store.GetBoard(ctx, t.BoardID)
 }

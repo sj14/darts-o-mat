@@ -65,6 +65,9 @@ type Watcher struct {
 	toBoard []Homography
 	opts    WatchOptions
 
+	// darts marks, per camera, where the darts thrown since the last takeout are in the image.
+	darts []*Mask
+
 	ref      []*image.RGBA // the still board before the current change
 	prev     []*image.RGBA
 	changing bool
@@ -122,12 +125,32 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		return nil // e.g. a shadow passed by
 	}
 	if changed > w.opts.TakeoutPixels {
-		return &Event{Kind: EventTakeout, Before: ref, After: frames}
+		return w.takeout(ref, frames)
+	}
+
+	// Comparing images can't tell a dart that appeared from one that disappeared.
+	// If the change lies mostly where earlier darts are, they were pulled out.
+	areas := make([][]image.Point, len(frames))
+	var inside, total int
+	for i, f := range frames {
+		areas[i] = ChangedArea(ref[i], f, w.opts.Detect)
+		total += len(areas[i])
+		if i < len(w.darts) && w.darts[i] != nil {
+			for _, p := range areas[i] {
+				if w.darts[i].at(p.X, p.Y) {
+					inside++
+				}
+			}
+		}
+	}
+	if total > 0 && inside*2 > total {
+		return w.takeout(ref, frames)
 	}
 
 	e := &Event{Kind: EventDart, Cameras: map[int]dartboard.Point{}, Before: ref, After: frames}
 	var points []dartboard.Point
 	for i, f := range frames {
+		w.rememberDart(i, f.Bounds(), areas[i])
 		d, err := DetectDart(ref[i], f, w.opts.Detect)
 		if err != nil {
 			continue
@@ -142,11 +165,38 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	board, err := FuseTips(points)
 	if err != nil {
 		// Something changed, but no camera saw a dart: most likely darts were pulled out.
-		return &Event{Kind: EventTakeout, Before: ref, After: frames}
+		return w.takeout(ref, frames)
 	}
 	e.Board = board
 	e.Dart = dartboard.Score(board)
 	return e
+}
+
+// takeout forgets the darts on the board.
+func (w *Watcher) takeout(before, after []*image.RGBA) *Event {
+	w.darts = nil
+	return &Event{Kind: EventTakeout, Before: before, After: after}
+}
+
+// rememberDart marks where a new dart is in a camera's image, with some margin,
+// because the dart may move a little when the next one hits.
+func (w *Watcher) rememberDart(camera int, bounds image.Rectangle, area []image.Point) {
+	for len(w.darts) <= camera {
+		w.darts = append(w.darts, nil)
+	}
+	if w.darts[camera] == nil {
+		w.darts[camera] = &Mask{W: bounds.Dx(), H: bounds.Dy(), Pix: make([]bool, bounds.Dx()*bounds.Dy())}
+	}
+	m := &Mask{W: bounds.Dx(), H: bounds.Dy(), Pix: make([]bool, bounds.Dx()*bounds.Dy())}
+	for _, p := range area {
+		m.Pix[p.Y*m.W+p.X] = true
+	}
+	grown := m.dilate(5)
+	for i, set := range grown.Pix {
+		if set {
+			w.darts[camera].Pix[i] = true
+		}
+	}
 }
 
 // changedSamples counts the sampled pixels that changed clearly between two frames.

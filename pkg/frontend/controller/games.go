@@ -30,13 +30,27 @@ func (c *Controller) showGame(w http.ResponseWriter, r *http.Request) {
 	render(w, r, http.StatusOK, view.Game(acc.Username, v))
 }
 
-// showBoard returns only the board, used by the lobby to refresh itself.
+// showBoard returns only the board, used by the game page to refresh itself.
+// If the board still is the version the page shows (?v=), it responds 204 No Content.
 func (c *Controller) showBoard(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
 	}
-	c.renderBoard(w, r, id, "")
+	v, err := c.svc.Game(r.Context(), auth.Account(r.Context()), id)
+	if isNotFound(err) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	if r.URL.Query().Get("v") == view.BoardVersion(v) {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	render(w, r, http.StatusOK, view.Board(v, ""))
 }
 
 // addDart is called by htmx and responds with the updated board.

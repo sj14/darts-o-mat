@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
+	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
@@ -76,7 +77,8 @@ func (s *Service) RegistrationOpen() bool {
 // GameView is a game together with everything needed to show it to an account.
 type GameView struct {
 	Game        game.Game         `json:"game"`
-	Players     []player.Player   `json:"players"` // in throwing order
+	Board       *board.Board      `json:"board,omitempty"` // the board it's played on, if any
+	Players     []player.Player   `json:"players"`         // in throwing order
 	Invitations []game.Invitation `json:"invitations"`
 	Darts       []throw.Dart      `json:"darts"`
 	State       any               `json:"state"` // x01.State or aroundtheclock.State, depending on the mode
@@ -348,6 +350,16 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 		v.CanThrow = true
 	default:
 		v.Invited = true
+	}
+
+	if g.BoardID != nil {
+		b, err := s.store.GetBoard(ctx, *g.BoardID)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return GameView{}, err
+		}
+		if err == nil {
+			v.Board = &b
+		}
 	}
 
 	v.Darts, err = s.store.ListDarts(ctx, g.ID)

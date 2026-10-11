@@ -25,8 +25,26 @@ func (s *Service) CreateGuest(ctx context.Context, acc account.Account, name str
 	return p, err
 }
 
-func (s *Service) Boards(ctx context.Context, acc account.Account) ([]board.Board, error) {
-	return s.store.ListBoards(ctx, acc.ID)
+// BoardView is a board with whether its cameras can report darts.
+type BoardView struct {
+	board.Board
+	HasToken bool `json:"has_token"`
+}
+
+func (s *Service) Boards(ctx context.Context, acc account.Account) ([]BoardView, error) {
+	boards, err := s.store.ListBoards(ctx, acc.ID)
+	if err != nil {
+		return nil, err
+	}
+	views := []BoardView{}
+	for _, b := range boards {
+		has, err := s.store.HasBoardToken(ctx, b.ID)
+		if err != nil {
+			return nil, err
+		}
+		views = append(views, BoardView{Board: b, HasToken: has})
+	}
+	return views, nil
 }
 
 func (s *Service) CreateBoard(ctx context.Context, acc account.Account, name string) (board.Board, error) {

@@ -73,11 +73,10 @@ func (s *Service) Login(ctx context.Context, username, password string) (string,
 		return "", account.Account{}, ErrUnauthenticated
 	}
 
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
+	token, err := newToken()
+	if err != nil {
 		return "", account.Account{}, err
 	}
-	token := base64.RawURLEncoding.EncodeToString(raw)
 
 	session := account.Session{TokenHash: hashToken(token), AccountID: a.ID, ExpiresAt: time.Now().Add(SessionDuration)}
 	if err := s.store.CreateSession(ctx, &session); err != nil {
@@ -105,6 +104,15 @@ func (s *Service) Authenticate(ctx context.Context, token string) (account.Accou
 		return account.Account{}, ErrUnauthenticated
 	}
 	return a, err
+}
+
+// newToken returns a random secret, e.g. for a session.
+func newToken() (string, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
 }
 
 func hashToken(token string) string {

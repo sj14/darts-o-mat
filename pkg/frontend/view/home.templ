@@ -4,7 +4,6 @@ import (
 	"strconv"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
-	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/service"
@@ -13,7 +12,7 @@ import (
 type HomeModel struct {
 	Account     account.Account
 	Players     []player.Player // the account's own player followed by its guests
-	Boards      []board.Board
+	Boards      []service.BoardView
 	Games       []service.GameView
 	Invitations []service.GameView
 	Friends     service.FriendList
@@ -264,23 +263,53 @@ templ modeTile(mode, selected game.Mode, title, description string) {
 	</a>
 }
 
-templ Boards(user string, boards []board.Board, errMsg string) {
+// NewBoardToken is shown once, right after it was created.
+type NewBoardToken struct {
+	BoardName string
+	Token     string
+	Server    string // URL of this server, as the camera has to reach it
+}
+
+templ Boards(user string, boards []service.BoardView, errMsg string, newToken *NewBoardToken) {
 	@layout("Boards", user) {
 		<div class="row justify-content-center">
-			<div class="md:col-8">
+			<div class="md:col-8 d-grid gap-4">
 				@errorAlert(errMsg)
+				if newToken != nil {
+					<div class="alert theme-success mb-0" role="status">
+						<div class="fw-bold mb-2">Kamera-Token für „{ newToken.BoardName }“</div>
+						<p class="mb-2">Er wird nur jetzt angezeigt. Starte damit die Kamera-Erkennung am Board:</p>
+						<pre class="mb-0 text-wrap text-break"><code>go run ./cmd/darts-o-cam detect -calibration calibration.json -server { newToken.Server } -token { newToken.Token }</code></pre>
+					</div>
+				}
 				<div class="card">
 					<div class="card-body">
 						<h1 class="fs-2xl mb-1">Boards</h1>
-						<p class="fg-3">Deine Dartboards, z. B. eins im Keller und eins im Vereinsheim. Beim Spielstart kannst du wählen, auf welchem Board gespielt wird.</p>
+						<p class="fg-3">Deine Dartboards, z. B. eins im Keller und eins im Vereinsheim. Beim Spielstart kannst du wählen, auf welchem Board gespielt wird; dessen Kameras tragen die Würfe dann automatisch ein.</p>
 						if len(boards) > 0 {
 							<ul class="list-group mb-3">
 								for _, b := range boards {
-									<li class="list-group-item d-flex justify-content-between align-items-center gap-2">
-										<span>{ b.Name }</span>
-										<form method="post" action={ templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/delete") } class="mb-0">
-											<button type="submit" class="btn-outline theme-danger btn-sm">Löschen</button>
-										</form>
+									<li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+										<span>
+											{ b.Name }
+											if b.HasToken {
+												<span class="badge theme-success ms-2">Kamera-Token aktiv</span>
+											}
+										</span>
+										<span class="d-flex gap-2">
+											<form method="post" action={ templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/token") } class="mb-0">
+												<button type="submit" class="btn-outline theme-primary btn-sm">
+													if b.HasToken {
+														Neuen Kamera-Token erzeugen
+													} else {
+														Kamera-Token erzeugen
+													}
+												</button>
+											</form>
+											<form method="post" action={ templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/delete") } class="mb-0">
+												<button type="submit" class="btn-outline theme-danger btn-sm">Löschen</button>
+											</form>
+										</span>
 									</li>
 								}
 							</ul>

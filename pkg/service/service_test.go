@@ -378,3 +378,81 @@ func TestStats(t *testing.T) {
 		t.Errorf("guest's stats = %+v", got)
 	}
 }
+
+func TestBoardCamera(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben := register(t, s, "anna"), register(t, s, "ben")
+	keller, _ := s.CreateBoard(ctx, anna, "Keller")
+	verein, _ := s.CreateBoard(ctx, anna, "Verein")
+
+	if _, err := s.CreateBoardToken(ctx, ben, keller.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("token for someone else's board: got %v, want ErrNotFound", err)
+	}
+	token, err := s.CreateBoardToken(ctx, anna, keller.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := s.AuthenticateBoard(ctx, token)
+	if err != nil || b.ID != keller.ID {
+		t.Fatalf("authenticate board: got %+v, %v", b, err)
+	}
+	if _, err := s.AuthenticateBoard(ctx, "wrong"); !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("wrong token: got %v, want ErrUnauthenticated", err)
+	}
+	// A new token replaces the old one.
+	if _, err := s.CreateBoardToken(ctx, anna, keller.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AuthenticateBoard(ctx, token); !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("replaced token: got %v, want ErrUnauthenticated", err)
+	}
+
+	if _, err := s.AddBoardDart(ctx, keller, t20); !errors.Is(err, ErrNoActiveGame) {
+		t.Errorf("no game: got %v, want ErrNoActiveGame", err)
+	}
+
+	onBoard := func(boardID int64, invite ...string) GameView {
+		t.Helper()
+		g := x01Game(anna.PlayerID)
+		g.BoardID = &boardID
+		v, err := s.CreateGame(ctx, anna, g, invite)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	game := onBoard(keller.ID)
+	other := onBoard(verein.ID)
+	befriend(t, s, anna, ben)
+	waiting := onBoard(keller.ID, "ben") // newest, but still waiting for ben
+
+	v, err := s.AddBoardDart(ctx, keller, t20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Game.ID != game.Game.ID || len(v.Darts) != 1 {
+		t.Errorf("dart went to game %d with %d darts, want game %d with 1", v.Game.ID, len(v.Darts), game.Game.ID)
+	}
+	for _, id := range []int64{other.Game.ID, waiting.Game.ID} {
+		if g, _ := s.Game(ctx, anna, id); len(g.Darts) != 0 {
+			t.Errorf("game %d got a dart from the wrong board or while waiting", id)
+		}
+	}
+
+	// One dart stuck, two bounced off: pulling out completes the turn with misses.
+	v, err = s.BoardTakeout(ctx, keller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(v.Darts) != 3 || !v.Darts[1].Miss || !v.Darts[2].Miss {
+		t.Errorf("after takeout: %d darts %+v, want the dart and 2 misses", len(v.Darts), v.Darts)
+	}
+	// A complete turn stays as it is.
+	if v, _ = s.BoardTakeout(ctx, keller); len(v.Darts) != 3 {
+		t.Errorf("second takeout added darts: %d", len(v.Darts))
+	}
+	if v.Board == nil || v.Board.Name != "Keller" {
+		t.Errorf("game view board = %+v, want Keller", v.Board)
+	}
+}

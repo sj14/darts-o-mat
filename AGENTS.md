@@ -48,7 +48,13 @@ Neue Funktionen bauen auf dem bestehenden Stack auf; ohne Absprache keine zusät
 
 ## Kamera
 
-`cmd/darts-o-cam` erkennt Würfe mit klassischer Bildverarbeitung in reinem Go (`pkg/vision`). Noch nicht mit dem Server verbunden: erkannte Würfe werden nur ausgegeben.
+`cmd/darts-o-cam` erkennt Würfe mit klassischer Bildverarbeitung in reinem Go (`pkg/vision`) und meldet sie mit `-server`/`-token` an darts-o-mat (sonst nur Ausgabe).
+
+- **Anbindung ans Spiel:** Pro Board ein Kamera-Token (Boards-Seite oder `POST /api/boards/{id}/token`), gespeichert nur als SHA-256-Hash in eigener Tabelle `tokens` (`board.Token`; eigene Tabelle, damit bestehende Datenbanken ohne Migration weiterlaufen). `darts-o-cam` schickt `Authorization: Bearer <token>` an `POST /api/board/darts` bzw. `/api/board/takeout`. Der Dart geht an das neueste Spiel mit diesem Board, das bereit und nicht beendet ist (`service.AddBoardDart`), im Namen des Board-Besitzers – also gleiche Regeln und gleiches Undo wie beim Eintippen. Kein solches Spiel: `ErrNoActiveGame` (409).
+- **Herausziehen** (`service.BoardTakeout`): ist die Aufnahme dann unvollständig, sind die fehlenden Darts nicht stecken geblieben (Abpraller, daneben) und werden als „Daneben“ eingetragen, damit der nächste Spieler werfen kann.
+- **Herausziehen erkennen:** Der Bildvergleich ist symmetrisch – ein verschwundener Pfeil sieht aus wie ein neuer. Der Watcher merkt sich pro Kamera, wo die seit dem letzten Herausziehen erkannten Pfeile liegen (mit 5 px Rand); liegt eine Änderung überwiegend dort, ist es ein Herausziehen. Deshalb `detect` mit **leerem Board** starten: Pfeile, die schon vorher steckten, kennt er nicht, ihr Herausziehen würde als Wurf zählen.
+- **Live-Anzeige:** Die Spielseite fragt jede Sekunde `GET /games/{id}/board?v=<version>`; der Server antwortet 204, solange `view.BoardVersion` (Darts, letzter Dart, Einladungen) gleich ist, sonst mit dem neuen Spielfeld. Ausreichend für ein Board; bei vielen Zuschauern wäre SSE der nächste Schritt (htmx-SSE-Erweiterung, ggf. mit NATS zwischen Kamera und Server).
+
 
 - **Board-Geometrie:** `pkg/domain/dartboard` (Normmaße in mm, Ursprung im Bull, Y zeigt zur 20; `Score` wertet eine Position).
 - **Kalibrierung** in zwei Schritten:
@@ -110,6 +116,8 @@ Alle Endpunkte unter `/api` außer `register`/`login`/`logout` brauchen das Sess
 - `GET /api/games/{id}`: Spiel, Spieler, Einladungen, Darts, berechneter Stand sowie `ready`, `is_owner`, `can_throw`, `invited`
 - `POST /api/games/{id}/darts`: `{"number": 20, "multiplier": 3}` oder `{"miss": true}`; Bull ist `25`
 - `DELETE /api/games/{id}/darts/last`: letzten Dart rückgängig machen
+- `POST /api/boards/{id}/token`: neuer Kamera-Token für ein eigenes Board (ersetzt den alten), `GET /api/boards` zeigt `has_token`
+- Für Kameras, mit `Authorization: Bearer <Board-Token>` statt Session: `POST /api/board/darts` (Dart wie oben, geht ans laufende Spiel des Boards), `POST /api/board/takeout`
 - `GET /api/stats`: Gesamtstatistik des eigenen Spielers und der Gäste
 - `GET /api/friends` (Freunde, eingehende und gesendete Anfragen), `POST /api/friends` (`{"username"}`, nimmt eine bereits eingegangene Anfrage an), `POST /api/friends/{accountID}/accept`, `DELETE /api/friends/{accountID}` (entfernen, ablehnen oder zurückziehen)
 - `GET /api/invitations`, `POST /api/games/{id}/accept`, `POST /api/games/{id}/decline`, `DELETE /api/games/{id}/invitations/{playerID}` (Gastgeber lädt aus)

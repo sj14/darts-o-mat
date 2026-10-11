@@ -148,7 +148,16 @@ func detect(args []string) error {
 	fps := fs.Int("fps", 10, "frames per second to analyze")
 	verbose := fs.Bool("v", false, "log whenever the board starts moving")
 	saveDir := fs.String("save", "", "directory to save the camera frames of every event to, for debugging")
+	serverURL := fs.String("server", "", "darts-o-mat server to report darts to, e.g. http://localhost:3000 (default: only print them)")
+	token := fs.String("token", "", "the board's camera token, created on the server's boards page")
 	_ = fs.Parse(args)
+	if (*serverURL == "") != (*token == "") {
+		return fmt.Errorf("-server and -token are only used together")
+	}
+	var srv *server
+	if *serverURL != "" {
+		srv = newServer(*serverURL, *token)
+	}
 
 	calib, err := vision.LoadCalibration(*calibPath)
 	if err != nil {
@@ -227,8 +236,20 @@ func detect(args []string) error {
 				cams += fmt.Sprintf(" %s=%.0f,%.0f", calib.Cameras[i].Name, p.X, p.Y)
 			}
 			log.Printf("dart: %s at %.1f,%.1f mm (%d cameras:%s)", dartLabel(e.Dart), e.Board.X, e.Board.Y, len(e.Cameras), cams)
+			if srv != nil {
+				if id, err := srv.dart(e.Dart); err != nil {
+					log.Printf("  not entered: %v", err)
+				} else {
+					log.Printf("  entered in game %d", id)
+				}
+			}
 		case vision.EventTakeout:
 			log.Printf("takeout")
+			if srv != nil {
+				if _, err := srv.takeout(); err != nil {
+					log.Printf("  not reported: %v", err)
+				}
+			}
 		}
 	}
 }

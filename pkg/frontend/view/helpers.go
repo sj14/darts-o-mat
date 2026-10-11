@@ -160,3 +160,19 @@ func orDash(ok bool, value string) string {
 	}
 	return value
 }
+
+// BoardVersion identifies what the board shows: it changes with every dart, undo and
+// answered invitation. The page polls with it to only get the board when it changed.
+func BoardVersion(v service.GameView) string {
+	var lastDart int64
+	if len(v.Darts) > 0 {
+		lastDart = v.Darts[len(v.Darts)-1].ID
+	}
+	accepted := 0
+	for _, inv := range v.Invitations {
+		if inv.Status == game.InvitationAccepted {
+			accepted++
+		}
+	}
+	return fmt.Sprintf("%d-%d-%d-%d", len(v.Darts), lastDart, len(v.Invitations), accepted)
+}

@@ -6,14 +6,18 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
+	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
 
 const cookieName = "darts_session"
 
 type ctxKey struct{}
+
+type boardKey struct{}
 
 // Account returns the logged-in account of a request that passed Require.
 func Account(ctx context.Context) account.Account {
@@ -79,4 +83,35 @@ func Logout(w http.ResponseWriter, r *http.Request, svc *service.Service) error 
 // isHTTPS also detects HTTPS terminated by a reverse proxy.
 func isHTTPS(r *http.Request) bool {
 	return r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+}
+
+// Board returns the board of a request that passed RequireBoard.
+func Board(ctx context.Context) board.Board {
+	b, _ := ctx.Value(boardKey{}).(board.Board)
+	return b
+}
+
+// RequireBoard only lets requests with a valid board token ("Authorization: Bearer <token>")
+// through and stores their board in the context. Other requests are answered by unauthenticated.
+func RequireBoard(svc *service.Service, unauthenticated http.HandlerFunc) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+			if !ok || token == "" {
+				unauthenticated(w, r)
+				return
+			}
+			b, err := svc.AuthenticateBoard(r.Context(), token)
+			if errors.Is(err, service.ErrUnauthenticated) {
+				unauthenticated(w, r)
+				return
+			}
+			if err != nil {
+				log.Printf("authenticate board: %v", err)
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), boardKey{}, b)))
+		})
+	}
 }

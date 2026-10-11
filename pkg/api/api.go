@@ -32,6 +32,15 @@ func (a *API) Routes() http.Handler {
 	r.Post("/login", a.login)
 	r.Post("/logout", a.logout)
 
+	// Endpoints for a board's cameras (darts-o-cam), authenticated by the board's token.
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireBoard(a.svc, func(w http.ResponseWriter, r *http.Request) {
+			writeError(w, service.ErrUnauthenticated)
+		}))
+		r.Post("/board/darts", a.addBoardDart)
+		r.Post("/board/takeout", a.boardTakeout)
+	})
+
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Require(a.svc, func(w http.ResponseWriter, r *http.Request) {
 			writeError(w, service.ErrUnauthenticated)
@@ -42,6 +51,7 @@ func (a *API) Routes() http.Handler {
 		r.Get("/boards", a.listBoards)
 		r.Post("/boards", a.createBoard)
 		r.Delete("/boards/{id}", a.deleteBoard)
+		r.Post("/boards/{id}/token", a.createBoardToken)
 
 		r.Get("/games", a.listGames)
 		r.Post("/games", a.createGame)
@@ -138,6 +148,31 @@ func (a *API) deleteBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *API) createBoardToken(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	token, err := a.svc.CreateBoardToken(r.Context(), auth.Account(r.Context()), id)
+	respond(w, http.StatusCreated, map[string]string{"token": token}, err)
+}
+
+// addBoardDart enters a dart detected by the board's cameras into the running game on the board.
+func (a *API) addBoardDart(w http.ResponseWriter, r *http.Request) {
+	var d throw.Dart
+	if !decode(w, r, &d) {
+		return
+	}
+	v, err := a.svc.AddBoardDart(r.Context(), auth.Board(r.Context()), d)
+	respond(w, http.StatusCreated, v, err)
+}
+
+// boardTakeout reports that the darts were pulled out of the board.
+func (a *API) boardTakeout(w http.ResponseWriter, r *http.Request) {
+	v, err := a.svc.BoardTakeout(r.Context(), auth.Board(r.Context()))
+	respond(w, http.StatusOK, v, err)
 }
 
 func (a *API) listGames(w http.ResponseWriter, r *http.Request) {
@@ -325,7 +360,7 @@ func writeError(w http.ResponseWriter, err error) {
 		status = http.StatusForbidden
 	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound
-	case errors.Is(err, turn.ErrGameOver), errors.Is(err, service.ErrNothingToUndo),
+	case errors.Is(err, turn.ErrGameOver), errors.Is(err, service.ErrNothingToUndo), errors.Is(err, service.ErrNoActiveGame),
 		errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrUsernameTaken):
 		status = http.StatusConflict
 	}

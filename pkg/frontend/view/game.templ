@@ -29,7 +29,7 @@ templ Board(v service.GameView, errMsg string) {
 
 // lobby reloads itself every few seconds, so it turns into the board once everyone has accepted.
 templ lobby(v service.GameView, errMsg string) {
-	<div id="board" hx-get={ gameURL(v.Game.ID, "/board") } hx-trigger="every 3s" hx-swap="outerHTML">
+	<div id="board" hx-get={ gameURL(v.Game.ID, "/board?v="+BoardVersion(v)) } hx-trigger="every 2s" hx-swap="outerHTML">
 		<h1 class="fs-2xl mb-3">{ modeLabel(v.Game) }</h1>
 		@errorAlert(errMsg)
 		if v.Invited {
@@ -80,12 +80,19 @@ templ lobby(v service.GameView, errMsg string) {
 
 templ scores(v service.GameView, errMsg string) {
 	{{ p := progressOf(v) }}
-	<div id="board">
+	// Asks every second for news, e.g. darts from the board's cameras. The server answers
+	// 204 No Content as long as nothing changed, then htmx keeps the board as it is.
+	<div id="board" hx-get={ gameURL(v.Game.ID, "/board?v="+BoardVersion(v)) } hx-trigger="every 1s" hx-swap="outerHTML">
 		<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
 			<h1 class="fs-2xl mb-0">{ modeLabel(v.Game) }</h1>
-			if !p.GameOver {
-				<span class="fg-3">Runde { strconv.Itoa(p.Round) }</span>
-			}
+			<span class="fg-3">
+				if v.Board != nil {
+					📷 { v.Board.Name } ·
+				}
+				if !p.GameOver {
+					Runde { strconv.Itoa(p.Round) }
+				}
+			</span>
 		</div>
 		@errorAlert(errMsg)
 		if p.GameOver {

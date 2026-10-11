@@ -51,6 +51,13 @@ func (store *Store) ListGames(ctx context.Context, accountID, playerID int64, li
 	return games, err
 }
 
+// ListGamesByBoard returns the most recent games played on a board, newest first.
+func (store *Store) ListGamesByBoard(ctx context.Context, boardID int64, limit int) ([]game.Game, error) {
+	games := []game.Game{}
+	err := store.db.NewSelect().Model(&games).Where("board_id = ?", boardID).Order("id DESC").Limit(limit).Scan(ctx)
+	return games, err
+}
+
 func (store *Store) ListInvitations(ctx context.Context, gameID int64) ([]game.Invitation, error) {
 	invitations := []game.Invitation{}
 	err := store.db.NewSelect().Model(&invitations).Where("game_id = ?", gameID).Scan(ctx)
