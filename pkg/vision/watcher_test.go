@@ -153,3 +153,59 @@ func TestWatcherTakeout(t *testing.T) {
 		t.Errorf("events = %v, want %v", kinds, want)
 	}
 }
+
+// Darts already in the board when the watcher starts are unknown to it. With an image
+// of the empty board it still recognizes pulling them out as a takeout.
+func TestWatcherTakeoutOfUnknownDarts(t *testing.T) {
+	calib, err := LoadCalibration("testdata/calibration.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cam, _ := findCamera(calib, "cam3")
+	toBoard, err := cam.ToBoard()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	empty := loadRGBA(t, "testdata/cam3-empty.jpg")
+	withDart := loadRGBA(t, "testdata/cam3-empty.jpg")
+	drawDart(withDart, single1(t, toBoard), dartboard.Point{X: 0.1, Y: -1})
+
+	w := NewWatcher([]Homography{toBoard}, DefaultWatchOptions)
+	w.Empty = []*image.RGBA{empty}
+	var kinds []EventKind
+	// The dart is in the board from the start, then pulled out, then thrown again.
+	for _, f := range []*image.RGBA{withDart, withDart, empty, empty, empty, empty, withDart, withDart, withDart, withDart} {
+		if e := w.Feed([]*image.RGBA{f}); e != nil {
+			kinds = append(kinds, e.Kind)
+		}
+	}
+	if want := []EventKind{EventTakeout, EventDart}; !slices.Equal(kinds, want) {
+		t.Errorf("events = %v, want %v", kinds, want)
+	}
+}
+
+// TestWatcherRemovedReal tells darts thrown from darts pulled out on real recordings,
+// by comparing with the empty board.
+func TestWatcherRemovedReal(t *testing.T) {
+	tests := []struct {
+		event, camera string
+		removed       bool
+	}{
+		{"003", "cam3", false},
+		{"004", "cam1", false},
+		{"005", "cam2", true}, // recorded while pulling the dart out
+	}
+	for _, tt := range tests {
+		t.Run(tt.event+"-"+tt.camera, func(t *testing.T) {
+			before := loadRGBA(t, "testdata/throws/"+tt.event+"-"+tt.camera+"-before.jpg")
+			after := loadRGBA(t, "testdata/throws/"+tt.event+"-"+tt.camera+"-after.jpg")
+			w := NewWatcher(nil, DefaultWatchOptions)
+			w.Empty = []*image.RGBA{loadRGBA(t, "testdata/"+tt.camera+"-empty.jpg")}
+			area := ChangedArea(before, after, DefaultDetectOptions)
+			if got := w.removed([]*image.RGBA{before}, []*image.RGBA{after}, [][]image.Point{area}); got != tt.removed {
+				t.Errorf("removed = %v, want %v", got, tt.removed)
+			}
+		})
+	}
+}

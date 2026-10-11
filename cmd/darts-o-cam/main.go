@@ -206,6 +206,13 @@ func detect(args []string) error {
 
 	log.Printf("watching %d cameras, waiting for darts (stop with Ctrl+C)", len(latest))
 	w := vision.NewWatcher(toBoard, vision.DefaultWatchOptions)
+	w.Empty, err = loadEmpty(calib, *width, *height)
+	if err != nil {
+		return err
+	}
+	if w.Empty == nil {
+		log.Printf("no images of the empty board in the calibration: start with an empty board, or pulling out darts that were already in it counts as a throw")
+	}
 	if *verbose {
 		w.OnMotion = func() { log.Printf("motion") }
 	}
@@ -408,6 +415,12 @@ func calibrate(args []string) error {
 		cam.Refined = &res.ToBoard
 		log.Printf("%s: %d board features, deviation %.2f px before, %.2f px after", cam.Name, res.Matches, res.RMSBefore, res.RMSAfter)
 
+		// Keep the image of the empty board: the detection compares with it.
+		cam.Empty = cam.Name + "-empty.jpg"
+		if err := writeJPEG(filepath.Join(filepath.Dir(*out), cam.Empty), images[i]); err != nil {
+			return err
+		}
+
 		if *overlayDir != "" {
 			toImage, err := res.ToBoard.Inverse()
 			if err != nil {
@@ -460,6 +473,25 @@ func saveEvent(dir string, n int, calib vision.Calibration, e *vision.Event) err
 		}
 	}
 	return nil
+}
+
+// loadEmpty loads the images of the empty board of all cameras, nil if one is missing.
+func loadEmpty(calib vision.Calibration, width, height int) ([]*image.RGBA, error) {
+	var empty []*image.RGBA
+	for _, cam := range calib.Cameras {
+		img, err := calib.LoadEmpty(cam)
+		if err != nil {
+			return nil, err
+		}
+		if img == nil {
+			return nil, nil
+		}
+		if img.Bounds().Dx() != width || img.Bounds().Dy() != height {
+			return nil, fmt.Errorf("camera %s: image of the empty board is %dx%d, frames are %dx%d", cam.Name, img.Bounds().Dx(), img.Bounds().Dy(), width, height)
+		}
+		empty = append(empty, img)
+	}
+	return empty, nil
 }
 
 func dartLabel(d throw.Dart) string {

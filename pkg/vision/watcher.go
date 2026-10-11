@@ -61,6 +61,10 @@ type Event struct {
 type Watcher struct {
 	// OnMotion is called when the board starts moving, e.g. for logging.
 	OnMotion func()
+	// Empty are images of the empty board, one per camera (optional). With them, darts
+	// pulled out are told apart from darts thrown even if they were in the board before
+	// the watcher started; without them, only darts the watcher saw coming are known.
+	Empty []*image.RGBA
 
 	toBoard []Homography
 	opts    WatchOptions
@@ -129,21 +133,11 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	}
 
 	// Comparing images can't tell a dart that appeared from one that disappeared.
-	// If the change lies mostly where earlier darts are, they were pulled out.
 	areas := make([][]image.Point, len(frames))
-	var inside, total int
 	for i, f := range frames {
 		areas[i] = ChangedArea(ref[i], f, w.opts.Detect)
-		total += len(areas[i])
-		if i < len(w.darts) && w.darts[i] != nil {
-			for _, p := range areas[i] {
-				if w.darts[i].at(p.X, p.Y) {
-					inside++
-				}
-			}
-		}
 	}
-	if total > 0 && inside*2 > total {
+	if w.removed(ref, frames, areas) {
 		return w.takeout(ref, frames)
 	}
 
@@ -170,6 +164,47 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	e.Board = board
 	e.Dart = dartboard.Score(board)
 	return e
+}
+
+// removed reports whether the change took darts away rather than adding one.
+// With images of the empty board: the changed area looks more like the empty board
+// afterwards. Without them: the change lies mostly where darts seen earlier are.
+func (w *Watcher) removed(before, after []*image.RGBA, areas [][]image.Point) bool {
+	if len(w.Empty) == len(after) {
+		var beforeDiff, afterDiff int
+		for i, area := range areas {
+			for _, p := range area {
+				beforeDiff += pixelDiff(before[i], w.Empty[i], p)
+				afterDiff += pixelDiff(after[i], w.Empty[i], p)
+			}
+		}
+		// Measured on real events: about 0.05 for darts pulled out (0.55 when a neighboring
+		// dart moved, too), 4 to 17 for darts thrown.
+		return afterDiff < beforeDiff
+	}
+
+	var inside, total int
+	for i, area := range areas {
+		total += len(area)
+		if i < len(w.darts) && w.darts[i] != nil {
+			for _, p := range area {
+				if w.darts[i].at(p.X, p.Y) {
+					inside++
+				}
+			}
+		}
+	}
+	return total > 0 && inside*2 > total
+}
+
+// pixelDiff returns the largest difference of a pixel's color channels between two images.
+func pixelDiff(a, b *image.RGBA, p image.Point) int {
+	i, j := a.PixOffset(p.X, p.Y), b.PixOffset(p.X, p.Y)
+	d := 0
+	for c := 0; c < 3; c++ {
+		d = max(d, abs(int(a.Pix[i+c])-int(b.Pix[j+c])))
+	}
+	return d
 }
 
 // takeout forgets the darts on the board.

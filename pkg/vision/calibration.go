@@ -58,6 +58,9 @@ type CameraCalibration struct {
 	Device string `json:"device,omitempty"`
 	// Reference is an image of the camera's view, relative to the calibration file.
 	Reference string `json:"reference,omitempty"`
+	// Empty is an image of the empty board, relative to the calibration file. It lets the
+	// detection tell darts pulled out from darts thrown (see Watcher.Empty).
+	Empty string `json:"empty,omitempty"`
 	// Points are the rough calibration, e.g. clicked by hand.
 	Points []CalibrationPoint `json:"points"`
 	// Refined is the calibration improved by RefineCalibration (image pixels to board mm).
@@ -121,7 +124,28 @@ func (c Calibration) LoadReference(cam CameraCalibration) (image.Image, error) {
 	if cam.Reference == "" {
 		return nil, fmt.Errorf("camera %s has neither a device nor a reference image", cam.Name)
 	}
-	f, err := os.Open(filepath.Join(c.dir, cam.Reference))
+	return c.loadImage(cam.Reference)
+}
+
+// LoadEmpty loads the image of the empty board of a camera, nil if there is none.
+func (c Calibration) LoadEmpty(cam CameraCalibration) (*image.RGBA, error) {
+	if cam.Empty == "" {
+		return nil, nil
+	}
+	img, err := c.loadImage(cam.Empty)
+	if err != nil {
+		return nil, err
+	}
+	return ToRGBA(img), nil
+}
+
+// Dir is the directory of the calibration file, which image paths are relative to.
+func (c Calibration) Dir() string {
+	return c.dir
+}
+
+func (c Calibration) loadImage(name string) (image.Image, error) {
+	f, err := os.Open(filepath.Join(c.dir, name))
 	if err != nil {
 		return nil, err
 	}
