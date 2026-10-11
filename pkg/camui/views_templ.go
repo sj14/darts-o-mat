@@ -115,7 +115,7 @@ func layout(title string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " · darts-o-cam</title><link rel=\"stylesheet\" href=\"/static/tailwind.css\"></head><body class=\"min-h-screen text-white antialiased\"><header class=\"border-b border-white/10 bg-pub-950/60 backdrop-blur\"><div class=\"mx-auto max-w-6xl px-4 py-3\"><a href=\"/\" class=\"font-display text-2xl font-extrabold uppercase tracking-wide\">📷 darts<span class=\"text-board-red\">-o-</span>cam <span class=\"text-white/40\">· Kalibrierung</span></a></div></header><main class=\"mx-auto max-w-6xl px-4 py-6 pb-16\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " · darts-o-cam</title><link rel=\"stylesheet\" href=\"/static/tailwind.css\"></head><body class=\"min-h-screen text-white antialiased\"><header class=\"border-b border-white/10 bg-pub-950/80\"><div class=\"mx-auto max-w-6xl px-4 py-3\"><a href=\"/\" class=\"font-display text-2xl font-extrabold uppercase tracking-wide\">📷 darts<span class=\"text-board-red\">-o-</span>cam <span class=\"text-white/40\">· Kalibrierung</span></a></div></header><main class=\"mx-auto max-w-6xl px-4 py-6 pb-16\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

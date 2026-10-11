@@ -995,7 +995,7 @@ func dartboardView(v service.GameView, p progress) templ.Component {
 			templ_7745c5c3_Var36 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "<div class=\"mx-auto aspect-square w-full max-w-md\"><svg viewBox=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "<div class=\"mx-auto aspect-square w-full max-w-md rounded-full shadow-[0_1rem_2rem_rgba(0,0,0,0.6)]\"><svg viewBox=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1008,7 +1008,7 @@ func dartboardView(v service.GameView, p progress) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "\" class=\"h-full w-full drop-shadow-[0_1rem_2rem_rgba(0,0,0,0.6)]\" role=\"img\" aria-label=\"Dartboard\"><circle cx=\"228\" cy=\"228\" r=\"226\" fill=\"#0b0c0f\" stroke=\"#2b2e35\" stroke-width=\"3\"></circle> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "\" class=\"h-full w-full\" role=\"img\" aria-label=\"Dartboard\"><circle cx=\"228\" cy=\"228\" r=\"226\" fill=\"#0b0c0f\" stroke=\"#2b2e35\" stroke-width=\"3\"></circle> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1613,7 +1613,7 @@ func playerCard(v service.GameView, p progress, playerID int64, legs int, value,
 		}
 		ctx = templ.ClearChildren(ctx)
 		current, winner := p.isCurrent(playerID), p.isWinner(playerID)
-		var templ_7745c5c3_Var77 = []any{"relative overflow-hidden rounded-3xl border p-5 transition-all duration-300",
+		var templ_7745c5c3_Var77 = []any{"relative rounded-3xl border p-5 transition-colors duration-300",
 			templ.KV("border-board-green/70 bg-gradient-to-br from-board-green/25 to-pub-900 [--glow-color:var(--color-board-green)] animate-glow", current),
 			templ.KV("border-amber-400/80 bg-gradient-to-br from-amber-400/25 to-pub-900 [--glow-color:var(--color-amber-400)] animate-glow", winner),
 			templ.KV("border-white/10 bg-pub-900/70", !current && !winner),

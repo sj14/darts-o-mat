@@ -261,14 +261,14 @@ templ modeTile(mode, selected game.Mode, title, description, symbol string) {
 		hx-select="#new-game"
 		hx-swap="outerHTML"
 		hx-push-url="true"
-		class={ "group relative block overflow-hidden rounded-2xl border p-4 transition",
+		class={ "group relative block rounded-2xl border p-4 transition-colors",
 			templ.KV("border-board-green bg-board-green/15 [--glow-color:var(--color-board-green)] animate-glow", mode == selected),
 			templ.KV("border-white/10 bg-pub-800 hover:border-white/30", mode != selected) }
 		if mode == selected {
 			aria-current="true"
 		}
 	>
-		<div class="pointer-events-none absolute -right-2 -bottom-4 font-display text-7xl font-extrabold text-white/5 transition group-hover:text-white/10">{ symbol }</div>
+		<div class="pointer-events-none absolute right-3 bottom-1 font-display text-6xl leading-none font-extrabold text-white/5 transition-colors group-hover:text-white/10">{ symbol }</div>
 		<div class="font-display text-3xl font-extrabold uppercase">{ title }</div>
 		<div class="mt-1 text-sm text-white/60">{ description }</div>
 	</a>

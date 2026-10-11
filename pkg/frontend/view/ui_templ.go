@@ -32,7 +32,7 @@ func panel(classes string) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var2 = []any{"rounded-3xl border border-white/10 bg-pub-900/80 p-5 shadow-xl shadow-black/30 backdrop-blur", classes}
+		var templ_7745c5c3_Var2 = []any{"rounded-3xl border border-white/10 bg-pub-900 p-5 shadow-xl shadow-black/30", classes}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var2...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
