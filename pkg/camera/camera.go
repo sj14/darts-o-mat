@@ -1,6 +1,6 @@
 // Package camera reads frames from the cameras connected to this computer, directly
-// through the operating system's camera interface (macOS: AVFoundation, Linux: V4L2) and
-// without cgo. Windows (Media Foundation) is not implemented yet.
+// through the operating system's camera interface (macOS: AVFoundation, Linux: V4L2,
+// Windows: Media Foundation) and without cgo.
 package camera
 
 import (
@@ -11,7 +11,7 @@ import (
 )
 
 // ErrUnsupported means camera access isn't implemented for this operating system yet.
-var ErrUnsupported = errors.New("camera access is only implemented for macOS and Linux yet")
+var ErrUnsupported = errors.New("camera access is only implemented for macOS, Linux and Windows")
 
 // ErrExposureLockUnsupported means the camera can neither lock its exposure nor its white balance.
 var ErrExposureLockUnsupported = errors.New("the camera can't lock its exposure")
@@ -26,8 +26,9 @@ var ErrClosed = errors.New("camera closed")
 type Device struct {
 	// ID opens the device. It identifies the device while it stays plugged in, but it
 	// may change when it is plugged into another port (macOS: the uniqueID, made of the
-	// USB location and the model) or, on Linux, when it is plugged in again or after a
-	// restart (the device file, e.g. "/dev/video2").
+	// USB location and the model; Windows: the symbolic link, which contains the USB
+	// port) or, on Linux, when it is plugged in again or after a restart (the device
+	// file, e.g. "/dev/video2").
 	ID   string
 	Name string // e.g. "Autodarts DIY Cam"; identical cameras share it
 	// Model is the USB vendor:product id, e.g. "1e45:8022", empty if unknown.
