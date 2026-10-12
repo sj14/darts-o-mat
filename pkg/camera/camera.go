@@ -5,6 +5,7 @@ package camera
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"sync"
 	"time"
@@ -16,8 +17,9 @@ var ErrUnsupported = errors.New("camera access is only implemented for macOS, Li
 // ErrExposureLockUnsupported means the camera can neither lock its exposure nor its white balance.
 var ErrExposureLockUnsupported = errors.New("the camera can't lock its exposure")
 
-// noFrames is how long a running camera may deliver nothing before Read fails, e.g. unplugged.
-const noFrames = 5 * time.Second
+// noFrames is how long a running camera may deliver nothing before Read fails, e.g.
+// unplugged. A variable for the tests.
+var noFrames = 5 * time.Second
 
 // ErrClosed is returned by Read once the camera was closed.
 var ErrClosed = errors.New("camera closed")
@@ -50,12 +52,16 @@ type Camera struct {
 	// libjpeg-turbo"; empty if the operating system doesn't say.
 	Format string
 
-	mu     sync.Mutex
-	cond   *sync.Cond
-	latest *image.RGBA
-	seq    uint64 // counts the frames delivered
-	read   uint64 // seq of the frame last returned by Read
-	err    error
+	interval time.Duration // minimum time between delivered frames, 0 for all
+	last     time.Time     // when the last frame was due, only used by the delivering goroutine
+
+	mu       sync.Mutex
+	cond     *sync.Cond
+	latest   *image.RGBA
+	seq      uint64 // counts the frames delivered
+	read     uint64 // seq of the frame last returned by Read
+	err      error
+	watchdog *time.Timer // fails the camera when no frames come, nil until watch
 
 	closeOnce sync.Once
 	closeErr  error
@@ -63,10 +69,36 @@ type Camera struct {
 	platform // the operating system's part
 }
 
-func newCamera(d Device) *Camera {
+func newCamera(d Device, opts Options) *Camera {
 	c := &Camera{Device: d}
+	if opts.FPS > 0 {
+		c.interval = time.Second / time.Duration(opts.FPS)
+	}
 	c.cond = sync.NewCond(&c.mu)
 	return c
+}
+
+// watch fails the camera when it delivers no frames for noFrames, e.g. it was
+// unplugged. The operating system's part calls it once the camera runs.
+func (c *Camera) watch() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.watchdog = time.AfterFunc(noFrames, func() {
+		c.fail(fmt.Errorf("camera %s: no frames for %v (unplugged?)", c.Device.Name, noFrames))
+	})
+}
+
+// due reports whether a frame arriving now is to be delivered, or dropped to keep to
+// Options.FPS. Only the goroutine delivering the frames calls it, before it copies or
+// decodes the frame.
+func (c *Camera) due() bool {
+	now := time.Now()
+	// Allow some jitter, so a 30 fps camera delivers every third frame at 10 fps.
+	if c.interval > 0 && now.Sub(c.last) < c.interval*3/4 {
+		return false
+	}
+	c.last = now
+	return true
 }
 
 // deliver hands a new frame to Read.
@@ -78,6 +110,9 @@ func (c *Camera) deliver(img *image.RGBA) {
 	}
 	c.latest = img
 	c.seq++
+	if c.watchdog != nil {
+		c.watchdog.Reset(noFrames)
+	}
 	c.cond.Broadcast()
 }
 
@@ -88,7 +123,17 @@ func (c *Camera) fail(err error) {
 	if c.err == nil {
 		c.err = err
 	}
+	if c.watchdog != nil {
+		c.watchdog.Stop()
+	}
 	c.cond.Broadcast()
+}
+
+// swapBGRA copies a row of BGRA or BGRX pixels to RGBA, opaque.
+func swapBGRA(to, from []byte) {
+	for x := 0; x+3 < len(from); x += 4 {
+		to[x], to[x+1], to[x+2], to[x+3] = from[x+2], from[x+1], from[x], 255
+	}
 }
 
 // Read waits for a frame newer than the one it returned last time. Frames that arrive

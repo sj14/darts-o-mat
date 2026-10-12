@@ -12,9 +12,7 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync"
-	"time"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
@@ -24,11 +22,6 @@ import (
 type platform struct {
 	device, session, input, output, delegate objc.ID
 	queue                                    uintptr
-
-	interval  time.Duration // minimum time between delivered frames, 0 for all
-	last      time.Time     // when the last frame was delivered, only used on queue
-	lastFrame chan struct{} // signals each delivered frame to the watchdog
-	done      chan struct{}
 }
 
 var (
@@ -50,7 +43,6 @@ var (
 	cvPixelBufferGetBytesPerRow                   func(buffer uintptr) uintptr
 	cvPixelBufferGetWidth, cvPixelBufferGetHeight func(buffer uintptr) uintptr
 	cvPixelBufferGetPixelFormatType               func(buffer uintptr) uint32
-	selectors                                     sync.Map // string → objc.SEL
 )
 
 const (
@@ -69,12 +61,7 @@ const (
 )
 
 func sel(name string) objc.SEL {
-	if s, ok := selectors.Load(name); ok {
-		return s.(objc.SEL)
-	}
-	s := objc.RegisterName(name)
-	selectors.Store(name, s)
-	return s
+	return objc.RegisterName(name)
 }
 
 func class(name string) objc.ID {
@@ -241,7 +228,7 @@ func Open(id string, opts Options) (*Camera, error) {
 	if err != nil {
 		return nil, err
 	}
-	go c.watch()
+	c.watch()
 	return c, nil
 }
 
@@ -253,12 +240,8 @@ func open(id string, opts Options) (*Camera, error) {
 	if device == 0 {
 		return nil, fmt.Errorf("no camera with id %q", id)
 	}
-	c := newCamera(deviceInfo(device))
+	c := newCamera(deviceInfo(device), opts)
 	c.device = device.Send(sel("retain"))
-	c.lastFrame, c.done = make(chan struct{}, 1), make(chan struct{})
-	if opts.FPS > 0 {
-		c.interval = time.Second / time.Duration(opts.FPS)
-	}
 	fail := func(format string, args ...any) (*Camera, error) {
 		c.release()
 		return nil, fmt.Errorf("camera %s: "+format, append([]any{c.Device.Name}, args...)...)
@@ -317,20 +300,11 @@ func didOutputSampleBuffer(self objc.ID, _ objc.SEL, _ objc.ID, sampleBuffer uin
 		return
 	}
 	c := v.(*Camera)
-	now := time.Now()
-	// Allow some jitter, so a 30 fps camera delivers every third frame at 10 fps.
-	if c.interval > 0 && now.Sub(c.last) < c.interval*3/4 {
+	if !c.due() {
 		return
 	}
-	img := copyFrame(sampleBuffer)
-	if img == nil {
-		return
-	}
-	c.last = now
-	c.deliver(img)
-	select {
-	case c.lastFrame <- struct{}{}:
-	default:
+	if img := copyFrame(sampleBuffer); img != nil {
+		c.deliver(img)
 	}
 }
 
@@ -354,29 +328,9 @@ func copyFrame(sampleBuffer uintptr) *image.RGBA {
 	src := unsafe.Slice((*byte)(pointer(base)), stride*h)
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 	for y := range h {
-		from, to := src[y*stride:y*stride+4*w], img.Pix[y*img.Stride:y*img.Stride+4*w]
-		for x := 0; x < len(to); x += 4 {
-			to[x], to[x+1], to[x+2], to[x+3] = from[x+2], from[x+1], from[x], 255
-		}
+		swapBGRA(img.Pix[y*img.Stride:], src[y*stride:y*stride+4*w])
 	}
 	return img
-}
-
-// watch fails the camera when no frames come anymore, e.g. it was unplugged.
-func (c *Camera) watch() {
-	timer := time.NewTimer(noFrames)
-	defer timer.Stop()
-	for {
-		select {
-		case <-c.done:
-			return
-		case <-c.lastFrame:
-			timer.Reset(noFrames)
-		case <-timer.C:
-			c.fail(fmt.Errorf("camera %s: no frames for %v (unplugged?)", c.Device.Name, noFrames))
-			return
-		}
-	}
 }
 
 // LockExposure keeps the current exposure and white balance, so a hand in front of
@@ -409,16 +363,15 @@ func (c *Camera) setModes(exposure, whiteBalance int) (bool, error) {
 		}
 		defer d.Send(sel("unlockForConfiguration"))
 		applied := false
-		set := func(name string, mode int) {
-			setter, supported := "set"+strings.ToUpper(name[:1])+name[1:]+":", "is"+strings.ToUpper(name[:1])+name[1:]+"Supported:"
+		set := func(mode int, getter, setter, supported string) {
 			if objc.Send[bool](d, sel("respondsToSelector:"), sel(setter)) && objc.Send[bool](d, sel(supported), mode) {
 				d.Send(sel(setter), mode)
 				// UVC cameras may accept a mode without applying it, so read it back.
-				applied = applied || objc.Send[int](d, sel(name)) == mode
+				applied = applied || objc.Send[int](d, sel(getter)) == mode
 			}
 		}
-		set("exposureMode", exposure)
-		set("whiteBalanceMode", whiteBalance)
+		set(exposure, "exposureMode", "setExposureMode:", "isExposureModeSupported:")
+		set(whiteBalance, "whiteBalanceMode", "setWhiteBalanceMode:", "isWhiteBalanceModeSupported:")
 		return applied, nil
 	})
 }
@@ -437,9 +390,6 @@ func (c *Camera) stop() error {
 
 // release frees what open created; frames still being delivered are waited for.
 func (c *Camera) release() {
-	if c.done != nil {
-		close(c.done)
-	}
 	if c.output != 0 {
 		c.output.Send(sel("setSampleBufferDelegate:queue:"), objc.ID(0), uintptr(0))
 	}

@@ -26,7 +26,6 @@ type platform struct {
 	source, reader *comObject
 	width, height  int
 	stride         int           // bytes per row, negative for frames stored bottom-up
-	interval       time.Duration // minimum time between delivered frames, 0 for all
 	stopped        chan struct{} // closed when the read loop has ended
 	closing        atomic.Bool   // ends the read loop
 }
@@ -288,7 +287,7 @@ func Open(id string, opts Options) (*Camera, error) {
 			if d.ID != id {
 				return false
 			}
-			c = newCamera(d)
+			c = newCamera(d, opts)
 			err = activate.call(activateObject, uintptr(unsafe.Pointer(iidMediaSource)), uintptr(unsafe.Pointer(&c.source)))
 			return true
 		}); enumErr != nil {
@@ -309,11 +308,9 @@ func Open(id string, opts Options) (*Camera, error) {
 	if err != nil {
 		return nil, err
 	}
-	if opts.FPS > 0 {
-		c.interval = time.Second / time.Duration(opts.FPS)
-	}
 	c.stopped = make(chan struct{})
 	go c.loop()
+	c.watch()
 	return c, nil
 }
 
@@ -429,16 +426,10 @@ func (c *Camera) start(opts Options) error {
 	return nil
 }
 
-// loop delivers the camera's frames until Close; it fails the camera when no frames
-// come anymore, e.g. it was unplugged.
+// loop delivers the camera's frames until Close.
 func (c *Camera) loop() {
 	defer close(c.stopped)
-	watchdog := time.AfterFunc(noFrames, func() {
-		c.fail(fmt.Errorf("camera %s: no frames for %v (unplugged?)", c.Device.Name, noFrames))
-	})
-	defer watchdog.Stop()
 	_, err := withCOM(func() (struct{}, error) {
-		var last time.Time
 		for {
 			var stream, flags uint32
 			var timestamp int64
@@ -458,12 +449,8 @@ func (c *Camera) loop() {
 			if sample == nil {
 				continue // e.g. a gap in the stream
 			}
-			watchdog.Reset(noFrames)
-			// Allow some jitter, so a 30 fps camera delivers every third frame at 10 fps.
-			now := time.Now()
-			if c.interval == 0 || now.Sub(last) >= c.interval*3/4 {
+			if c.due() {
 				if img := c.copyFrame(sample); img != nil {
-					last = now
 					c.deliver(img)
 				}
 			}
@@ -496,11 +483,7 @@ func (c *Camera) copyFrame(sample *comObject) *image.RGBA {
 
 	img := image.NewRGBA(image.Rect(0, 0, c.width, c.height))
 	for y := range c.height {
-		from := unsafe.Slice((*byte)(unsafe.Add(scan0, y*c.stride)), 4*c.width)
-		to := img.Pix[y*img.Stride:]
-		for x := 0; x < len(from); x += 4 {
-			to[x], to[x+1], to[x+2], to[x+3] = from[x+2], from[x+1], from[x], 255 // BGRX
-		}
+		swapBGRA(img.Pix[y*img.Stride:], unsafe.Slice((*byte)(unsafe.Add(scan0, y*c.stride)), 4*c.width))
 	}
 	return img
 }

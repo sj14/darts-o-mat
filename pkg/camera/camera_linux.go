@@ -19,7 +19,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -31,7 +30,6 @@ type platform struct {
 	streaming bool
 	format    pixFormat
 	turbo     turboDecoder  // 0: decode MJPEG with image/jpeg
-	interval  time.Duration // minimum time between delivered frames, 0 for all
 	stopped   chan struct{} // closed when the read loop has ended
 }
 
@@ -219,17 +217,15 @@ func Open(id string, opts Options) (*Camera, error) {
 		unix.Close(fd)
 		return nil, fmt.Errorf("camera %s: not a video capture device", id)
 	}
-	c := newCamera(deviceInfo(id, info))
+	c := newCamera(deviceInfo(id, info), opts)
 	c.fd, c.wake = fd, -1
-	if opts.FPS > 0 {
-		c.interval = time.Second / time.Duration(opts.FPS)
-	}
 	if err := c.start(opts); err != nil {
 		c.release()
 		return nil, fmt.Errorf("camera %s (%s): %w", c.Device.Name, id, err)
 	}
 	c.stopped = make(chan struct{})
 	go c.loop()
+	c.watch()
 	return c, nil
 }
 
@@ -287,14 +283,12 @@ func (c *Camera) start(opts Options) error {
 	return nil
 }
 
-// loop delivers the camera's frames until Close; it fails the camera when no frames
-// come anymore, e.g. it was unplugged.
+// loop delivers the camera's frames until Close.
 func (c *Camera) loop() {
 	defer close(c.stopped)
-	var last time.Time
 	for {
 		fds := []unix.PollFd{{Fd: int32(c.fd), Events: unix.POLLIN}, {Fd: int32(c.wake), Events: unix.POLLIN}}
-		n, err := unix.Poll(fds, int(noFrames.Milliseconds()))
+		_, err := unix.Poll(fds, -1)
 		switch {
 		case errors.Is(err, unix.EINTR):
 			continue
@@ -303,9 +297,6 @@ func (c *Camera) loop() {
 			return
 		case fds[1].Revents != 0:
 			return // closed
-		case n == 0:
-			c.fail(fmt.Errorf("camera %s: no frames for %v (unplugged?)", c.Device.Name, noFrames))
-			return
 		}
 
 		b := buffer{Type: bufTypeCapture, Memory: memoryMMap}
@@ -316,10 +307,8 @@ func (c *Camera) loop() {
 			c.fail(fmt.Errorf("camera %s: %w (unplugged?)", c.Device.Name, err))
 			return
 		}
-		// Allow some jitter, so a 30 fps camera delivers every third frame at 10 fps.
-		now := time.Now()
 		var data []byte
-		if c.interval == 0 || now.Sub(last) >= c.interval*3/4 {
+		if c.due() {
 			data = bytes.Clone(c.buffers[b.Index][:b.BytesUsed])
 		}
 		if err := ioctl(c.fd, vidiocQBuf, unsafe.Pointer(&b)); err != nil {
@@ -330,7 +319,6 @@ func (c *Camera) loop() {
 			continue
 		}
 		if img := c.decode(data); img != nil { // cameras send a broken frame now and then
-			last = now
 			c.deliver(img)
 		}
 	}

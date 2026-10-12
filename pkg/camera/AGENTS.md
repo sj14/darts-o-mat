@@ -20,7 +20,14 @@ One backend per operating system (`camera_darwin.go`, `camera_linux.go`, `camera
 - `LockExposure()`
 - `Close()` (may be called more than once)
 
-The shared part (handing over the frames, `camera.go`) is tested without a camera (`TestRead`). `pkg/vision` only uses this interface (`OpenCameras`, `OpenCamerasNamed`, `ListDeviceGroups`, `Live`).
+The shared part (`camera.go`) is tested without a camera: handing over the frames (`TestRead`), the fps limit (`TestDue`), the watchdog (`TestWatchdog`) and the BGRA → RGBA swap of macOS and Windows (`TestSwapBGRA`). Each backend only calls it:
+
+- `newCamera(device, opts)` when opening, `watch()` once the camera runs.
+- For every frame from the camera, on the one goroutine (or serial queue) delivering frames: `due()` before copying or decoding it – it implements the fps limit (with some jitter allowed, so a 30 fps camera delivers every third frame at 10 fps; a broken frame uses up its slot) – then `deliver(img)`, or `fail(err)` when the camera stops working.
+- The watchdog (`watch`, a `time.AfterFunc` reset by `deliver`) fails the camera when it delivers no frame for 5 s (unplugged); this used to be done separately by each backend (unified 2026-10-12).
+- `Close` calls the backend's `stop`.
+
+ `pkg/vision` only uses this interface (`OpenCameras`, `OpenCamerasNamed`, `ListDeviceGroups`, `Live`).
 
 Names are the same on all systems (macOS name, Linux USB product from sysfs, Windows friendly name), so calibrations work across systems. `Device.ID` depends on the USB port on all systems and changes when replugging; that's why darts-o-cam assigns the cameras by image, see [darts-o-cam → finding cameras](../../cmd/darts-o-cam/AGENTS.md#finding-cameras).
 
@@ -31,7 +38,6 @@ AVFoundation via purego (Apache 2.0, approved by the user) instead of cgo – no
 - Frameworks via `Dlopen`, C functions of CoreMedia/CoreVideo/libdispatch via `RegisterLibFunc`, constants (`AVMediaTypeVideo`, `kCVPixelBuffer*Key`, session presets) via `Dlsym`.
 - A delegate class registered at runtime (`DartsOCamFrameDelegate`) receives the frames on a serial dispatch queue per camera; format BGRA (swapped to RGBA in Go), resolution via session preset plus `videoSettings`, the fps limit already drops frames in the callback (before copying).
 - No ARC: alloc/init objects are freed with `release`, otherwise an autorelease pool per call on a fixed thread (`withPool`). On close the queue is drained with `dispatch_sync` before the delegate is released.
-- If a camera delivers nothing for 5 s (unplugged), `Read` fails.
 - `Device.ID` is the `uniqueID` (location ID + VID + PID), `Device.Model` VID:PID from `AVCaptureDevice.modelID`.
 - Camera permission: requested the first time (dialog for the terminal), otherwise an error pointing to the system settings.
 - Several programs can use the same camera at the same time.
@@ -42,7 +48,7 @@ AVFoundation via purego (Apache 2.0, approved by the user) instead of cgo – no
 Implemented 2026-10-12. V4L2 via ioctl with `golang.org/x/sys/unix` (structs from `videodev2.h` rebuilt, sizes via `unsafe.Sizeof`, so that 32 and 64 bit are right), 4 driver buffers mapped via `mmap`.
 
 - Format MJPEG (necessary with 3 cameras on USB 2.0), decoded with `image/jpeg`; if the camera can't do MJPEG, YUYV. The driver chooses the resolution (closest mode to the requested one, no scaling like under macOS).
-- One goroutine per camera waits for frames with `poll`, an `eventfd` stops it on close; `poll` with 5 s timeout replaces the watchdog (unplugged). The fps limit drops frames before copying and decoding; broken MJPEG frames are skipped.
+- One goroutine per camera waits for frames with `poll`, an `eventfd` stops it on close. The fps limit drops frames before copying and decoding; broken MJPEG frames are skipped.
 - Devices: `/dev/video*`, only those with video capture (UVC cameras have a second device for metadata). `Device.ID` is the device path (`/dev/video2`, changes when replugging and rebooting; `/dev/v4l/by-path` has two links `usb`/`usbv2` per camera, therefore not used). Name and model come from the USB device in sysfs (`product`, `idVendor:idProduct`), because V4L2 truncates the card name to 31 characters ("Autodarts DIY Cam: Autodarts DI").
 - Measured on the development board (Linux, i5-11400H): 3 cameras 1280×720 at 10 fps, ~100 MB; assignment via reference image with the macOS reference images correct.
 
@@ -61,7 +67,7 @@ Implemented 2026-10-12, `camera_windows.go`. Media Foundation via `syscall.Sysca
 
 - Devices via `MFEnumDeviceSources`; `Device.ID` is the symbolic link (`\\?\usb#vid_1e45&pid_8022&mi_00#7&3549ee4f&0&0000#{…}\global`, contains the USB port, changes when replugging), model from `vid_`/`pid_` in it, name = friendly name.
 - A synchronous source reader with `MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING`: from the native modes the one with the closest size is chosen, then MJPEG, then the most fps; output RGB32 (BGRX, stride from `MF_MT_DEFAULT_STRIDE`, converted to RGBA in Go). So Media Foundation decodes, all 30 frames per second; the fps limit then drops before copying. The buffers have no `IMF2DBuffer`, therefore `IMFMediaBuffer::Lock`.
-- One goroutine per camera waits in `ReadSample`; this **can't be interrupted** (tested: neither `Shutdown` nor `Stop` nor `Flush` of the source reliably end a waiting `ReadSample`, `Stop` hung in one of three cases), therefore `Close` sets a flag and the loop ends with the next frame; if the camera delivers no more frames, `Close` gives up after 5 s with an error (reader stays open). Watchdog via `time.AfterFunc` (5 s without frame → `Read` fails).
+- One goroutine per camera waits in `ReadSample`; this **can't be interrupted** (tested: neither `Shutdown` nor `Stop` nor `Flush` of the source reliably end a waiting `ReadSample`, `Stop` hung in one of three cases), therefore `Close` sets a flag and the loop ends with the next frame; if the camera delivers no more frames, `Close` gives up after 5 s with an error (reader stays open).
 - Unplugging (tested on the development board): `ReadSample` returns immediately with `MF_E_VIDEO_RECORDING_DEVICE_INVALIDATED` (`Read`: "camera is gone (unplugged?)"), for one camera 2.5 s after the last frame, so before the watchdog; `Close` afterwards in ~3 ms.
 - Unlike under macOS only one program can use a camera (second one: `MF_E_HW_MFT_FAILED_START_STREAMING`, reported as "used by another program"), e.g. not `ui` and `detect` at the same time.
 - Measured on the development board (i5-11400H): 3 cameras 1280×720, ~100 MB; assignment via reference image with the macOS reference images correct.
