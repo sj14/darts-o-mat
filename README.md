@@ -1,57 +1,34 @@
 # darts-o-mat
 
-Ein Dart-Zähler für zu Hause: Würfe eintragen, Punkte werden automatisch gezählt.
-Langfristig soll darts-o-mat eine freie Alternative zu Autodarts und Scolia werden, mit Kamera, die die Würfe selbst erkennt.
+A darts scorer for home: enter your throws, the score is counted automatically.
+In the long run darts-o-mat aims to be a free alternative to Autodarts and Scolia, with cameras that detect the throws by themselves.
 
-> **Stand:** frühe Entwicklung. Würfe werden von Hand eingetragen. Eine erste Kamera-Erkennung gibt es, sie ist aber noch nicht mit dem Spiel verbunden.
+> **Status:** early development. Darts are entered by hand or detected by cameras at the board; the camera detection already works for normal throws but is still in progress. The user interface is in German.
 
-## Spielmodi
+## What's in it
 
-- **X01** (z. B. 301 oder 501): Von der Startpunktzahl auf genau 0 runterspielen. Zum Beenden je nach Einstellung beliebiger Dart, Doppel, oder Doppel/Triple („Master Out“).
-- **Around the Clock**: Die Zahlen 1 bis 20 der Reihe nach treffen, auf Wunsch zum Schluss das Bull. Auf der Dartscheibe der Spielseite leuchtet das nächste Ziel gelb auf.
+- **[darts-o-mat](cmd/darts-o-mat/README.md)** – the server: a web app for playing (X01 and Around the Clock), with accounts, friends, guest players and statistics. This is all you need to play by hand.
+- **[darts-o-cam](cmd/darts-o-cam/README.md)** – the camera program: runs on the computer the board's cameras are connected to, detects the darts and enters them into the running game. Works on macOS, Linux and Windows without further programs ([details on camera support](pkg/camera/README.md)).
 
-Wer als Erstes fertig ist, gewinnt das Leg sofort. Beim Spielstart wählst du, wie viele Legs zum Sieg nötig sind („First to 3“); jedes Leg beginnt der nächste Spieler. Wer das erste Leg beginnt, könnt ihr ausbullen (Option beim Spielstart): jeder wirft einen Dart aufs Bull, wer am nächsten dran ist, beginnt – mit Kamera auf den Millimeter.
+## Quick start
 
-## Starten
-
-Voraussetzung: [Go](https://go.dev/dl/) ist installiert.
+Requirement: [Go](https://go.dev/dl/) is installed.
 
 ```sh
 go run ./cmd/darts-o-mat
 ```
 
-Dann im Browser <http://localhost:3000> öffnen. Die Daten landen in der Datei `darts-o-mat.db` im aktuellen Ordner.
+Then open <http://localhost:3000> in the browser and create an account ("Registrieren"). How to play and more options: [darts-o-mat](cmd/darts-o-mat/README.md).
 
-### Mit PostgreSQL statt Datei
+## Playing with cameras
 
-```sh
-docker run -d --name darts-postgres -e POSTGRES_PASSWORD=geheim -e POSTGRES_DB=darts-o-mat -p 5432:5432 postgres
-go run ./cmd/darts-o-mat -db postgres -dsn "postgres://postgres:geheim@localhost:5432/darts-o-mat?sslmode=disable"
-```
+1. Calibrate the cameras once on the computer they are connected to: [darts-o-cam → calibrate](cmd/darts-o-cam/README.md#calibrate).
+2. In darts-o-mat, create your board under "Boards" and click "Kamera-Token erzeugen". A ready-made command is shown.
+3. Run that command on the computer with the cameras: [darts-o-cam → detect darts](cmd/darts-o-cam/README.md#detect-darts).
+4. Select this board when starting a game. Darts now appear by themselves; correct misdetections as usual.
 
-## Spielen
+On a board the next player is only up once the darts have been pulled out – the camera notices that; without a camera, tap "Pfeile gezogen". If a dart of the visit is missing (e.g. bounced out), it counts as a miss.
 
-1. Beim ersten Besuch einen Account anlegen („Registrieren“). Jeder Account ist zugleich dein Spieler.
-2. Mitspieler ohne Account legst du auf der Startseite als **Gastspieler** an. Wer einen eigenen Account hat, fügst du unter **Freunde** per Benutzername hinzu. Sobald er die Anfrage annimmt, kannst du ihn beim Spielstart **einladen**; er muss zusagen, bis dahin wartet das Spiel.
-3. Spielmodus wählen, Mitspieler ankreuzen bzw. einladen und starten.
-4. Nach jedem Wurf eintragen: erst Single, Doppel oder Triple wählen, dann die Zahl antippen. Für das Bull „Bull“ (mit „Doppel“ = Bullseye), für Fehlwürfe „Daneben“. Alle Mitspieler mit Account können auf ihrem eigenen Gerät mit eintragen.
-5. Vertippt oder falsch erkannt? Tippe den Dart in der laufenden Aufnahme oder im Verlauf an und wähle, was wirklich getroffen wurde. „Letzten Dart zurücknehmen“ gibt es weiterhin.
-6. Auf der Spielseite gibt es Töne für Treffer, Fehlwürfe, Überworfen und 180; oben mit „🔊 Ton an“ ein- und ausschalten. Browser erlauben Töne erst, wenn du die Seite einmal angeklickt oder angetippt hast. Steht oben „🔈 Für Ton klicken“, klick darauf – wichtig, wenn die Kamera die Würfe einträgt und du sonst nichts anfasst.
-7. Keine Lust mehr? Wer das Spiel angelegt hat, kann es mit „Spiel abbrechen“ beenden. Es bleibt in der Liste, zählt aber nicht in die Statistik.
+## For developers
 
-Während des Spiels siehst du für jeden Spieler den Average bzw. die Trefferquote und eine kleine Statistik. Bei X01 zeigt der Verlauf jede Aufnahme mit den geworfenen Darts, auch wenn schon der Nächste dran ist. Unter „Statistik“ findest du deine Werte und die deiner Gastspieler über alle beendeten Spiele.
-
-Unter „Boards“ kannst du deine Dartboards anlegen (z. B. Keller, Verein) und beim Spielstart auswählen.
-
-### Mit Kamera spielen
-
-Die Kamera-Erkennung ist noch in Arbeit, funktioniert aber schon für normale Würfe. Sie läuft auf macOS, Linux und Windows und braucht keine weiteren Programme. Beim ersten Start fragt macOS, ob das Terminal die Kameras benutzen darf; unter Windows muss in den Einstellungen unter „Datenschutz und Sicherheit → Kamera“ der Kamerazugriff für Desktop-Apps erlaubt sein; unter Linux muss dein Benutzer auf die Kameras zugreifen dürfen (meist über die Gruppe `video`). Ist unter Linux libjpeg-turbo installiert (Debian/Ubuntu/Raspberry Pi OS: `libturbojpeg0`, Arch: `libjpeg-turbo`), braucht darts-o-cam deutlich weniger Rechenleistung; beim Start steht dann „decoded with libjpeg-turbo“.
-
-1. Einmalig die Kameras kalibrieren: am Rechner mit den Kameras `go run ./cmd/darts-o-cam ui` starten, <http://localhost:8090> öffnen, unter „Kameras wählen“ die Board-Kameras auswählen, darts-o-cam neu starten und pro Kamera den Anweisungen folgen (Board dabei leer). Die Kalibrierung bleibt auf diesem Rechner in `calibration.json`.
-2. Unter „Boards“ dein Board anlegen und „Kamera-Token erzeugen“ klicken. Es wird ein fertiger Befehl angezeigt.
-3. Den Befehl am Rechner mit den Kameras starten. Die Kalibrier-Oberfläche läuft dabei weiter unter <http://localhost:8090>: dort siehst du auch, was die Kameras bei den letzten Würfen erkannt haben, und kannst prüfen, ob das Raster noch auf dem Board liegt.
-4. Beim Spielstart dieses Board auswählen. Würfe erscheinen dann von selbst; Fehlerkennungen korrigierst du wie gewohnt mit „Letzten Dart zurücknehmen“.
-
-Auf einem Board ist der nächste Spieler erst dran, wenn die Pfeile herausgezogen wurden – das erkennt die Kamera, ohne Kamera tippst du auf „Pfeile gezogen“. Fehlt dabei noch ein Pfeil der Aufnahme (z. B. abgeprallt), zählt er als „Daneben“.
-
-Läuft darts-o-mat öffentlich erreichbar, kannst du die Registrierung neuer Accounts abschalten: `go run ./cmd/darts-o-mat -registration=false`.
+Notes on architecture and decisions are in the `AGENTS.md` files: [project](AGENTS.md), [server](cmd/darts-o-mat/AGENTS.md), [camera](cmd/darts-o-cam/AGENTS.md), [camera access](pkg/camera/AGENTS.md). Run the tests with `go test ./...`.
