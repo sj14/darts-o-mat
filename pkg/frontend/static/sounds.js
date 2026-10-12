@@ -11,6 +11,7 @@
   const storageKey = "darts-o-mat-sound";
   let ctx = null;
   let lastID = null;
+  let unlocking = false; // the current press allows audio that was blocked
 
   function enabled() {
     try {
@@ -26,15 +27,22 @@
     } catch {}
   }
 
-  // Browsers only allow audio after the user interacted with the page.
+  // Browsers only allow audio after the user interacted with the page (click, tap, key):
+  // until then the context stays suspended and sounds are lost, e.g. darts from the
+  // cameras on a freshly loaded page. The toggle shows that and asks for a click.
   function audio() {
     if (!ctx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return null;
       ctx = new AudioContext();
+      ctx.onstatechange = updateToggle;
     }
-    if (ctx.state === "suspended") ctx.resume();
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
     return ctx;
+  }
+
+  function blocked() {
+    return enabled() && ctx !== null && ctx.state !== "running";
   }
 
   // tone plays an oscillator from start (seconds from now) for dur seconds.
@@ -151,23 +159,32 @@
     const toggle = document.getElementById("sound-toggle");
     if (!toggle) return;
     toggle.hidden = !document.getElementById("board");
-    toggle.textContent = enabled() ? "🔊 Ton an" : "🔇 Ton aus";
+    toggle.textContent = !enabled() ? "🔇 Ton aus" : blocked() ? "🔈 Für Ton klicken" : "🔊 Ton an";
+    toggle.classList.toggle("text-amber-300", blocked());
+    toggle.classList.toggle("text-white/70", !blocked());
     toggle.setAttribute("aria-pressed", enabled() ? "true" : "false");
   }
 
   document.addEventListener("click", (e) => {
-    const toggle = e.target.closest("#sound-toggle");
-    if (toggle) {
-      setEnabled(!enabled());
-      updateToggle();
-      if (enabled()) sounds.hit();
-      return;
-    }
-    if (enabled()) audio();
+    if (!e.target.closest("#sound-toggle")) return;
+    // While blocked, the click only allows the sound instead of turning it off.
+    if (!unlocking) setEnabled(!enabled());
+    updateToggle();
+    if (enabled()) sounds.hit();
   });
+
+  // Any interaction allows audio, not only clicks. It comes before the click, so
+  // unlocking remembers whether audio was blocked when the toggle was pressed.
+  for (const type of ["pointerdown", "keydown"]) {
+    document.addEventListener(type, () => {
+      unlocking = blocked();
+      if (enabled()) audio();
+    });
+  }
 
   // htmx:load fires for the page and for everything htmx swaps in (darts, SSE pushes).
   document.addEventListener("htmx:load", () => {
+    if (document.getElementById("board") && enabled()) audio(); // tells whether audio is blocked
     checkBoard();
     updateToggle();
   });
