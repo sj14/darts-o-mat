@@ -48,6 +48,8 @@ const (
 	boardRed   = "#d0313a"
 	boardGreen = "#1f9a5c"
 	boardWire  = "#8b8f98"
+	// boardTarget marks the field to hit next in around the clock (amber like the other highlights).
+	boardTarget = "#fbbf24"
 )
 
 var boardShapes, boardNumbers = drawBoard()
@@ -91,6 +93,26 @@ func drawBoard() ([]boardShape, []boardNumber) {
 		numbers = append(numbers, boardNumber{X: svgX(p), Y: svgY(p), Text: strconv.Itoa(int(n))})
 	}
 	return shapes, numbers
+}
+
+// targetPath outlines the field to hit next in around the clock: the whole segment of
+// the number, since single, double and triple all count, or the bull.
+func targetPath(target uint8) string {
+	if target == throw.Bull {
+		r := dartboard.BullRadius
+		return fmt.Sprintf("M%g %gA%g %g 0 1 0 %g %gA%g %g 0 1 0 %g %gZ", boardCenter-r, boardCenter, r, r, boardCenter+r, boardCenter, r, r, boardCenter-r, boardCenter)
+	}
+	center := float64(dartboard.SegmentIndex(target)) * dartboard.SegmentAngle
+	return ringPath(dartboard.BullRadius, dartboard.DoubleOuterRadius, center-dartboard.SegmentAngle/2, center+dartboard.SegmentAngle/2)
+}
+
+// boardTargetOf returns the field to highlight on the board, 0 for none: the current
+// player's target in around the clock, not while bulling off.
+func boardTargetOf(v service.GameView, p progress) uint8 {
+	if !p.running() || p.BullingOff {
+		return 0
+	}
+	return currentTarget(v)
 }
 
 // fieldCenter is where a dart entered by hand is drawn: in the middle of its field.

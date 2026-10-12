@@ -264,8 +264,10 @@ templ celebration(v service.GameView, p progress) {
 	}
 }
 
-// dartboardView draws the board with the darts of the current turn.
+// dartboardView draws the board with the darts of the current turn and, in around the
+// clock, the field to hit next.
 templ dartboardView(v service.GameView, p progress) {
+	{{ target := boardTargetOf(v, p) }}
 	<div class="mx-auto aspect-square w-full max-w-md rounded-full shadow-[0_1rem_2rem_rgba(0,0,0,0.6)]">
 		<svg viewBox={ boardViewBox } class="h-full w-full" role="img" aria-label="Dartboard">
 			<circle cx="228" cy="228" r="226" fill="#0b0c0f" stroke="#2b2e35" stroke-width="3"></circle>
@@ -274,8 +276,19 @@ templ dartboardView(v service.GameView, p progress) {
 			}
 			<circle cx="228" cy="228" r={ strconv.FormatFloat(15.9, 'f', 1, 64) } fill={ boardGreen } stroke={ boardWire } stroke-width="0.8"></circle>
 			<circle cx="228" cy="228" r={ strconv.FormatFloat(6.35, 'f', 2, 64) } fill={ boardRed } stroke={ boardWire } stroke-width="0.8"></circle>
+			if target != 0 {
+				<path d={ targetPath(target) } fill={ boardTarget } fill-opacity="0.45" stroke={ boardTarget } stroke-width="3" stroke-linejoin="round"></path>
+				if target == throw.Bull {
+					// The bull is small on the board: a ring around it makes it easy to spot.
+					<circle cx="228" cy="228" r="26" fill="none" stroke={ boardTarget } stroke-width="4"></circle>
+				}
+			}
 			for _, n := range boardNumbers {
-				<text x={ n.X } y={ n.Y } fill="#e9dcc0" font-size="24" font-family="Barlow Condensed, sans-serif" font-weight="800" text-anchor="middle" dominant-baseline="central">{ n.Text }</text>
+				if target != 0 && n.Text == strconv.Itoa(int(target)) {
+					<text x={ n.X } y={ n.Y } fill={ boardTarget } font-size="32" font-family="Barlow Condensed, sans-serif" font-weight="800" text-anchor="middle" dominant-baseline="central">{ n.Text }</text>
+				} else {
+					<text x={ n.X } y={ n.Y } fill="#e9dcc0" font-size="24" font-family="Barlow Condensed, sans-serif" font-weight="800" text-anchor="middle" dominant-baseline="central">{ n.Text }</text>
+				}
 			}
 			for _, d := range boardDarts(v, p) {
 				<g class={ templ.KV("opacity-40", d.Faded) }>
