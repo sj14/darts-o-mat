@@ -282,6 +282,13 @@ templ dartboardView(v service.GameView, p progress) {
 					// The bull is small on the board: a ring around it makes it easy to spot.
 					<circle cx="228" cy="228" r="26" fill="none" stroke={ boardTarget } stroke-width="4"></circle>
 				}
+				// Lights up on top of the marking: brighter, with a wide soft edge.
+				<g class="animate-target" pointer-events="none">
+					<path d={ targetPath(target) } fill={ boardTarget } fill-opacity="0.4" stroke={ boardTarget } stroke-width="10" stroke-opacity="0.45" stroke-linejoin="round"></path>
+					if target == throw.Bull {
+						<circle cx="228" cy="228" r="26" fill="none" stroke={ boardTarget } stroke-width="10" stroke-opacity="0.45"></circle>
+					}
+				</g>
 			}
 			for _, n := range boardNumbers {
 				if target != 0 && n.Text == strconv.Itoa(int(target)) {

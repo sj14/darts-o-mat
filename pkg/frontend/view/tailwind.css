@@ -40,6 +40,18 @@
   --animate-dart-in: dart-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both;
   --animate-shake: shake 0.5s ease-in-out both;
   --animate-celebrate: celebrate 2.4s ease-out both;
+  /* The target on the board lights up and fades again (opacity only, see Performance). */
+  --animate-target: target 1.6s ease-in-out infinite;
+
+  @keyframes target {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
 
   @keyframes dart-in {
     from {
