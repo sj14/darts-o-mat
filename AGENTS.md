@@ -74,7 +74,7 @@ What the server packages do in detail is under [server → structure](cmd/darts-
 
 - **The calibration stays with the client** (user's decision, 2026-10-11): the calibration file lives on the computer with the cameras, never on the server – that way the same board works with different servers; server and token are passed separately via `-server`/`-token`.
 - **Connection:** one camera token per board, created on the server. `darts-o-cam detect` uses it to send darts (with their position in mm) and the takeout to `POST /api/board/darts` and `/api/board/takeout`; the server enters them into the board's running game like darts typed in by hand. Server side: [server → camera connection](cmd/darts-o-mat/AGENTS.md#camera-connection), client side: [camera → connection to the game](cmd/darts-o-cam/AGENTS.md#connection-to-the-game).
-- **Positions** are only sent to the server as the fused position in mm (origin at the bull, Y towards the 20, `pkg/domain/dartboard`); no values per camera and nothing from the calibration. Stored positions plus corrections in the game are also the measurement series for the detection, see [server → statistics](cmd/darts-o-mat/AGENTS.md#statistics).
+- **Positions** are only sent to the server as the fused position in mm (origin at the bull, Y towards the 20, `pkg/domain/dartboard`); no values per camera and nothing from the calibration. They are comparable across camera setups (heatmap). Darts-o-cam has to send correct positions itself; the server stores them for statistics and doesn't correct anything (user's decision, 2026-10-13), see [server → statistics](cmd/darts-o-mat/AGENTS.md#statistics).
 
 ## Testing
 
