@@ -21,12 +21,6 @@ import (
 	"github.com/ebitengine/purego/objc"
 )
 
-// ErrExposureLockUnsupported means the camera can neither lock its exposure nor its white balance.
-var ErrExposureLockUnsupported = errors.New("the camera can't lock its exposure")
-
-// noFrames is how long a running camera may deliver nothing before Read fails, e.g. unplugged.
-const noFrames = 5 * time.Second
-
 type platform struct {
 	device, session, input, output, delegate objc.ID
 	queue                                    uintptr

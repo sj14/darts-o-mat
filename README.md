@@ -45,7 +45,7 @@ Unter „Boards“ kannst du deine Dartboards anlegen (z. B. Keller, Verein) und
 
 ### Mit Kamera spielen
 
-Die Kamera-Erkennung ist noch in Arbeit, funktioniert aber schon für normale Würfe. Sie läuft bisher nur auf macOS und braucht keine weiteren Programme; beim ersten Start fragt macOS, ob das Terminal die Kameras benutzen darf.
+Die Kamera-Erkennung ist noch in Arbeit, funktioniert aber schon für normale Würfe. Sie läuft auf macOS und Linux und braucht keine weiteren Programme. Beim ersten Start fragt macOS, ob das Terminal die Kameras benutzen darf; unter Linux muss dein Benutzer auf die Kameras zugreifen dürfen (meist über die Gruppe `video`).
 
 1. Einmalig die Kameras kalibrieren: am Rechner mit den Kameras `go run ./cmd/darts-o-cam ui` starten, <http://localhost:8090> öffnen, unter „Kameras wählen“ die Board-Kameras auswählen, darts-o-cam neu starten und pro Kamera den Anweisungen folgen (Board dabei leer). Die Kalibrierung bleibt auf diesem Rechner in `calibration.json`.
 2. Unter „Boards“ dein Board anlegen und „Kamera-Token erzeugen“ klicken. Es wird ein fertiger Befehl angezeigt.
