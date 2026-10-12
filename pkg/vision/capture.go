@@ -198,6 +198,11 @@ func (l *Live) Device() camera.Device {
 	return l.cam.Device
 }
 
+// Format tells how the camera's frames arrive, see camera.Camera.Format.
+func (l *Live) Format() string {
+	return l.cam.Format
+}
+
 func (l *Live) Close() error {
 	return l.cam.Close()
 }

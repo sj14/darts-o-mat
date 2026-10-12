@@ -188,7 +188,7 @@ func detect(args []string) error {
 		live := vision.StartLive(cams[i])
 		defer live.Close()
 		lives = append(lives, live)
-		log.Printf("%s: device %s", c.Name, live.Device().ID)
+		log.Printf("%s: device %s %s", c.Name, live.Device().ID, live.Format())
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

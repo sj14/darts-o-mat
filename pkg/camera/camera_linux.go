@@ -2,6 +2,7 @@ package camera
 
 // V4L2 through ioctl: frames come in memory-mapped buffers of the driver, as MJPEG
 // (needed for several cameras on one USB 2.0 port) or, if the camera can't, as YUYV.
+// MJPEG is decoded with libjpeg-turbo if it is installed, otherwise with image/jpeg.
 // A goroutine per camera waits for frames with poll, an eventfd ends it on Close.
 
 import (
@@ -29,6 +30,7 @@ type platform struct {
 	buffers   [][]byte
 	streaming bool
 	format    pixFormat
+	turbo     turboDecoder  // 0: decode MJPEG with image/jpeg
 	interval  time.Duration // minimum time between delivered frames, 0 for all
 	stopped   chan struct{} // closed when the read loop has ended
 }
@@ -245,6 +247,14 @@ func (c *Camera) start(opts Options) error {
 	if c.format.PixelFormat == 0 {
 		return fmt.Errorf("delivers neither MJPEG nor YUYV: %v", err)
 	}
+	c.Format = fmt.Sprintf("YUYV %d×%d", c.format.Width, c.format.Height)
+	if c.format.PixelFormat == pixelFormatMJPEG {
+		decoder := "image/jpeg"
+		if c.turbo = newTurboDecoder(); c.turbo != 0 {
+			decoder = "libjpeg-turbo"
+		}
+		c.Format = fmt.Sprintf("MJPEG %d×%d, decoded with %s", c.format.Width, c.format.Height, decoder)
+	}
 
 	req := requestBuffers{Count: numBuffers, Type: bufTypeCapture, Memory: memoryMMap}
 	if err := ioctl(c.fd, vidiocReqBufs, unsafe.Pointer(&req)); err != nil {
@@ -331,6 +341,9 @@ func (c *Camera) decode(data []byte) *image.RGBA {
 	if c.format.PixelFormat == pixelFormatYUYV {
 		return yuyvToRGBA(data, int(c.format.Width), int(c.format.Height), int(c.format.BytesPerLine))
 	}
+	if c.turbo != 0 {
+		return c.turbo.decode(data)
+	}
 	src, err := jpeg.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil
@@ -404,5 +417,6 @@ func (c *Camera) release() error {
 		_ = unix.Munmap(b)
 	}
 	c.buffers = nil
+	c.turbo.close()
 	return unix.Close(c.fd)
 }

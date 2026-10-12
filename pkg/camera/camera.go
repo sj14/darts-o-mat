@@ -45,6 +45,9 @@ type Options struct {
 // Camera delivers the frames of an opened device.
 type Camera struct {
 	Device Device
+	// Format tells how the frames arrive, e.g. "MJPEG 1280×720, decoded with
+	// libjpeg-turbo"; empty if the operating system doesn't say.
+	Format string
 
 	mu     sync.Mutex
 	cond   *sync.Cond
