@@ -405,3 +405,14 @@ func takeouts(v service.GameView) int {
 	}
 	return n
 }
+
+// lastUsedBoard is the ID of the board a game was last started on, 0 if none was used yet.
+func lastUsedBoard(boards []service.BoardView) int64 {
+	var last service.BoardView
+	for _, b := range boards {
+		if b.LastUsedAt != nil && (last.LastUsedAt == nil || b.LastUsedAt.After(*last.LastUsedAt)) {
+			last = b
+		}
+	}
+	return last.ID
+}

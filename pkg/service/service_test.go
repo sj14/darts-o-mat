@@ -262,9 +262,16 @@ func TestBoards(t *testing.T) {
 		t.Errorf("ben deletes anna's board: got %v, want ErrNotFound", err)
 	}
 
+	if boards, _ := s.Boards(ctx, anna); boards[0].LastUsedAt != nil {
+		t.Errorf("unused board has LastUsedAt %v", boards[0].LastUsedAt)
+	}
 	g.PlayerIDs = []int64{anna.PlayerID}
-	if _, err := s.CreateGame(ctx, anna, g, nil); err != nil {
-		t.Errorf("anna uses her board: %v", err)
+	created, err := s.CreateGame(ctx, anna, g, nil)
+	if err != nil {
+		t.Fatalf("anna uses her board: %v", err)
+	}
+	if boards, _ := s.Boards(ctx, anna); boards[0].LastUsedAt == nil || !boards[0].LastUsedAt.Equal(created.Game.CreatedAt) {
+		t.Errorf("LastUsedAt = %v, want the game's creation %v", boards[0].LastUsedAt, created.Game.CreatedAt)
 	}
 }
 

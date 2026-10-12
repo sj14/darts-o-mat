@@ -433,14 +433,16 @@ templ legDots(v service.GameView, legs int) {
 	}
 }
 
-// keypad enters a dart (posted to action): choose single, double or triple, then tap the number.
+// keypad enters a dart (posted to action): choose single, double or triple, then tap the
+// number. The keys follow the chosen multiplier with CSS only: D1…D20 and Bullseye for
+// double, T1…T20 for triple, where the bull is greyed out (there is no triple bull).
 templ keypad(v service.GameView, action string) {
 	{{ target := currentTarget(v) }}
 	<form
 		hx-post={ action }
 		hx-target="#board"
 		hx-swap="outerHTML"
-		class="flex flex-col gap-3"
+		class="group/keypad flex flex-col gap-3"
 	>
 		<div class="grid grid-cols-3 gap-1 rounded-2xl bg-pub-800 p-1" role="group" aria-label="Multiplikator">
 			@multiplierButton("1", "Single", true)
@@ -456,7 +458,7 @@ templ keypad(v service.GameView, action string) {
 					class={ "h-14 rounded-xl font-display text-3xl font-semibold transition active:scale-90 sm:h-16 lg:h-12",
 						templ.KV("bg-board-green text-white shadow-lg shadow-board-green/40 hover:brightness-110", uint8(n) == target),
 						templ.KV("bg-pub-700 text-board-cream hover:bg-pub-700/70", uint8(n) != target) }
-				>{ strconv.Itoa(n) }</button>
+				><span class="hidden text-xl group-has-[[value='2']:checked]/keypad:inline">D</span><span class="hidden text-xl group-has-[[value='3']:checked]/keypad:inline">T</span>{ strconv.Itoa(n) }</button>
 			}
 			<button
 				type="submit"
@@ -464,8 +466,12 @@ templ keypad(v service.GameView, action string) {
 				value="25"
 				class={ "col-span-2 h-14 rounded-xl font-display text-3xl font-extrabold uppercase text-white transition active:scale-95 sm:h-16 lg:h-12",
 					templ.KV("bg-board-green shadow-lg shadow-board-green/40 ring-2 ring-white", target == throw.Bull),
-					templ.KV("bg-board-green/80 hover:bg-board-green", target != throw.Bull) }
-			>Bull</button>
+					templ.KV("bg-board-green/80 hover:bg-board-green", target != throw.Bull),
+					"group-has-[[value='3']:checked]/keypad:pointer-events-none group-has-[[value='3']:checked]/keypad:opacity-30" }
+			>
+				<span class="group-has-[[value='2']:checked]/keypad:hidden">Bull</span>
+				<span class="hidden group-has-[[value='2']:checked]/keypad:inline">Bullseye</span>
+			</button>
 			<button type="submit" name="miss" value="true" class="col-span-3 h-14 rounded-xl bg-board-red/85 font-display text-3xl font-extrabold uppercase text-white transition hover:bg-board-red active:scale-95 sm:h-16 lg:h-12">Daneben</button>
 		</div>
 	</form>

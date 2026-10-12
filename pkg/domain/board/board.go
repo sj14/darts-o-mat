@@ -8,6 +8,8 @@ type Board struct {
 	AccountID int64     `bun:",notnull" json:"-"`
 	Name      string    `bun:",notnull" json:"name"`
 	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	// LastUsedAt is when a game was last started on the board, nil if never.
+	LastUsedAt *time.Time `bun:",nullzero" json:"last_used_at,omitempty"`
 }
 
 // Token lets the board's cameras (darts-o-cam) report darts without a user login.

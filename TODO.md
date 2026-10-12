@@ -13,16 +13,13 @@
   - When creating a game, tick something like "allow strangers"; the game waits in the lobby for them.
   - Finding a game: either a list of open games to join, or automatic matchmaking.
   - Today only friends can be invited, and games are hidden from everyone else (404); this would be the first exception.
-- Input keypad: in double mode label every key "Dx" (and the bull "Bullseye"), in triple mode "Tx".
 - Statistics: add a heatmap of the dart positions.
 - Option: let every player with an account leave a running game, not only the host abort it.
   - With 2 players, leaving aborts the game (as today).
   - With more than 2 players, the game continues without the player who left.
   - Note: the game state is computed by replaying the darts with a fixed player list, so leaving has to become an entry in the log (like the takeout), from which on the replay skips that player. Open questions: what happens to their darts and statistics, can the host also leave (who is host then), and can the host remove guests the same way.
 - Boards (cameras):
-  - Store a "last used" time per board. It is updated whenever the board is selected (when creating a game or when switching a game to it).
-  - When creating a new game, preselect the most recently used board.
-  - During a game, allow switching from no board to a board.
+  - During a game, allow switching from no board to a board; this also updates the board's "last used" time (`board.Board.LastUsedAt`, so far only set when a game is created on it).
   - A board belongs to at most one game at a time. If the selected board is already used by another game, show a warning but allow it; the board then moves to this game and the other game continues without a board. This replaces today's rule that camera darts go to the newest active game with the board.
 - Option, undecided: allow only one running game per account (games it hosts or has accepted, including one waiting in the lobby).
   - For: matches reality (one person plays one game at a time), no forgotten games, and the board warning/moving above becomes unnecessary, because a board could then only be in its owner's single game.

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 
+	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/uptrace/bun"
@@ -12,11 +13,17 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
-// CreateGame stores the game and a pending invitation for each of the invited players.
+// CreateGame stores the game and a pending invitation for each of the invited players,
+// and marks its board as used.
 func (store *Store) CreateGame(ctx context.Context, g *game.Game, invitedPlayerIDs []int64) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewInsert().Model(g).Returning("*").Exec(ctx); err != nil {
 			return err
+		}
+		if g.BoardID != nil {
+			if _, err := tx.NewUpdate().Model((*board.Board)(nil)).Set("last_used_at = ?", g.CreatedAt).Where("id = ?", *g.BoardID).Exec(ctx); err != nil {
+				return err
+			}
 		}
 		for _, id := range invitedPlayerIDs {
 			inv := game.Invitation{GameID: g.ID, PlayerID: id, Status: game.InvitationPending}

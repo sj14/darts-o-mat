@@ -25,6 +25,8 @@ Project-wide rules, the shared stack and how server and camera work together: [r
 
 ## Database
 
+- Boards store when a game was last started on them (`board.Board.LastUsedAt`, set in the same transaction as the game in `store.CreateGame`); the start form preselects that board (`view.lastUsedBoard`).
+
 - PostgreSQL and SQLite are both supported (chosen via `-db sqlite|postgres` and `-dsn`). Persistence code must work with both databases.
 - ORM/query builder: [Bun](https://bun.uptrace.dev) (`pgdialect`/`pgdriver` for PostgreSQL, `sqlitedialect` with the cgo-free driver `modernc.org/sqlite` for SQLite)
 
@@ -34,6 +36,7 @@ Shared design rules (Tailwind, building blocks, performance): [root AGENTS.md �
 
 - Game page in `game.templ`, board SVG in `board.go`. In Around the Clock the current player's target is highlighted in amber: the whole segment, because single/double/triple count, plus the number; the small bull additionally with a ring; on top a glow layer with a wide border that only pulses its opacity via `animate-target`; `boardTargetOf`, not during the bull-off.
 - **Game page without scrolling** (user's wish 2026-10-12): from `lg` three columns – players stacked (the current one large as `playerCard`, below the others in throwing order as `playerRow`, the next one with "als Nächstes"; `playerLines` rotates the list, after the game the winner is on top), middle the darts of the visit and the input, right the board; history and statistics below. Goal: everything for one throw fits into 1366×650 (laptop with browser bar), therefore smaller keypad keys (`lg:h-12`) and dart tiles (`lg:h-20`) on `lg`; between `lg` and `xl` the compact rows don't show the secondary number, otherwise the names get cut off. Narrow screens stack the columns.
+- Keypad (`keypad`): the keys follow the chosen multiplier with CSS only (`group/keypad` with `group-has-[[value='2']:checked]/keypad:…`, no JavaScript, no request): D1…D20 and "Bullseye" for double, T1…T20 for triple, where the bull is greyed out and not clickable (there is no triple bull; the server rejects it anyway, `throw.ErrInvalid`).
 - Around the Clock enters darts via buttons for the current target ("Treffer 7", with the skip option also D7/T7, plus "Daneben"; `dartInput`), the full keypad is collapsed below in a `<details>`; correcting always uses the full keypad.
 
 ## Sounds
@@ -90,7 +93,7 @@ All endpoints under `/api` except `register`/`login`/`logout` need the session c
 
 - `POST /api/register` (`{"username", "name", "password"}`), `POST /api/login` (`{"username", "password"}`), `POST /api/logout`
 - `GET /api/players` (own player + guests), `POST /api/players` (`{"name"}`, creates a guest)
-- `GET /api/boards`, `POST /api/boards` (`{"name"}`), `DELETE /api/boards/{id}`
+- `GET /api/boards` (with `last_used_at` once a game was started on the board), `POST /api/boards` (`{"name"}`), `DELETE /api/boards/{id}`
 - `GET /api/games`, `POST /api/games`, e.g. `{"mode": "x01", "legs": 3, "player_ids": [1, 2], "invite": ["ben"], "board_id": 1, "x01": {"start_score": 501, "out_mode": "double"}}`
   or `{"mode": "around_the_clock", "player_ids": [1], "around_the_clock": {"bull": true, "multiplier_skips": false}}`; `player_ids` only own player and own guests; `invite` only friends, they are added at the end of the throwing order
 - `GET /api/games/{id}`: game, players, invitations, log (`darts`, including entries with `takeout: true`), computed state as well as `ready`, `is_owner`, `can_throw`, `invited`
