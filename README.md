@@ -31,4 +31,4 @@ On a board the next player is only up once the darts have been pulled out – th
 
 ## For developers
 
-Notes on architecture and decisions are in the `AGENTS.md` files: [project](AGENTS.md), [server](cmd/darts-o-mat/AGENTS.md), [camera](cmd/darts-o-cam/AGENTS.md), [camera access](pkg/camera/AGENTS.md). Run the tests with `go test ./...`.
+Notes on architecture and decisions are in the `AGENTS.md` files: [project](AGENTS.md), [server](cmd/darts-o-mat/AGENTS.md), [camera](cmd/darts-o-cam/AGENTS.md), [camera access](pkg/camera/AGENTS.md). Run the tests with `go test ./...`. Planned work: [TODO.md](TODO.md).

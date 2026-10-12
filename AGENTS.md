@@ -26,6 +26,7 @@ The documents are split by area and link to each other:
 - `README.md` files are for humans only: short, clear and understandable without prior knowledge (what is it, how do I start it, how do I try it).
   No implementation details, architecture or instructions for agents in the READMEs; those belong in the `AGENTS.md` files.
 - When something changes that affects users (starting, game modes, usage), update the matching README as well.
+- Open tasks for all parts live in one [`TODO.md`](TODO.md) in the root, grouped by the same areas.
 
 ## Code quality
 
