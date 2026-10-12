@@ -45,6 +45,8 @@ func (h hresult) Error() string {
 		return "access denied: allow camera access for desktop apps in Settings → Privacy & security → Camera"
 	case mfEDeviceInvalidated:
 		return "camera is gone (unplugged?)"
+	case mfEFailedStartStreaming:
+		return "can't start it: used by another program (e.g. darts-o-cam running already)?"
 	}
 	return fmt.Sprintf("HRESULT 0x%08X", uint32(h))
 }
@@ -121,6 +123,8 @@ const (
 	eAccessDenied        hresult = 0x80070005
 	mfENoMoreTypes       hresult = 0xC00D36B9
 	mfEDeviceInvalidated hresult = 0xC00D3EA2 // MF_E_VIDEO_RECORDING_DEVICE_INVALIDATED
+	// MF_E_HW_MFT_FAILED_START_STREAMING; unlike on macOS, only one program can use a camera.
+	mfEFailedStartStreaming hresult = 0xC00D3704
 )
 
 func guid(s string) *windows.GUID {

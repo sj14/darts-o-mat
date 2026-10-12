@@ -16,7 +16,8 @@ const settleTime = time.Second
 
 // OpenCameras opens the cameras of a calibration, in the calibration's order.
 // Cameras without a fixed device are found among the devices named DeviceName
-// by comparing their view with the reference images.
+// by comparing their view with the reference images; cameras not calibrated yet
+// (no reference image) get the remaining devices, in device order.
 func OpenCameras(calib Calibration, width, height, fps int) ([]*camera.Camera, error) {
 	cams := make([]*camera.Camera, len(calib.Cameras))
 	closeAll := func() {
@@ -68,8 +69,15 @@ func OpenCameras(calib Calibration, width, height, fps int) ([]*camera.Camera, e
 		return nil, err
 	}
 
+	// Cameras not calibrated yet have no reference image; they get the devices left over.
 	var refs []image.Image
+	var withRef, fresh []int
 	for _, i := range unresolved {
+		if calib.Cameras[i].Reference == "" {
+			fresh = append(fresh, i)
+			continue
+		}
+		withRef = append(withRef, i)
 		ref, err := calib.LoadReference(calib.Cameras[i])
 		if err != nil {
 			closeCandidates(nil)
@@ -91,8 +99,19 @@ func OpenCameras(calib Calibration, width, height, fps int) ([]*camera.Camera, e
 
 	keep := map[int]bool{}
 	for r, f := range assignment {
-		cams[unresolved[r]] = candidates[f]
+		cams[withRef[r]] = candidates[f]
 		keep[f] = true
+	}
+	for f := range candidates {
+		if len(fresh) > 0 && !keep[f] {
+			cams[fresh[0]], fresh = candidates[f], fresh[1:]
+			keep[f] = true
+		}
+	}
+	if len(fresh) > 0 {
+		closeCandidates(keep)
+		closeAll()
+		return nil, fmt.Errorf("%d devices named %q, %d cameras in the calibration", len(candidates), calib.DeviceName, len(calib.Cameras))
 	}
 	closeCandidates(keep)
 	return cams, nil

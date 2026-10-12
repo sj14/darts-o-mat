@@ -14,6 +14,9 @@ type RefineResult struct {
 	ToBoard Homography
 	// Matches is the number of board features found in the image and used for the fit.
 	Matches int
+	// Searched is the number of features searched for. If far fewer were found (Features),
+	// the calibration doesn't fit the image, e.g. a wire was mixed up when clicking.
+	Searched int
 	// RMSBefore and RMSAfter are the root mean square distances in pixels between the
 	// features found in the image and where the calibration expects them.
 	RMSBefore, RMSAfter float64
@@ -57,7 +60,7 @@ func RefineCalibration(img image.Image, rough Homography) (RefineResult, error) 
 	result := RefineResult{}
 	windows := []float64{8, 6, 4, 3, 3, 3, 3, 3}
 	for iteration, window := range windows {
-		feats := f.findFeatures(toImage, window)
+		feats, searched := f.findFeatures(toImage, window)
 		if len(feats) < 40 {
 			return RefineResult{}, ErrTooFewMatches
 		}
@@ -75,7 +78,7 @@ func RefineCalibration(img image.Image, rough Homography) (RefineResult, error) 
 			return RefineResult{}, err
 		}
 		toImage = h
-		result.Matches = len(kept)
+		result.Matches, result.Searched = len(kept), searched
 		result.RMSAfter = normalRMS(h, kept)
 
 		if iteration == len(windows)-1 {
@@ -255,9 +258,9 @@ func dist(a, b dartboard.Point) float64 {
 	return math.Hypot(a.X-b.X, a.Y-b.Y)
 }
 
-// findFeatures searches the board's features near where toImage expects them.
-func (f *featureImage) findFeatures(toImage Homography, window float64) []feature {
-	var feats []feature
+// findFeatures searches the board's features near where toImage expects them and
+// returns the ones found and how many it searched.
+func (f *featureImage) findFeatures(toImage Homography, window float64) (feats []feature, searched int) {
 	add := func(b, i, normal dartboard.Point) {
 		feats = append(feats, feature{board: b, found: i, normal: normal})
 	}
@@ -290,6 +293,7 @@ func (f *featureImage) findFeatures(toImage Homography, window float64) []featur
 			}
 			b := dartboard.Polar(ring.radius, a)
 			dir := unit(dartboard.Polar(ring.radius-1, a), dartboard.Polar(ring.radius+1, a))
+			searched++
 			if p, ok := f.edge(f.sat, toImage.Apply(b), dir, radialWindow(ring.radius, a), ring.sign, 8); ok {
 				add(b, p, dir)
 			}
@@ -300,6 +304,7 @@ func (f *featureImage) findFeatures(toImage Homography, window float64) []featur
 	for a := 0.0; a < 360; a += 10 {
 		b := dartboard.Polar(dartboard.BullseyeRadius, a)
 		dir := unit(dartboard.Polar(dartboard.BullseyeRadius-1, a), dartboard.Polar(dartboard.BullseyeRadius+1, a))
+		searched++
 		if p, ok := f.edge(f.rg, toImage.Apply(b), dir, radialWindow(dartboard.BullseyeRadius, a), -1, 8); ok {
 			add(b, p, dir)
 		}
@@ -316,13 +321,14 @@ func (f *featureImage) findFeatures(toImage Homography, window float64) []featur
 		for _, r := range []float64{101, 103, 105, 164, 166, 168} {
 			b := dartboard.Polar(r, a)
 			dir := unit(dartboard.Polar(r, a-0.5), dartboard.Polar(r, a+0.5))
+			searched++
 			if p, ok := f.edge(f.rg, toImage.Apply(b), dir, window, sign, 8); ok {
 				add(b, p, dir)
 				feats[len(feats)-1].wire = true
 			}
 		}
 	}
-	return feats
+	return feats, searched
 }
 
 // dropOutliers removes the features farther from the fit than 2.5 times the median

@@ -50,6 +50,8 @@ type CheckModel struct {
 	Matches                    int
 	RMS                        float64
 	Good, Fair, Poor, Outliers int
+	Found, Searched            int  // features found in the image and searched for
+	Wrong                      bool // too few features found: the grid doesn't fit
 }
 
 type DevicesModel struct {
@@ -109,7 +111,7 @@ func layout(title string) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 82, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 84, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -159,7 +161,7 @@ func title(text string) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 99, Col: 114}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 101, Col: 114}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -201,7 +203,7 @@ func sectionTitle(text string) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 103, Col: 107}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 105, Col: 107}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -244,7 +246,7 @@ func errorAlert(msg string) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 108, Col: 116}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 110, Col: 116}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -305,7 +307,7 @@ func badge(text, colors string) templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 113, Col: 107}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 115, Col: 107}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -414,7 +416,7 @@ func Overview(m OverviewModel) templ.Component {
 			var templ_7745c5c3_Var18 string
 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(m.Path)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 124, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 126, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 			if templ_7745c5c3_Err != nil {
@@ -432,7 +434,7 @@ func Overview(m OverviewModel) templ.Component {
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(m.DeviceName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 130, Col: 36}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 132, Col: 36}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -450,7 +452,7 @@ func Overview(m OverviewModel) templ.Component {
 					var templ_7745c5c3_Var20 string
 					templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(m.DeviceModel)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 132, Col: 58}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 134, Col: 58}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 					if templ_7745c5c3_Err != nil {
@@ -550,7 +552,7 @@ func Overview(m OverviewModel) templ.Component {
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(camURL(c.Index, "/frame.jpg"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 147, Col: 45}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 149, Col: 45}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {
@@ -563,7 +565,7 @@ func Overview(m OverviewModel) templ.Component {
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs("Bild von " + c.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 147, Col: 89}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 149, Col: 89}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
@@ -576,7 +578,7 @@ func Overview(m OverviewModel) templ.Component {
 				var templ_7745c5c3_Var29 string
 				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 151, Col: 76}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 153, Col: 76}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 				if templ_7745c5c3_Err != nil {
@@ -589,7 +591,7 @@ func Overview(m OverviewModel) templ.Component {
 				var templ_7745c5c3_Var30 string
 				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(c.Device)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 152, Col: 62}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 154, Col: 62}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 				if templ_7745c5c3_Err != nil {
@@ -617,7 +619,7 @@ func Overview(m OverviewModel) templ.Component {
 				var templ_7745c5c3_Var31 templ.SafeURL
 				templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(camURL(c.Index, "/start")))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 161, Col: 72}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 163, Col: 72}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 				if templ_7745c5c3_Err != nil {
@@ -677,7 +679,7 @@ func Overview(m OverviewModel) templ.Component {
 					var templ_7745c5c3_Var35 templ.SafeURL
 					templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(camURL(c.Index, "/check")))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 171, Col: 54}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 173, Col: 54}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 					if templ_7745c5c3_Err != nil {
@@ -703,7 +705,7 @@ func Overview(m OverviewModel) templ.Component {
 					var templ_7745c5c3_Var37 templ.SafeURL
 					templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(camURL(c.Index, "/refine")))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 172, Col: 74}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 174, Col: 74}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 					if templ_7745c5c3_Err != nil {
@@ -771,7 +773,7 @@ func Overview(m OverviewModel) templ.Component {
 					var templ_7745c5c3_Var40 templ.SafeURL
 					templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL("/event/" + strconv.Itoa(e.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 188, Col: 57}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 190, Col: 57}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 					if templ_7745c5c3_Err != nil {
@@ -784,7 +786,7 @@ func Overview(m OverviewModel) templ.Component {
 					var templ_7745c5c3_Var41 string
 					templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(e.Time)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 189, Col: 56}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 191, Col: 56}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 					if templ_7745c5c3_Err != nil {
@@ -807,7 +809,7 @@ func Overview(m OverviewModel) templ.Component {
 						var templ_7745c5c3_Var42 string
 						templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(e.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 193, Col: 74}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 195, Col: 74}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 						if templ_7745c5c3_Err != nil {
@@ -820,7 +822,7 @@ func Overview(m OverviewModel) templ.Component {
 						var templ_7745c5c3_Var43 string
 						templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(e.Cameras)))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 193, Col: 151}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 195, Col: 151}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 						if templ_7745c5c3_Err != nil {
@@ -908,7 +910,7 @@ func Calibrate(m CalibrateModel) templ.Component {
 				var templ_7745c5c3_Var46 string
 				templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(int(m.Target[0])))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 211, Col: 131}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 213, Col: 131}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 				if templ_7745c5c3_Err != nil {
@@ -921,7 +923,7 @@ func Calibrate(m CalibrateModel) templ.Component {
 				var templ_7745c5c3_Var47 string
 				templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(int(m.Target[1])))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 212, Col: 131}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 214, Col: 131}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 				if templ_7745c5c3_Err != nil {
@@ -944,7 +946,7 @@ func Calibrate(m CalibrateModel) templ.Component {
 			var templ_7745c5c3_Var48 string
 			templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(m.Points))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 219, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 221, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 			if templ_7745c5c3_Err != nil {
@@ -957,7 +959,7 @@ func Calibrate(m CalibrateModel) templ.Component {
 			var templ_7745c5c3_Var49 string
 			templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(m.MinPoints))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 219, Col: 124}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 221, Col: 124}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 			if templ_7745c5c3_Err != nil {
@@ -975,7 +977,7 @@ func Calibrate(m CalibrateModel) templ.Component {
 				var templ_7745c5c3_Var50 templ.SafeURL
 				templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(camURL(m.Index, "/skip")))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 223, Col: 68}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 225, Col: 68}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 				if templ_7745c5c3_Err != nil {
@@ -1015,7 +1017,7 @@ func Calibrate(m CalibrateModel) templ.Component {
 			var templ_7745c5c3_Var53 templ.SafeURL
 			templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(camURL(m.Index, "/finish")))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 227, Col: 69}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 229, Col: 69}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 			if templ_7745c5c3_Err != nil {
@@ -1060,7 +1062,7 @@ func Calibrate(m CalibrateModel) templ.Component {
 			var templ_7745c5c3_Var56 templ.SafeURL
 			templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(camURL(m.Index, "/start")))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 230, Col: 68}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 232, Col: 68}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
 			if templ_7745c5c3_Err != nil {
@@ -1095,7 +1097,7 @@ func Calibrate(m CalibrateModel) templ.Component {
 			var templ_7745c5c3_Var59 templ.SafeURL
 			templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(camURL(m.Index, "/point")))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 235, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 237, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 			if templ_7745c5c3_Err != nil {
@@ -1108,7 +1110,7 @@ func Calibrate(m CalibrateModel) templ.Component {
 			var templ_7745c5c3_Var60 string
 			templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(camURL(m.Index, "/clicked.jpg?n="+strconv.Itoa(m.Points)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 239, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 241, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
 			if templ_7745c5c3_Err != nil {
@@ -1121,7 +1123,7 @@ func Calibrate(m CalibrateModel) templ.Component {
 			var templ_7745c5c3_Var61 string
 			templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(m.Bounds.Dx()))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 240, Col: 39}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 242, Col: 39}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 			if templ_7745c5c3_Err != nil {
@@ -1134,7 +1136,7 @@ func Calibrate(m CalibrateModel) templ.Component {
 			var templ_7745c5c3_Var62 string
 			templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(m.Bounds.Dy()))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 241, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 243, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
 			if templ_7745c5c3_Err != nil {
@@ -1201,7 +1203,74 @@ func Check(m CheckModel) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "<p class=\"mb-4 max-w-3xl text-white/70\">Auf dem aktuellen Bild gesucht: Kanten der farbigen Ringe und die Drähte zwischen den Zahlen. Blau ist das Raster, wie die Kalibrierung das Board sieht; die Punkte sind die gefundenen Kanten und Drähte. Liegen die blauen Linien auf den echten Drähten und sind fast alle Punkte grün, stimmt die Kalibrierung.</p><div class=\"mb-4 flex flex-wrap items-center gap-3\"><span>")
+				if m.Wrong {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "<div class=\"mb-4 max-w-3xl rounded-2xl border border-board-red/50 bg-board-red/15 px-4 py-3 text-red-200\" role=\"alert\"><p class=\"mb-3\"><strong>Das Raster passt nicht zum Board:</strong> nur ")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var65 string
+					templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(m.Found))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 260, Col: 84}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, " von ")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var66 string
+					templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(m.Searched))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 260, Col: 117}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, " Kanten und Drähten liegen dort, wo das Raster sie erwartet. Meist wurde beim Kalibrieren ein Draht verwechselt, z. B. 1/18 statt 20/1. Prüfe die Zahlen genau (sie stehen je nach Kamera auf dem Kopf) und kalibriere neu. Gegenprobe über die Farben: das Doppel der 20 ist rot, das der 1 grün.</p><form method=\"post\" action=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var67 templ.SafeURL
+					templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(camURL(m.Index, "/start")))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 264, Col: 70}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var68 = []any{btnPrimary}
+					templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var68...)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "<button type=\"submit\" class=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var69 string
+					templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var68).String())
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 1, Col: 0}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "\">Neu kalibrieren</button></form></div>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, " <p class=\"mb-4 max-w-3xl text-white/70\">Auf dem aktuellen Bild gesucht: Kanten der farbigen Ringe und die Drähte zwischen den Zahlen. Blau ist das Raster, wie die Kalibrierung das Board sieht; die Punkte sind die gefundenen Kanten und Drähte. Liegen die blauen Linien auf den echten Drähten und sind fast alle Punkte grün, stimmt die Kalibrierung.</p><div class=\"mb-4 flex flex-wrap items-center gap-3\"><span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1209,7 +1278,7 @@ func Check(m CheckModel) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "≤ 1 px</span> <span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "≤ 1 px</span> <span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1217,7 +1286,7 @@ func Check(m CheckModel) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "≤ 2 px</span> <span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "≤ 2 px</span> <span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1225,7 +1294,7 @@ func Check(m CheckModel) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "weiter daneben</span> <span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "weiter daneben</span> <span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1233,38 +1302,38 @@ func Check(m CheckModel) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "verworfen (z. B. Pfeil davor)</span> <span class=\"text-white/50\">mittlere Abweichung ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "verworfen (z. B. Pfeil davor)</span> <span class=\"text-white/50\">mittlere Abweichung ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var65 string
-				templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatFloat(m.RMS, 'f', 2, 64))
+				var templ_7745c5c3_Var70 string
+				templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatFloat(m.RMS, 'f', 2, 64))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 265, Col: 92}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 279, Col: 92}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, " px</span></div><p class=\"mb-4 text-sm text-white/50\">Das ist nur eine Prüfung, gespeichert wird nichts. Stecken Pfeile im Board, erscheinen an ihnen verworfene Punkte; das ist in Ordnung.</p><div class=\"overflow-auto rounded-2xl border border-white/10\"><img src=\"")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var66 string
-				templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(camURL(m.Index, "/features.jpg"))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 269, Col: 47}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, " px</span></div><p class=\"mb-4 text-sm text-white/50\">Das ist nur eine Prüfung, gespeichert wird nichts. Stecken Pfeile im Board, erscheinen an ihnen verworfene Punkte; das ist in Ordnung.</p><div class=\"overflow-auto rounded-2xl border border-white/10\"><img src=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "\" class=\"max-w-none\" alt=\"Gefundene Kanten und Drähte\"></div>")
+				var templ_7745c5c3_Var71 string
+				templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(camURL(m.Index, "/features.jpg"))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 283, Col: 47}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "\" class=\"max-w-none\" alt=\"Gefundene Kanten und Drähte\"></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1298,12 +1367,12 @@ func EventPage(m EventModel) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var67 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var67 == nil {
-			templ_7745c5c3_Var67 = templ.NopComponent
+		templ_7745c5c3_Var72 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var72 == nil {
+			templ_7745c5c3_Var72 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var68 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var73 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -1315,45 +1384,45 @@ func EventPage(m EventModel) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<h1 class=\"mb-4 font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl\"><span class=\"text-white/40\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "<h1 class=\"mb-4 font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl\"><span class=\"text-white/40\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var69 string
-			templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(m.Time)
+			var templ_7745c5c3_Var74 string
+			templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(m.Time)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 279, Col: 39}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 293, Col: 39}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, ":</span> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, ":</span> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if m.Takeout {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "Pfeile herausgezogen")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "Pfeile herausgezogen")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				var templ_7745c5c3_Var70 string
-				templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(m.Label)
+				var templ_7745c5c3_Var75 string
+				templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(m.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 283, Col: 13}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 297, Col: 13}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "</h1>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "</h1>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if !m.Takeout {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "<div class=\"mb-6 grid items-start gap-6 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "<div class=\"mb-6 grid items-start gap-6 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1361,214 +1430,214 @@ func EventPage(m EventModel) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "<div class=\"rounded-3xl border border-white/10 bg-pub-900/80 p-5\"><table class=\"w-full text-sm tabular-nums\"><thead class=\"text-left text-xs uppercase tracking-wider text-white/50\"><tr><th class=\"py-2\">Kamera</th><th class=\"py-2 text-right\">Position (mm)</th><th class=\"py-2 text-right\">Abstand zur Mitte</th><th class=\"py-2 pl-3\">Feld</th></tr></thead> <tbody class=\"divide-y divide-white/5\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "<div class=\"rounded-3xl border border-white/10 bg-pub-900/80 p-5\"><table class=\"w-full text-sm tabular-nums\"><thead class=\"text-left text-xs uppercase tracking-wider text-white/50\"><tr><th class=\"py-2\">Kamera</th><th class=\"py-2 text-right\">Position (mm)</th><th class=\"py-2 text-right\">Abstand zur Mitte</th><th class=\"py-2 pl-3\">Feld</th></tr></thead> <tbody class=\"divide-y divide-white/5\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, c := range m.Cameras {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "<tr><td class=\"py-2\"><span style=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var71 string
-					templ_7745c5c3_Var71, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("color: " + cameraColor(c.Index))
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 297, Col: 72}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "\">●</span> ")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var72 string
-					templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 297, Col: 94}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "</td><td class=\"py-2 text-right\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var73 string
-					templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs(mm(c.Board.X))
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 298, Col: 52}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, ", ")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var74 string
-					templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(mm(c.Board.Y))
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 298, Col: 71}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "</td><td class=\"py-2 text-right\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var75 string
-					templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(mm(c.Board.Radius()))
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 299, Col: 59}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "</td><td class=\"py-2 pl-3\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, "<tr><td class=\"py-2\"><span style=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var76 string
-					templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(c.Label)
+					templ_7745c5c3_Var76, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("color: " + cameraColor(c.Index))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 300, Col: 40}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 311, Col: 72}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, "</td></tr>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "\">●</span> ")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var77 string
+					templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 311, Col: 94}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "</td><td class=\"py-2 text-right\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var78 string
+					templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.JoinStringErrs(mm(c.Board.X))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 312, Col: 52}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var78))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, ", ")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var79 string
+					templ_7745c5c3_Var79, templ_7745c5c3_Err = templ.JoinStringErrs(mm(c.Board.Y))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 312, Col: 71}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var79))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, "</td><td class=\"py-2 text-right\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var80 string
+					templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.JoinStringErrs(mm(c.Board.Radius()))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 313, Col: 59}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var80))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, "</td><td class=\"py-2 pl-3\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var81 string
+					templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(c.Label)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 314, Col: 40}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "</td></tr>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "<tr class=\"font-bold\"><td class=\"py-2\">✕ Ergebnis</td><td class=\"py-2 text-right\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var77 string
-				templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(mm(m.Board.X))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 305, Col: 51}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, ", ")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var78 string
-				templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.JoinStringErrs(mm(m.Board.Y))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 305, Col: 70}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var78))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, "</td><td class=\"py-2 text-right\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var79 string
-				templ_7745c5c3_Var79, templ_7745c5c3_Err = templ.JoinStringErrs(mm(m.Board.Radius()))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 306, Col: 58}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var79))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, "</td><td class=\"py-2 pl-3 text-amber-300\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var80 string
-				templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.JoinStringErrs(m.Label)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 307, Col: 54}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var80))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, "</td></tr></tbody></table><p class=\"mt-3 text-sm text-white/50\">Grenzen: Triple 99–107 mm, Doppel 162–170 mm, Bull bis 15,9 mm, Bullseye bis 6,35 mm. Das Ergebnis ist der Median der Abstände zur Mitte und der Median der Winkel (nahe der Mitte: Median pro Koordinate).</p></div></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, " <div class=\"grid gap-4 md:grid-cols-3\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			for _, c := range m.AllCameras {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "<div><div class=\"mb-1 font-semibold\"><span style=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var81 string
-				templ_7745c5c3_Var81, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("color: " + cameraColor(c.Index))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 318, Col: 83}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "\">●</span> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "<tr class=\"font-bold\"><td class=\"py-2\">✕ Ergebnis</td><td class=\"py-2 text-right\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var82 string
-				templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
+				templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(mm(m.Board.X))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 318, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 319, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "</div><img src=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, ", ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var83 string
-				templ_7745c5c3_Var83, templ_7745c5c3_Err = templ.JoinStringErrs("/event/" + strconv.Itoa(m.ID) + "/cam/" + strconv.Itoa(c.Index) + ".jpg")
+				templ_7745c5c3_Var83, templ_7745c5c3_Err = templ.JoinStringErrs(mm(m.Board.Y))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 319, Col: 89}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 319, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var83))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "\" class=\"w-full rounded-2xl border border-white/10\" alt=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "</td><td class=\"py-2 text-right\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var84 string
-				templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.JoinStringErrs("Bild von " + c.Name)
+				templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.JoinStringErrs(mm(m.Board.Radius()))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 319, Col: 168}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 320, Col: 58}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var84))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "\"></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "</td><td class=\"py-2 pl-3 text-amber-300\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var85 string
+				templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs(m.Label)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 321, Col: 54}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var85))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "</td></tr></tbody></table><p class=\"mt-3 text-sm text-white/50\">Grenzen: Triple 99–107 mm, Doppel 162–170 mm, Bull bis 15,9 mm, Bullseye bis 6,35 mm. Das Ergebnis ist der Median der Abstände zur Mitte und der Median der Winkel (nahe der Mitte: Median pro Koordinate).</p></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, " <div class=\"grid gap-4 md:grid-cols-3\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for _, c := range m.AllCameras {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "<div><div class=\"mb-1 font-semibold\"><span style=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var86 string
+				templ_7745c5c3_Var86, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("color: " + cameraColor(c.Index))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 332, Col: 83}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var86))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, "\">●</span> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var87 string
+				templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 332, Col: 105}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "</div><img src=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var88 string
+				templ_7745c5c3_Var88, templ_7745c5c3_Err = templ.JoinStringErrs("/event/" + strconv.Itoa(m.ID) + "/cam/" + strconv.Itoa(c.Index) + ".jpg")
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 333, Col: 89}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var88))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "\" class=\"w-full rounded-2xl border border-white/10\" alt=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var89 string
+				templ_7745c5c3_Var89, templ_7745c5c3_Err = templ.JoinStringErrs("Bild von " + c.Name)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 333, Col: 168}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var89))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "\"></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1578,7 +1647,7 @@ func EventPage(m EventModel) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("Erkennung").Render(templ.WithChildren(ctx, templ_7745c5c3_Var68), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("Erkennung").Render(templ.WithChildren(ctx, templ_7745c5c3_Var73), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1604,57 +1673,57 @@ func boardSketch(m EventModel) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var85 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var85 == nil {
-			templ_7745c5c3_Var85 = templ.NopComponent
+		templ_7745c5c3_Var90 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var90 == nil {
+			templ_7745c5c3_Var90 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		vb := sketchViewBox(m)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "<svg viewBox=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "<svg viewBox=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var86 string
-		templ_7745c5c3_Var86, templ_7745c5c3_Err = templ.JoinStringErrs(vb)
+		var templ_7745c5c3_Var91 string
+		templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinStringErrs(vb)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 331, Col: 18}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 345, Col: 18}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var86))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var91))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, "\" class=\"aspect-square w-full rounded-3xl border border-white/10 bg-pub-900\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "\" class=\"aspect-square w-full rounded-3xl border border-white/10 bg-pub-900\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, r := range []float64{dartboard.DoubleOuterRadius, dartboard.DoubleInnerRadius, dartboard.TripleOuterRadius, dartboard.TripleInnerRadius, dartboard.BullRadius, dartboard.BullseyeRadius} {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "<circle cx=\"0\" cy=\"0\" r=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "<circle cx=\"0\" cy=\"0\" r=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var87 string
-			templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(num(r))
+			var templ_7745c5c3_Var92 string
+			templ_7745c5c3_Var92, templ_7745c5c3_Err = templ.JoinStringErrs(num(r))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 333, Col: 35}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 347, Col: 35}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "\" fill=\"none\" stroke=\"#888\" stroke-width=\"")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var92))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var88 string
-			templ_7745c5c3_Var88, templ_7745c5c3_Err = templ.JoinStringErrs(num(sketchStroke(m)))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 333, Col: 99}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var88))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "\" fill=\"none\" stroke=\"#888\" stroke-width=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "\"></circle> ")
+			var templ_7745c5c3_Var93 string
+			templ_7745c5c3_Var93, templ_7745c5c3_Err = templ.JoinStringErrs(num(sketchStroke(m)))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 347, Col: 99}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var93))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "\"></circle> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1662,310 +1731,310 @@ func boardSketch(m EventModel) templ.Component {
 		for i := range 20 {
 			a := (float64(i) + 0.5) * dartboard.SegmentAngle
 			p1, p2 := dartboard.Polar(dartboard.BullRadius, a), dartboard.Polar(dartboard.DoubleOuterRadius, a)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "<line x1=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var89 string
-			templ_7745c5c3_Var89, templ_7745c5c3_Err = templ.JoinStringErrs(num(p1.X))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 338, Col: 23}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var89))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "\" y1=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var90 string
-			templ_7745c5c3_Var90, templ_7745c5c3_Err = templ.JoinStringErrs(num(-p1.Y))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 338, Col: 41}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var90))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "\" x2=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var91 string
-			templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinStringErrs(num(p2.X))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 338, Col: 58}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var91))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "\" y2=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var92 string
-			templ_7745c5c3_Var92, templ_7745c5c3_Err = templ.JoinStringErrs(num(-p2.Y))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 338, Col: 76}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var92))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "\" stroke=\"#888\" stroke-width=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var93 string
-			templ_7745c5c3_Var93, templ_7745c5c3_Err = templ.JoinStringErrs(num(sketchStroke(m)))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 338, Col: 128}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var93))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "\"></line>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			t := dartboard.Polar(185, float64(i)*dartboard.SegmentAngle)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "<text x=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "<line x1=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var94 string
-			templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.JoinStringErrs(num(t.X))
+			templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.JoinStringErrs(num(p1.X))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 340, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 352, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var94))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "\" y=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "\" y1=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var95 string
-			templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.JoinStringErrs(num(-t.Y))
+			templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.JoinStringErrs(num(-p1.Y))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 340, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 352, Col: 41}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var95))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "\" fill=\"#ccc\" font-size=\"14\" text-anchor=\"middle\" dominant-baseline=\"middle\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "\" x2=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var96 string
-			templ_7745c5c3_Var96, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(int(dartboard.Segments[i])))
+			templ_7745c5c3_Var96, templ_7745c5c3_Err = templ.JoinStringErrs(num(p2.X))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 340, Col: 157}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 352, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var96))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "</text> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		for _, c := range m.Cameras {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "<circle cx=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "\" y2=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var97 string
-			templ_7745c5c3_Var97, templ_7745c5c3_Err = templ.JoinStringErrs(num(c.Board.X))
+			templ_7745c5c3_Var97, templ_7745c5c3_Err = templ.JoinStringErrs(num(-p2.Y))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 343, Col: 30}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 352, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var97))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, "\" cy=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "\" stroke=\"#888\" stroke-width=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var98 string
-			templ_7745c5c3_Var98, templ_7745c5c3_Err = templ.JoinStringErrs(num(-c.Board.Y))
+			templ_7745c5c3_Var98, templ_7745c5c3_Err = templ.JoinStringErrs(num(sketchStroke(m)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 343, Col: 53}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 352, Col: 128}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var98))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 140, "\" r=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, "\"></line>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			t := dartboard.Polar(185, float64(i)*dartboard.SegmentAngle)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 140, "<text x=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var99 string
-			templ_7745c5c3_Var99, templ_7745c5c3_Err = templ.JoinStringErrs(num(sketchStroke(m) * 4))
+			templ_7745c5c3_Var99, templ_7745c5c3_Err = templ.JoinStringErrs(num(t.X))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 343, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 354, Col: 21}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var99))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, "\" fill=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, "\" y=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var100 string
-			templ_7745c5c3_Var100, templ_7745c5c3_Err = templ.JoinStringErrs(cameraColor(c.Index))
+			templ_7745c5c3_Var100, templ_7745c5c3_Err = templ.JoinStringErrs(num(-t.Y))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 343, Col: 114}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 354, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var100))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 142, "\"></circle>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 142, "\" fill=\"#ccc\" font-size=\"14\" text-anchor=\"middle\" dominant-baseline=\"middle\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var101 string
+			templ_7745c5c3_Var101, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(int(dartboard.Segments[i])))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 354, Col: 157}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var101))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, "</text> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		for _, c := range m.Cameras {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, "<circle cx=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var102 string
+			templ_7745c5c3_Var102, templ_7745c5c3_Err = templ.JoinStringErrs(num(c.Board.X))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 357, Col: 30}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var102))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "\" cy=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var103 string
+			templ_7745c5c3_Var103, templ_7745c5c3_Err = templ.JoinStringErrs(num(-c.Board.Y))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 357, Col: 53}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var103))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, "\" r=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var104 string
+			templ_7745c5c3_Var104, templ_7745c5c3_Err = templ.JoinStringErrs(num(sketchStroke(m) * 4))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 357, Col: 84}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var104))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, "\" fill=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var105 string
+			templ_7745c5c3_Var105, templ_7745c5c3_Err = templ.JoinStringErrs(cameraColor(c.Index))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 357, Col: 114}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var105))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, "\"></circle>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		s := sketchStroke(m) * 6
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, "<line x1=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var101 string
-		templ_7745c5c3_Var101, templ_7745c5c3_Err = templ.JoinStringErrs(num(m.Board.X - s))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 346, Col: 31}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var101))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, "\" y1=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var102 string
-		templ_7745c5c3_Var102, templ_7745c5c3_Err = templ.JoinStringErrs(num(-m.Board.Y - s))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 346, Col: 58}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var102))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "\" x2=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var103 string
-		templ_7745c5c3_Var103, templ_7745c5c3_Err = templ.JoinStringErrs(num(m.Board.X + s))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 346, Col: 84}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var103))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, "\" y2=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var104 string
-		templ_7745c5c3_Var104, templ_7745c5c3_Err = templ.JoinStringErrs(num(-m.Board.Y + s))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 346, Col: 111}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var104))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, "\" stroke=\"#fff\" stroke-width=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var105 string
-		templ_7745c5c3_Var105, templ_7745c5c3_Err = templ.JoinStringErrs(num(sketchStroke(m) * 1.5))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 346, Col: 169}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var105))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, "\"></line> <line x1=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, "<line x1=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var106 string
 		templ_7745c5c3_Var106, templ_7745c5c3_Err = templ.JoinStringErrs(num(m.Board.X - s))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 347, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 360, Col: 31}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var106))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, "\" y1=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, "\" y1=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var107 string
-		templ_7745c5c3_Var107, templ_7745c5c3_Err = templ.JoinStringErrs(num(-m.Board.Y + s))
+		templ_7745c5c3_Var107, templ_7745c5c3_Err = templ.JoinStringErrs(num(-m.Board.Y - s))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 347, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 360, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var107))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, "\" x2=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, "\" x2=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var108 string
 		templ_7745c5c3_Var108, templ_7745c5c3_Err = templ.JoinStringErrs(num(m.Board.X + s))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 347, Col: 84}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 360, Col: 84}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var108))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, "\" y2=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, "\" y2=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var109 string
-		templ_7745c5c3_Var109, templ_7745c5c3_Err = templ.JoinStringErrs(num(-m.Board.Y - s))
+		templ_7745c5c3_Var109, templ_7745c5c3_Err = templ.JoinStringErrs(num(-m.Board.Y + s))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 347, Col: 111}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 360, Col: 111}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var109))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, "\" stroke=\"#fff\" stroke-width=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, "\" stroke=\"#fff\" stroke-width=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var110 string
 		templ_7745c5c3_Var110, templ_7745c5c3_Err = templ.JoinStringErrs(num(sketchStroke(m) * 1.5))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 347, Col: 169}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 360, Col: 169}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var110))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, "\"></line></svg>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, "\"></line> <line x1=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var111 string
+		templ_7745c5c3_Var111, templ_7745c5c3_Err = templ.JoinStringErrs(num(m.Board.X - s))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 361, Col: 31}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var111))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "\" y1=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var112 string
+		templ_7745c5c3_Var112, templ_7745c5c3_Err = templ.JoinStringErrs(num(-m.Board.Y + s))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 361, Col: 58}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var112))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 156, "\" x2=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var113 string
+		templ_7745c5c3_Var113, templ_7745c5c3_Err = templ.JoinStringErrs(num(m.Board.X + s))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 361, Col: 84}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var113))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, "\" y2=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var114 string
+		templ_7745c5c3_Var114, templ_7745c5c3_Err = templ.JoinStringErrs(num(-m.Board.Y - s))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 361, Col: 111}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var114))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "\" stroke=\"#fff\" stroke-width=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var115 string
+		templ_7745c5c3_Var115, templ_7745c5c3_Err = templ.JoinStringErrs(num(sketchStroke(m) * 1.5))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 361, Col: 169}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var115))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, "\"></line></svg>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2021,12 +2090,12 @@ func Devices(m DevicesModel) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var111 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var111 == nil {
-			templ_7745c5c3_Var111 = templ.NopComponent
+		templ_7745c5c3_Var116 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var116 == nil {
+			templ_7745c5c3_Var116 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var112 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var117 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -2042,7 +2111,7 @@ func Devices(m DevicesModel) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, " <p class=\"mb-4 max-w-3xl text-white/60\">Wähle, welche Kameras zum Board gehören. Gespeichert wird ihr Name (mit Modell zur Erkennung), nicht der USB-Anschluss: nach dem Umstecken an andere Ports werden dieselben Kameras wieder gefunden. Welche Kamera welche ist, erkennt darts-o-cam an ihrem Bild vom Board.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, " <p class=\"mb-4 max-w-3xl text-white/60\">Wähle, welche Kameras zum Board gehören. Gespeichert wird ihr Name (mit Modell zur Erkennung), nicht der USB-Anschluss: nach dem Umstecken an andere Ports werden dieselben Kameras wieder gefunden. Welche Kamera welche ist, erkennt darts-o-cam an ihrem Bild vom Board.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2050,158 +2119,158 @@ func Devices(m DevicesModel) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if m.Saved {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 156, "<div class=\"mb-4 rounded-2xl border border-board-green/50 bg-board-green/15 px-4 py-3 text-emerald-200\" role=\"status\">Gespeichert. Starte darts-o-cam neu, damit die Kameras geöffnet werden.</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, "<div class=\"mb-4 rounded-2xl border border-board-green/50 bg-board-green/15 px-4 py-3 text-emerald-200\" role=\"status\">Gespeichert. Starte darts-o-cam neu, damit die Kameras geöffnet werden.</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, " <form method=\"post\" action=\"/devices\" class=\"flex max-w-2xl flex-col gap-4\"><div class=\"flex flex-col gap-2\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, " <form method=\"post\" action=\"/devices\" class=\"flex max-w-2xl flex-col gap-4\"><div class=\"flex flex-col gap-2\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, g := range m.Groups {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "<label class=\"cursor-pointer\"><input type=\"radio\" class=\"peer sr-only\" name=\"name\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, "<label class=\"cursor-pointer\"><input type=\"radio\" class=\"peer sr-only\" name=\"name\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var113 string
-				templ_7745c5c3_Var113, templ_7745c5c3_Err = templ.JoinStringErrs(g.Name)
+				var templ_7745c5c3_Var118 string
+				templ_7745c5c3_Var118, templ_7745c5c3_Err = templ.JoinStringErrs(g.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 398, Col: 73}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 412, Col: 73}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var113))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var118))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, "\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if g.Name == m.Current {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, "> <span class=\"flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-pub-800 px-4 py-3 transition hover:border-white/30 peer-checked:border-board-green peer-checked:bg-board-green/15 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400\"><span class=\"font-display text-2xl font-semibold uppercase\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, "> <span class=\"flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-pub-800 px-4 py-3 transition hover:border-white/30 peer-checked:border-board-green peer-checked:bg-board-green/15 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400\"><span class=\"font-display text-2xl font-semibold uppercase\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var114 string
-				templ_7745c5c3_Var114, templ_7745c5c3_Err = templ.JoinStringErrs(g.Name)
+				var templ_7745c5c3_Var119 string
+				templ_7745c5c3_Var119, templ_7745c5c3_Err = templ.JoinStringErrs(g.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 400, Col: 75}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 414, Col: 75}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var114))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, "</span> <span class=\"text-sm text-white/50\">")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var119))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var115 string
-				templ_7745c5c3_Var115, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(g.Count))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 402, Col: 31}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var115))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, "</span> <span class=\"text-sm text-white/50\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, " × ")
+				var templ_7745c5c3_Var120 string
+				templ_7745c5c3_Var120, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(g.Count))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 416, Col: 31}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var120))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, " × ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if g.Model != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, "· Modell ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "· Modell ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var116 string
-					templ_7745c5c3_Var116, templ_7745c5c3_Err = templ.JoinStringErrs(g.Model)
+					var templ_7745c5c3_Var121 string
+					templ_7745c5c3_Var121, templ_7745c5c3_Err = templ.JoinStringErrs(g.Model)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 404, Col: 28}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 418, Col: 28}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var116))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var121))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "</span></span></label>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, "</span></span></label>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, "</div><div class=\"flex items-center gap-3\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 172, "</div><div class=\"flex items-center gap-3\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var117 = []any{btnPrimary}
-			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var117...)
+			var templ_7745c5c3_Var122 = []any{btnPrimary}
+			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var122...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, "<button type=\"submit\" class=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 173, "<button type=\"submit\" class=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var118 string
-			templ_7745c5c3_Var118, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var117).String())
+			var templ_7745c5c3_Var123 string
+			templ_7745c5c3_Var123, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var122).String())
 			if templ_7745c5c3_Err != nil {
 				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 1, Col: 0}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var118))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var123))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, "\">Speichern</button> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 174, "\">Speichern</button> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var119 = []any{linkClass}
-			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var119...)
+			var templ_7745c5c3_Var124 = []any{linkClass}
+			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var124...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, "<a href=\"/\" class=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 175, "<a href=\"/\" class=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var120 string
-			templ_7745c5c3_Var120, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var119).String())
+			var templ_7745c5c3_Var125 string
+			templ_7745c5c3_Var125, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var124).String())
 			if templ_7745c5c3_Err != nil {
 				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 1, Col: 0}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var120))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var125))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "\">Zurück</a></div></form><p class=\"mt-4 text-sm text-white/50\">Gerade geöffnet: ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 176, "\">Zurück</a></div></form><p class=\"mt-4 text-sm text-white/50\">Gerade geöffnet: ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var121 string
-			templ_7745c5c3_Var121, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(m.Open))
+			var templ_7745c5c3_Var126 string
+			templ_7745c5c3_Var126, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(m.Open))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 416, Col: 80}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/camui/views.templ`, Line: 430, Col: 80}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var121))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var126))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, " Kameras.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 177, " Kameras.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("Kameras wählen").Render(templ.WithChildren(ctx, templ_7745c5c3_Var112), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("Kameras wählen").Render(templ.WithChildren(ctx, templ_7745c5c3_Var117), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

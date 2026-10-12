@@ -42,6 +42,8 @@ type CheckModel struct {
 	Matches                    int
 	RMS                        float64
 	Good, Fair, Poor, Outliers int
+	Found, Searched            int  // features found in the image and searched for
+	Wrong                      bool // too few features found: the grid doesn't fit
 }
 
 type DevicesModel struct {
@@ -252,6 +254,18 @@ templ Check(m CheckModel) {
 		if m.Error != "" {
 			@errorAlert(m.Error)
 		} else {
+			if m.Wrong {
+				<div class="mb-4 max-w-3xl rounded-2xl border border-board-red/50 bg-board-red/15 px-4 py-3 text-red-200" role="alert">
+					<p class="mb-3">
+						<strong>Das Raster passt nicht zum Board:</strong> nur { strconv.Itoa(m.Found) } von { strconv.Itoa(m.Searched) } Kanten und Drähten liegen dort, wo das Raster sie erwartet.
+						Meist wurde beim Kalibrieren ein Draht verwechselt, z. B. 1/18 statt 20/1.
+						Prüfe die Zahlen genau (sie stehen je nach Kamera auf dem Kopf) und kalibriere neu. Gegenprobe über die Farben: das Doppel der 20 ist rot, das der 1 grün.
+					</p>
+					<form method="post" action={ templ.URL(camURL(m.Index, "/start")) }>
+						<button type="submit" class={ btnPrimary }>Neu kalibrieren</button>
+					</form>
+				</div>
+			}
 			<p class="mb-4 max-w-3xl text-white/70">
 				Auf dem aktuellen Bild gesucht: Kanten der farbigen Ringe und die Drähte zwischen den Zahlen.
 				Blau ist das Raster, wie die Kalibrierung das Board sieht; die Punkte sind die gefundenen Kanten und Drähte.
