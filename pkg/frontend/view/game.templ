@@ -38,7 +38,7 @@ templ BoardEditing(v service.GameView, errMsg string, dart throw.Dart) {
 
 // gameTitle is the heading of the game with the board it is played on.
 templ gameTitle(v service.GameView, p *progress) {
-	<div class="mb-5 flex flex-wrap items-end justify-between gap-2">
+	<div class="mb-5 flex flex-wrap items-end justify-between gap-2 lg:mb-3">
 		<h1 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl">{ modeLabel(v.Game) }</h1>
 		<div class="flex items-center gap-2 text-sm text-white/60">
 			if v.Board != nil {
@@ -146,24 +146,20 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 				<a href="/" class="mt-4 inline-block rounded-xl bg-white/10 px-5 py-2.5 font-semibold hover:bg-white/20">Neues Spiel</a>
 			</div>
 		}
-		<div class="mb-6 grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-4">
-			switch st := v.State.(type) {
-				case x01.State:
-					for _, ps := range st.Players {
-						@playerCard(v, p, ps.PlayerID, ps.Legs, strconv.FormatUint(ps.Remaining, 10), "Rest", orDash(ps.Stats.Darts > 0, decimal(ps.Stats.Average)), "Ø 3 Darts")
+		// Desktop: players, darts and input, board side by side, so a turn needs no
+		// scrolling; history and statistics follow below. Narrow screens stack them.
+		<div class="grid items-start gap-4 lg:grid-cols-[minmax(0,4fr)_minmax(0,5fr)_minmax(0,4fr)] lg:gap-6">
+			<div class="flex flex-col gap-2">
+				for i, l := range playerLines(v, p) {
+					if i == 0 && (p.isCurrent(l.ID) || p.isWinner(l.ID)) {
+						@playerCard(v, p, l)
+					} else {
+						@playerRow(v, p, l, i == 1 && p.CurrentPlayerID != nil)
 					}
-				case aroundtheclock.State:
-					for _, ps := range st.Players {
-						@playerCard(v, p, ps.PlayerID, ps.Legs, targetLabel(ps.Target), "Ziel", orDash(ps.Stats.Darts > 0, percent(ps.Stats.HitRate)), "Trefferquote")
-					}
-			}
-		</div>
-		@celebration(v, p)
-		<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-			<div class="order-2 lg:order-1">
-				@dartboardView(v, p)
+				}
 			</div>
-			<div class="order-1 flex flex-col gap-4 lg:order-2">
+			<div class="flex flex-col gap-4">
+				@celebration(v, p)
 				if editing != nil && v.CanThrow {
 					@editPanel(v, *editing)
 				} else if p.BullingOff && p.running() {
@@ -176,14 +172,14 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 								@dartTile(v, thrown[i])
 							} else if j := i - len(thrown); j < len(suggestion) {
 								// The way to finish, like Autodarts shows it.
-								<span class="flex h-20 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-amber-400/60 bg-amber-400/5 font-display text-amber-300 sm:h-24" title="Vorschlag zum Auschecken">
+								<span class="flex h-20 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-amber-400/60 bg-amber-400/5 font-display text-amber-300 sm:h-24 lg:h-20" title="Vorschlag zum Auschecken">
 									<span class={ templ.KV("text-2xl sm:text-3xl", len(suggestion[j].String()) > 4), templ.KV("text-4xl", len(suggestion[j].String()) <= 4) }>{ suggestion[j].String() }</span>
 									if j == 0 {
 										<span class="text-xs font-semibold uppercase tracking-widest text-amber-300/60">Checkout</span>
 									}
 								</span>
 							} else {
-								<span class="flex h-20 items-center justify-center rounded-2xl border-2 border-dashed border-white/15 font-display text-4xl text-white/20 sm:h-24">{ strconv.Itoa(i + 1) }</span>
+								<span class="flex h-20 items-center justify-center rounded-2xl border-2 border-dashed border-white/15 font-display text-4xl text-white/20 sm:h-24 lg:h-20">{ strconv.Itoa(i + 1) }</span>
 							}
 						}
 					</div>
@@ -229,6 +225,9 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 						@abortButton(v)
 					}
 				</div>
+			</div>
+			<div>
+				@dartboardView(v, p)
 			</div>
 		</div>
 		switch st := v.State.(type) {
@@ -348,44 +347,70 @@ templ gameStats(v service.GameView) {
 	}
 }
 
-// playerCard shows a player's main value (rest, target) and a second key figure next to it.
-// The player whose turn it is glows; the others step back.
-// With more than one leg to win, it shows the legs won as dots.
-templ playerCard(v service.GameView, p progress, playerID int64, legs int, value, caption, stat, statCaption string) {
-	{{ current, winner := p.isCurrent(playerID), p.isWinner(playerID) }}
+// playerCard shows the player whose turn it is (or the winner) in large: the main value
+// (rest, target) and a second key figure next to it. With more than one leg to win, it
+// shows the legs won as dots.
+templ playerCard(v service.GameView, p progress, l playerLine) {
+	{{ winner := p.isWinner(l.ID) }}
 	<div
 		class={ "relative rounded-3xl border p-5 transition-colors duration-300",
-			templ.KV("border-board-green/70 bg-gradient-to-br from-board-green/25 to-pub-900 [--glow-color:var(--color-board-green)] animate-glow", current),
-			templ.KV("border-amber-400/80 bg-gradient-to-br from-amber-400/25 to-pub-900 [--glow-color:var(--color-amber-400)] animate-glow", winner),
-			templ.KV("border-white/10 bg-pub-900/70", !current && !winner),
-			templ.KV("opacity-60", !current && !winner && p.running()) }
+			templ.KV("border-board-green/70 bg-gradient-to-br from-board-green/25 to-pub-900 [--glow-color:var(--color-board-green)] animate-glow", !winner),
+			templ.KV("border-amber-400/80 bg-gradient-to-br from-amber-400/25 to-pub-900 [--glow-color:var(--color-amber-400)] animate-glow", winner) }
 	>
 		<div class="flex items-center justify-between gap-2">
-			<span class="truncate font-display text-2xl font-semibold uppercase tracking-wide">{ playerName(v, playerID) }</span>
-			if v.Game.Legs > 1 {
-				<span class="flex gap-1" title={ strconv.Itoa(legs) + " Legs gewonnen" }>
-					for i := range v.Game.Legs {
-						<span class={ "size-3 rounded-full", templ.KV("bg-amber-400 shadow shadow-amber-400/60", i < legs), templ.KV("bg-white/15", i >= legs) }></span>
-					}
-				</span>
-			}
+			<span class="truncate font-display text-2xl font-semibold uppercase tracking-wide">{ playerName(v, l.ID) }</span>
+			@legDots(v, l.Legs)
 			if winner {
 				<span class="rounded-full bg-amber-400 px-3 py-0.5 font-display text-lg font-extrabold uppercase text-pub-950">Sieg</span>
-			} else if current {
+			} else {
 				<span class="rounded-full bg-board-green px-3 py-0.5 font-display text-lg font-extrabold uppercase text-white">am Zug</span>
 			}
 		</div>
 		<div class="mt-2 flex items-end justify-between gap-3">
 			<div>
-				<div class="font-display text-7xl leading-none font-extrabold tabular-nums sm:text-8xl">{ value }</div>
-				<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ caption }</div>
+				<div class="font-display text-7xl leading-none font-extrabold tabular-nums sm:text-8xl">{ l.Value }</div>
+				<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ l.Caption }</div>
 			</div>
 			<div class="text-right">
-				<div class="font-display text-4xl leading-none font-semibold tabular-nums text-white/90">{ stat }</div>
-				<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ statCaption }</div>
+				<div class="font-display text-4xl leading-none font-semibold tabular-nums text-white/90">{ l.Stat }</div>
+				<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ l.StatCaption }</div>
 			</div>
 		</div>
 	</div>
+}
+
+// playerRow shows a player who waits, in one compact line; next marks who throws next.
+templ playerRow(v service.GameView, p progress, l playerLine, next bool) {
+	<div class={ "flex items-center gap-3 rounded-2xl border border-white/10 bg-pub-900/70 px-4 py-2", templ.KV("opacity-60", !next && p.running()) }>
+		<div class="min-w-0 flex-1">
+			<div class="flex items-center gap-2">
+				<span class="truncate font-display text-xl font-semibold uppercase tracking-wide">{ playerName(v, l.ID) }</span>
+				@legDots(v, l.Legs)
+			</div>
+			if next {
+				<div class="text-xs font-semibold uppercase tracking-widest text-emerald-300/80">als Nächstes</div>
+			}
+		</div>
+		<div class="text-right lg:max-xl:hidden">
+			<div class="font-display text-xl leading-none font-semibold tabular-nums text-white/70">{ l.Stat }</div>
+			<div class="text-[0.65rem] uppercase tracking-widest text-white/40">{ l.StatCaption }</div>
+		</div>
+		<div class="w-20 text-right">
+			<div class="font-display text-4xl leading-none font-extrabold tabular-nums">{ l.Value }</div>
+			<div class="text-[0.65rem] uppercase tracking-widest text-white/40">{ l.Caption }</div>
+		</div>
+	</div>
+}
+
+// legDots shows the legs a player won, with more than one leg to win.
+templ legDots(v service.GameView, legs int) {
+	if v.Game.Legs > 1 {
+		<span class="flex gap-1" title={ strconv.Itoa(legs) + " Legs gewonnen" }>
+			for i := range v.Game.Legs {
+				<span class={ "size-3 rounded-full", templ.KV("bg-amber-400 shadow shadow-amber-400/60", i < legs), templ.KV("bg-white/15", i >= legs) }></span>
+			}
+		</span>
+	}
 }
 
 // keypad enters a dart (posted to action): choose single, double or triple, then tap the number.
@@ -408,7 +433,7 @@ templ keypad(v service.GameView, action string) {
 					type="submit"
 					name="number"
 					value={ strconv.Itoa(n) }
-					class={ "h-14 rounded-xl font-display text-3xl font-semibold transition active:scale-90 sm:h-16",
+					class={ "h-14 rounded-xl font-display text-3xl font-semibold transition active:scale-90 sm:h-16 lg:h-12",
 						templ.KV("bg-board-green text-white shadow-lg shadow-board-green/40 hover:brightness-110", uint8(n) == target),
 						templ.KV("bg-pub-700 text-board-cream hover:bg-pub-700/70", uint8(n) != target) }
 				>{ strconv.Itoa(n) }</button>
@@ -417,11 +442,11 @@ templ keypad(v service.GameView, action string) {
 				type="submit"
 				name="number"
 				value="25"
-				class={ "col-span-2 h-14 rounded-xl font-display text-3xl font-extrabold uppercase text-white transition active:scale-95 sm:h-16",
+				class={ "col-span-2 h-14 rounded-xl font-display text-3xl font-extrabold uppercase text-white transition active:scale-95 sm:h-16 lg:h-12",
 					templ.KV("bg-board-green shadow-lg shadow-board-green/40 ring-2 ring-white", target == throw.Bull),
 					templ.KV("bg-board-green/80 hover:bg-board-green", target != throw.Bull) }
 			>Bull</button>
-			<button type="submit" name="miss" value="true" class="col-span-3 h-14 rounded-xl bg-board-red/85 font-display text-3xl font-extrabold uppercase text-white transition hover:bg-board-red active:scale-95 sm:h-16">Daneben</button>
+			<button type="submit" name="miss" value="true" class="col-span-3 h-14 rounded-xl bg-board-red/85 font-display text-3xl font-extrabold uppercase text-white transition hover:bg-board-red active:scale-95 sm:h-16 lg:h-12">Daneben</button>
 		</div>
 	</form>
 }

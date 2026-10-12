@@ -3,6 +3,7 @@ package view
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -149,6 +150,40 @@ func orDash(ok bool, value string) string {
 	return value
 }
 
+// playerLine is a player's main value (rest, target) and second key figure, as the
+// player list shows them.
+type playerLine struct {
+	ID                                int64
+	Legs                              int
+	Value, Caption, Stat, StatCaption string
+}
+
+// playerLines returns the players in the order they throw from now on: the current
+// player first (the winner once the game is over), then the others.
+func playerLines(v service.GameView, p progress) []playerLine {
+	var lines []playerLine
+	switch st := v.State.(type) {
+	case x01.State:
+		for _, ps := range st.Players {
+			lines = append(lines, playerLine{ps.PlayerID, ps.Legs, strconv.FormatUint(ps.Remaining, 10), "Rest", orDash(ps.Stats.Darts > 0, decimal(ps.Stats.Average)), "Ø 3 Darts"})
+		}
+	case aroundtheclock.State:
+		for _, ps := range st.Players {
+			lines = append(lines, playerLine{ps.PlayerID, ps.Legs, targetLabel(ps.Target), "Ziel", orDash(ps.Stats.Darts > 0, percent(ps.Stats.HitRate)), "Trefferquote"})
+		}
+	}
+	first := p.CurrentPlayerID
+	if first == nil {
+		first = p.WinnerID
+	}
+	if first != nil {
+		if i := slices.IndexFunc(lines, func(l playerLine) bool { return l.ID == *first }); i > 0 {
+			lines = slices.Concat(lines[i:], lines[:i])
+		}
+	}
+	return lines
+}
+
 // nextPlayerName returns who throws after the current player.
 func nextPlayerName(v service.GameView, p progress) string {
 	if p.CurrentPlayerID == nil {
@@ -203,7 +238,7 @@ func dartClass(v service.GameView, d throw.Dart) string {
 
 // dartTileClasses style a dart's large tile; the dart just thrown flies in.
 func dartTileClasses(v service.GameView, d throw.Dart) string {
-	classes := "flex h-20 items-center justify-center rounded-2xl font-display font-extrabold uppercase shadow-lg transition sm:h-24 " + dartTileColors(v, d)
+	classes := "flex h-20 items-center justify-center rounded-2xl font-display font-extrabold uppercase shadow-lg transition sm:h-24 lg:h-20 " + dartTileColors(v, d)
 	if len(d.String()) > 4 {
 		classes += " text-2xl sm:text-3xl"
 	} else {
@@ -264,18 +299,25 @@ func latestTurnEvent(v service.GameView) string {
 
 // hitTarget reports whether a dart hit the player's target in around the clock.
 func hitTarget(v service.GameView, d throw.Dart) bool {
+	hit, _ := targetResult(v, d)
+	return hit
+}
+
+// targetResult reports for around the clock whether a dart hit the player's target;
+// counted is false in other modes and for darts outside the turns (bull-off).
+func targetResult(v service.GameView, d throw.Dart) (hit, counted bool) {
 	st, ok := v.State.(aroundtheclock.State)
 	if !ok {
-		return false
+		return false, false
 	}
 	for _, t := range st.Turns {
 		for i, td := range t.Darts {
 			if td.ID == d.ID {
-				return t.Hits[i]
+				return t.Hits[i], true
 			}
 		}
 	}
-	return false
+	return false, false
 }
 
 // soundKind returns which sound the last entry of the game's log makes (see
@@ -288,14 +330,15 @@ func soundKind(v service.GameView) string {
 	if event := latestTurnEvent(v); event != "" && !c.GameOver {
 		return event
 	}
+	hit, counted := targetResult(v, last)
 	switch {
 	case last.Takeout:
 		return "takeout"
 	case c.GameOver || c.LegWinner != nil:
 		return "win"
-	case last.Miss:
+	case last.Miss || counted && !hit: // in around the clock, every dart off the target misses
 		return "miss"
-	case hitTarget(v, last):
+	case hit:
 		return "hit"
 	case last.Number == throw.Bull:
 		return "bull"
