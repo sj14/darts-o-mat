@@ -6,6 +6,7 @@ Used by [darts-o-cam](../../cmd/darts-o-cam/AGENTS.md) (via `pkg/vision`); proje
 
 ## Goal and decisions
 
+- **License: MIT** (user's decision, 2026-10-13; the rest of the project is AGPL-3.0), so other projects can use it. Only take over code with a license compatible with MIT (no GPL/AGPL code, e.g. from cam2ip or the rest of this project).
 - **Goal:** darts-o-cam without external programs on Linux, macOS and Windows. Without cgo is desired, but not a must (see [root AGENTS.md → technologies](../../AGENTS.md#technologies)).
 - **No ffmpeg fallback** (user's decision): ffmpeg is out completely.
 - GoCV was rejected, see [root AGENTS.md → technologies](../../AGENTS.md#technologies).
@@ -90,6 +91,6 @@ Implemented 2026-10-12, `camera_windows.go`. Media Foundation via `syscall.Sysca
 
 ## Libraries checked
 
-- [gen2brain/cam2ip](https://github.com/gen2brain/cam2ip) (package `camera`): without cgo on all three systems. Tested on the development board: 3 cameras simultaneously with 1280×720 at ~29.5 fps. Rejected because of GPL-3.0; besides, `Read()` only returns the last frame in the same buffer without waiting for a new one, and provides no model. Don't take over the code (GPL), write the own backend following Apple's documentation.
+- [gen2brain/cam2ip](https://github.com/gen2brain/cam2ip) (package `camera`): without cgo on all three systems. Tested on the development board: 3 cameras simultaneously with 1280×720 at ~29.5 fps. Rejected: `Read()` only returns the last frame in the same buffer without waiting for a new one, and it provides no model; by now this package also does much more (exposure, fps limit before decoding, watchdog). Don't take over its code: it is GPL-3.0, this package is MIT (see license).
 - [svanichkin/gocam](https://github.com/svanichkin/gocam) (MIT): unusable. It only opens the default camera or `/dev/video0` with global state (no three cameras), fixed 352×288 under macOS, no device list, cgo.
 - Pure Linux packages (go4vl, ch3ri0ur/go-v4l2, korandiz/v4l) only cover Linux.
