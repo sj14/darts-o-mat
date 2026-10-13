@@ -6,6 +6,7 @@ tool github.com/a-h/templ/cmd/templ
 
 require (
 	github.com/a-h/templ v0.3.943
+	github.com/crgimenes/glaze v0.0.79
 	github.com/ebitengine/purego v0.11.1
 	github.com/go-chi/chi v1.5.5
 	github.com/go-chi/chi/v5 v5.2.3

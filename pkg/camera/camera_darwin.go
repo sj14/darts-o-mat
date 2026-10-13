@@ -57,7 +57,7 @@ const (
 	frameworks             = "/System/Library/Frameworks/"
 	delegateClassName      = "DartsOCamFrameDelegate"
 	delegateMethodName     = "captureOutput:didOutputSampleBuffer:fromConnection:"
-	privacySettingsHint    = "allow camera access for the terminal in System Settings → Privacy & Security → Camera"
+	privacySettingsHint    = "allow camera access for darts-o-cam (or the terminal it was started from) in System Settings → Privacy & Security → Camera"
 )
 
 func sel(name string) objc.SEL {

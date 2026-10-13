@@ -7,7 +7,7 @@ The detection is still in progress, but already works for normal throws. It runs
 ## Requirements
 
 - [Go](https://go.dev/dl/) is installed, the cameras are connected to this computer.
-- **macOS:** on the first start macOS asks whether the terminal may use the cameras.
+- **macOS:** started from the terminal, macOS asks on the first start whether the terminal may use the cameras. As an app of its own (Dock icon, double click, asks for "darts-o-cam"), build it with `go run ./tools/macapp` and start `darts-o-cam.app`; move it e.g. to `~/Applications`. After building it again, macOS may ask again.
 - **Windows:** under Settings → "Privacy & security → Camera", camera access for desktop apps must be allowed. Only one program can use a camera at a time.
 - **Linux:** your user must be allowed to access the cameras (usually via the group `video`). If libjpeg-turbo is installed (Debian/Ubuntu/Raspberry Pi OS: `libturbojpeg0`, Arch: `libjpeg-turbo`), darts-o-cam needs considerably less computing power.
 
@@ -21,7 +21,7 @@ From the project folder:
 go run ./cmd/darts-o-cam
 ```
 
-On a desktop the web interface opens in the browser (<http://localhost:8090>). Everything else happens there, while darts-o-cam keeps running:
+On a desktop the web interface opens in a window of its own; closing the window stops darts-o-cam. `-ui browser` opens it in the browser instead (<http://localhost:8090>). Everything else happens there, while darts-o-cam keeps running:
 
 1. **Add the cameras:** under "Kamera hinzufügen" you see all cameras of this computer with a picture. Add the ones looking at the board. Not sure which is which? Hold a hand in front of one and take new pictures.
 2. **Calibrate** each camera once, with an empty board: click the marked wire crossings on the double ring. Rough clicks are enough, the fine-tuning happens automatically. The detection uses the camera right away.
@@ -36,7 +36,7 @@ Calibration and settings stay on this computer, so the same board works with any
 
 ### Headless
 
-Without a display (or over SSH) darts-o-cam doesn't open a browser. To use the web interface from another device, let it listen on the network:
+Without a display (or over SSH) darts-o-cam opens no window and no browser. To use the web interface from another device, let it listen on the network:
 
 ```sh
 go run ./cmd/darts-o-cam -addr :8090

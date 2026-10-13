@@ -39,7 +39,7 @@ func main() {
 }
 
 // run starts darts-o-cam with its web interface.
-func run(args []string) error {
+func run(args []string) (err error) {
 	fs := flag.NewFlagSet("darts-o-cam", flag.ExitOnError)
 	fs.Usage = func() {
 		fmt.Fprint(fs.Output(), `usage: darts-o-cam [flags]
@@ -56,12 +56,30 @@ Starts darts-o-cam and its web interface, where the cameras are added and calibr
 	}
 	dir := fs.String("dir", defaultDir, "directory for the configuration and the cameras' images")
 	addr := fs.String("addr", "localhost:8090", "address of the web interface; e.g. :8090 to reach it from other devices (it has no login)")
-	open := fs.Bool("open", hasDisplay(), "open the web interface in the browser; off by default without a display")
+	defaultUI := "none"
+	if hasDisplay() {
+		defaultUI = "window"
+	}
+	ui := fs.String("ui", defaultUI, "how to show the web interface: window (a window of its own; closing it stops darts-o-cam), browser, or none (default none without a display)")
 	verbose := fs.Bool("v", false, "log whenever the board starts moving")
 	saveDir := fs.String("save", "", "directory to keep the camera frames of every detection in, for debugging (default: only the last ones, in the cache directory)")
 	_ = fs.Parse(args)
+	if !slices.Contains([]string{"window", "browser", "none"}, *ui) {
+		return fmt.Errorf("-ui must be window, browser or none, not %q", *ui)
+	}
+	if *ui == "window" {
+		// Started as an app (see tools/macapp) there is no terminal to show errors in.
+		defer func() {
+			if err != nil {
+				showError(err)
+			}
+		}()
+	}
 
 	ln, err := net.Listen("tcp", *addr)
+	if errors.Is(err, syscall.EADDRINUSE) {
+		return fmt.Errorf("%s is already in use: is darts-o-cam running already?", *addr)
+	}
 	if err != nil {
 		return fmt.Errorf("web interface: %w", err)
 	}
@@ -91,17 +109,33 @@ Starts darts-o-cam and its web interface, where the cameras are added and calibr
 		_ = srv.Shutdown(shutdown)
 	}()
 
+	served := make(chan error, 1)
+	go func() { served <- srv.Serve(ln) }()
+
 	url := "http://" + browserHost(ln.Addr())
 	log.Printf("web interface on %s (stop with Ctrl+C)", url)
-	if *open {
-		if err := openBrowser(url); err != nil {
-			log.Printf("open the browser: %v", err)
+	switch *ui {
+	case "window":
+		// The window runs here, on the main goroutine; closing it stops darts-o-cam.
+		if err := showWindow(ctx, url); err != nil {
+			log.Printf("no window of its own (%v), opening the browser instead", err)
+			openOrLog(url)
+		} else {
+			stop()
 		}
+	case "browser":
+		openOrLog(url)
 	}
-	if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
+	if err := <-served; !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil
+}
+
+func openOrLog(url string) {
+	if err := openBrowser(url); err != nil {
+		log.Printf("open the browser: %v", err)
+	}
 }
 
 // browserHost returns the address to open in a browser: a server listening on all

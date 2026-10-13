@@ -51,6 +51,7 @@ New features build on the existing stack; don't introduce additional frameworks 
 - **Static files:** htmx (including the SSE extension), the generated Tailwind CSS, the font (with OFL license) and the favicon are committed in `pkg/frontend/static` and served via `go:embed`, no CDN (darts-o-mat should work without internet). The favicon (`favicon.svg`, used by darts-o-mat and darts-o-cam) is the board logo of the page header with the theme colors as hex (concentric red/green/cream/black like the header's radial gradient; its percentages refer to the distance to the element's corner, i.e. √2 × the radius: red to 31 %, green to 57 %, cream to 88 % of the disc's radius, the ring around it 1/10 of the total radius); `apple-touch-icon.png` (180×180, for iOS home screens, which don't take SVG) is rendered from the same rings – change both together.
 - **Database and ORM** (server only): PostgreSQL and SQLite with [Bun](https://bun.uptrace.dev), see [server](cmd/darts-o-mat/AGENTS.md#database).
 - **Camera/image processing** (darts-o-cam only): no external programs; so far pure Go without cgo, see [camera](cmd/darts-o-cam/AGENTS.md) and [`pkg/camera`](pkg/camera/AGENTS.md). GoCV was planned, but there are no OpenCV packages for Intel Macs with macOS 26 (Homebrew would have to build OpenCV with 26 dependencies itself for hours); therefore deliberately rejected on 2026-10-11.
+  The desktop window uses [glaze](https://github.com/crgimenes/glaze) (system web view via purego, no cgo; user's choice 2026-10-13), see [camera](cmd/darts-o-cam/AGENTS.md#app).
   **cgo** (user's decision, 2026-10-13): avoid it where a pure Go way is reasonable, but the option stays open for darts-o-cam when it clearly brings something (e.g. ONNX Runtime, OpenCV on Linux, a native desktop window). When proposing something that needs cgo, always name what it costs: build tools per system (Xcode command line tools on macOS, a C compiler and the library's headers on Linux, MinGW on Windows), no simple cross-compiling, no `CGO_ENABLED=0` build, and libraries the binary then needs at runtime. darts-o-mat (the server) stays without cgo.
 - **Messaging (optional):** [NATS](https://nats.io) may be added when needed, e.g. to transfer darts from the camera (`darts-o-cam`) to the server (`darts-o-mat`) or to distribute live updates across several server instances.
 
@@ -69,6 +70,7 @@ New features build on the existing stack; don't introduce additional frameworks 
 - `pkg/camapp`: darts-o-cam at runtime: configuration, cameras, detection (darts-o-cam)
 - `pkg/camui`: web interface of `darts-o-cam` (darts-o-cam)
 - `tools/tailwind`: downloads and runs the Tailwind CLI for `go generate`
+- `tools/macapp`: builds darts-o-cam as a macOS app bundle, see [camera → app](cmd/darts-o-cam/AGENTS.md#app)
 
 What the server packages do in detail is under [server → structure](cmd/darts-o-mat/AGENTS.md#structure), the camera packages under [camera → structure](cmd/darts-o-cam/AGENTS.md#structure).
 

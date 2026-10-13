@@ -2,3 +2,5 @@
 # local camera calibration of darts-o-cam (stays on the camera computer)
 /calibration.json
 /cam*.jpg
+# macOS app bundle of darts-o-cam (go run ./tools/macapp)
+/darts-o-cam.app
