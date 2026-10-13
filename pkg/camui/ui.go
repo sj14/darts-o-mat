@@ -220,6 +220,7 @@ func detectionForm(r *http.Request) vision.WatchOptions {
 			MinElongation: num("min_elongation"),
 			Gap:           num("gap"),
 			AxisDistance:  num("axis_distance"),
+			TipShift:      num("tip_shift"),
 		},
 		SampleStep:      num("sample_step"),
 		MotionThreshold: color("motion_threshold"),
@@ -309,9 +310,10 @@ func (ui *UI) frame(w http.ResponseWriter, r *http.Request) {
 	}
 	var out image.Image = img
 	if c.Calibrated {
-		toBoard, _ := c.ToBoard()
-		if toImage, err := toBoard.Inverse(); err == nil {
-			out = vision.DrawBoard(img, toImage, color.RGBA{0, 255, 255, 255})
+		if m, err := c.Mapping(); err == nil {
+			if drawn, err := vision.DrawBoard(img, m, color.RGBA{0, 255, 255, 255}); err == nil {
+				out = drawn
+			}
 		}
 	}
 	writeJPEG(w, out)
@@ -458,7 +460,7 @@ func (ui *UI) refine(name string, points []vision.CalibrationPoint, img *image.R
 		return fmt.Errorf("Feinkalibrierung fehlgeschlagen (%v); ist das Board leer und gut zu sehen?", err)
 	}
 	log.Printf("%s: %d board features, deviation %.2f px before, %.2f px after", name, res.Matches, res.RMSBefore, res.RMSAfter)
-	if err := ui.app.Calibrate(name, points, res.ToBoard, img); err != nil {
+	if err := ui.app.Calibrate(name, points, res.Mapping(), img); err != nil {
 		return err
 	}
 	ui.mu.Lock()
@@ -520,12 +522,11 @@ func (ui *UI) featuresImage(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	toImage, err := c.result.ToBoard.Inverse()
+	out, err := vision.DrawBoard(c.frame, c.result.Mapping(), color.RGBA{0, 200, 255, 255})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	out := vision.DrawBoard(c.frame, toImage, color.RGBA{0, 200, 255, 255})
 	for _, f := range c.result.Features {
 		col := color.RGBA{0, 220, 0, 255}
 		switch {

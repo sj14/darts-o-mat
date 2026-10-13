@@ -149,11 +149,11 @@ func analyze(args []string) error {
 				continue
 			}
 
-			toBoard, err := cam.ToBoard()
+			m, err := cam.Mapping()
 			if err != nil {
 				return err
 			}
-			scale := vision.PixelScale(toBoard)
+			scale := vision.PixelScale(m.ToBoard)
 			area := vision.ChangedArea(before, after, opts, scale)
 			annotated := image.NewRGBA(after.Bounds())
 			copy(annotated.Pix, after.Pix)
@@ -165,7 +165,7 @@ func analyze(args []string) error {
 			if d, err := vision.DetectDart(before, after, opts, scale); err != nil {
 				line += ", " + err.Error()
 			} else {
-				b := toBoard.Apply(d.Tip)
+				b := m.Tip(d, opts.TipShift)
 				line += fmt.Sprintf(", tip %.0f,%.0f px -> %.0f,%.0f mm %s", d.Tip.X, d.Tip.Y, b.X, b.Y, dartboard.Score(b).String())
 				if b.Radius() > vision.MaxBoardRadius {
 					line += " (off the board, ignored)"

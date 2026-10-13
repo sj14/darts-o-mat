@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"log"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -194,7 +195,7 @@ func (a *App) index(name string) int {
 
 // Calibrate stores a camera's new calibration, made on frame, an image of the empty
 // board: the frame becomes its reference view and the empty board the detection compares with.
-func (a *App) Calibrate(name string, points []vision.CalibrationPoint, refined vision.Homography, frame *image.RGBA) error {
+func (a *App) Calibrate(name string, points []vision.CalibrationPoint, refined vision.Mapping, frame *image.RGBA) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	i := a.index(name)
@@ -202,7 +203,7 @@ func (a *App) Calibrate(name string, points []vision.CalibrationPoint, refined v
 		return fmt.Errorf("no camera %q", name)
 	}
 	cam := a.cfg.Cameras[i]
-	cam.Points, cam.Refined = points, &refined
+	cam.Points, cam.Refined, cam.Correction = points, &refined.ToBoard, refined.Correction
 	cam.Width, cam.Height = frame.Bounds().Dx(), frame.Bounds().Dy()
 	cam.Reference, cam.Empty = name+".jpg", name+"-empty.jpg"
 	calib := a.calibration()
@@ -387,6 +388,10 @@ func (a *App) Reconnect() {
 	a.restart()
 }
 
+// maxTipShift limits DetectOptions.TipShift (mm): more than a few millimetres is no
+// longer a correction of the tip, but moves darts into other fields.
+const maxTipShift = 5.0
+
 // validDetection checks that the thresholds can work: sizes are positive, the weak
 // threshold is below the strong one.
 func validDetection(o vision.WatchOptions) error {
@@ -398,6 +403,8 @@ func validDetection(o vision.WatchOptions) error {
 		return errors.New("the weak color difference must not be above the strong one")
 	case d.Blur < 0 || d.Gap < 0 || d.AxisDistance <= 0 || d.MinArea <= 0 || d.MinSpeck < 0 || d.MinElongation < 1:
 		return errors.New("sizes of the dart detection out of range")
+	case math.Abs(d.TipShift) > maxTipShift:
+		return fmt.Errorf("the tip may be moved by at most %g mm", maxTipShift)
 	case o.SampleStep <= 0 || o.MotionArea <= 0 || o.TakeoutArea <= o.MotionArea || o.StableFrames < 1:
 		return errors.New("motion settings out of range (the takeout area must be above the motion area)")
 	}

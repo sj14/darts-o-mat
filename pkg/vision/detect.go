@@ -34,10 +34,15 @@ type DetectOptions struct {
 	// AxisDistance is how far from the dart's axis a piece's center may be to belong to
 	// the dart, like the flight above the barrel (mm).
 	AxisDistance float64 `json:"axis_distance"`
+	// TipShift is how far the tip found is moved back along the dart on the board (mm):
+	// the change in the image tends to reach a little beyond the real tip, e.g. the
+	// dart's shadow at the entry point (see Mapping.Tip).
+	TipShift float64 `json:"tip_shift"`
 }
 
 // DefaultDetectOptions were measured in pixels on the development board (see ReferenceScale):
 // blur radius 2 px, at least 150 px, specks below 15 px, gaps up to 6 px, axis distance 12 px.
+// The tip shift is where the cameras agreed best on 13 real throws (2026-10-13).
 var DefaultDetectOptions = DetectOptions{
 	DiffThreshold: 25,
 	WeakThreshold: 12,
@@ -47,6 +52,7 @@ var DefaultDetectOptions = DetectOptions{
 	MinElongation: 4,
 	Gap:           px(3),
 	AxisDistance:  px(12),
+	TipShift:      1,
 }
 
 var (

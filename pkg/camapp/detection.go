@@ -61,7 +61,7 @@ func (a *App) restart() {
 		a.setStatus(Status{})
 		return
 	}
-	d := detection{toBoard: []vision.Homography{}, opts: a.cfg.Detection}
+	d := detection{opts: a.cfg.Detection}
 	if a.cfg.Server != "" && a.cfg.Token != "" {
 		d.server = newServer(a.cfg.Server, a.cfg.Token)
 	}
@@ -73,10 +73,10 @@ func (a *App) restart() {
 		if bc.live == nil || bc.problem != nil || !c.Calibrated(bc.width, bc.height) {
 			continue
 		}
-		toBoard, _ := c.ToBoard()
+		m, _ := c.Mapping()
 		d.lives = append(d.lives, bc.live)
 		d.names = append(d.names, c.Name)
-		d.toBoard = append(d.toBoard, toBoard)
+		d.maps = append(d.maps, m)
 		empty, err := calib.LoadEmpty(c)
 		if err != nil {
 			log.Printf("%s: image of the empty board: %v", c.Name, err)
@@ -104,17 +104,17 @@ func (a *App) restart() {
 
 // detection is what a run of the detection works with; it doesn't change while it runs.
 type detection struct {
-	lives   []*vision.Live
-	names   []string
-	toBoard []vision.Homography
-	opts    vision.WatchOptions
-	empty   []*image.RGBA // nil entries for cameras without an image of the empty board
-	server  *server       // nil: don't report
+	lives  []*vision.Live
+	names  []string
+	maps   []vision.Mapping
+	opts   vision.WatchOptions
+	empty  []*image.RGBA // nil entries for cameras without an image of the empty board
+	server *server       // nil: don't report
 }
 
 // detect watches the cameras and reports the events until ctx is done or a camera fails.
 func (a *App) detect(ctx context.Context, d detection) error {
-	w := vision.NewWatcher(d.toBoard, d.opts)
+	w := vision.NewWatcher(d.maps, d.opts)
 	if !hasAll(d.empty) {
 		log.Printf("not all cameras have an image of the empty board: start with an empty board, or pulling out darts that were already in it counts as a throw")
 	} else {

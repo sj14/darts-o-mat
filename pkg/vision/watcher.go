@@ -76,9 +76,9 @@ type Watcher struct {
 	// the watcher started; without them, only darts the watcher saw coming are known.
 	Empty []*image.RGBA
 
-	toBoard []Homography
-	opts    WatchOptions
-	params  []watchParams // the options in each camera's pixels
+	maps   []Mapping
+	opts   WatchOptions
+	params []watchParams // the options in each camera's pixels
 
 	// darts marks, per camera, where the darts thrown since the last takeout are in the image.
 	darts []*Mask
@@ -89,11 +89,11 @@ type Watcher struct {
 	still    int
 }
 
-// NewWatcher watches cameras with the given image-to-board homographies.
-func NewWatcher(toBoard []Homography, opts WatchOptions) *Watcher {
-	w := &Watcher{toBoard: toBoard, opts: opts}
-	for _, h := range toBoard {
-		w.params = append(w.params, opts.pixels(PixelScale(h)))
+// NewWatcher watches cameras with the given mappings of their images to the board.
+func NewWatcher(maps []Mapping, opts WatchOptions) *Watcher {
+	w := &Watcher{maps: maps, opts: opts}
+	for _, m := range maps {
+		w.params = append(w.params, opts.pixels(PixelScale(m.ToBoard)))
 	}
 	return w
 }
@@ -172,7 +172,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 			continue
 		}
 		d := detections[i]
-		p := w.toBoard[i].Apply(d.Tip)
+		p := w.maps[i].Tip(d, w.opts.Detect.TipShift)
 		if p.Radius() > MaxBoardRadius {
 			continue // e.g. a reflection outside the board was taken for the dart
 		}

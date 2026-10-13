@@ -12,6 +12,8 @@ import (
 // RefineResult describes how well a refined calibration fits the image.
 type RefineResult struct {
 	ToBoard Homography
+	// Correction moves the homography's grid onto the rings found, see GridCorrection.
+	Correction *GridCorrection
 	// Matches is the number of board features found in the image and used for the fit.
 	Matches int
 	// Searched is the number of features searched for. If far fewer were found (Features),
@@ -22,12 +24,20 @@ type RefineResult struct {
 	RMSBefore, RMSAfter float64
 	// Features are the features found in the last round, to show them for checking.
 	Features []Feature
+	// EdgeShift is how far the edges of the red and the green rings are found shifted
+	// from the wires into the neighboring fields, in mm (see RefineCalibration).
+	EdgeShift struct{ Red, Green float64 }
+}
+
+// Mapping returns the refined calibration with its correction.
+func (r RefineResult) Mapping() Mapping {
+	return Mapping{ToBoard: r.ToBoard, Correction: r.Correction}
 }
 
 // Feature is a ring edge or wire found in the image.
 type Feature struct {
 	Found dartboard.Point // in image pixels
-	// Expected is where the refined calibration puts the feature in the image.
+	// Expected is where the refined calibration (with its correction) puts the feature in the image.
 	Expected dartboard.Point
 	// Deviation is the distance between both across the edge, in pixels.
 	Deviation float64
@@ -50,6 +60,14 @@ var ErrTooFewMatches = errors.New("too few board features found in the image")
 // Starting from the rough calibration, it searches each feature near its expected position,
 // fits a new homography to all features found, drops outliers (darts, reflections) and
 // repeats a few times with a narrower search.
+//
+// The edges between a colored ring and a field aren't found exactly at the wire: on the
+// development board the red rings (next to black fields) came out 0.5–1 mm wider on each
+// side, the green ones (next to white fields) slightly narrower, the same in all cameras
+// (2026-10-13). Fitting the rings as they are then pulled the grid ±1 mm off around the
+// board. So each round also estimates this shift per color, as how far the edges lie into
+// the fields, and fits the edges where they are found: a homography can't widen or
+// narrow the rings, so the shift is told apart from it. The grid is then at the wires.
 func RefineCalibration(img image.Image, rough Homography) (RefineResult, error) {
 	f := newFeatureImage(ToRGBA(img))
 	toImage, err := rough.Inverse()
@@ -58,6 +76,7 @@ func RefineCalibration(img image.Image, rough Homography) (RefineResult, error) 
 	}
 
 	result := RefineResult{}
+	var shift edgeShift
 	windows := []float64{8, 6, 4, 3, 3, 3, 3, 3}
 	for iteration, window := range windows {
 		feats, searched := f.findFeatures(toImage, window)
@@ -67,6 +86,7 @@ func RefineCalibration(img image.Image, rough Homography) (RefineResult, error) 
 		if iteration == 0 {
 			result.RMSBefore = normalRMS(toImage, feats)
 		}
+		shift.apply(feats)
 
 		// Fit, then drop the worst matches (e.g. features hidden by a dart) and fit again.
 		h, err := fitNormal(toImage, feats)
@@ -80,28 +100,99 @@ func RefineCalibration(img image.Image, rough Homography) (RefineResult, error) 
 		toImage = h
 		result.Matches, result.Searched = len(kept), searched
 		result.RMSAfter = normalRMS(h, kept)
+		if shift, err = estimateEdgeShift(h, kept); err != nil {
+			return RefineResult{}, err
+		}
 
 		if iteration == len(windows)-1 {
+			if result.Correction, err = correction(h, kept); err != nil {
+				return RefineResult{}, err
+			}
 			limit := 0.0
 			for _, ft := range kept {
 				limit = max(limit, math.Abs(ft.residual(h)))
 			}
+			toBoard, _ := h.Inverse()
+			m := Mapping{ToBoard: toBoard, Correction: result.Correction}
 			result.Features = nil
 			for _, ft := range feats {
-				r := ft.residual(h)
+				expected := h.Apply(ft.board)
+				if !ft.wire {
+					expected, _ = m.ToImage(ft.board)
+				}
 				result.Features = append(result.Features, Feature{
 					Found:     ft.found,
-					Expected:  h.Apply(ft.board),
-					Deviation: math.Abs(r),
+					Expected:  expected,
+					Deviation: math.Abs((expected.X-ft.found.X)*ft.normal.X + (expected.Y-ft.found.Y)*ft.normal.Y),
 					Wire:      ft.wire,
-					Outlier:   math.Abs(r) > limit,
+					Outlier:   math.Abs(ft.residual(h)) > limit,
 				})
 			}
 		}
 	}
 
+	result.EdgeShift.Red, result.EdgeShift.Green = shift[red], shift[green]
 	result.ToBoard, err = toImage.Inverse()
 	return result, err
+}
+
+// correction measures the grid correction on the ring edges used for the fit.
+func correction(toImage Homography, feats []feature) (*GridCorrection, error) {
+	toBoard, err := toImage.Inverse()
+	if err != nil {
+		return nil, err
+	}
+	var edges []ringEdge
+	for _, ft := range feats {
+		if !ft.wire {
+			edges = append(edges, ringEdge{board: ft.board, found: ft.found, ring: ft.ring})
+		}
+	}
+	return newGridCorrection(toBoard, edges), nil
+}
+
+// Ring colors, to index an edgeShift.
+const (
+	noColor = iota
+	red
+	green
+)
+
+// edgeShift is, per ring color, how far the edges between a colored ring and a field are
+// found from the wire into the field, in mm.
+type edgeShift [3]float64
+
+// apply moves the features' board positions to where the edges are found.
+func (s edgeShift) apply(feats []feature) {
+	for i, ft := range feats {
+		if ft.color != noColor {
+			feats[i].board = dartboard.Polar(ft.ring+ft.toField*s[ft.color], ft.board.Angle())
+		}
+	}
+}
+
+// estimateEdgeShift measures the shift per color as the median distance from the wire
+// into the field of the edges found, with toImage fitted to the shifted edges. It
+// converges over the rounds of RefineCalibration.
+func estimateEdgeShift(toImage Homography, feats []feature) (edgeShift, error) {
+	toBoard, err := toImage.Inverse()
+	if err != nil {
+		return edgeShift{}, err
+	}
+	var into [3][]float64
+	for _, ft := range feats {
+		if ft.color != noColor {
+			into[ft.color] = append(into[ft.color], (toBoard.Apply(ft.found).Radius()-ft.ring)*ft.toField)
+		}
+	}
+	var s edgeShift
+	for c, d := range into {
+		if len(d) > 0 {
+			slices.Sort(d)
+			s[c] = d[len(d)/2]
+		}
+	}
+	return s, nil
 }
 
 // feature is a point of the board found in the image. An edge only tells where the
@@ -111,6 +202,13 @@ type feature struct {
 	found  dartboard.Point // in pixels
 	normal dartboard.Point // unit vector in the image, across the edge
 	wire   bool            // a wire between numbers, not a ring edge
+
+	// ring is the radius of a ring edge's wire. For edges between a colored ring and a
+	// field: the ring's color and the direction from the ring into the field (+1
+	// outwards, -1 inwards).
+	ring    float64
+	color   int
+	toField float64
 }
 
 // residual is the signed distance of the feature from where toImage expects it, across the edge.
@@ -285,7 +383,9 @@ func (f *featureImage) findFeatures(toImage Homography, window float64) (feats [
 		return min(window, 0.45*gap*pxPerMM)
 	}
 
-	// Ring edges, every 3°, but away from the wires which interrupt the rings.
+	// Ring edges, every 3°, but away from the wires which interrupt the rings. All of
+	// them border a field: the bull is green, the 20 has red rings, then the colors
+	// alternate clockwise.
 	for _, ring := range ringEdges {
 		for a := 0.0; a < 360; a += 3 {
 			if off := math.Mod(a+dartboard.SegmentAngle/2, dartboard.SegmentAngle); off < 2.5 || off > dartboard.SegmentAngle-2.5 {
@@ -296,6 +396,11 @@ func (f *featureImage) findFeatures(toImage Homography, window float64) (feats [
 			searched++
 			if p, ok := f.edge(f.sat, toImage.Apply(b), dir, radialWindow(ring.radius, a), ring.sign, 8); ok {
 				add(b, p, dir)
+				ft := &feats[len(feats)-1]
+				ft.color, ft.ring, ft.toField = green, ring.radius, -ring.sign
+				if ring.radius != dartboard.BullRadius && int((a+dartboard.SegmentAngle/2)/dartboard.SegmentAngle)%2 == 0 {
+					ft.color = red
+				}
 			}
 		}
 	}
@@ -307,6 +412,7 @@ func (f *featureImage) findFeatures(toImage Homography, window float64) (feats [
 		searched++
 		if p, ok := f.edge(f.rg, toImage.Apply(b), dir, radialWindow(dartboard.BullseyeRadius, a), -1, 8); ok {
 			add(b, p, dir)
+			feats[len(feats)-1].ring = dartboard.BullseyeRadius
 		}
 	}
 

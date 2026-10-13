@@ -73,6 +73,9 @@ type CameraCalibration struct {
 	// Refined is the calibration improved by RefineCalibration (image pixels to board mm).
 	// If set, it is used instead of the points.
 	Refined *Homography `json:"refined,omitempty"`
+	// Correction moves the refined homography's grid onto the rings found by
+	// RefineCalibration, see GridCorrection.
+	Correction *GridCorrection `json:"correction,omitempty"`
 }
 
 // Calibrated reports whether the camera has a calibration for frames of the given size.
@@ -88,6 +91,19 @@ func (c CameraCalibration) ToBoard() (Homography, error) {
 		return *c.Refined, nil
 	}
 	return c.FromPoints()
+}
+
+// Mapping returns how the camera's image maps to the board: ToBoard with the correction.
+func (c CameraCalibration) Mapping() (Mapping, error) {
+	h, err := c.ToBoard()
+	if err != nil {
+		return Mapping{}, err
+	}
+	m := Mapping{ToBoard: h}
+	if c.Refined != nil {
+		m.Correction = c.Correction
+	}
+	return m, nil
 }
 
 // FromPoints returns the homography from the calibration points only.

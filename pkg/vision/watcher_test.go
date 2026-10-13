@@ -30,7 +30,7 @@ func TestWatcher(t *testing.T) {
 	tip := single1(t, toBoard)
 	drawDart(withDart, tip, dartboard.Point{X: 0.1, Y: -1})
 
-	w := NewWatcher([]Homography{toBoard}, DefaultWatchOptions)
+	w := NewWatcher([]Mapping{{ToBoard: toBoard}}, DefaultWatchOptions)
 	frames := []*image.RGBA{empty, empty, empty, withDart, withDart, withDart, withDart}
 	var events []*Event
 	for _, f := range frames {
@@ -54,7 +54,7 @@ func TestWatcher(t *testing.T) {
 
 func TestWatcherIgnoresStillBoard(t *testing.T) {
 	img := loadRGBA(t, "testdata/cam3.jpg")
-	w := NewWatcher([]Homography{{1, 0, 0, 0, 1, 0, 0, 0, 1}}, DefaultWatchOptions)
+	w := NewWatcher([]Mapping{{ToBoard: Homography{1, 0, 0, 0, 1, 0, 0, 0, 1}}}, DefaultWatchOptions)
 	for range 10 {
 		if e := w.Feed([]*image.RGBA{img}); e != nil {
 			t.Fatalf("unexpected event %+v", e)
@@ -78,7 +78,7 @@ func TestWatcherReusedSlice(t *testing.T) {
 	withDart := loadRGBA(t, "testdata/cam3.jpg")
 	drawDart(withDart, single1(t, toBoard), dartboard.Point{X: 0.1, Y: -1})
 
-	w := NewWatcher([]Homography{toBoard}, DefaultWatchOptions)
+	w := NewWatcher([]Mapping{{ToBoard: toBoard}}, DefaultWatchOptions)
 	frames := make([]*image.RGBA, 1)
 	var events int
 	for _, f := range []*image.RGBA{empty, empty, empty, withDart, withDart, withDart, withDart} {
@@ -123,7 +123,7 @@ func TestWatcherTakeout(t *testing.T) {
 	toImage, _ := toBoard.Inverse()
 	drawDart(two, toImage.Apply(dartboard.Polar(130, 6*dartboard.SegmentAngle)), dartboard.Point{X: -0.2, Y: -1})
 
-	w := NewWatcher([]Homography{toBoard}, DefaultWatchOptions)
+	w := NewWatcher([]Mapping{{ToBoard: toBoard}}, DefaultWatchOptions)
 	var kinds []EventKind
 	for _, f := range []*image.RGBA{empty, empty, one, one, one, one, two, two, two, two, empty, empty, empty, empty} {
 		if e := w.Feed([]*image.RGBA{f}); e != nil {
@@ -163,7 +163,7 @@ func TestWatcherTakeoutOfUnknownDarts(t *testing.T) {
 	withDart := loadRGBA(t, "testdata/cam3-empty.jpg")
 	drawDart(withDart, single1(t, toBoard), dartboard.Point{X: 0.1, Y: -1})
 
-	w := NewWatcher([]Homography{toBoard}, DefaultWatchOptions)
+	w := NewWatcher([]Mapping{{ToBoard: toBoard}}, DefaultWatchOptions)
 	w.Empty = []*image.RGBA{empty}
 	var kinds []EventKind
 	// The dart is in the board from the start, then pulled out, then thrown again.

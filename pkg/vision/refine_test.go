@@ -94,6 +94,26 @@ func TestRefineCalibration(t *testing.T) {
 	if worstAfter > 0.5 {
 		t.Errorf("refined calibration is off by up to %.2f mm, want at most 0.5", worstAfter)
 	}
+
+	// The drawn board has its edges exactly at the wires, and no distortion: there is
+	// nothing to correct, apart from noise of the edges (aliased, at the far side less
+	// than a pixel per mm).
+	if s := res.EdgeShift; math.Abs(s.Red) > 0.2 || math.Abs(s.Green) > 0.2 {
+		t.Errorf("edge shift red %.2f, green %.2f mm, want about 0", s.Red, s.Green)
+	}
+	m := res.Mapping()
+	var worst float64
+	for i, ring := range m.Correction.Offsets {
+		for k, o := range ring {
+			if math.Abs(o) > math.Abs(worst) {
+				worst = o
+			}
+			if math.Abs(o) > 0.5 {
+				t.Fatalf("correction of the ring at %.1f mm is %.2f mm at %d°, want about 0", m.Correction.Radii[i], o, k*correctionStep)
+			}
+		}
+	}
+	t.Logf("largest correction %.2f mm", worst)
 }
 
 // TestRefineCalibrationReal refines the development board's calibration on real images of
@@ -118,6 +138,11 @@ func TestRefineCalibrationReal(t *testing.T) {
 			}
 			if good.RMSAfter > 2 {
 				t.Errorf("deviation after refining %.2f px, want at most 2", good.RMSAfter)
+			}
+			// The red rings' edges are found in the black fields, see RefineCalibration.
+			t.Logf("edge shift red %.2f, green %.2f mm", good.EdgeShift.Red, good.EdgeShift.Green)
+			if s := good.EdgeShift; s.Red < 0.3 || s.Red-s.Green < 0.3 {
+				t.Errorf("edge shift red %.2f, green %.2f mm: want the red rings found wider", s.Red, s.Green)
 			}
 
 			toImage, _ := points.Inverse()

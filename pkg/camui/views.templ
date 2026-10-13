@@ -122,6 +122,7 @@ func detectionFields(o vision.WatchOptions) []numberField {
 		{"min_elongation", "Mindest-Streckung", "Länge : Breite", "So länglich muss der untere Teil des Pfeils sein.", dec(d.MinElongation), "0.1"},
 		{"gap", "Lücken überbrücken", "mm", "Stücke mit Lücken bis zum Doppelten zählen zusammen (gestrichelter Barrel vor schwarzen Feldern).", dec(d.Gap), "0.01"},
 		{"axis_distance", "Abstand zur Achse", "mm", "Stücke so nah an der Pfeilachse gehören zum Pfeil (z. B. die Flight).", dec(d.AxisDistance), "0.01"},
+		{"tip_shift", "Spitze zurücksetzen", "mm", "So weit wird die gefundene Spitze entlang des Pfeils zurückgesetzt: die Änderung im Bild reicht meist etwas über die echte Spitze hinaus (Schatten).", dec(d.TipShift), "0.01"},
 		{"sample_step", "Bewegung: Abstand der Stichproben", "mm", "Für die Bewegungserkennung wird nur jeder so weit entfernte Bildpunkt verglichen.", dec(o.SampleStep), "0.01"},
 		{"motion_threshold", "Bewegung: Farbunterschied", "0–255", "Ab diesem Unterschied gilt eine Stichprobe als bewegt.", strconv.Itoa(int(o.MotionThreshold)), "1"},
 		{"motion_area", "Bewegung ab", "mm²", "So viel muss sich ändern, damit das Board als bewegt gilt.", dec(o.MotionArea), "0.01"},
