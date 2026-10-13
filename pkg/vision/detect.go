@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"cmp"
 	"errors"
 	"image"
 	"image/draw"
@@ -161,14 +162,56 @@ func abs(v int) int {
 // pieces where it crosses board areas of similar brightness. scale is the camera's
 // pixels per board millimetre (see PixelScale).
 func DetectDart(before, after *image.RGBA, opts DetectOptions, scale float64) (Detection, error) {
-	d, _, err := detect(before, after, opts.pixels(scale))
+	d, _, err := DetectDartBeside(before, after, opts, scale, nil)
 	return d, err
+}
+
+// DetectDartBeside is DetectDart with the darts thrown earlier: the changed pixels of
+// their detections (as returned, since the last takeout). Like the Watcher, it tries
+// without them if the change isn't shaped like a dart, see detect. It also returns the
+// changed area of this dart.
+func DetectDartBeside(before, after *image.RGBA, opts DetectOptions, scale float64, earlier []image.Point) (Detection, []image.Point, error) {
+	var darts *Mask
+	if len(earlier) > 0 {
+		b := before.Bounds()
+		darts = &Mask{W: b.Dx(), H: b.Dy(), Pix: make([]bool, b.Dx()*b.Dy())}
+		for _, p := range earlier {
+			darts.Pix[p.Y*darts.W+p.X] = true
+		}
+		darts = darts.dilate(length(dartMargin, scale))
+	}
+	return detect(before, after, opts.pixels(scale), darts)
 }
 
 // detect is DetectDart that also returns the changed area, so the watcher compares the
 // images only once per camera.
-func detect(before, after *image.RGBA, p detectParams) (Detection, []image.Point, error) {
-	seed, area := dartArea(before, after, p)
+//
+// darts marks where darts thrown earlier are in the image (nil: none). If the change
+// isn't shaped like a dart, it tries again without the changes there: a dart hit by the
+// new one moves, its outline changes too and can merge with the new dart into one piece
+// that is too wide (2026-10-13, event 95: two parallel darts, elongation 3.1). Only then,
+// because a new dart in front of an old one in the image would lose pixels.
+func detect(before, after *image.RGBA, p detectParams, darts *Mask) (Detection, []image.Point, error) {
+	mask := Diff(before, after, p.diff, p.weak, p.blur)
+	d, area, err := detectIn(mask, p)
+	if err != ErrNotElongated || darts == nil {
+		return d, area, err
+	}
+	without := &Mask{W: mask.W, H: mask.H, Pix: slices.Clone(mask.Pix)}
+	for i, set := range darts.Pix {
+		if set {
+			without.Pix[i] = false
+		}
+	}
+	if d2, area2, err2 := detectIn(without, p); err2 == nil {
+		return d2, area2, nil
+	}
+	return d, area, err
+}
+
+// detectIn finds the dart's tip in the changed pixels.
+func detectIn(mask *Mask, p detectParams) (Detection, []image.Point, error) {
+	seed, area := dartArea(mask, p)
 	if len(area) < p.minPixels {
 		return Detection{}, area, ErrNoDart
 	}
@@ -181,7 +224,8 @@ func detect(before, after *image.RGBA, p detectParams) (Detection, []image.Point
 
 // ChangedArea returns the changed pixels that DetectDart looks at, e.g. to debug a detection.
 func ChangedArea(before, after *image.RGBA, opts DetectOptions, scale float64) []image.Point {
-	_, area := dartArea(before, after, opts.pixels(scale))
+	p := opts.pixels(scale)
+	_, area := dartArea(Diff(before, after, p.diff, p.weak, p.blur), p)
 	return area
 }
 
@@ -193,8 +237,7 @@ func ChangedArea(before, after *image.RGBA, opts DetectOptions, scale float64) [
 // board: a speck there on the axis (color noise at a ring's edge, 56 px below a real
 // dart's tip, 2026-10-13) would become the tip. Small gaps in the point are bridged
 // already (GapRadius); no real throw had a piece of the dart below the seed.
-func dartArea(before, after *image.RGBA, p detectParams) (seed, area []image.Point) {
-	mask := Diff(before, after, p.diff, p.weak, p.blur)
+func dartArea(mask *Mask, p detectParams) (seed, area []image.Point) {
 	var comps [][]image.Point
 	for _, c := range mask.componentsBridging(p.gap) {
 		if len(c) >= p.minSpeck {
@@ -355,34 +398,53 @@ func tipOf(seed, area []image.Point) (Detection, error) {
 	}, nil
 }
 
+// Tip is a dart's position on the board as one camera sees it.
+type Tip struct {
+	dartboard.Point
+	// Radial and Tangential are the camera's resolution there: image pixels per mm
+	// towards the center and along the ring (see Mapping.Resolution). A camera counts
+	// with their square, the precision of a position found to about a pixel: the same
+	// spot can be 0.6 px/mm in one camera and 2.3 in another. 0 counts as 1.
+	Radial, Tangential float64
+}
+
 // FuseTips combines the dart positions on the board seen by several cameras.
-// The board is made of rings and segments, so it takes the median of the distance to
-// the center and the median of the angle: a single camera that is far off (e.g.
-// because the dart hides its tip) doesn't move the result, and when two of three
-// cameras see the dart beyond a ring's wire, so does the result. (The median of each
-// coordinate combined x of one camera with y of another, which put a dart seen in the
-// triple by two cameras closer to the center than both: 99.6 and 100.2 mm became 98.0.)
-// Near the center the cameras surround the dart and their angles say nothing: then
-// it is the median of each coordinate.
+// The board is made of rings and segments, so it combines the distances to the center
+// and the angles, each weighted by the cameras' resolution in that direction:
 //
-// A camera far from that result is dropped and the others are combined again, which
-// for two cameras is their mean. Otherwise the median of three takes whichever of the
-// two good cameras is closer to the bad one, instead of the middle between them.
-func FuseTips(points []dartboard.Point) (dartboard.Point, error) {
-	p, err := fuseMedian(points)
-	if err != nil || len(points) < 3 {
+//   - With three cameras or more, the weighted median: a single camera that is far off
+//     (e.g. because the dart hides its tip) doesn't move the result, and when cameras
+//     with most of the weight see the dart beyond a ring's wire, so does the result.
+//     (The median of each coordinate combined x of one camera with y of another, which
+//     put a dart seen in the triple by two cameras closer to the center than both: 99.6
+//     and 100.2 mm became 98.0. A weighted mean put that real T18, cameras 99.6, 100.2
+//     and 96.3 mm, at 98.7 mm.)
+//   - With two cameras, the weighted mean: there is no majority, and the median of two
+//     would jump to the heavier one entirely. A real S14 seen by a camera with 0.7 px/mm
+//     at 166 mm and one with 2.1 px/mm at 157 mm: 157.9 mm instead of 161.6, just next
+//     to the double.
+//
+// Near the center the cameras surround the dart and their angles say nothing: then it
+// combines each coordinate.
+//
+// A camera far from that result is dropped and the others are combined again.
+// Otherwise the median of three takes whichever of the two good cameras is closer to
+// the bad one, instead of the middle between them.
+func FuseTips(tips []Tip) (dartboard.Point, error) {
+	p, err := fuse(tips)
+	if err != nil || len(tips) < 3 {
 		return p, err
 	}
-	var inliers []dartboard.Point
-	for _, q := range points {
-		if math.Hypot(q.X-p.X, q.Y-p.Y) <= maxCameraDeviation {
-			inliers = append(inliers, q)
+	var inliers []Tip
+	for _, t := range tips {
+		if math.Hypot(t.X-p.X, t.Y-p.Y) <= maxCameraDeviation {
+			inliers = append(inliers, t)
 		}
 	}
-	if len(inliers) < 2 || len(inliers) == len(points) {
+	if len(inliers) < 2 || len(inliers) == len(tips) {
 		return p, nil
 	}
-	return fuseMedian(inliers)
+	return fuse(inliers)
 }
 
 // maxCameraDeviation is how far a camera may be from the fused position. Cameras that
@@ -390,47 +452,70 @@ func FuseTips(points []dartboard.Point) (dartboard.Point, error) {
 // hidden behind another was 30 mm off.
 const maxCameraDeviation = 20.0
 
-func fuseMedian(points []dartboard.Point) (dartboard.Point, error) {
-	if len(points) == 0 {
+func fuse(tips []Tip) (dartboard.Point, error) {
+	if len(tips) == 0 {
 		return dartboard.Point{}, ErrNoDart
 	}
-	xs := make([]float64, len(points))
-	ys := make([]float64, len(points))
+	n := len(tips)
+	xs, ys, radii, angles := make([]float64, n), make([]float64, n), make([]float64, n), make([]float64, n)
+	wr, wt, wxy := make([]float64, n), make([]float64, n), make([]float64, n)
 	var sumX, sumY float64
-	for i, p := range points {
-		xs[i], ys[i] = p.X, p.Y
-		sumX, sumY = sumX+p.X, sumY+p.Y
+	for i, t := range tips {
+		xs[i], ys[i], radii[i] = t.X, t.Y, t.Radius()
+		sumX, sumY = sumX+t.X, sumY+t.Y
+		wr[i], wt[i] = weight(t.Radial), weight(t.Tangential)
+		wxy[i] = (wr[i] + wt[i]) / 2
 	}
-
-	radii := make([]float64, len(points))
-	for i, p := range points {
-		radii[i] = p.Radius()
-	}
-	r := median(radii)
+	r := combine(radii, wr)
 	if r < polarFuseRadius {
-		return dartboard.Point{X: median(xs), Y: median(ys)}, nil
+		return dartboard.Point{X: combine(xs, wxy), Y: combine(ys, wxy)}, nil
 	}
 	// Angles relative to the mean direction, so they don't wrap around at ±180°.
 	mean := math.Atan2(sumY, sumX)
-	angles := make([]float64, len(points))
-	for i, p := range points {
-		angles[i] = math.Remainder(math.Atan2(p.Y, p.X)-mean, 2*math.Pi)
+	for i, t := range tips {
+		angles[i] = math.Remainder(math.Atan2(t.Y, t.X)-mean, 2*math.Pi)
 	}
-	a := mean + median(angles)
+	a := mean + combine(angles, wt)
 	return dartboard.Point{X: r * math.Cos(a), Y: r * math.Sin(a)}, nil
+}
+
+// weight is a camera's weight for its resolution (px/mm) in one direction.
+func weight(resolution float64) float64 {
+	if resolution <= 0 {
+		return 1
+	}
+	return resolution * resolution
+}
+
+// combine returns the weighted median of the values, for two the weighted mean.
+func combine(values, weights []float64) float64 {
+	if len(values) == 2 {
+		return (values[0]*weights[0] + values[1]*weights[1]) / (weights[0] + weights[1])
+	}
+	order := make([]int, len(values))
+	var total float64
+	for i := range order {
+		order[i] = i
+		total += weights[i]
+	}
+	slices.SortFunc(order, func(a, b int) int { return cmp.Compare(values[a], values[b]) })
+	var sum float64
+	for k, i := range order {
+		sum += weights[i]
+		switch {
+		case sum > total/2+1e-9:
+			return values[i]
+		case sum > total/2-1e-9 && k+1 < len(order):
+			// Exactly half: in the middle, like the median of an even number.
+			return (values[i] + values[order[k+1]]) / 2
+		}
+	}
+	return values[order[len(order)-1]]
 }
 
 // polarFuseRadius is the distance from the center from which the cameras' angles
 // agree well enough to fuse in polar coordinates (cameras are a few mm apart).
 const polarFuseRadius = 2 * dartboard.BullRadius
-
-func median(v []float64) float64 {
-	slices.Sort(v)
-	if len(v)%2 == 1 {
-		return v[len(v)/2]
-	}
-	return (v[len(v)/2-1] + v[len(v)/2]) / 2
-}
 
 // blur averages each pixel with its (2r+1)x(2r+1) neighborhood, per color channel.
 // The frames of three cameras must be blurred quickly after every dart, so it is

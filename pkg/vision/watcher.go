@@ -155,7 +155,11 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	errs := make([]error, len(frames))
 	var wg sync.WaitGroup
 	for i, f := range frames {
-		wg.Go(func() { detections[i], areas[i], errs[i] = detect(ref[i], f, w.params[i].detect) })
+		var darts *Mask
+		if i < len(w.darts) {
+			darts = w.darts[i]
+		}
+		wg.Go(func() { detections[i], areas[i], errs[i] = detect(ref[i], f, w.params[i].detect, darts) })
 	}
 	wg.Wait()
 
@@ -165,7 +169,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	}
 
 	e := &Event{Kind: EventDart, Cameras: map[int]dartboard.Point{}, Tips: map[int]dartboard.Point{}, Before: ref, After: frames}
-	var points []dartboard.Point
+	var tips []Tip
 	for i, f := range frames {
 		w.rememberDart(i, f.Bounds(), areas[i])
 		if errs[i] != nil {
@@ -178,9 +182,10 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		}
 		e.Cameras[i] = p
 		e.Tips[i] = d.Tip
-		points = append(points, p)
+		radial, tangential := w.maps[i].Resolution(p)
+		tips = append(tips, Tip{Point: p, Radial: radial, Tangential: tangential})
 	}
-	board, err := FuseTips(points)
+	board, err := FuseTips(tips)
 	if err != nil {
 		// Something changed, but no camera saw a dart: most likely darts were pulled out.
 		return w.takeout(ref, frames)

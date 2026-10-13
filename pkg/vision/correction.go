@@ -172,3 +172,23 @@ func (c *GridCorrection) radial(p dartboard.Point, inverse bool) dartboard.Point
 	}
 	return dartboard.Polar(corrected, a)
 }
+
+// Resolution returns how many image pixels a millimetre on the board is at a board
+// point, towards the center (radial) and along the ring (tangential). A camera looking
+// flat across the board from the other side sees the far rings squeezed: on the
+// development board 0.6 px/mm radially at the D1 for one camera, 2.1–2.4 for the others.
+func (m Mapping) Resolution(p dartboard.Point) (radial, tangential float64) {
+	r, a := p.Radius(), p.Angle()
+	at := func(r, a float64) dartboard.Point {
+		q, _ := m.ToImage(dartboard.Polar(r, a))
+		return q
+	}
+	const d = 0.5 // mm
+	radial = dist(at(r-d, a), at(r+d, a)) / (2 * d)
+	if r < d {
+		radial = dist(at(0, a), at(2*d, a)) / (2 * d)
+	}
+	da := d / max(r, d) * 180 / math.Pi // degrees for d mm along the ring
+	tangential = dist(at(max(r, d), a-da), at(max(r, d), a+da)) / (2 * d)
+	return radial, tangential
+}

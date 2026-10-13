@@ -144,13 +144,13 @@ func TestRealDarts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	toBoard := map[string]Homography{}
+	maps := map[string]Mapping{}
 	for _, cam := range calib.Cameras {
-		h, err := cam.ToBoard()
+		m, err := cam.Mapping()
 		if err != nil {
 			t.Fatal(err)
 		}
-		toBoard[cam.Name] = h
+		maps[cam.Name] = m
 	}
 
 	darts := []struct {
@@ -167,11 +167,13 @@ func TestRealDarts(t *testing.T) {
 		{"S14", map[string]dartboard.Point{"cam1": {X: 748.75, Y: 121.25}, "cam2": {X: 905.5, Y: 361.25}}},
 	}
 	for _, dart := range darts {
-		var points []dartboard.Point
+		var tips []Tip
 		for cam, tip := range dart.tips {
-			points = append(points, toBoard[cam].Apply(tip))
+			p := maps[cam].Apply(tip)
+			radial, tangential := maps[cam].Resolution(p)
+			tips = append(tips, Tip{Point: p, Radial: radial, Tangential: tangential})
 		}
-		p, err := FuseTips(points)
+		p, err := FuseTips(tips)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -298,7 +300,7 @@ func TestFuseTips(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p, err := FuseTips(tt.points)
+			p, err := FuseTips(equal(tt.points))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -306,6 +308,49 @@ func TestFuseTips(t *testing.T) {
 				t.Errorf("fused %.1f,%.1f (%.1f mm) scored %+v, want %+v", p.X, p.Y, p.Radius(), got, tt.want)
 			}
 		})
+	}
+}
+
+// equal returns tips that all count the same.
+func equal(points []dartboard.Point) []Tip {
+	tips := make([]Tip, len(points))
+	for i, p := range points {
+		tips[i] = Tip{Point: p}
+	}
+	return tips
+}
+
+// The cameras count by their resolution at the dart: the squared pixels per mm.
+func TestFuseTipsWeighted(t *testing.T) {
+	// The real S14 of TestRealDarts: two cameras, the one seeing the dart in the double
+	// sees the spot squeezed (0.7 px/mm towards the center).
+	far := Tip{Point: dartboard.Polar(166.1, 282.9), Radial: 0.7, Tangential: 1.3}
+	near := Tip{Point: dartboard.Polar(157.1, 283.1), Radial: 2.1, Tangential: 1.6}
+	p, err := FuseTips([]Tip{far, near})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := (166.1*0.49 + 157.1*4.41) / (0.49 + 4.41)
+	if math.Abs(p.Radius()-want) > 0.01 {
+		t.Errorf("two cameras: %.2f mm, want the weighted mean %.2f", p.Radius(), want)
+	}
+	if got := dartboard.Score(p); got != (throw.Dart{Number: 14, Multiplier: 1}) {
+		t.Errorf("scored %+v, want S14", got)
+	}
+
+	// Three cameras: the weighted median. Two cameras that see the spot well outweigh one
+	// that doesn't, even if it is in the middle.
+	tips := []Tip{
+		{Point: dartboard.Polar(163.3, 19), Radial: 2.1, Tangential: 1.2},
+		{Point: dartboard.Polar(161.5, 18), Radial: 0.6, Tangential: 1.3},
+		{Point: dartboard.Polar(161.0, 17), Radial: 2.3, Tangential: 1.5},
+	}
+	if p, _ := FuseTips(tips); math.Abs(p.Radius()-161.0) > 0.01 {
+		t.Errorf("three cameras: %.2f mm, want 161.0 (the heavier of the two good ones on the lighter side)", p.Radius())
+	}
+	tips[2].Radial = 2.0
+	if p, _ := FuseTips(tips); math.Abs(p.Radius()-163.3) > 0.01 {
+		t.Errorf("three cameras: %.2f mm, want 163.3", p.Radius())
 	}
 }
 
@@ -346,7 +391,7 @@ func TestBlur(t *testing.T) {
 // be the middle of the other two instead of the one closer to cam3.
 func TestFuseTipsDropsOutlier(t *testing.T) {
 	cam1, cam2, cam3 := dartboard.Point{X: 93.9, Y: 24.9}, dartboard.Point{X: 99.6, Y: 15.4}, dartboard.Point{X: 60.0, Y: 33.0}
-	p, err := FuseTips([]dartboard.Point{cam1, cam2, cam3})
+	p, err := FuseTips(equal([]dartboard.Point{cam1, cam2, cam3}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,5 +417,37 @@ func TestDetectIgnoresSpeckBelowTip(t *testing.T) {
 	want := dartboard.Point{X: 550, Y: 212} // where the point enters the board
 	if dist := math.Hypot(d.Tip.X-want.X, d.Tip.Y-want.Y); dist > 4 {
 		t.Errorf("tip at %.0f,%.0f px, want %.0f,%.0f (off by %.0f px)", d.Tip.X, d.Tip.Y, want.X, want.Y, dist)
+	}
+}
+
+// A dart hit by the next one moves a little; its outline then changes too, merges with
+// the new dart and makes the change too wide to be a dart. Real D1 next to a dart in
+// the 1 (2026-10-13, cam1 of event 95, after 93 and 94 since the takeout): with the
+// earlier darts known, the detection leaves them out.
+func TestDetectDartBesideMovedDart(t *testing.T) {
+	frames := func(n string) (*image.RGBA, *image.RGBA) {
+		return loadRGBA(t, "testdata/throws/"+n+"-cam1-before.jpg"), loadRGBA(t, "testdata/throws/"+n+"-cam1-after.jpg")
+	}
+	var earlier []image.Point
+	for _, n := range []string{"093", "094"} {
+		before, after := frames(n)
+		_, area, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier)
+		if err != nil {
+			t.Fatalf("event %s: %v", n, err)
+		}
+		earlier = append(earlier, area...)
+	}
+
+	before, after := frames("095")
+	if _, err := DetectDart(before, after, DefaultDetectOptions, ReferenceScale); err != ErrNotElongated {
+		t.Fatalf("without the earlier darts: %v, want ErrNotElongated", err)
+	}
+	d, _, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier)
+	if err != nil {
+		t.Fatalf("with the earlier darts: %v", err)
+	}
+	want := dartboard.Point{X: 985, Y: 320} // where the point enters the board, at the double's wire
+	if dist(d.Tip, want) > 4 {
+		t.Errorf("tip at %.0f,%.0f px, want %.0f,%.0f", d.Tip.X, d.Tip.Y, want.X, want.Y)
 	}
 }

@@ -139,8 +139,11 @@ func analyze(args []string) error {
 	if err != nil {
 		return err
 	}
+	// The changed pixels of the darts found per camera since the last takeout, like the
+	// detection remembers them: a dart moved by the next one is left out then.
+	earlier := map[string][]image.Point{}
 	for _, n := range events {
-		var points []dartboard.Point
+		var tips []vision.Tip
 		for _, cam := range calib.Cameras {
 			prefix := filepath.Join(*dir, fmt.Sprintf("%03d-%s", n, cam.Name))
 			before, err1 := readImage(prefix + "-before.jpg")
@@ -162,15 +165,17 @@ func analyze(args []string) error {
 			}
 
 			line := fmt.Sprintf("event %d %s: changed %d px", n, cam.Name, len(area))
-			if d, err := vision.DetectDart(before, after, opts, scale); err != nil {
+			if d, dartArea, err := vision.DetectDartBeside(before, after, opts, scale, earlier[cam.Name]); err != nil {
 				line += ", " + err.Error()
 			} else {
+				earlier[cam.Name] = append(earlier[cam.Name], dartArea...)
 				b := m.Tip(d, opts.TipShift)
-				line += fmt.Sprintf(", tip %.0f,%.0f px -> %.0f,%.0f mm %s", d.Tip.X, d.Tip.Y, b.X, b.Y, dartboard.Score(b).String())
+				radial, tangential := m.Resolution(b)
+				line += fmt.Sprintf(", tip %.0f,%.0f px -> %.0f,%.0f mm %s (%.1f/%.1f px/mm towards the center/along the ring)", d.Tip.X, d.Tip.Y, b.X, b.Y, dartboard.Score(b).String(), radial, tangential)
 				if b.Radius() > vision.MaxBoardRadius {
 					line += " (off the board, ignored)"
 				} else {
-					points = append(points, b)
+					tips = append(tips, vision.Tip{Point: b, Radial: radial, Tangential: tangential})
 				}
 				vision.DrawCross(annotated, d.Tip, 8, color.RGBA{0, 255, 0, 255})
 			}
@@ -179,8 +184,10 @@ func analyze(args []string) error {
 				return err
 			}
 		}
-		if p, err := vision.FuseTips(points); err == nil {
+		if p, err := vision.FuseTips(tips); err == nil {
 			fmt.Printf("event %d: %s at %.0f,%.0f mm\n", n, dartboard.Score(p).String(), p.X, p.Y)
+		} else {
+			clear(earlier) // no dart anywhere: most likely the darts were pulled out
 		}
 	}
 	if len(events) == 0 {
