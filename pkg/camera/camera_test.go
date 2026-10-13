@@ -113,4 +113,30 @@ func TestSwapBGRA(t *testing.T) {
 	if want := []byte{3, 2, 1, 255, 6, 5, 4, 255}; !bytes.Equal(to, want) {
 		t.Errorf("swapBGRA = %v, want %v", to, want)
 	}
+
+	// A row of an odd width, into a longer row of an image (only its start is written).
+	from := make([]byte, 4*1279)
+	for i := range from {
+		from[i] = byte(i * 7)
+	}
+	to = bytes.Repeat([]byte{9}, 4*1280)
+	swapBGRA(to, from)
+	for x := 0; x < len(from); x += 4 {
+		if want := []byte{from[x+2], from[x+1], from[x], 255}; !bytes.Equal(to[x:x+4], want) {
+			t.Fatalf("pixel %d = %v, want %v", x/4, to[x:x+4], want)
+		}
+	}
+	if !bytes.Equal(to[len(from):], []byte{9, 9, 9, 9}) {
+		t.Errorf("wrote beyond the row: %v", to[len(from):])
+	}
+}
+
+func BenchmarkSwapBGRA(b *testing.B) {
+	const w, h = 1280, 720
+	from, to := make([]byte, 4*w*h), make([]byte, 4*w*h)
+	for b.Loop() {
+		for y := range h {
+			swapBGRA(to[4*w*y:], from[4*w*y:4*w*(y+1)])
+		}
+	}
 }
