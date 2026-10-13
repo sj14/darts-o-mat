@@ -264,6 +264,25 @@ templ celebration(v service.GameView, p progress) {
 	}
 }
 
+// targetMark highlights the field to hit next in around the clock. A colored layer on
+// the field hardly showed on the cream fields (user, 2026-10-13), so the rest of the board
+// is dimmed instead: the field keeps its own colors, with a bright outline that pulses.
+templ targetMark(target uint8) {
+	<path d={ dimPath(target) } fill="#000" fill-opacity="0.6" fill-rule="evenodd" pointer-events="none"></path>
+	<path d={ targetPath(target) } fill="none" stroke={ boardTarget } stroke-width="4" stroke-linejoin="round" pointer-events="none"></path>
+	if target == throw.Bull {
+		// The bull is small on the board: a ring around it makes it easy to spot.
+		<circle cx="228" cy="228" r="26" fill="none" stroke={ boardTarget } stroke-width="4" pointer-events="none"></circle>
+	}
+	// A wide soft edge that lights up and fades.
+	<g class="animate-target" pointer-events="none">
+		<path d={ targetPath(target) } fill="none" stroke={ boardTarget } stroke-width="12" stroke-opacity="0.5" stroke-linejoin="round"></path>
+		if target == throw.Bull {
+			<circle cx="228" cy="228" r="26" fill="none" stroke={ boardTarget } stroke-width="12" stroke-opacity="0.5"></circle>
+		}
+	</g>
+}
+
 // dartboardView draws the board with the darts of the current turn and, in around the
 // clock, the field to hit next.
 templ dartboardView(v service.GameView, p progress) {
@@ -277,18 +296,7 @@ templ dartboardView(v service.GameView, p progress) {
 			<circle cx="228" cy="228" r={ strconv.FormatFloat(15.9, 'f', 1, 64) } fill={ boardGreen } stroke={ boardWire } stroke-width="0.8"></circle>
 			<circle cx="228" cy="228" r={ strconv.FormatFloat(6.35, 'f', 2, 64) } fill={ boardRed } stroke={ boardWire } stroke-width="0.8"></circle>
 			if target != 0 {
-				<path d={ targetPath(target) } fill={ boardTarget } fill-opacity="0.45" stroke={ boardTarget } stroke-width="3" stroke-linejoin="round"></path>
-				if target == throw.Bull {
-					// The bull is small on the board: a ring around it makes it easy to spot.
-					<circle cx="228" cy="228" r="26" fill="none" stroke={ boardTarget } stroke-width="4"></circle>
-				}
-				// Lights up on top of the marking: brighter, with a wide soft edge.
-				<g class="animate-target" pointer-events="none">
-					<path d={ targetPath(target) } fill={ boardTarget } fill-opacity="0.4" stroke={ boardTarget } stroke-width="10" stroke-opacity="0.45" stroke-linejoin="round"></path>
-					if target == throw.Bull {
-						<circle cx="228" cy="228" r="26" fill="none" stroke={ boardTarget } stroke-width="10" stroke-opacity="0.45"></circle>
-					}
-				</g>
+				@targetMark(target)
 			}
 			for _, n := range boardNumbers {
 				if target != 0 && n.Text == strconv.Itoa(int(target)) {
@@ -488,7 +496,7 @@ templ dartInput(v service.GameView, action string) {
 		{{ skips := v.Game.AroundTheClock.MultiplierSkips && target != throw.Bull }}
 		<div class="flex flex-col gap-3">
 			<div class={ "grid gap-2", templ.KV("grid-cols-2", !skips), templ.KV("grid-cols-3", skips) }>
-				@quickDart(action, target, 1, "Treffer "+targetLabel(target), skips, "h-24 bg-board-green text-5xl shadow-board-green/40")
+				@quickDart(action, target, 1, "Treffer", skips, "h-24 bg-board-green text-5xl shadow-board-green/40")
 				if skips {
 					@quickDart(action, target, 2, "D"+targetLabel(target), false, "h-16 bg-board-green/75 text-3xl shadow-board-green/30")
 					@quickDart(action, target, 3, "T"+targetLabel(target), false, "h-16 bg-board-green/75 text-3xl shadow-board-green/30")

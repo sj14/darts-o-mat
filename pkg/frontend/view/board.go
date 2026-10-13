@@ -106,6 +106,13 @@ func targetPath(target uint8) string {
 	return ringPath(dartboard.BullRadius, dartboard.DoubleOuterRadius, center-dartboard.SegmentAngle/2, center+dartboard.SegmentAngle/2)
 }
 
+// dimPath covers the playing area except the target field (with fill-rule evenodd).
+func dimPath(target uint8) string {
+	r := float64(dartboard.DoubleOuterRadius)
+	circle := fmt.Sprintf("M%g %gA%g %g 0 1 0 %g %gA%g %g 0 1 0 %g %gZ", boardCenter-r, boardCenter, r, r, boardCenter+r, boardCenter, r, r, boardCenter-r, boardCenter)
+	return circle + targetPath(target)
+}
+
 // boardTargetOf returns the field to highlight on the board, 0 for none: the current
 // player's target in around the clock, not while bulling off.
 func boardTargetOf(v service.GameView, p progress) uint8 {
