@@ -180,10 +180,13 @@ func ChangedArea(before, after *image.RGBA, opts DetectOptions, scale float64) [
 }
 
 // dartArea finds the pixels of the new dart. The changed area often falls apart: a dark
-// shaft on a black field doesn't show, so flight and barrel become separate pieces, and
-// the thin point may break off. The seed is the largest elongated piece (barrel and point;
-// for pieces that include the flight, their lower half must be elongated). Pieces on the
-// seed's axis, like the flight above, belong to the dart; specks elsewhere don't.
+// shaft on a black field doesn't show, so flight and barrel become separate pieces. The
+// seed is the largest elongated piece (barrel and point; for pieces that include the
+// flight, their lower half must be elongated). Pieces on the seed's axis above its lower
+// end, like the flight, belong to the dart; specks elsewhere don't. Below the seed is
+// board: a speck there on the axis (color noise at a ring's edge, 56 px below a real
+// dart's tip, 2026-10-13) would become the tip. Small gaps in the point are bridged
+// already (GapRadius); no real throw had a piece of the dart below the seed.
 func dartArea(before, after *image.RGBA, p detectParams) (seed, area []image.Point) {
 	mask := Diff(before, after, p.diff, p.weak, p.blur)
 	var comps [][]image.Point
@@ -213,14 +216,38 @@ func dartArea(before, after *image.RGBA, p detectParams) (seed, area []image.Poi
 
 	seed = comps[seedIndex]
 	center, axis, _ := principalAxis(lowerHalf(seed))
-	for _, c := range comps {
+	axis = downwards(axis)
+	end := extent(seed, axis) // the seed's lower end along the axis
+	area = slices.Clone(seed) // its own center may be off the axis, e.g. with a big flight
+	for i, c := range comps {
+		if i == seedIndex {
+			continue
+		}
 		cc, _, _ := principalAxis(c)
-		// Distance of the piece's center from the axis line.
-		if math.Abs((cc.X-center.X)*axis.Y-(cc.Y-center.Y)*axis.X) <= float64(p.axisDistance) {
+		// Distance of the piece's center from the axis line, and where the piece starts.
+		onAxis := math.Abs((cc.X-center.X)*axis.Y-(cc.Y-center.Y)*axis.X) <= float64(p.axisDistance)
+		if onAxis && -extent(c, dartboard.Point{X: -axis.X, Y: -axis.Y}) <= end {
 			area = append(area, c...)
 		}
 	}
 	return seed, area
+}
+
+// downwards turns an axis to point down in the image, towards the tip.
+func downwards(axis dartboard.Point) dartboard.Point {
+	if axis.Y < 0 || (axis.Y == 0 && axis.X < 0) {
+		return dartboard.Point{X: -axis.X, Y: -axis.Y}
+	}
+	return axis
+}
+
+// extent returns how far the points reach in a direction: their largest projection on it.
+func extent(pts []image.Point, dir dartboard.Point) float64 {
+	m := math.Inf(-1)
+	for _, p := range pts {
+		m = math.Max(m, float64(p.X)*dir.X+float64(p.Y)*dir.Y)
+	}
+	return m
 }
 
 // lowerHalf returns the pixels in the lower half of the area's height: for a dart that's
@@ -289,10 +316,7 @@ func principalAxis(pts []image.Point) (center, axis dartboard.Point, elongation 
 // board points up in the image.
 func tipOf(seed, area []image.Point) (Detection, error) {
 	_, axis, _ := principalAxis(lowerHalf(seed))
-	// Let the axis point down, towards the tip.
-	if axis.Y < 0 || (axis.Y == 0 && axis.X < 0) {
-		axis.X, axis.Y = -axis.X, -axis.Y
-	}
+	axis = downwards(axis) // towards the tip
 
 	ts := make([]float64, len(area))
 	for i, p := range area {

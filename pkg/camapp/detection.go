@@ -263,13 +263,17 @@ func saveEvent(dir string, n int, names []string, e *vision.Event) error {
 	return nil
 }
 
+// JPEGQuality is the quality frames are saved with for debugging: high, so the
+// detection on them works like on the original frames.
+const JPEGQuality = 95
+
 // WriteJPEG saves an image as JPEG.
 func WriteJPEG(path string, img image.Image) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
-	if err := jpeg.Encode(f, img, &jpeg.Options{Quality: 95}); err != nil {
+	if err := jpeg.Encode(f, img, &jpeg.Options{Quality: JPEGQuality}); err != nil {
 		f.Close()
 		return err
 	}

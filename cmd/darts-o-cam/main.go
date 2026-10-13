@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"syscall"
 	"time"
 
@@ -126,9 +127,12 @@ func analyze(args []string) error {
 		return err
 	}
 	calib, opts := cfg.Calibration(*configDir), cfg.Detection.Detect
-	for n := 1; ; n++ {
+	events, err := savedEvents(*dir)
+	if err != nil {
+		return err
+	}
+	for _, n := range events {
 		var points []dartboard.Point
-		found := false
 		for _, cam := range calib.Cameras {
 			prefix := filepath.Join(*dir, fmt.Sprintf("%03d-%s", n, cam.Name))
 			before, err1 := readImage(prefix + "-before.jpg")
@@ -136,7 +140,6 @@ func analyze(args []string) error {
 			if err1 != nil || err2 != nil {
 				continue
 			}
-			found = true
 
 			toBoard, err := cam.ToBoard()
 			if err != nil {
@@ -168,13 +171,32 @@ func analyze(args []string) error {
 				return err
 			}
 		}
-		if !found {
-			return nil
-		}
 		if p, err := vision.FuseTips(points); err == nil {
 			fmt.Printf("event %d: %s at %.0f,%.0f mm\n", n, dartboard.Score(p).String(), p.X, p.Y)
 		}
 	}
+	if len(events) == 0 {
+		return fmt.Errorf("no saved frames (like 001-cam1-before.jpg) in %s", *dir)
+	}
+	return nil
+}
+
+// savedEvents returns the numbers of the events with frames in dir, e.g. 30 for
+// 030-cam1-before.jpg, in order.
+func savedEvents(dir string) ([]int, error) {
+	files, err := filepath.Glob(filepath.Join(dir, "*-before.jpg"))
+	if err != nil {
+		return nil, err
+	}
+	var events []int
+	for _, f := range files {
+		var n int
+		if _, err := fmt.Sscanf(filepath.Base(f), "%d-", &n); err == nil && !slices.Contains(events, n) {
+			events = append(events, n)
+		}
+	}
+	slices.Sort(events)
+	return events, nil
 }
 
 func readImage(path string) (*image.RGBA, error) {

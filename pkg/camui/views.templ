@@ -84,6 +84,11 @@ type CalibrateModel struct {
 	Error     string
 }
 
+// eventFrameURL is the download of a camera's whole frame before or after an event.
+func eventFrameURL(id, camera int, kind string) string {
+	return "/event/" + strconv.Itoa(id) + "/cam/" + strconv.Itoa(camera) + "/" + kind + ".jpg"
+}
+
 func camURL(name, suffix string) string {
 	return "/cam/" + name + suffix
 }
@@ -460,7 +465,13 @@ templ EventPage(m EventModel) {
 		<div class="grid gap-4 md:grid-cols-3">
 			for _, c := range m.AllCameras {
 				<div>
-					<div class="mb-1 font-semibold"><span style={ "color: " + cameraColor(c.Index) }>●</span> { c.Name }</div>
+					<div class="mb-1 flex items-center justify-between gap-2">
+						<span class="font-semibold"><span style={ "color: " + cameraColor(c.Index) }>●</span> { c.Name }</span>
+						<span class="flex gap-3 text-sm">
+							<a href={ templ.URL(eventFrameURL(m.ID, c.Index, "before")) } class={ linkClass }>Vorher</a>
+							<a href={ templ.URL(eventFrameURL(m.ID, c.Index, "after")) } class={ linkClass }>Nachher</a>
+						</span>
+					</div>
 					<img src={ "/event/" + strconv.Itoa(m.ID) + "/cam/" + strconv.Itoa(c.Index) + ".jpg" } class="w-full rounded-2xl border border-white/10" alt={ "Bild von " + c.Name }/>
 				</div>
 			}

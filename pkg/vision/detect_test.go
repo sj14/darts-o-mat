@@ -357,3 +357,20 @@ func TestFuseTipsDropsOutlier(t *testing.T) {
 		t.Errorf("segment %d, want 13", got)
 	}
 }
+
+// A speck on the dart's axis below its tip isn't part of the dart (2026-10-13,
+// darts-o-cam event 30, a dart just outside the double 5): color noise at the triple
+// ring's edge, 56 px below the tip, was taken for the tip and scored 12, twice at the
+// same spot. Checked in pixels: the frames belong to a newer calibration than testdata's.
+func TestDetectIgnoresSpeckBelowTip(t *testing.T) {
+	before := loadRGBA(t, "testdata/throws/006-cam2-before.jpg")
+	after := loadRGBA(t, "testdata/throws/006-cam2-after.jpg")
+	d, err := DetectDart(before, after, DefaultDetectOptions, ReferenceScale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := dartboard.Point{X: 550, Y: 212} // where the point enters the board
+	if dist := math.Hypot(d.Tip.X-want.X, d.Tip.Y-want.Y); dist > 4 {
+		t.Errorf("tip at %.0f,%.0f px, want %.0f,%.0f (off by %.0f px)", d.Tip.X, d.Tip.Y, want.X, want.Y, dist)
+	}
+}

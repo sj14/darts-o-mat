@@ -97,6 +97,7 @@ func (ui *UI) Routes() http.Handler {
 	r.Get("/cam/{name}/features.jpg", ui.featuresImage)
 	r.Get("/event/{id}", ui.eventPage)
 	r.Get("/event/{id}/cam/{i}.jpg", ui.eventImage)
+	r.Get("/event/{id}/cam/{i}/{kind}.jpg", ui.eventFrame)
 	return r
 }
 
@@ -602,6 +603,27 @@ func (ui *UI) eventImage(w http.ResponseWriter, r *http.Request) {
 	writeJPEG(w, out)
 }
 
+// eventFrame serves a camera's whole frame before or after the event as a download, to
+// examine a misdetection; named like the frames darts-o-cam -save writes (e.g.
+// 028-cam3-before.jpg), so darts-o-cam analyze reads them.
+func (ui *UI) eventFrame(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
+	i, err := strconv.Atoi(chi.URLParam(r, "i"))
+	e, ok := ui.app.Event(id)
+	if !ok || err != nil || i < 0 || i >= len(e.Cameras) {
+		http.NotFound(w, r)
+		return
+	}
+	kind := chi.URLParam(r, "kind")
+	frames := map[string][]*image.RGBA{"before": e.Before, "after": e.After}[kind]
+	if i >= len(frames) || frames[i] == nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%03d-%s-%s.jpg"`, e.ID, e.Cameras[i], kind))
+	writeJPEGQuality(w, frames[i], camapp.JPEGQuality)
+}
+
 func render(w http.ResponseWriter, r *http.Request, c templ.Component) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := c.Render(r.Context(), w); err != nil {
@@ -610,8 +632,12 @@ func render(w http.ResponseWriter, r *http.Request, c templ.Component) {
 }
 
 func writeJPEG(w http.ResponseWriter, img image.Image) {
+	writeJPEGQuality(w, img, 85)
+}
+
+func writeJPEGQuality(w http.ResponseWriter, img image.Image, quality int) {
 	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 85}); err != nil {
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: quality}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

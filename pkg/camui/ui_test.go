@@ -70,6 +70,7 @@ func TestEventPages(t *testing.T) {
 		Dart:    throw.Dart{Number: 4, Multiplier: 1},
 		Cameras: map[int]dartboard.Point{0: {X: 74, Y: 66}, 1: {X: 71, Y: 69}, 2: {X: 69, Y: 67}},
 		Tips:    map[int]dartboard.Point{0: {X: 826, Y: 342}, 1: {X: 495, Y: 249}, 2: {X: 765, Y: 228}},
+		Before:  frames,
 		After:   frames,
 	}})
 	app.AddEvent(camapp.Event{Cameras: names, ReportErr: errors.New("no game"), Event: &vision.Event{Kind: vision.EventTakeout, After: frames}})
@@ -91,6 +92,32 @@ func TestEventPages(t *testing.T) {
 	if code, body := get(t, srv, "/event/1/cam/0.jpg"); code != 200 || !strings.HasPrefix(body, "\xff\xd8") {
 		t.Errorf("event image: %d, not a JPEG", code)
 	}
+	if !strings.Contains(body, `href="/event/1/cam/2/before.jpg"`) || !strings.Contains(body, `href="/event/1/cam/2/after.jpg"`) {
+		t.Errorf("event page: links to the whole frames missing")
+	}
+
+	// The whole frames download under the names darts-o-cam -save uses.
+	resp, err := http.Get(srv.URL + "/event/1/cam/2/before.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame, _, err := image.Decode(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("whole frame: %v", err)
+	}
+	if got := resp.Header.Get("Content-Disposition"); got != `attachment; filename="001-cam3-before.jpg"` {
+		t.Errorf("whole frame: Content-Disposition %q", got)
+	}
+	if frame.Bounds().Dx() != 1280 {
+		t.Errorf("whole frame is %v, want the camera's 1280×720", frame.Bounds())
+	}
+	for _, path := range []string{"/event/1/cam/3/before.jpg", "/event/1/cam/0/during.jpg", "/event/99/cam/0/after.jpg"} {
+		if code, _ := get(t, srv, path); code != 404 {
+			t.Errorf("%s: %d, want 404", path, code)
+		}
+	}
+
 	if code, _ := get(t, srv, "/event/99"); code != 404 {
 		t.Errorf("unknown event: %d, want 404", code)
 	}
