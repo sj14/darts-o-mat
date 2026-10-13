@@ -2,7 +2,7 @@
 
 Camera access directly from the operating system, without external programs: macOS (AVFoundation via [purego](https://github.com/ebitengine/purego)), Linux (V4L2 via ioctl with `golang.org/x/sys/unix`) and Windows (Media Foundation via COM with `golang.org/x/sys/windows`); other systems return `camera.ErrUnsupported`.
 Decided with the user on 2026-10-11; **macOS, Linux and Windows implemented**.
-Used by [darts-o-cam](../../cmd/darts-o-cam/AGENTS.md) (via `pkg/vision`); project-wide rules: [root AGENTS.md](../../AGENTS.md). For humans: [README.md](README.md). The development board's hardware: [darts-o-cam → hardware](../../cmd/darts-o-cam/AGENTS.md#hardware).
+Used by [darts-o-cam](../../cmd/darts-o-cam/AGENTS.md) (via `pkg/vision`); project-wide rules: [root AGENTS.md](../../AGENTS.md). For humans: [README.md](README.md). Open tasks: [TODO.md](TODO.md). The development board's hardware: [darts-o-cam → hardware](../../cmd/darts-o-cam/AGENTS.md#hardware).
 
 ## Goal and decisions
 

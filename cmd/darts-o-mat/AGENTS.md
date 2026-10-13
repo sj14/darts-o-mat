@@ -1,7 +1,7 @@
 # darts-o-mat (server)
 
 The web server: web interface, JSON API, accounts, games, game state and statistics.
-Project-wide rules, the shared stack and how server and camera work together: [root AGENTS.md](../../AGENTS.md). For humans: [README.md](README.md). The camera side: [darts-o-cam](../darts-o-cam/AGENTS.md).
+Project-wide rules, the shared stack and how server and camera work together: [root AGENTS.md](../../AGENTS.md). For humans: [README.md](README.md). Open tasks: [TODO.md](TODO.md). The camera side: [darts-o-cam](../darts-o-cam/AGENTS.md).
 
 ## Requirements
 

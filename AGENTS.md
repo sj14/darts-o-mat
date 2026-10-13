@@ -14,19 +14,19 @@ The project consists of two programs:
 
 The documents are split by area and link to each other:
 
-| Area | For humans | For agents |
-| --- | --- | --- |
-| Whole project | [`README.md`](README.md) | this file |
-| Server | [`cmd/darts-o-mat/README.md`](cmd/darts-o-mat/README.md) | [`cmd/darts-o-mat/AGENTS.md`](cmd/darts-o-mat/AGENTS.md) |
-| Camera | [`cmd/darts-o-cam/README.md`](cmd/darts-o-cam/README.md) | [`cmd/darts-o-cam/AGENTS.md`](cmd/darts-o-cam/AGENTS.md) |
-| Camera access | [`pkg/camera/README.md`](pkg/camera/README.md) | [`pkg/camera/AGENTS.md`](pkg/camera/AGENTS.md) |
+| Area | For humans | For agents | Open tasks |
+| --- | --- | --- | --- |
+| Whole project | [`README.md`](README.md) | this file | [`TODO.md`](TODO.md) |
+| Server | [`cmd/darts-o-mat/README.md`](cmd/darts-o-mat/README.md) | [`cmd/darts-o-mat/AGENTS.md`](cmd/darts-o-mat/AGENTS.md) | [`cmd/darts-o-mat/TODO.md`](cmd/darts-o-mat/TODO.md) |
+| Camera | [`cmd/darts-o-cam/README.md`](cmd/darts-o-cam/README.md) | [`cmd/darts-o-cam/AGENTS.md`](cmd/darts-o-cam/AGENTS.md) | [`cmd/darts-o-cam/TODO.md`](cmd/darts-o-cam/TODO.md) |
+| Camera access | [`pkg/camera/README.md`](pkg/camera/README.md) | [`pkg/camera/AGENTS.md`](pkg/camera/AGENTS.md) | [`pkg/camera/TODO.md`](pkg/camera/TODO.md) |
 
 - All documentation is written in English (user's decision, 2026-10-12). The user interface stays German for now (translations are on the TODO list).
 - Whatever concerns the whole project (goal, rules, shared stack, structure, how server and camera work together) goes into the documents in the root folder. Whatever concerns only the server or only the camera goes into its folder; details of camera access per operating system go into `pkg/camera`. Don't maintain anything twice, link instead.
 - `README.md` files are for humans only: short, clear and understandable without prior knowledge (what is it, how do I start it, how do I try it).
   No implementation details, architecture or instructions for agents in the READMEs; those belong in the `AGENTS.md` files.
 - When something changes that affects users (starting, game modes, usage), update the matching README as well.
-- Open tasks for all parts live in one [`TODO.md`](TODO.md) in the root, grouped by the same areas.
+- Open tasks live in a `TODO.md` per area, next to its README (split by area on 2026-10-13, before that one file in the root): a task of a single part goes into its folder, one that concerns several parts or the whole project into the root [`TODO.md`](TODO.md), which links to the others.
 
 ## Code quality
 
