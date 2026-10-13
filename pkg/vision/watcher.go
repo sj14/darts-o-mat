@@ -58,8 +58,8 @@ type Event struct {
 	Kind  EventKind
 	Board dartboard.Point // for darts: the fused position in mm
 	Dart  throw.Dart
-	// Cameras are the positions on the board in mm seen by the cameras that found the dart, by camera index.
-	Cameras map[int]dartboard.Point
+	// Cameras are the positions on the board seen by the cameras that found the dart, by camera index.
+	Cameras map[int]Tip
 	// Tips are where those cameras found the tip in their image, in pixels.
 	Tips map[int]dartboard.Point
 	// Before and After are the still frames of all cameras the event was decided on.
@@ -168,7 +168,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		return w.takeout(ref, frames)
 	}
 
-	e := &Event{Kind: EventDart, Cameras: map[int]dartboard.Point{}, Tips: map[int]dartboard.Point{}, Before: ref, After: frames}
+	e := &Event{Kind: EventDart, Cameras: map[int]Tip{}, Tips: map[int]dartboard.Point{}, Before: ref, After: frames}
 	var tips []Tip
 	for i, f := range frames {
 		w.rememberDart(i, f.Bounds(), areas[i])
@@ -180,10 +180,11 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		if p.Radius() > MaxBoardRadius {
 			continue // e.g. a reflection outside the board was taken for the dart
 		}
-		e.Cameras[i] = p
-		e.Tips[i] = d.Tip
 		radial, tangential := w.maps[i].Resolution(p)
-		tips = append(tips, Tip{Point: p, Radial: radial, Tangential: tangential})
+		tip := Tip{Point: p, Radial: radial, Tangential: tangential, Hidden: d.Hidden}
+		e.Cameras[i] = tip
+		e.Tips[i] = d.Tip
+		tips = append(tips, tip)
 	}
 	board, err := FuseTips(tips)
 	if err != nil {
@@ -196,36 +197,11 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 }
 
 // removed reports whether the change took darts away rather than adding one.
-// With images of the empty board: the changed area looks more like the empty board
-// afterwards. Without them: the change lies mostly where darts seen earlier are.
+// With images of the empty board: see PulledOut. Without them: the change lies mostly
+// where darts seen earlier are.
 func (w *Watcher) removed(before, after []*image.RGBA, areas [][]image.Point) bool {
 	if len(w.Empty) == len(after) {
-		// Each camera votes on its own: one camera whose exposure changed while a hand was
-		// in front of it differs from the empty board almost everywhere and would outweigh
-		// the others in a sum (seen on a real takeout: 0.06 and 0.08 vs. 1.9).
-		var votes, cameras, beforeSum, afterSum int
-		for i, area := range areas {
-			if len(area) == 0 {
-				continue
-			}
-			var beforeDiff, afterDiff int
-			for _, p := range area {
-				beforeDiff += pixelDiff(before[i], w.Empty[i], p)
-				afterDiff += pixelDiff(after[i], w.Empty[i], p)
-			}
-			// Measured on real events: about 0.05 for darts pulled out (0.55 when a
-			// neighboring dart moved, too), 4 to 17 for darts thrown.
-			if afterDiff < beforeDiff {
-				votes++
-			}
-			cameras++
-			beforeSum += beforeDiff
-			afterSum += afterDiff
-		}
-		if votes*2 == cameras {
-			return afterSum < beforeSum // a tie
-		}
-		return votes*2 > cameras
+		return PulledOut(before, after, w.Empty, areas)
 	}
 
 	var inside, total int
@@ -240,6 +216,38 @@ func (w *Watcher) removed(before, after []*image.RGBA, areas [][]image.Point) bo
 		}
 	}
 	return total > 0 && inside*2 > total
+}
+
+// PulledOut reports whether a change took darts out of the board rather than adding
+// one: the changed areas (per camera) look more like the empty board afterwards. Comparing
+// images can't tell a dart that appeared from one that disappeared.
+func PulledOut(before, after, empty []*image.RGBA, areas [][]image.Point) bool {
+	// Each camera votes on its own: one camera whose exposure changed while a hand was
+	// in front of it differs from the empty board almost everywhere and would outweigh
+	// the others in a sum (seen on a real takeout: 0.06 and 0.08 vs. 1.9).
+	var votes, cameras, beforeSum, afterSum int
+	for i, area := range areas {
+		if len(area) == 0 {
+			continue
+		}
+		var beforeDiff, afterDiff int
+		for _, p := range area {
+			beforeDiff += pixelDiff(before[i], empty[i], p)
+			afterDiff += pixelDiff(after[i], empty[i], p)
+		}
+		// Measured on real events: about 0.05 for darts pulled out (0.55 when a
+		// neighboring dart moved, too), 4 to 17 for darts thrown.
+		if afterDiff < beforeDiff {
+			votes++
+		}
+		cameras++
+		beforeSum += beforeDiff
+		afterSum += afterDiff
+	}
+	if votes*2 == cameras {
+		return afterSum < beforeSum // a tie
+	}
+	return votes*2 > cameras
 }
 
 // pixelDiff returns the largest difference of a pixel's color channels between two images.

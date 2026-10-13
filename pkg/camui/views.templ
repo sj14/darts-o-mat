@@ -39,6 +39,10 @@ type CameraPoint struct {
 	Name  string
 	Board dartboard.Point
 	Label string
+	// Radial and Tangential are the camera's resolution at the dart (px/mm), Hidden
+	// that it may not see the tip (see vision.Tip).
+	Radial, Tangential float64
+	Hidden             bool
 }
 
 type CheckModel struct {
@@ -440,7 +444,7 @@ templ EventPage(m EventModel) {
 				<div class="rounded-3xl border border-white/10 bg-pub-900/80 p-5">
 					<table class="w-full text-sm tabular-nums">
 						<thead class="text-left text-xs uppercase tracking-wider text-white/50">
-							<tr><th class="py-2">Kamera</th><th class="py-2 text-right">Position (mm)</th><th class="py-2 text-right">Abstand zur Mitte</th><th class="py-2 pl-3">Feld</th></tr>
+							<tr><th class="py-2">Kamera</th><th class="py-2 text-right">Position (mm)</th><th class="py-2 text-right">Abstand zur Mitte</th><th class="py-2 text-right">Auflösung (px/mm)</th><th class="py-2 pl-3">Feld</th></tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
 							for _, c := range m.Cameras {
@@ -448,18 +452,25 @@ templ EventPage(m EventModel) {
 									<td class="py-2"><span style={ "color: " + cameraColor(c.Index) }>●</span> { c.Name }</td>
 									<td class="py-2 text-right">{ mm(c.Board.X) }, { mm(c.Board.Y) }</td>
 									<td class="py-2 text-right">{ mm(c.Board.Radius()) }</td>
-									<td class="py-2 pl-3">{ c.Label }</td>
+									<td class="py-2 text-right">{ mm(c.Radial) } / { mm(c.Tangential) }</td>
+									<td class="py-2 pl-3">
+										{ c.Label }
+										if c.Hidden {
+											<span class="text-white/40">(verdeckt)</span>
+										}
+									</td>
 								</tr>
 							}
 							<tr class="font-bold">
 								<td class="py-2">✕ Ergebnis</td>
 								<td class="py-2 text-right">{ mm(m.Board.X) }, { mm(m.Board.Y) }</td>
 								<td class="py-2 text-right">{ mm(m.Board.Radius()) }</td>
+								<td></td>
 								<td class="py-2 pl-3 text-amber-300">{ m.Label }</td>
 							</tr>
 						</tbody>
 					</table>
-					<p class="mt-3 text-sm text-white/50">Grenzen: Triple 99–107 mm, Doppel 162–170 mm, Bull bis 15,9 mm, Bullseye bis 6,35 mm. Das Ergebnis ist der Median der Abstände zur Mitte und der Median der Winkel (nahe der Mitte: Median pro Koordinate).</p>
+					<p class="mt-3 text-sm text-white/50">Grenzen: Triple 99–107 mm, Doppel 162–170 mm, Bull bis 15,9 mm, Bullseye bis 6,35 mm. Auflösung: Pixel pro mm an dieser Stelle, zur Mitte hin / entlang des Rings. Das Ergebnis kombiniert die Abstände zur Mitte und die Winkel getrennt, jede Kamera zählt mit dem Quadrat ihrer Auflösung in dieser Richtung: ab drei Kameras der gewichtete Median, bei zwei der gewichtete Mittelwert (nahe der Mitte pro Koordinate). Endet die Spitze einer Kamera an einem früheren Pfeil („verdeckt“), zählt sie nur, wenn keine andere Kamera den Pfeil sieht.</p>
 				</div>
 			</div>
 		}

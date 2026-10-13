@@ -139,11 +139,23 @@ func analyze(args []string) error {
 	if err != nil {
 		return err
 	}
+	// The images of the empty board, to tell darts pulled out like the detection does.
+	var empty []*image.RGBA
+	for _, cam := range calib.Cameras {
+		if img, err := calib.LoadEmpty(cam); err == nil && img != nil {
+			empty = append(empty, img)
+		}
+	}
 	// The changed pixels of the darts found per camera since the last takeout, like the
 	// detection remembers them: a dart moved by the next one is left out then.
 	earlier := map[string][]image.Point{}
 	for _, n := range events {
-		var tips []vision.Tip
+		type frames struct {
+			cam           vision.CameraCalibration
+			before, after *image.RGBA
+			area          []image.Point
+		}
+		var cams []frames
 		for _, cam := range calib.Cameras {
 			prefix := filepath.Join(*dir, fmt.Sprintf("%03d-%s", n, cam.Name))
 			before, err1 := readImage(prefix + "-before.jpg")
@@ -151,36 +163,55 @@ func analyze(args []string) error {
 			if err1 != nil || err2 != nil {
 				continue
 			}
-
 			m, err := cam.Mapping()
 			if err != nil {
 				return err
 			}
+			cams = append(cams, frames{cam, before, after, vision.ChangedArea(before, after, opts, vision.PixelScale(m.ToBoard))})
+		}
+		if len(cams) == len(empty) && len(cams) > 0 {
+			var before, after []*image.RGBA
+			var areas [][]image.Point
+			for _, c := range cams {
+				before, after, areas = append(before, c.before), append(after, c.after), append(areas, c.area)
+			}
+			if vision.PulledOut(before, after, empty, areas) {
+				fmt.Printf("event %d: darts pulled out\n", n)
+				clear(earlier)
+				continue
+			}
+		}
+
+		var tips []vision.Tip
+		for _, c := range cams {
+			m, _ := c.cam.Mapping()
 			scale := vision.PixelScale(m.ToBoard)
-			area := vision.ChangedArea(before, after, opts, scale)
-			annotated := image.NewRGBA(after.Bounds())
-			copy(annotated.Pix, after.Pix)
-			for _, p := range area {
+			annotated := image.NewRGBA(c.after.Bounds())
+			copy(annotated.Pix, c.after.Pix)
+			for _, p := range c.area {
 				annotated.SetRGBA(p.X, p.Y, color.RGBA{255, 0, 0, 255})
 			}
 
-			line := fmt.Sprintf("event %d %s: changed %d px", n, cam.Name, len(area))
-			if d, dartArea, err := vision.DetectDartBeside(before, after, opts, scale, earlier[cam.Name]); err != nil {
+			line := fmt.Sprintf("event %d %s: changed %d px", n, c.cam.Name, len(c.area))
+			if d, dartArea, err := vision.DetectDartBeside(c.before, c.after, opts, scale, earlier[c.cam.Name]); err != nil {
 				line += ", " + err.Error()
 			} else {
-				earlier[cam.Name] = append(earlier[cam.Name], dartArea...)
+				earlier[c.cam.Name] = append(earlier[c.cam.Name], dartArea...)
 				b := m.Tip(d, opts.TipShift)
 				radial, tangential := m.Resolution(b)
 				line += fmt.Sprintf(", tip %.0f,%.0f px -> %.0f,%.0f mm %s (%.1f/%.1f px/mm towards the center/along the ring)", d.Tip.X, d.Tip.Y, b.X, b.Y, dartboard.Score(b).String(), radial, tangential)
+				if d.Hidden {
+					line += ", ends on an earlier dart (may be hidden)"
+				}
 				if b.Radius() > vision.MaxBoardRadius {
 					line += " (off the board, ignored)"
 				} else {
-					tips = append(tips, vision.Tip{Point: b, Radial: radial, Tangential: tangential})
+					tips = append(tips, vision.Tip{Point: b, Radial: radial, Tangential: tangential, Hidden: d.Hidden})
 				}
 				vision.DrawCross(annotated, d.Tip, 8, color.RGBA{0, 255, 0, 255})
 			}
 			fmt.Println(line)
-			if err := camapp.WriteJPEG(filepath.Join(*out, fmt.Sprintf("%03d-%s-analyzed.jpg", n, cam.Name)), annotated); err != nil {
+			if err := camapp.WriteJPEG(filepath.Join(*out, fmt.Sprintf("%03d-%s-analyzed.jpg", n, c.cam.Name)), annotated); err != nil {
 				return err
 			}
 		}

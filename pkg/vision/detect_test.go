@@ -352,6 +352,21 @@ func TestFuseTipsWeighted(t *testing.T) {
 	if p, _ := FuseTips(tips); math.Abs(p.Radius()-163.3) > 0.01 {
 		t.Errorf("three cameras: %.2f mm, want 163.3", p.Radius())
 	}
+
+	// A camera whose tip ends on an earlier dart only counts if no other camera found it
+	// (real T20 behind two darts in the 20, event 37: cam3 at 91.2 mm).
+	hidden := []Tip{
+		{Point: dartboard.Polar(98.6, 7), Radial: 1.8, Tangential: 1.1},
+		{Point: dartboard.Polar(99.9, 7), Radial: 0.7, Tangential: 1.4},
+		{Point: dartboard.Polar(91.2, 14), Radial: 1.8, Tangential: 1.5, Hidden: true},
+	}
+	want = (98.6*1.8*1.8 + 99.9*0.7*0.7) / (1.8*1.8 + 0.7*0.7)
+	if p, _ := FuseTips(hidden); math.Abs(p.Radius()-want) > 0.01 {
+		t.Errorf("with a hidden camera: %.2f mm, want %.2f (the other two)", p.Radius(), want)
+	}
+	if p, _ := FuseTips(hidden[2:]); math.Abs(p.Radius()-91.2) > 0.01 {
+		t.Errorf("only a hidden camera: %.2f mm, want its 91.2", p.Radius())
+	}
 }
 
 // TestBlur compares the running-sum blur with averaging each neighborhood directly.
@@ -449,5 +464,8 @@ func TestDetectDartBesideMovedDart(t *testing.T) {
 	want := dartboard.Point{X: 985, Y: 320} // where the point enters the board, at the double's wire
 	if dist(d.Tip, want) > 4 {
 		t.Errorf("tip at %.0f,%.0f px, want %.0f,%.0f", d.Tip.X, d.Tip.Y, want.X, want.Y)
+	}
+	if d.Hidden {
+		t.Error("the tip is free next to the earlier dart, not hidden by it")
 	}
 }

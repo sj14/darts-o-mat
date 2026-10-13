@@ -560,8 +560,11 @@ func eventModel(e camapp.Event) EventModel {
 	if !m.Takeout {
 		m.Label = e.Dart.String()
 		m.Board = e.Board
-		for i, p := range e.Event.Cameras {
-			m.Cameras = append(m.Cameras, CameraPoint{Index: i, Name: e.Cameras[i], Board: p, Label: dartboard.Score(p).String()})
+		for i, t := range e.Event.Cameras {
+			m.Cameras = append(m.Cameras, CameraPoint{
+				Index: i, Name: e.Cameras[i], Board: t.Point, Label: dartboard.Score(t.Point).String(),
+				Radial: t.Radial, Tangential: t.Tangential, Hidden: t.Hidden,
+			})
 		}
 		slices.SortFunc(m.Cameras, func(a, b CameraPoint) int { return a.Index - b.Index })
 	}

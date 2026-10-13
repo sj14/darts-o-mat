@@ -65,13 +65,17 @@ func TestEventPages(t *testing.T) {
 	}
 	names := []string{"cam1", "cam2", "cam3"}
 	app.AddEvent(camapp.Event{Cameras: names, Game: 12, Event: &vision.Event{
-		Kind:    vision.EventDart,
-		Board:   dartboard.Point{X: 71, Y: 67},
-		Dart:    throw.Dart{Number: 4, Multiplier: 1},
-		Cameras: map[int]dartboard.Point{0: {X: 74, Y: 66}, 1: {X: 71, Y: 69}, 2: {X: 69, Y: 67}},
-		Tips:    map[int]dartboard.Point{0: {X: 826, Y: 342}, 1: {X: 495, Y: 249}, 2: {X: 765, Y: 228}},
-		Before:  frames,
-		After:   frames,
+		Kind:  vision.EventDart,
+		Board: dartboard.Point{X: 71, Y: 67},
+		Dart:  throw.Dart{Number: 4, Multiplier: 1},
+		Cameras: map[int]vision.Tip{
+			0: {Point: dartboard.Point{X: 74, Y: 66}, Radial: 1.8, Tangential: 1.3},
+			1: {Point: dartboard.Point{X: 71, Y: 69}, Radial: 0.7, Tangential: 1.4},
+			2: {Point: dartboard.Point{X: 69, Y: 67}, Radial: 1.9, Tangential: 1.1, Hidden: true},
+		},
+		Tips:   map[int]dartboard.Point{0: {X: 826, Y: 342}, 1: {X: 495, Y: 249}, 2: {X: 765, Y: 228}},
+		Before: frames,
+		After:  frames,
 	}})
 	app.AddEvent(camapp.Event{Cameras: names, ReportErr: errors.New("no game"), Event: &vision.Event{Kind: vision.EventTakeout, After: frames}})
 
@@ -88,6 +92,9 @@ func TestEventPages(t *testing.T) {
 	code, body = get(t, srv, "/event/1")
 	if code != 200 || !strings.Contains(body, "<svg") || !strings.Contains(body, "97.6") {
 		t.Errorf("event page: %d, sketch or distance missing", code)
+	}
+	if !strings.Contains(body, "0.7 / 1.4") || !strings.Contains(body, "(verdeckt)") {
+		t.Error("event page: resolution or hidden camera missing")
 	}
 	if code, body := get(t, srv, "/event/1/cam/0.jpg"); code != 200 || !strings.HasPrefix(body, "\xff\xd8") {
 		t.Errorf("event image: %d, not a JPEG", code)

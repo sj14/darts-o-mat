@@ -66,6 +66,10 @@ type Detection struct {
 	Tip    dartboard.Point // in image pixels
 	Pixels int             // size of the changed area
 	Axis   dartboard.Point // unit vector from the tip towards the flight, in image pixels
+	// Hidden tells that the tip found ends on a dart thrown earlier: the dart's point
+	// may be behind it, and the tip is just where it disappears (2026-10-13, event 37:
+	// 7 mm too far inside, a T20 behind two darts in the 20).
+	Hidden bool
 }
 
 // ToRGBA converts an image to RGBA with its bounds starting at 0,0.
@@ -194,7 +198,13 @@ func DetectDartBeside(before, after *image.RGBA, opts DetectOptions, scale float
 func detect(before, after *image.RGBA, p detectParams, darts *Mask) (Detection, []image.Point, error) {
 	mask := Diff(before, after, p.diff, p.weak, p.blur)
 	d, area, err := detectIn(mask, p)
-	if err != ErrNotElongated || darts == nil {
+	if darts == nil {
+		return d, area, err
+	}
+	if err == nil {
+		d.Hidden = darts.at(int(math.Round(d.Tip.X)), int(math.Round(d.Tip.Y)))
+	}
+	if err != ErrNotElongated {
 		return d, area, err
 	}
 	without := &Mask{W: mask.W, H: mask.H, Pix: slices.Clone(mask.Pix)}
@@ -204,6 +214,7 @@ func detect(before, after *image.RGBA, p detectParams, darts *Mask) (Detection, 
 		}
 	}
 	if d2, area2, err2 := detectIn(without, p); err2 == nil {
+		d2.Hidden = darts.at(int(math.Round(d2.Tip.X)), int(math.Round(d2.Tip.Y)))
 		return d2, area2, nil
 	}
 	return d, area, err
@@ -406,6 +417,8 @@ type Tip struct {
 	// with their square, the precision of a position found to about a pixel: the same
 	// spot can be 0.6 px/mm in one camera and 2.3 in another. 0 counts as 1.
 	Radial, Tangential float64
+	// Hidden tells that the camera may not see the tip, see Detection.Hidden.
+	Hidden bool
 }
 
 // FuseTips combines the dart positions on the board seen by several cameras.
@@ -427,10 +440,15 @@ type Tip struct {
 // Near the center the cameras surround the dart and their angles say nothing: then it
 // combines each coordinate.
 //
+// Cameras whose tip may be hidden only count if no other camera found the dart.
+//
 // A camera far from that result is dropped and the others are combined again.
 // Otherwise the median of three takes whichever of the two good cameras is closer to
 // the bad one, instead of the middle between them.
 func FuseTips(tips []Tip) (dartboard.Point, error) {
+	if visible := slices.DeleteFunc(slices.Clone(tips), func(t Tip) bool { return t.Hidden }); len(visible) > 0 {
+		tips = visible
+	}
 	p, err := fuse(tips)
 	if err != nil || len(tips) < 3 {
 		return p, err
