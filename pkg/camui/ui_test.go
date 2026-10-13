@@ -67,9 +67,10 @@ func TestEventPages(t *testing.T) {
 	}
 	names := []string{"cam1", "cam2", "cam3"}
 	app.AddEvent(camapp.Event{Cameras: names, Game: 12, Event: &vision.Event{
-		Kind:  vision.EventDart,
-		Board: dartboard.Point{X: 71, Y: 67},
-		Dart:  throw.Dart{Number: 4, Multiplier: 1},
+		Kind:    vision.EventDart,
+		Board:   dartboard.Point{X: 71, Y: 67},
+		Dart:    throw.Dart{Number: 4, Multiplier: 1},
+		Located: true,
 		Cameras: map[int]vision.Tip{
 			0: {Point: dartboard.Point{X: 74, Y: 66}, Radial: 1.8, Tangential: 1.3},
 			1: {Point: dartboard.Point{X: 71, Y: 69}, Radial: 0.7, Tangential: 1.4},

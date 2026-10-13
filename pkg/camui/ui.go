@@ -600,7 +600,7 @@ func eventModel(e camapp.Event) EventModel {
 	}
 	if !m.Takeout {
 		m.Label = e.Dart.String()
-		m.Board = e.Board
+		m.Board, m.Located = e.Board, e.Located
 		for i, t := range e.Event.Cameras {
 			m.Cameras = append(m.Cameras, CameraPoint{
 				Index: i, Name: e.Cameras[i], Board: t.Point, Label: dartboard.Score(t.Point).String(),

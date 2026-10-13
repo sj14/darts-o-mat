@@ -3,6 +3,7 @@ package vision
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"math"
 	"slices"
 	"testing"
@@ -228,5 +229,44 @@ func TestWatcherRemovedExposure(t *testing.T) {
 				t.Errorf("removed = %v, want %v", got, tt.removed)
 			}
 		})
+	}
+}
+
+// A change no camera finds a dart in, that isn't darts pulled out either (told by the
+// empty board), is a miss without a position: e.g. a dart far out in the surround,
+// where the cameras took a thin change along the board's rim for it (2026-10-13).
+func TestWatcherUnlocatedMiss(t *testing.T) {
+	calib, err := LoadCalibration("testdata/calibration.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cam, _ := calib.Camera("cam3")
+	toBoard, err := cam.ToBoard()
+	if err != nil {
+		t.Fatal(err)
+	}
+	empty := loadRGBA(t, "testdata/cam3-empty.jpg")
+	// Something round in the image's corner, like a flight seen from behind: no dart shape.
+	blob := image.NewRGBA(empty.Bounds())
+	copy(blob.Pix, empty.Pix)
+	for y := 620; y < 680; y++ {
+		for x := 60; x < 120; x++ {
+			blob.SetRGBA(x, y, color.RGBA{30, 60, 170, 255})
+		}
+	}
+
+	w := NewWatcher([]Mapping{{ToBoard: toBoard}}, DefaultWatchOptions)
+	w.Empty = []*image.RGBA{empty}
+	var events []*Event
+	for _, f := range []*image.RGBA{empty, empty, blob, blob, blob, blob} {
+		if e := w.Feed([]*image.RGBA{f}); e != nil {
+			events = append(events, e)
+		}
+	}
+	if len(events) != 1 {
+		t.Fatalf("got %d events, want 1", len(events))
+	}
+	if e := events[0]; e.Kind != EventDart || !e.Dart.Miss || e.Located {
+		t.Errorf("got %s %+v, located %v; want a miss without position", e.Kind, e.Dart, e.Located)
 	}
 }

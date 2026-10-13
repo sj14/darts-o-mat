@@ -155,9 +155,11 @@ func (a *App) handle(ctx context.Context, d detection, e *vision.Event) {
 		}
 		log.Printf("dart: %s at %.1f,%.1f mm (%d cameras:%s)", e.Dart.String(), e.Board.X, e.Board.Y, len(e.Cameras), cams)
 		if d.server != nil {
-			// The position goes along for the statistics.
+			// The position goes along for the statistics, if the cameras found it.
 			dart := e.Dart
-			dart.X, dart.Y = &e.Board.X, &e.Board.Y
+			if e.Located {
+				dart.X, dart.Y = &e.Board.X, &e.Board.Y
+			}
 			ev.Game, ev.ReportErr = d.server.dart(ctx, dart)
 		}
 	case vision.EventTakeout:

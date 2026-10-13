@@ -56,8 +56,11 @@ const (
 // Event is something that happened on the board.
 type Event struct {
 	Kind  EventKind
-	Board dartboard.Point // for darts: the fused position in mm
-	Dart  throw.Dart
+	Board dartboard.Point // for darts: the fused position in mm; for a miss no camera located, zero
+	// Located tells a dart whose position the cameras found from a miss they didn't
+	// locate (see Watcher.Feed).
+	Located bool
+	Dart    throw.Dart
 	// Cameras are the positions on the board seen by the cameras that found the dart, by camera index.
 	Cameras map[int]Tip
 	// Tips are where those cameras found the tip in their image, in pixels.
@@ -188,10 +191,17 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	}
 	board, err := FuseTips(tips)
 	if err != nil {
-		// Something changed, but no camera saw a dart: most likely darts were pulled out.
-		return w.takeout(ref, frames)
+		if len(w.Empty) != len(frames) {
+			// Something changed, but no camera saw a dart: most likely darts were pulled out.
+			return w.takeout(ref, frames)
+		}
+		// With the empty board, a takeout is told apart above: this was a dart no camera
+		// located, e.g. far out in the surround, where a thin change along the board's rim
+		// (the surround moved when hit) was taken for it (2026-10-13). A miss.
+		e.Dart = throw.Dart{Miss: true}
+		return e
 	}
-	e.Board = board
+	e.Board, e.Located = board, true
 	e.Dart = dartboard.Score(board)
 	return e
 }

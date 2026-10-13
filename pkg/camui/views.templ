@@ -26,6 +26,7 @@ type EventModel struct {
 	Takeout bool
 	Label   string          // the scored dart
 	Board   dartboard.Point // fused position in mm
+	Located bool            // whether the cameras found the dart's position (see vision.Event)
 	Cameras []CameraPoint   // the cameras that found the dart
 	// AllCameras lists every camera, for the images.
 	AllCameras []CameraPoint
@@ -423,14 +424,22 @@ templ Check(m CheckModel) {
 				Liegen die blauen Linien auf den echten Drähten und sind fast alle Punkte grün, stimmt die Kalibrierung.
 			</p>
 			<div class="mb-4 flex flex-wrap items-center gap-3">
-				<span>@badge(strconv.Itoa(m.Good), "bg-board-green/25 text-emerald-300")
-≤ 1 px</span>
-				<span>@badge(strconv.Itoa(m.Fair), "bg-amber-400/20 text-amber-300")
-≤ 2 px</span>
-				<span>@badge(strconv.Itoa(m.Poor), "bg-board-red/25 text-red-300")
-weiter daneben</span>
-				<span>@badge(strconv.Itoa(m.Outliers), "bg-board-red/25 text-red-300")
-verworfen (z. B. Pfeil davor)</span>
+				<span>
+					@badge(strconv.Itoa(m.Good), "bg-board-green/25 text-emerald-300")
+					≤ 1 px
+				</span>
+				<span>
+					@badge(strconv.Itoa(m.Fair), "bg-amber-400/20 text-amber-300")
+					≤ 2 px
+				</span>
+				<span>
+					@badge(strconv.Itoa(m.Poor), "bg-board-red/25 text-red-300")
+					weiter daneben
+				</span>
+				<span>
+					@badge(strconv.Itoa(m.Outliers), "bg-board-red/25 text-red-300")
+					verworfen (z. B. Pfeil davor)
+				</span>
 				<span class="text-white/50">mittlere Abweichung { strconv.FormatFloat(m.RMS, 'f', 2, 64) } px</span>
 			</div>
 			<p class="mb-4 text-sm text-white/50">Das ist nur eine Prüfung, gespeichert wird nichts. Stecken Pfeile im Board, erscheinen an ihnen verworfene Punkte; das ist in Ordnung.</p>
@@ -452,7 +461,10 @@ templ EventPage(m EventModel) {
 				{ m.Label }
 			}
 		</h1>
-		if !m.Takeout {
+		if !m.Takeout && !m.Located {
+			@notice("Etwas hat sich verändert und es wurden keine Pfeile herausgezogen, aber keine Kamera hat den Pfeil auf dem Board gefunden: gezählt als Daneben, ohne Position.", "border-white/15 bg-white/5 text-white/70")
+		}
+		if !m.Takeout && m.Located {
 			<div class="mb-6 grid items-start gap-6 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
 				@boardSketch(m)
 				<div class="rounded-3xl border border-white/10 bg-pub-900/80 p-5">

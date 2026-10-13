@@ -216,9 +216,12 @@ func analyze(args []string) error {
 				return err
 			}
 		}
-		if p, err := vision.FuseTips(tips); err == nil {
+		switch p, err := vision.FuseTips(tips); {
+		case err == nil:
 			fmt.Printf("event %d: %s at %.0f,%.0f mm\n", n, dartboard.Score(p).String(), p.X, p.Y)
-		} else {
+		case len(cams) == len(empty):
+			fmt.Printf("event %d: a miss no camera located (nothing was pulled out)\n", n)
+		default:
 			clear(earlier) // no dart anywhere: most likely the darts were pulled out
 		}
 	}
