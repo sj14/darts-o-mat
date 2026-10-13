@@ -1,0 +1,23 @@
+# darts-o-cam without a desktop, e.g. on a Raspberry Pi next to the board:
+#   sudo systemctl enable --now darts-o-cam
+# The web interface is then reachable from other devices on port 8090. It has no
+# login: only in a network you trust.
+[Unit]
+Description=darts-o-cam: detects darts with the board's cameras
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/darts-o-cam -ui none -addr :8090 -dir /var/lib/darts-o-cam
+DynamicUser=yes
+# The cameras.
+SupplementaryGroups=video
+# Configuration and calibration in /var/lib/darts-o-cam, the frames of the last
+# detections in /var/cache/darts-o-cam.
+StateDirectory=darts-o-cam
+CacheDirectory=darts-o-cam
+Environment=XDG_CACHE_HOME=/var/cache
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

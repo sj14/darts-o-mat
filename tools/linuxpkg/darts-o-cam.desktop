@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=darts-o-cam
+GenericName=Darts-Erkennung
+Comment=Erkennt Pfeile mit den Kameras am Dartboard und trägt sie bei darts-o-mat ein
+Exec=darts-o-cam
+Icon=darts-o-cam
+Terminal=false
+Categories=Game;Utility;
+Keywords=darts;dartboard;camera;

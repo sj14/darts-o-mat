@@ -4,3 +4,5 @@
 /cam*.jpg
 # macOS app bundle of darts-o-cam (go run ./tools/macapp)
 /darts-o-cam.app
+# Linux packages of darts-o-cam (go run ./tools/linuxpkg)
+/dist/

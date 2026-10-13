@@ -71,6 +71,8 @@ New features build on the existing stack; don't introduce additional frameworks 
 - `pkg/camui`: web interface of `darts-o-cam` (darts-o-cam)
 - `tools/tailwind`: downloads and runs the Tailwind CLI for `go generate`
 - `tools/macapp`: builds darts-o-cam as a macOS app bundle, see [camera → app](cmd/darts-o-cam/AGENTS.md#app)
+- `tools/linuxpkg`: builds darts-o-cam's Linux packages (.deb, .rpm, .tar.gz), same place
+- `tools/internal/appicon`: the app icon for both, rendered from `favicon.svg`
 
 What the server packages do in detail is under [server → structure](cmd/darts-o-mat/AGENTS.md#structure), the camera packages under [camera → structure](cmd/darts-o-cam/AGENTS.md#structure).
 
