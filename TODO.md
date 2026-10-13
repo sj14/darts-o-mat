@@ -9,3 +9,5 @@ Open tasks of the whole project. Tasks of a single part are in its own file:
 ## Whole project
 
 - Translations: English user interface (currently German only).
+- Add a landing page instead of just the login screen.
+- Add a github project page
