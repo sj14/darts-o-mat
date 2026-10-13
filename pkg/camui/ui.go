@@ -97,6 +97,7 @@ func (ui *UI) Routes() http.Handler {
 	r.Post("/cam/{name}/refine", ui.refineAgain)
 	r.Get("/cam/{name}/check", ui.checkPage)
 	r.Get("/cam/{name}/features.jpg", ui.featuresImage)
+	r.Get("/events/stream", ui.eventStream)
 	r.Get("/event/{id}", ui.eventPage)
 	r.Get("/event/{id}/cam/{i}.jpg", ui.eventImage)
 	r.Get("/event/{id}/cam/{i}/{kind}.jpg", ui.eventFrame)
@@ -131,9 +132,7 @@ func (ui *UI) overview(w http.ResponseWriter, r *http.Request) {
 	for _, c := range ui.app.Cameras() {
 		m.Cameras = append(m.Cameras, cameraModel(c))
 	}
-	for _, e := range ui.app.Events() {
-		m.Events = append(m.Events, eventModel(e))
-	}
+	m.Events = ui.events()
 	render(w, r, Overview(m))
 }
 
@@ -549,6 +548,48 @@ func dot(img *image.RGBA, p dartboard.Point, c color.Color) {
 		for dx := -1; dx <= 1; dx++ {
 			img.Set(x+dx, y+dy, c)
 		}
+	}
+}
+
+func (ui *UI) events() []EventModel {
+	var events []EventModel
+	for _, e := range ui.app.Events() {
+		events = append(events, eventModel(e))
+	}
+	return events
+}
+
+// eventStream sends the list of the latest detections whenever there is a new one
+// (Server-Sent Events, event "events"), so the overview shows them without reloading.
+func (ui *UI) eventStream(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		return
+	}
+	changes, stop := ui.app.WatchEvents()
+	defer stop()
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-changes:
+		}
+		var buf bytes.Buffer
+		if err := eventList(ui.events()).Render(r.Context(), &buf); err != nil {
+			log.Printf("render events: %v", err)
+			return
+		}
+		fmt.Fprint(w, "event: events\n")
+		for _, line := range strings.Split(buf.String(), "\n") {
+			fmt.Fprintf(w, "data: %s\n", line)
+		}
+		fmt.Fprint(w, "\n")
+		flusher.Flush()
 	}
 }
 

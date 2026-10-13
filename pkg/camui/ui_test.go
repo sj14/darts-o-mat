@@ -1,6 +1,8 @@
 package camui
 
 import (
+	"bufio"
+	"context"
 	"errors"
 	"image"
 	_ "image/jpeg"
@@ -225,5 +227,49 @@ func TestNewCreatesDir(t *testing.T) {
 	defer app.Close()
 	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
 		t.Errorf("config directory not created: %v", err)
+	}
+}
+
+// The overview's list of detections updates itself: the stream sends the new list after
+// every detection.
+func TestEventStream(t *testing.T) {
+	app, srv := newUI(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/events/stream", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); ct != "text/event-stream" {
+		t.Fatalf("content type %q", ct)
+	}
+
+	// The response has started: the stream is watching.
+	frames := []*image.RGBA{image.NewRGBA(image.Rect(0, 0, 4, 4))}
+	app.AddEvent(camapp.Event{Cameras: []string{"cam1"}, Event: &vision.Event{
+		Kind:    vision.EventDart,
+		Dart:    throw.Dart{Number: 19, Multiplier: 3},
+		Cameras: map[int]vision.Tip{0: {}},
+		Before:  frames,
+		After:   frames,
+	}})
+
+	sc := bufio.NewScanner(resp.Body)
+	var event strings.Builder
+	for sc.Scan() {
+		line := sc.Text()
+		if line == "" && event.Len() > 0 {
+			break
+		}
+		event.WriteString(line + "\n")
+	}
+	if got := event.String(); !strings.HasPrefix(got, "event: events\n") || !strings.Contains(got, "T19") || !strings.Contains(got, `href="/event/1"`) {
+		t.Errorf("stream sent %q, want the list with the new detection", got)
+	}
+
+	if _, body := get(t, srv, "/"); !strings.Contains(body, `sse-connect="/events/stream"`) || !strings.Contains(body, "/static/htmx-ext-sse.min.js") {
+		t.Error("overview doesn't connect to the stream")
 	}
 }

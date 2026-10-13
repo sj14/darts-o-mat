@@ -159,6 +159,8 @@ templ layout(title string) {
 			<title>{ title } · darts-o-cam</title>
 			<link rel="icon" href="/static/favicon.svg" type="image/svg+xml"/>
 			<link rel="stylesheet" href="/static/tailwind.css"/>
+			<script src="/static/htmx.min.js"></script>
+			<script src="/static/htmx-ext-sse.min.js"></script>
 		</head>
 		<body class="min-h-screen text-white antialiased">
 			<header class="border-b border-white/10 bg-pub-950/80">
@@ -298,26 +300,34 @@ templ Overview(m OverviewModel) {
 			}
 		</div>
 		@sectionTitle("Letzte Erkennungen")
-		if len(m.Events) == 0 {
-			<p class="text-white/50">Noch keine. Sie erscheinen hier, sobald die Erkennung Würfe sieht.</p>
-		} else {
-			<ul class="flex flex-col gap-1">
-				for _, e := range m.Events {
-					<li>
-						<a href={ templ.URL("/event/" + strconv.Itoa(e.ID)) } class="flex flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2 transition hover:bg-white/5">
-							<span class="tabular-nums text-white/50">{ e.Time }</span>
-							if e.Takeout {
-								<span class="text-white/50">Pfeile herausgezogen</span>
-							} else {
-								<span><span class="font-display text-2xl font-extrabold">{ e.Label }</span> <span class="text-sm text-white/40">({ strconv.Itoa(len(e.Cameras)) } Kameras)</span></span>
-							}
-							@reportResult(e)
-						</a>
-					</li>
-				}
-			</ul>
-		}
+		// The list swaps itself whenever darts-o-cam detects something (Server-Sent Events).
+		<div hx-ext="sse" sse-connect="/events/stream" sse-swap="events">
+			@eventList(m.Events)
+		</div>
 		<p class="mt-8 text-sm text-white/40">Kalibrierung und Einstellungen liegen auf diesem Rechner in { m.Dir } und funktionieren mit jedem darts-o-mat-Server.</p>
+	}
+}
+
+// eventList is the list of the latest detections, newest first.
+templ eventList(events []EventModel) {
+	if len(events) == 0 {
+		<p class="text-white/50">Noch keine. Sie erscheinen hier, sobald die Erkennung Würfe sieht.</p>
+	} else {
+		<ul class="flex flex-col gap-1">
+			for _, e := range events {
+				<li>
+					<a href={ templ.URL("/event/" + strconv.Itoa(e.ID)) } class="flex flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2 transition hover:bg-white/5">
+						<span class="tabular-nums text-white/50">{ e.Time }</span>
+						if e.Takeout {
+							<span class="text-white/50">Pfeile herausgezogen</span>
+						} else {
+							<span><span class="font-display text-2xl font-extrabold">{ e.Label }</span> <span class="text-sm text-white/40">({ strconv.Itoa(len(e.Cameras)) } Kameras)</span></span>
+						}
+						@reportResult(e)
+					</a>
+				</li>
+			}
+		</ul>
 	}
 }
 
@@ -413,10 +423,14 @@ templ Check(m CheckModel) {
 				Liegen die blauen Linien auf den echten Drähten und sind fast alle Punkte grün, stimmt die Kalibrierung.
 			</p>
 			<div class="mb-4 flex flex-wrap items-center gap-3">
-				<span>@badge(strconv.Itoa(m.Good), "bg-board-green/25 text-emerald-300") ≤ 1 px</span>
-				<span>@badge(strconv.Itoa(m.Fair), "bg-amber-400/20 text-amber-300") ≤ 2 px</span>
-				<span>@badge(strconv.Itoa(m.Poor), "bg-board-red/25 text-red-300") weiter daneben</span>
-				<span>@badge(strconv.Itoa(m.Outliers), "bg-board-red/25 text-red-300") verworfen (z. B. Pfeil davor)</span>
+				<span>@badge(strconv.Itoa(m.Good), "bg-board-green/25 text-emerald-300")
+≤ 1 px</span>
+				<span>@badge(strconv.Itoa(m.Fair), "bg-amber-400/20 text-amber-300")
+≤ 2 px</span>
+				<span>@badge(strconv.Itoa(m.Poor), "bg-board-red/25 text-red-300")
+weiter daneben</span>
+				<span>@badge(strconv.Itoa(m.Outliers), "bg-board-red/25 text-red-300")
+verworfen (z. B. Pfeil davor)</span>
 				<span class="text-white/50">mittlere Abweichung { strconv.FormatFloat(m.RMS, 'f', 2, 64) } px</span>
 			</div>
 			<p class="mb-4 text-sm text-white/50">Das ist nur eine Prüfung, gespeichert wird nichts. Stecken Pfeile im Board, erscheinen an ihnen verworfene Punkte; das ist in Ordnung.</p>

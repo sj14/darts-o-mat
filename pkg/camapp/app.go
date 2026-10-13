@@ -34,10 +34,12 @@ type App struct {
 	snapMu sync.Mutex
 	snaps  map[string]*snapshot // device ID → frame of a device that isn't a board camera
 
-	evMu   sync.Mutex // guards events, nextID and status
+	evMu   sync.Mutex // guards events, nextID, status and watchers
 	events []Event    // newest last
 	nextID int
 	status Status
+	// watchers are told about every new detection, see WatchEvents.
+	watchers map[chan struct{}]struct{}
 }
 
 // Options are settings of darts-o-cam that aren't kept in the configuration.
@@ -81,7 +83,7 @@ func New(dir string, opts Options) (*App, error) {
 	if err := os.MkdirAll(opts.FrameDir, 0o755); err != nil {
 		return nil, err
 	}
-	a := &App{dir: dir, opts: opts, cfg: cfg, snaps: map[string]*snapshot{}}
+	a := &App{dir: dir, opts: opts, cfg: cfg, snaps: map[string]*snapshot{}, watchers: map[chan struct{}]struct{}{}}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.openCameras()

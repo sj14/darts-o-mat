@@ -30,7 +30,7 @@ On a desktop the web interface opens in the browser (<http://localhost:8090>). E
 
 Under "Einstellungen" you can also change the image size and frame rate and, for unusual setups, the thresholds of the detection; they are given in millimetres on the board and adapt to each camera's resolution and distance by themselves.
 
-The overview shows what the cameras detected for the last throws and whether the server took them, and lets you check ("Raster prüfen") whether the calibration still fits the board. If it warns that the grid doesn't fit, calibrate again. After plugging a camera in or out, click "Kameras neu verbinden".
+The overview shows what the cameras detected for the last throws (new ones appear by themselves) and whether the server took them, and lets you check ("Raster prüfen") whether the calibration still fits the board. If it warns that the grid doesn't fit, calibrate again. After plugging a camera in or out, click "Kameras neu verbinden".
 
 Calibration and settings stay on this computer, so the same board works with any darts-o-mat server. They are kept in your user folder (macOS: `~/Library/Application Support/darts-o-cam`, Linux: `~/.config/darts-o-cam`, Windows: `%AppData%\darts-o-cam`); another folder can be chosen with `-dir`.
 
