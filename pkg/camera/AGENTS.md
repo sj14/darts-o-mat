@@ -6,7 +6,7 @@ Used by [darts-o-cam](../../cmd/darts-o-cam/AGENTS.md) (via `pkg/vision`); proje
 
 ## Goal and decisions
 
-- **Goal:** darts-o-cam without external programs on Linux, macOS and Windows. Without cgo is desired, but not a must.
+- **Goal:** darts-o-cam without external programs on Linux, macOS and Windows. Without cgo is desired, but not a must (see [root AGENTS.md → technologies](../../AGENTS.md#technologies)).
 - **No ffmpeg fallback** (user's decision): ffmpeg is out completely.
 - GoCV was rejected, see [root AGENTS.md → technologies](../../AGENTS.md#technologies).
 
