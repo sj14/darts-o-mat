@@ -7,9 +7,9 @@ The detection is still in progress, but already works for normal throws. It runs
 ## Requirements
 
 - [Go](https://go.dev/dl/) is installed, the cameras are connected to this computer.
-- **macOS:** started from the terminal, macOS asks on the first start whether the terminal may use the cameras. As an app of its own (Dock icon, double click, asks for "darts-o-cam"), build it with `go run ./tools/macapp` and start `darts-o-cam.app`; move it e.g. to `~/Applications`. After building it again, macOS may ask again.
+- **macOS:** started from the terminal, macOS asks on the first start whether the terminal may use the cameras. As an app of its own (Dock icon, double click, asks for "darts-o-cam"), build it with `make macapp` and start `darts-o-cam.app`; move it e.g. to `~/Applications`. After building it again, macOS may ask again.
 - **Windows:** under Settings → "Privacy & security → Camera", camera access for desktop apps must be allowed. Only one program can use a camera at a time.
-- **Linux:** packages (.deb, .rpm, .tar.gz for amd64 and arm64, e.g. a Raspberry Pi) can be built with `go run ./tools/linuxpkg` (into `dist/`). They add a menu entry and a service for running it without a desktop: `sudo systemctl enable --now darts-o-cam` (web interface on port 8090 for other devices). For the window of its own WebKitGTK must be installed, otherwise darts-o-cam opens the browser. Your user must be allowed to access the cameras (usually via the group `video`). If libjpeg-turbo is installed (Debian/Ubuntu/Raspberry Pi OS: `libturbojpeg0`, Arch: `libjpeg-turbo`), darts-o-cam needs considerably less computing power.
+- **Linux:** packages (.deb, .rpm, .tar.gz for amd64 and arm64, e.g. a Raspberry Pi) can be built with `make linux` (into `dist/`). They add a menu entry and a service for running it without a desktop: `sudo systemctl enable --now darts-o-cam` (web interface on port 8090 for other devices). For the window of its own WebKitGTK must be installed, otherwise darts-o-cam opens the browser. Your user must be allowed to access the cameras (usually via the group `video`). If libjpeg-turbo is installed (Debian/Ubuntu/Raspberry Pi OS: `libturbojpeg0`, Arch: `libjpeg-turbo`), darts-o-cam needs considerably less computing power.
 
 More about the supported systems: [camera support](../../pkg/camera/README.md).
 

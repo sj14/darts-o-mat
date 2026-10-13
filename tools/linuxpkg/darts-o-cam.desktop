@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=darts-o-cam
-GenericName=Darts-Erkennung
-Comment=Erkennt Pfeile mit den Kameras am Dartboard und trägt sie bei darts-o-mat ein
+GenericName=Dart detection
+Comment=Detects darts with the cameras at the dartboard and enters them in darts-o-mat
 Exec=darts-o-cam
 Icon=darts-o-cam
 Terminal=false

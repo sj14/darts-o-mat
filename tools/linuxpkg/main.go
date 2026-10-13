@@ -1,8 +1,10 @@
 // Command linuxpkg builds the Linux packages of darts-o-cam, for amd64 and arm64
 // (e.g. a Raspberry Pi):
 //
-//	go run ./tools/linuxpkg              # into dist/
-//	go run ./tools/linuxpkg -o out -version 1.2.3
+//	go -C tools/linuxpkg run .                     # into dist/ of the project
+//	go -C tools/linuxpkg run . -o /tmp/pkgs -version 1.2.3
+//
+// It is a module of its own, so nFPM and its dependencies stay out of the project's go.mod.
 //
 // Per architecture a .deb, an .rpm and a .tar.gz, each with the program, a menu entry
 // (darts-o-cam.desktop), icons and a systemd service for running it without a desktop
@@ -61,15 +63,29 @@ var suggests = map[string][]string{
 
 func main() {
 	log.SetFlags(0)
-	out := flag.String("o", "dist", "directory for the packages")
-	version := flag.String("version", gitVersion(), "version of the packages")
+	root, err := projectDir()
+	if err != nil {
+		log.Fatalf("linuxpkg: %v", err)
+	}
+	out := flag.String("o", filepath.Join(root, "dist"), "directory for the packages")
+	version := flag.String("version", gitVersion(root), "version of the packages")
 	flag.Parse()
-	if err := build(*out, strings.TrimPrefix(*version, "v")); err != nil {
+	if err := build(root, *out, strings.TrimPrefix(*version, "v")); err != nil {
 		log.Fatalf("linuxpkg: %v", err)
 	}
 }
 
-func build(out, version string) error {
+// projectDir returns the directory of the darts-o-mat module, which this one replaces
+// with ../.. (see go.mod).
+func projectDir() (string, error) {
+	dir, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/sj14/darts-o-mat").Output()
+	if err != nil {
+		return "", fmt.Errorf("find the project: %w", err)
+	}
+	return strings.TrimSpace(string(dir)), nil
+}
+
+func build(root, out, version string) error {
 	work, err := os.MkdirTemp("", "linuxpkg-*")
 	if err != nil {
 		return err
@@ -106,6 +122,7 @@ func build(out, version string) error {
 	for _, arch := range []string{"amd64", "arm64"} {
 		bin := filepath.Join(work, arch, name)
 		goBuild := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", bin, "./cmd/"+name)
+		goBuild.Dir = root
 		goBuild.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux", "GOARCH="+arch)
 		goBuild.Stdout, goBuild.Stderr = os.Stdout, os.Stderr
 		if err := goBuild.Run(); err != nil {
@@ -210,8 +227,10 @@ func addFile(tw *tar.Writer, src, dst string, mode os.FileMode) error {
 // gitVersion returns the version from the latest git tag, e.g. 1.2.3 for v1.2.3. Without
 // such a tag, or with commits or changes since, it is marked as a development build:
 // 0.0.0+git.abc1234 (dpkg and rpm sort that before 0.0.1).
-func gitVersion() string {
-	desc, err := exec.Command("git", "describe", "--tags", "--always", "--dirty").Output()
+func gitVersion(root string) string {
+	describe := exec.Command("git", "describe", "--tags", "--always", "--dirty")
+	describe.Dir = root
+	desc, err := describe.Output()
 	if err != nil {
 		return "0.0.0+unknown"
 	}

@@ -89,7 +89,7 @@ func version() string {
 }
 
 // infoPlist describes the bundle. NSCameraUsageDescription is the explanation macOS shows
-// when asking for camera access (in German, like the user interface).
+// when asking for camera access.
 func infoPlist(version string) string {
 	var b bytes.Buffer
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
@@ -106,7 +106,7 @@ func infoPlist(version string) string {
 		{"CFBundleIconFile", "AppIcon"},
 		{"CFBundleShortVersionString", version},
 		{"CFBundleVersion", version},
-		{"NSCameraUsageDescription", "darts-o-cam erkennt mit den Kameras am Board die geworfenen Pfeile."},
+		{"NSCameraUsageDescription", "darts-o-cam detects the darts thrown with the cameras at the board."},
 	} {
 		fmt.Fprintf(&b, "\t<key>%s</key>\n\t<string>", kv[0])
 		_ = xml.EscapeText(&b, []byte(kv[1]))

@@ -42,6 +42,6 @@ func showError(err error) {
 	w.SetTitle("darts-o-cam")
 	w.SetSize(520, 220, glaze.HintNone)
 	w.SetHtml(`<body style="margin:0;padding:24px;background:#0f1216;color:#f4e6ca;font:16px -apple-system,system-ui,sans-serif">` +
-		`<h2 style="margin-top:0;color:#db2b33">darts-o-cam konnte nicht starten</h2><p>` + html.EscapeString(err.Error()) + `</p></body>`)
+		`<h2 style="margin-top:0;color:#db2b33">darts-o-cam could not start</h2><p>` + html.EscapeString(err.Error()) + `</p></body>`)
 	w.Run()
 }
