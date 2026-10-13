@@ -1,15 +1,18 @@
 package camui
 
 import (
+	"errors"
 	"image"
 	_ "image/jpeg"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/sj14/darts-o-mat/pkg/camapp"
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/vision"
@@ -29,32 +32,84 @@ func loadRGBA(t *testing.T, path string) *image.RGBA {
 	return vision.ToRGBA(img)
 }
 
-func TestEventPages(t *testing.T) {
-	calib, err := vision.LoadCalibration("../vision/testdata/calibration.json")
+// newUI serves an app without cameras, with its configuration in a temporary directory.
+func newUI(t *testing.T) (*camapp.App, *httptest.Server) {
+	t.Helper()
+	app, err := camapp.New(t.TempDir(), camapp.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	ui := New("calibration.json", calib, nil)
+	t.Cleanup(app.Close)
+	srv := httptest.NewServer(New(app).Routes())
+	t.Cleanup(srv.Close)
+	return app, srv
+}
+
+func get(t *testing.T, srv *httptest.Server, path string) (int, string) {
+	t.Helper()
+	resp, err := http.Get(srv.URL + path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, string(body)
+}
+
+func TestEventPages(t *testing.T) {
+	app, srv := newUI(t)
 	frames := []*image.RGBA{
 		loadRGBA(t, "../vision/testdata/cam1.jpg"),
 		loadRGBA(t, "../vision/testdata/cam2.jpg"),
 		loadRGBA(t, "../vision/testdata/cam3.jpg"),
 	}
-	ui.AddEvent(&vision.Event{
+	names := []string{"cam1", "cam2", "cam3"}
+	app.AddEvent(camapp.Event{Cameras: names, Game: 12, Event: &vision.Event{
 		Kind:    vision.EventDart,
 		Board:   dartboard.Point{X: 71, Y: 67},
 		Dart:    throw.Dart{Number: 4, Multiplier: 1},
 		Cameras: map[int]dartboard.Point{0: {X: 74, Y: 66}, 1: {X: 71, Y: 69}, 2: {X: 69, Y: 67}},
 		Tips:    map[int]dartboard.Point{0: {X: 826, Y: 342}, 1: {X: 495, Y: 249}, 2: {X: 765, Y: 228}},
 		After:   frames,
-	})
-	ui.AddEvent(&vision.Event{Kind: vision.EventTakeout, After: frames})
+	}})
+	app.AddEvent(camapp.Event{Cameras: names, ReportErr: errors.New("no game"), Event: &vision.Event{Kind: vision.EventTakeout, After: frames}})
 
-	srv := httptest.NewServer(ui.Routes())
-	defer srv.Close()
-	get := func(path string) (int, string) {
+	code, body := get(t, srv, "/")
+	if code != 200 || !strings.Contains(body, ">4<") || !strings.Contains(body, "herausgezogen") {
+		t.Errorf("overview: %d, events missing", code)
+	}
+	if !strings.Contains(body, "Spiel 12") || !strings.Contains(body, "no game") {
+		t.Errorf("overview: what the server did is missing")
+	}
+	if !strings.Contains(body, "wartet auf eine kalibrierte Kamera") {
+		t.Errorf("overview: detection status missing")
+	}
+	code, body = get(t, srv, "/event/1")
+	if code != 200 || !strings.Contains(body, "<svg") || !strings.Contains(body, "97.6") {
+		t.Errorf("event page: %d, sketch or distance missing", code)
+	}
+	if code, body := get(t, srv, "/event/1/cam/0.jpg"); code != 200 || !strings.HasPrefix(body, "\xff\xd8") {
+		t.Errorf("event image: %d, not a JPEG", code)
+	}
+	if code, _ := get(t, srv, "/event/99"); code != 404 {
+		t.Errorf("unknown event: %d, want 404", code)
+	}
+	if code, _ := get(t, srv, "/cam/cam9/calibrate"); code != 404 {
+		t.Errorf("unknown camera: %d, want 404", code)
+	}
+}
+
+func TestSettings(t *testing.T) {
+	app, srv := newUI(t)
+	post := func(values url.Values) (int, string) {
 		t.Helper()
-		resp, err := http.Get(srv.URL + path)
+		// The detection's thresholds as the form shows them, unless given.
+		for _, f := range detectionFields(vision.DefaultWatchOptions) {
+			if !values.Has(f.Name) {
+				values.Set(f.Name, f.Value)
+			}
+		}
+		resp, err := http.PostForm(srv.URL+"/settings", values)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -63,18 +118,62 @@ func TestEventPages(t *testing.T) {
 		return resp.StatusCode, string(body)
 	}
 
-	// The overview needs cameras for their live images; without any it still lists events.
-	if code, body := get("/"); code != 200 || !strings.Contains(body, ">4<") || !strings.Contains(body, "herausgezogen") {
-		t.Errorf("overview: %d, events missing", code)
+	code, body := post(url.Values{"server": {"http://darts.local:3000/"}, "token": {" abc "}, "size": {"640x480"}, "fps": {"15"}})
+	if code != 200 || !strings.Contains(body, "Gespeichert") {
+		t.Errorf("save: %d, not saved", code)
 	}
-	code, body := get("/event/1")
-	if code != 200 || !strings.Contains(body, "<svg") || !strings.Contains(body, "97.6") {
-		t.Errorf("event page: %d, sketch or distance missing", code)
+	want := camapp.Settings{Server: "http://darts.local:3000", Token: "abc", Width: 640, Height: 480, FPS: 15, Detection: app.Settings().Detection}
+	if got := app.Settings(); got != want {
+		t.Errorf("settings = %+v, want %+v", got, want)
 	}
-	if code, body := get("/event/1/cam/0.jpg"); code != 200 || !strings.HasPrefix(body, "\xff\xd8") {
-		t.Errorf("event image: %d, not a JPEG", code)
+	if blur := want.Detection.Detect.Blur; blur != 1.42 {
+		t.Errorf("blur = %v mm, want 1.42 as shown in the form", blur)
 	}
-	if code, _ := get("/event/99"); code != 404 {
-		t.Errorf("unknown event: %d, want 404", code)
+	if _, body := get(t, srv, "/"); !strings.Contains(body, "http://darts.local:3000") {
+		t.Errorf("overview doesn't show the server")
+	}
+
+	if _, body := post(url.Values{"server": {"darts.local"}, "size": {"640x480"}, "fps": {"15"}}); !strings.Contains(body, "Ungültige Einstellungen") {
+		t.Errorf("server without scheme: no error shown")
+	}
+	if _, body := post(url.Values{"size": {"640x480"}, "fps": {"15"}, "weak_threshold": {"30"}}); !strings.Contains(body, "Ungültige Einstellungen") {
+		t.Errorf("weak threshold above the strong one: no error shown")
+	}
+	if got := app.Settings(); got != want {
+		t.Errorf("invalid settings were stored: %+v", got)
+	}
+
+	resp, err := http.PostForm(srv.URL+"/settings/defaults", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if got := app.Settings().Detection; got != vision.DefaultWatchOptions {
+		t.Errorf("after resetting: detection %+v, want the defaults", got)
+	}
+	want.Detection = vision.DefaultWatchOptions
+
+	// The settings are kept for the next start.
+	again, err := camapp.New(app.Dir(), camapp.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer again.Close()
+	if got := again.Settings(); got != want {
+		t.Errorf("settings after a restart = %+v, want %+v", got, want)
+	}
+}
+
+// The configuration directory doesn't exist before the first start: the cameras'
+// images are saved into it when a camera is added, before any configuration is.
+func TestNewCreatesDir(t *testing.T) {
+	dir := t.TempDir() + "/darts-o-cam"
+	app, err := camapp.New(dir, camapp.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		t.Errorf("config directory not created: %v", err)
 	}
 }

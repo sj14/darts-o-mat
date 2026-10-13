@@ -1,8 +1,8 @@
 {
-  "device_name": "Autodarts DIY Cam",
   "cameras": [
     {
       "name": "cam1",
+      "device_name": "Autodarts DIY Cam",
       "points": [
         {
           "image": {
@@ -105,10 +105,13 @@
         0.002700413633252438,
         1
       ],
-      "empty": "cam1-empty.jpg"
+      "empty": "cam1-empty.jpg",
+      "width": 1280,
+      "height": 720
     },
     {
       "name": "cam2",
+      "device_name": "Autodarts DIY Cam",
       "points": [
         {
           "image": {
@@ -211,10 +214,13 @@
         0.0028034231756892828,
         1
       ],
-      "empty": "cam2-empty.jpg"
+      "empty": "cam2-empty.jpg",
+      "width": 1280,
+      "height": 720
     },
     {
       "name": "cam3",
+      "device_name": "Autodarts DIY Cam",
       "points": [
         {
           "image": {
@@ -295,7 +301,9 @@
         0.005267655402677402,
         1
       ],
-      "empty": "cam3-empty.jpg"
+      "empty": "cam3-empty.jpg",
+      "width": 1280,
+      "height": 720
     }
   ]
 }

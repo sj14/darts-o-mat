@@ -33,8 +33,13 @@ func TestAssignCameras(t *testing.T) {
 		t.Errorf("foreign view: got %v, want ErrAmbiguousCameras", err)
 	}
 
-	if _, err := AssignCameras([]image.Image{cam1}, refs); err == nil {
-		t.Error("too few cameras: want an error")
+	// A camera is missing: the others are still found.
+	got, err = AssignCameras([]image.Image{cam3, cam1}, refs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []int{1, -1, 0}; !slices.Equal(got, want) {
+		t.Errorf("assignment with a camera missing = %v, want %v", got, want)
 	}
 }
 

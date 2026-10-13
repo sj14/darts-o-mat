@@ -1,7 +1,8 @@
-package main
+package camapp
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,21 +25,21 @@ func newServer(url, token string) *server {
 }
 
 // dart enters a dart into the running game on the board and returns the game's id.
-func (s *server) dart(d throw.Dart) (int64, error) {
+func (s *server) dart(ctx context.Context, d throw.Dart) (int64, error) {
 	body, err := json.Marshal(d)
 	if err != nil {
 		return 0, err
 	}
-	return s.post("/api/board/darts", body)
+	return s.post(ctx, "/api/board/darts", body)
 }
 
 // takeout reports that the darts were pulled out.
-func (s *server) takeout() (int64, error) {
-	return s.post("/api/board/takeout", nil)
+func (s *server) takeout(ctx context.Context) (int64, error) {
+	return s.post(ctx, "/api/board/takeout", nil)
 }
 
-func (s *server) post(path string, body []byte) (int64, error) {
-	req, err := http.NewRequest(http.MethodPost, s.url+path, bytes.NewReader(body))
+func (s *server) post(ctx context.Context, path string, body []byte) (int64, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.url+path, bytes.NewReader(body))
 	if err != nil {
 		return 0, err
 	}

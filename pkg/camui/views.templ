@@ -1,20 +1,23 @@
 package camui
 
 import (
+	"errors"
 	"image"
 	"math"
+	"net/url"
 	"strconv"
 
+	"github.com/sj14/darts-o-mat/pkg/camapp"
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 	"github.com/sj14/darts-o-mat/pkg/vision"
 )
 
 type OverviewModel struct {
-	Path        string // of the calibration file
-	DeviceName  string // of the chosen cameras
-	DeviceModel string
-	Cameras     []CameraModel
-	Events      []EventModel // newest first
+	Dir      string // of the configuration
+	Status   camapp.Status
+	Settings camapp.Settings
+	Cameras  []CameraModel
+	Events   []EventModel // newest first
 }
 
 type EventModel struct {
@@ -26,6 +29,9 @@ type EventModel struct {
 	Cameras []CameraPoint   // the cameras that found the dart
 	// AllCameras lists every camera, for the images.
 	AllCameras []CameraPoint
+	// Game is the game the server entered it in, ReportErr why it didn't.
+	Game      int64
+	ReportErr string
 }
 
 type CameraPoint struct {
@@ -36,7 +42,6 @@ type CameraPoint struct {
 }
 
 type CheckModel struct {
-	Index                      int
 	Name                       string
 	Error                      string
 	Matches                    int
@@ -47,22 +52,30 @@ type CheckModel struct {
 }
 
 type DevicesModel struct {
-	Groups  []vision.DeviceGroup
-	Current string // the chosen device name
-	Open    int    // cameras opened at the start
-	Saved   bool
+	Devices []camapp.Device
 	Error   string
 }
 
+type SettingsModel struct {
+	Settings camapp.Settings
+	Saved    bool
+	Error    string
+}
+
 type CameraModel struct {
-	Index      int
-	Name       string
-	Device     string
-	Calibrated bool
+	Name        string
+	DeviceName  string
+	DeviceModel string
+	Device      string // ID of the device in use
+	Open        bool
+	Calibrated  bool
+	OtherSize   string // the frame size it was calibrated on, if that's not the current one
+	Problem     string
+	Scale       string // pixels per board millimetre, if calibrated
+	Size        string // of its frames, if it is open
 }
 
 type CalibrateModel struct {
-	Index     int
 	Name      string
 	Points    int // clicked so far
 	MinPoints int
@@ -71,8 +84,60 @@ type CalibrateModel struct {
 	Error     string
 }
 
-func camURL(i int, suffix string) string {
-	return "/cam/" + strconv.Itoa(i) + suffix
+func camURL(name, suffix string) string {
+	return "/cam/" + name + suffix
+}
+
+func snapshotURL(id string) string {
+	return "/devices/snapshot.jpg?id=" + url.QueryEscape(id)
+}
+
+func sizeValue(w, h int) string {
+	return strconv.Itoa(w) + "x" + strconv.Itoa(h)
+}
+
+// numberField is an input of the detection's thresholds in the settings.
+type numberField struct {
+	Name, Label, Unit, Hint, Value, Step string
+}
+
+func dec(f float64) string {
+	return strconv.FormatFloat(f, 'f', 2, 64)
+}
+
+// detectionFields are the detection's thresholds, as fields of the settings form.
+func detectionFields(o vision.WatchOptions) []numberField {
+	d := o.Detect
+	return []numberField{
+		{"diff_threshold", "Farbunterschied", "0–255", "Ab diesem Unterschied gilt ein Bildpunkt als verändert.", strconv.Itoa(int(d.DiffThreshold)), "1"},
+		{"weak_threshold", "Schwacher Farbunterschied", "0–255", "Zählt nur neben stark veränderten Punkten; hält die dünne Spitze am Pfeil.", strconv.Itoa(int(d.WeakThreshold)), "1"},
+		{"blur", "Weichzeichner", "mm", "Radius gegen Bildrauschen.", dec(d.Blur), "0.01"},
+		{"min_area", "Mindestgröße Pfeil", "mm²", "Kleinere Änderungen sind kein Pfeil.", dec(d.MinArea), "0.01"},
+		{"min_speck", "Kleinster Fleck", "mm²", "Kleinere Flecken werden als Rauschen ignoriert.", dec(d.MinSpeck), "0.01"},
+		{"min_elongation", "Mindest-Streckung", "Länge : Breite", "So länglich muss der untere Teil des Pfeils sein.", dec(d.MinElongation), "0.1"},
+		{"gap", "Lücken überbrücken", "mm", "Stücke mit Lücken bis zum Doppelten zählen zusammen (gestrichelter Barrel vor schwarzen Feldern).", dec(d.Gap), "0.01"},
+		{"axis_distance", "Abstand zur Achse", "mm", "Stücke so nah an der Pfeilachse gehören zum Pfeil (z. B. die Flight).", dec(d.AxisDistance), "0.01"},
+		{"sample_step", "Bewegung: Abstand der Stichproben", "mm", "Für die Bewegungserkennung wird nur jeder so weit entfernte Bildpunkt verglichen.", dec(o.SampleStep), "0.01"},
+		{"motion_threshold", "Bewegung: Farbunterschied", "0–255", "Ab diesem Unterschied gilt eine Stichprobe als bewegt.", strconv.Itoa(int(o.MotionThreshold)), "1"},
+		{"motion_area", "Bewegung ab", "mm²", "So viel muss sich ändern, damit das Board als bewegt gilt.", dec(o.MotionArea), "0.01"},
+		{"stable_frames", "Ruhige Bilder", "Bilder", "So viele Bilder ohne Bewegung, bevor ausgewertet wird.", strconv.Itoa(o.StableFrames), "1"},
+		{"takeout_area", "Herausziehen ab", "mm²", "Ändert sich mehr, war es eine Hand bzw. herausgezogene Pfeile.", dec(o.TakeoutArea), "0.01"},
+	}
+}
+
+// statusText says what the detection is doing.
+func statusText(s camapp.Status) string {
+	switch {
+	case s.Running && s.Cameras == 1:
+		return "Erkennung läuft mit 1 Kamera."
+	case s.Running:
+		return "Erkennung läuft mit " + strconv.Itoa(s.Cameras) + " Kameras."
+	case errors.Is(s.Err, camapp.ErrNoCalibratedCamera):
+		return "Erkennung wartet auf eine kalibrierte Kamera."
+	case s.Err != nil:
+		return "Erkennung angehalten: " + s.Err.Error()
+	}
+	return "Erkennung ist ausgeschaltet."
 }
 
 templ layout(title string) {
@@ -87,8 +152,13 @@ templ layout(title string) {
 		</head>
 		<body class="min-h-screen text-white antialiased">
 			<header class="border-b border-white/10 bg-pub-950/80">
-				<div class="mx-auto max-w-6xl px-4 py-3">
-					<a href="/" class="font-display text-2xl font-extrabold uppercase tracking-wide">📷 darts<span class="text-board-red">-o-</span>cam <span class="text-white/40">· Kalibrierung</span></a>
+				<div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+					<a href="/" class="font-display text-2xl font-extrabold uppercase tracking-wide">📷 darts<span class="text-board-red">-o-</span>cam</a>
+					<nav class="flex flex-wrap items-center gap-1 text-sm font-semibold">
+						<a href="/" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">Kameras</a>
+						<a href="/devices" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">Kamera hinzufügen</a>
+						<a href="/settings" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">Einstellungen</a>
+					</nav>
 				</div>
 			</header>
 			<main class="mx-auto max-w-6xl px-4 py-6 pb-16">
@@ -120,62 +190,98 @@ templ backLink() {
 	<p class="mt-6"><a href="/" class={ linkClass }>← Zurück</a></p>
 }
 
+templ notice(text, colors string) {
+	<div class={ "mb-4 rounded-2xl border px-4 py-3", colors } role="status">{ text }</div>
+}
+
 templ Overview(m OverviewModel) {
 	@layout("Kameras") {
 		@title("Kameras")
-		<p class="mb-4 max-w-3xl text-white/60">
-			Die Kalibrierung wird auf diesem Rechner gespeichert ({ m.Path }) und funktioniert mit jedem darts-o-mat-Server.
-			Kalibriere jede Kamera einmal mit <strong class="text-white">leerem Board</strong>; danach liegt auf ihrem Bild das Raster des Boards.
-		</p>
-		<div class="mb-6 flex flex-wrap items-center gap-3">
-			if m.DeviceName != "" {
-				<span class="rounded-full bg-white/10 px-3 py-1">
-					Kameras: <strong>{ m.DeviceName }</strong>
-					if m.DeviceModel != "" {
-						<span class="text-sm text-white/50">({ m.DeviceModel })</span>
+		<div class="mb-6 flex max-w-3xl flex-col gap-3 rounded-3xl border border-white/10 bg-pub-900/80 p-4">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<span class={ templ.KV("text-emerald-300", m.Status.Running), templ.KV("text-amber-300", !m.Status.Running) }>{ statusText(m.Status) }</span>
+				<form method="post" action="/detect">
+					if m.Status.Running || m.Status.Err != nil {
+						<input type="hidden" name="on" value="false"/>
+						<button type="submit" class={ btnSecondary, btnSmall }>Erkennung ausschalten</button>
+					} else {
+						<input type="hidden" name="on" value="true"/>
+						<button type="submit" class={ btnPrimary, btnSmall }>Erkennung einschalten</button>
 					}
-				</span>
+				</form>
+			</div>
+			if m.Status.Reporting {
+				<span class="text-white/70">Würfe gehen an <strong class="text-white">{ m.Settings.Server }</strong>.</span>
+			} else {
+				<span class="text-white/70">Mit keinem Server verbunden: erkannte Würfe erscheinen nur hier. Trage unter <a href="/settings" class={ linkClass }>Einstellungen</a> den darts-o-mat-Server und den Kamera-Token des Boards ein.</span>
 			}
-			<a href="/devices" class={ btnSecondary, btnSmall }>Kameras wählen</a>
-			<a href="/" class={ btnSecondary, btnSmall }>Bilder aktualisieren</a>
 		</div>
 		if len(m.Cameras) == 0 {
-			<div class="mb-4 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 text-amber-200" role="status">
-				Keine Kameras geöffnet. Wähle unter <a href="/devices" class={ linkClass }>Kameras wählen</a>, welche Kameras zum Board gehören, und starte darts-o-cam neu.
-			</div>
+			@notice("Noch keine Kameras. Füge unter „Kamera hinzufügen“ die Kameras deines Boards hinzu und kalibriere sie dann mit leerem Board.", "border-amber-400/50 bg-amber-400/10 text-amber-200")
+		} else {
+			<p class="mb-4 max-w-3xl text-white/60">
+				Kalibriere jede Kamera einmal mit <strong class="text-white">leerem Board</strong>; danach liegt auf ihrem Bild das Raster des Boards und die Erkennung nutzt sie sofort.
+				<a href="/" class={ linkClass }>Bilder aktualisieren</a>
+			</p>
+			<form method="post" action="/reconnect" class="mb-4 flex flex-wrap items-center gap-3">
+				<button type="submit" class={ btnSecondary, btnSmall }>Kameras neu verbinden</button>
+				<span class="text-sm text-white/50">Nach dem Ein- oder Ausstecken einer Kamera.</span>
+			</form>
 		}
 		<div class="grid gap-6 md:grid-cols-2">
 			for _, c := range m.Cameras {
 				<div class="overflow-hidden rounded-3xl border border-white/10 bg-pub-900/80 shadow-xl shadow-black/30">
-					<img src={ camURL(c.Index, "/frame.jpg") } class="w-full" alt={ "Bild von " + c.Name }/>
+					if c.Open {
+						<img src={ camURL(c.Name, "/frame.jpg") } class="w-full" alt={ "Bild von " + c.Name }/>
+					}
 					<div class="flex flex-col gap-3 p-4">
 						<div class="flex items-center justify-between gap-2">
 							<span>
 								<span class="font-display text-2xl font-semibold uppercase">{ c.Name }</span>
-								<span class="text-sm text-white/40">(Gerät { c.Device })</span>
+								<span class="text-sm text-white/40">
+									{ c.DeviceName }
+									if c.DeviceModel != "" {
+										({ c.DeviceModel })
+									}
+									if c.Size != "" {
+										· { c.Size }
+									}
+								</span>
 							</span>
 							if c.Calibrated {
-								@badge("kalibriert", "bg-board-green/25 text-emerald-300")
+								<span class="flex items-center gap-2">
+									<span class="text-sm text-white/40" title="Bildpunkte pro Millimeter auf dem Board">{ c.Scale } px/mm</span>
+									@badge("kalibriert", "bg-board-green/25 text-emerald-300")
+								</span>
 							} else {
 								@badge("nicht kalibriert", "bg-amber-400/20 text-amber-300")
 							}
 						</div>
+						if c.Problem != "" {
+							<p class="text-sm text-red-300">{ c.Problem }</p>
+						}
+						if c.OtherSize != "" {
+							<p class="text-sm text-amber-300">Kalibriert für { c.OtherSize }, die Kamera liefert gerade eine andere Größe: bitte neu kalibrieren.</p>
+						}
 						<div class="flex flex-wrap gap-2">
-							<form method="post" action={ templ.URL(camURL(c.Index, "/start")) }>
-								<button type="submit" class={ btnPrimary }>
-									if c.Calibrated {
-										Neu kalibrieren
-									} else {
-										Kalibrieren
-									}
-								</button>
-							</form>
-							if c.Calibrated {
-								<a href={ templ.URL(camURL(c.Index, "/check")) } class={ btnSecondary }>Raster prüfen</a>
-								<form method="post" action={ templ.URL(camURL(c.Index, "/refine")) }>
-									<button type="submit" class={ btnSecondary }>Nur feinkalibrieren</button>
+							if c.Open {
+								<form method="post" action={ templ.URL(camURL(c.Name, "/start")) }>
+									<button type="submit" class={ btnPrimary }>
+										if c.Calibrated {
+											Neu kalibrieren
+										} else {
+											Kalibrieren
+										}
+									</button>
 								</form>
+								if c.Calibrated {
+									<a href={ templ.URL(camURL(c.Name, "/check")) } class={ btnSecondary }>Raster prüfen</a>
+									<form method="post" action={ templ.URL(camURL(c.Name, "/refine")) }>
+										<button type="submit" class={ btnSecondary }>Nur feinkalibrieren</button>
+									</form>
+								}
 							}
+							<a href={ templ.URL(camURL(c.Name, "/remove")) } class={ btnDanger }>Entfernen</a>
 						</div>
 					</div>
 				</div>
@@ -183,23 +289,47 @@ templ Overview(m OverviewModel) {
 		</div>
 		@sectionTitle("Letzte Erkennungen")
 		if len(m.Events) == 0 {
-			<p class="text-white/50">Noch keine. Sie erscheinen hier, sobald <code>darts-o-cam detect</code> Würfe erkennt.</p>
+			<p class="text-white/50">Noch keine. Sie erscheinen hier, sobald die Erkennung Würfe sieht.</p>
 		} else {
 			<ul class="flex flex-col gap-1">
 				for _, e := range m.Events {
 					<li>
-						<a href={ templ.URL("/event/" + strconv.Itoa(e.ID)) } class="flex items-center justify-between rounded-2xl px-3 py-2 transition hover:bg-white/5">
+						<a href={ templ.URL("/event/" + strconv.Itoa(e.ID)) } class="flex flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2 transition hover:bg-white/5">
 							<span class="tabular-nums text-white/50">{ e.Time }</span>
 							if e.Takeout {
 								<span class="text-white/50">Pfeile herausgezogen</span>
 							} else {
 								<span><span class="font-display text-2xl font-extrabold">{ e.Label }</span> <span class="text-sm text-white/40">({ strconv.Itoa(len(e.Cameras)) } Kameras)</span></span>
 							}
+							@reportResult(e)
 						</a>
 					</li>
 				}
 			</ul>
 		}
+		<p class="mt-8 text-sm text-white/40">Kalibrierung und Einstellungen liegen auf diesem Rechner in { m.Dir } und funktionieren mit jedem darts-o-mat-Server.</p>
+	}
+}
+
+// reportResult shows what the server did with a detection.
+templ reportResult(e EventModel) {
+	if e.ReportErr != "" {
+		<span class="text-sm text-red-300">nicht eingetragen: { e.ReportErr }</span>
+	} else if e.Game != 0 {
+		<span class="text-sm text-emerald-300">eingetragen in Spiel { strconv.FormatInt(e.Game, 10) }</span>
+	}
+}
+
+templ RemovePage(c CameraModel) {
+	@layout(c.Name + " entfernen") {
+		@title(c.Name + " entfernen?")
+		<p class="mb-4 max-w-3xl text-white/70">Die Kamera wird vom Board entfernt, samt ihrer Kalibrierung. Du kannst sie später wieder hinzufügen und neu kalibrieren.</p>
+		<div class="flex items-center gap-3">
+			<form method="post" action={ templ.URL(camURL(c.Name, "/remove")) }>
+				<button type="submit" class={ btnDanger }>Entfernen</button>
+			</form>
+			<a href="/" class={ linkClass }>Abbrechen</a>
+		</div>
 	}
 }
 
@@ -223,23 +353,23 @@ templ Calibrate(m CalibrateModel) {
 		</div>
 		<div class="mb-4 flex flex-wrap gap-2">
 			if m.Target != nil {
-				<form method="post" action={ templ.URL(camURL(m.Index, "/skip")) }>
+				<form method="post" action={ templ.URL(camURL(m.Name, "/skip")) }>
 					<button type="submit" class={ btnSecondary }>Überspringen</button>
 				</form>
 			}
-			<form method="post" action={ templ.URL(camURL(m.Index, "/finish")) }>
+			<form method="post" action={ templ.URL(camURL(m.Name, "/finish")) }>
 				<button type="submit" class={ btnPrimary } disabled?={ m.Points < m.MinPoints }>Fertig: feinkalibrieren und speichern</button>
 			</form>
-			<form method="post" action={ templ.URL(camURL(m.Index, "/start")) }>
+			<form method="post" action={ templ.URL(camURL(m.Name, "/start")) }>
 				<button type="submit" class={ btnDanger }>Von vorn (neues Bild)</button>
 			</form>
 		</div>
 		// Shown in full size, so the click position the image input sends is in image pixels.
-		<form method="post" action={ templ.URL(camURL(m.Index, "/point")) } class="overflow-auto rounded-2xl border border-white/10">
+		<form method="post" action={ templ.URL(camURL(m.Name, "/point")) } class="overflow-auto rounded-2xl border border-white/10">
 			<input
 				type="image"
 				name="click"
-				src={ camURL(m.Index, "/clicked.jpg?n="+strconv.Itoa(m.Points)) }
+				src={ camURL(m.Name, "/clicked.jpg?n="+strconv.Itoa(m.Points)) }
 				width={ strconv.Itoa(m.Bounds.Dx()) }
 				height={ strconv.Itoa(m.Bounds.Dy()) }
 				class="max-w-none cursor-crosshair"
@@ -262,7 +392,7 @@ templ Check(m CheckModel) {
 						Meist wurde beim Kalibrieren ein Draht verwechselt, z. B. 1/18 statt 20/1.
 						Prüfe die Zahlen genau (sie stehen je nach Kamera auf dem Kopf) und kalibriere neu. Gegenprobe über die Farben: das Doppel der 20 ist rot, das der 1 grün.
 					</p>
-					<form method="post" action={ templ.URL(camURL(m.Index, "/start")) }>
+					<form method="post" action={ templ.URL(camURL(m.Name, "/start")) }>
 						<button type="submit" class={ btnPrimary }>Neu kalibrieren</button>
 					</form>
 				</div>
@@ -281,7 +411,7 @@ templ Check(m CheckModel) {
 			</div>
 			<p class="mb-4 text-sm text-white/50">Das ist nur eine Prüfung, gespeichert wird nichts. Stecken Pfeile im Board, erscheinen an ihnen verworfene Punkte; das ist in Ordnung.</p>
 			<div class="overflow-auto rounded-2xl border border-white/10">
-				<img src={ camURL(m.Index, "/features.jpg") } class="max-w-none" alt="Gefundene Kanten und Drähte"/>
+				<img src={ camURL(m.Name, "/features.jpg") } class="max-w-none" alt="Gefundene Kanten und Drähte"/>
 			</div>
 		}
 		@backLink()
@@ -396,38 +526,105 @@ func mm(f float64) string {
 }
 
 templ Devices(m DevicesModel) {
-	@layout("Kameras wählen") {
-		@title("Kameras wählen")
+	@layout("Kamera hinzufügen") {
+		@title("Kamera hinzufügen")
 		<p class="mb-4 max-w-3xl text-white/60">
-			Wähle, welche Kameras zum Board gehören. Gespeichert wird ihr Name (mit Modell zur Erkennung), nicht der USB-Anschluss:
-			nach dem Umstecken an andere Ports werden dieselben Kameras wieder gefunden. Welche Kamera welche ist, erkennt darts-o-cam an ihrem Bild vom Board.
+			Alle Kameras an diesem Rechner. Füge die hinzu, die aufs Board schauen; danach wird sie kalibriert.
+			Gleiche Kameras unterscheidet darts-o-cam an ihrem Bild vom Board, nicht am USB-Anschluss: Umstecken an andere Ports ist kein Problem.
 		</p>
 		@errorAlert(m.Error)
-		if m.Saved {
-			<div class="mb-4 rounded-2xl border border-board-green/50 bg-board-green/15 px-4 py-3 text-emerald-200" role="status">Gespeichert. Starte darts-o-cam neu, damit die Kameras geöffnet werden.</div>
+		<form method="post" action="/devices/refresh" class="mb-4 flex flex-wrap items-center gap-3">
+			<button type="submit" class={ btnSecondary, btnSmall }>Neue Bilder aufnehmen</button>
+			<span class="text-sm text-white/50">Welche ist welche? Halte eine Hand vor eine Kamera und nimm neue Bilder auf.</span>
+		</form>
+		if len(m.Devices) == 0 && m.Error == "" {
+			@notice("Keine Kameras gefunden. Ist die Kamera angeschlossen und darf darts-o-cam darauf zugreifen?", "border-amber-400/50 bg-amber-400/10 text-amber-200")
 		}
-		<form method="post" action="/devices" class="flex max-w-2xl flex-col gap-4">
-			<div class="flex flex-col gap-2">
-				for _, g := range m.Groups {
-					<label class="cursor-pointer">
-						<input type="radio" class="peer sr-only" name="name" value={ g.Name } checked?={ g.Name == m.Current }/>
-						<span class="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-pub-800 px-4 py-3 transition hover:border-white/30 peer-checked:border-board-green peer-checked:bg-board-green/15 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400">
-							<span class="font-display text-2xl font-semibold uppercase">{ g.Name }</span>
-							<span class="text-sm text-white/50">
-								{ strconv.Itoa(g.Count) } ×
-								if g.Model != "" {
-									· Modell { g.Model }
-								}
-							</span>
+		<div class="grid gap-6 md:grid-cols-2">
+			for _, d := range m.Devices {
+				<div class="overflow-hidden rounded-3xl border border-white/10 bg-pub-900/80 shadow-xl shadow-black/30">
+					<img src={ snapshotURL(d.ID) } class="aspect-video w-full bg-pub-800 object-cover" alt={ "Bild von " + d.Name + " (nicht verfügbar)" }/>
+					<div class="flex flex-wrap items-center justify-between gap-3 p-4">
+						<span>
+							<span class="font-display text-2xl font-semibold uppercase">{ d.Name }</span>
+							if d.Model != "" {
+								<span class="text-sm text-white/40">({ d.Model })</span>
+							}
 						</span>
-					</label>
-				}
-			</div>
+						if d.Camera != "" {
+							@badge("am Board als "+d.Camera, "bg-board-green/25 text-emerald-300")
+						} else {
+							<form method="post" action="/devices/add">
+								<input type="hidden" name="id" value={ d.ID }/>
+								<button type="submit" class={ btnPrimary }>Hinzufügen</button>
+							</form>
+						}
+					</div>
+				</div>
+			}
+		</div>
+		@backLink()
+	}
+}
+
+templ SettingsPage(m SettingsModel) {
+	@layout("Einstellungen") {
+		@title("Einstellungen")
+		@errorAlert(m.Error)
+		if m.Saved {
+			@notice("Gespeichert und übernommen.", "border-board-green/50 bg-board-green/15 text-emerald-200")
+		}
+		<form method="post" action="/settings" class="flex max-w-2xl flex-col gap-6">
+			<fieldset class="flex flex-col gap-3">
+				<legend class="mb-2 font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">darts-o-mat</legend>
+				<p class="text-white/60">Leg auf dem Server unter „Boards“ dein Board an und erzeuge einen Kamera-Token. Erkannte Würfe gehen dann in das laufende Spiel auf diesem Board.</p>
+				<label class="flex flex-col gap-1">
+					<span class="font-semibold">Server</span>
+					<input type="url" name="server" value={ m.Settings.Server } placeholder="http://localhost:3000" class={ inputClass }/>
+				</label>
+				<label class="flex flex-col gap-1">
+					<span class="font-semibold">Kamera-Token</span>
+					<input type="text" name="token" value={ m.Settings.Token } autocomplete="off" spellcheck="false" class={ inputClass }/>
+				</label>
+			</fieldset>
+			<fieldset class="flex flex-col gap-3">
+				<legend class="mb-2 font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">Kameras</legend>
+				<label class="flex flex-col gap-1">
+					<span class="font-semibold">Gewünschte Bildgröße</span>
+					<select name="size" class={ inputClass }>
+						for _, size := range Sizes {
+							<option value={ sizeValue(size[0], size[1]) } selected?={ size[0] == m.Settings.Width && size[1] == m.Settings.Height }>{ strconv.Itoa(size[0]) } × { strconv.Itoa(size[1]) }</option>
+						}
+					</select>
+					<span class="text-sm text-white/50">Jede Kamera nimmt ihren eigenen Modus, der dieser Größe am nächsten kommt; welche Größe sie liefert, steht auf ihrer Karte. Die Kameras werden dafür neu geöffnet. Eine Kalibrierung gilt nur für die Größe, in der sie gemacht wurde.</span>
+				</label>
+				<label class="flex flex-col gap-1">
+					<span class="font-semibold">Bilder pro Sekunde</span>
+					<input type="number" name="fps" min="1" max="30" value={ strconv.Itoa(m.Settings.FPS) } class={ inputClass }/>
+					<span class="text-sm text-white/50">So viele Bilder pro Sekunde wertet die Erkennung aus; mehr reagiert schneller, braucht aber mehr Rechenleistung.</span>
+				</label>
+			</fieldset>
+			<details class="rounded-2xl border border-white/10 bg-pub-900/60 p-4">
+				<summary class="cursor-pointer font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">Erkennung (für Fortgeschrittene)</summary>
+				<p class="mt-3 text-white/60">
+					Größen sind in Millimetern auf dem Board angegeben; darts-o-cam rechnet sie für jede Kamera nach ihrer Auflösung und ihrem Abstand in Bildpunkte um.
+					Die Standardwerte stammen von einem Board mit drei Kameras bei 1280 × 720.
+				</p>
+				<div class="mt-4 grid gap-4 sm:grid-cols-2">
+					for _, f := range detectionFields(m.Settings.Detection) {
+						<label class="flex flex-col gap-1">
+							<span class="font-semibold">{ f.Label } <span class="text-sm font-normal text-white/40">({ f.Unit })</span></span>
+							<input type="number" name={ f.Name } value={ f.Value } step={ f.Step } min="0" class={ inputClass }/>
+							<span class="text-sm text-white/50">{ f.Hint }</span>
+						</label>
+					}
+				</div>
+				<button type="submit" formaction="/settings/defaults" class={ btnSecondary, btnSmall, "mt-4" }>Standardwerte</button>
+			</details>
 			<div class="flex items-center gap-3">
 				<button type="submit" class={ btnPrimary }>Speichern</button>
 				<a href="/" class={ linkClass }>Zurück</a>
 			</div>
 		</form>
-		<p class="mt-4 text-sm text-white/50">Gerade geöffnet: { strconv.Itoa(m.Open) } Kameras.</p>
 	}
 }

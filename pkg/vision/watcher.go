@@ -9,31 +9,38 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 )
 
-// WatchOptions tune when the board counts as moving or still.
+// WatchOptions tune when the board counts as moving or still. Like DetectOptions, sizes
+// are on the board (mm, mm²) and converted to each camera's pixels.
 type WatchOptions struct {
-	Detect DetectOptions
-	// SampleStep compares only every n-th pixel in both directions to find motion, which is much cheaper.
-	SampleStep int
+	Detect DetectOptions `json:"detect"`
+	// SampleStep compares only pixels this far apart to find motion, which is much cheaper (mm).
+	SampleStep float64 `json:"sample_step"`
 	// MotionThreshold is the difference (0-255) in any color channel for a sample to count as changed.
 	// It is higher than the detection's threshold, because the samples are not blurred against noise.
-	MotionThreshold uint8
-	// MotionPixels is the number of changed samples in a camera that counts as motion.
-	MotionPixels int
+	MotionThreshold uint8 `json:"motion_threshold"`
+	// MotionArea is the changed area in a camera that counts as motion (mm²).
+	MotionArea float64 `json:"motion_area"`
 	// StableFrames is how many consecutive frames without motion are needed before evaluating.
-	StableFrames int
-	// TakeoutPixels is the number of changed samples (compared to before the change)
-	// above which the change is a hand or darts being pulled out, not a new dart.
-	TakeoutPixels int
+	StableFrames int `json:"stable_frames"`
+	// TakeoutArea is the changed area (compared to before the change) above which the
+	// change is a hand or darts being pulled out, not a new dart (mm²).
+	TakeoutArea float64 `json:"takeout_area"`
 }
 
+// DefaultWatchOptions were measured in pixels on the development board (see ReferenceScale):
+// every 4th pixel, motion from 40 changed samples, takeout from 4000.
 var DefaultWatchOptions = WatchOptions{
 	Detect:          DefaultDetectOptions,
-	SampleStep:      4,
+	SampleStep:      px(4),
 	MotionThreshold: 40,
-	MotionPixels:    40,
+	MotionArea:      px2(40 * 4 * 4),
 	StableFrames:    3,
-	TakeoutPixels:   4000,
+	TakeoutArea:     px2(4000 * 4 * 4),
 }
+
+// dartMargin is how far around a dart its pixels are remembered, because the dart may
+// move a little when the next one hits (5 px on the development board).
+var dartMargin = px(5)
 
 // MaxBoardRadius is the radius of the whole board including the number ring, in mm.
 // A dart detected farther out is a misdetection.
@@ -69,9 +76,9 @@ type Watcher struct {
 	// the watcher started; without them, only darts the watcher saw coming are known.
 	Empty []*image.RGBA
 
-	toBoardMu sync.Mutex
-	toBoard   []Homography
-	opts      WatchOptions
+	toBoard []Homography
+	opts    WatchOptions
+	params  []watchParams // the options in each camera's pixels
 
 	// darts marks, per camera, where the darts thrown since the last takeout are in the image.
 	darts []*Mask
@@ -84,7 +91,11 @@ type Watcher struct {
 
 // NewWatcher watches cameras with the given image-to-board homographies.
 func NewWatcher(toBoard []Homography, opts WatchOptions) *Watcher {
-	return &Watcher{toBoard: toBoard, opts: opts}
+	w := &Watcher{toBoard: toBoard, opts: opts}
+	for _, h := range toBoard {
+		w.params = append(w.params, opts.pixels(PixelScale(h)))
+	}
+	return w
 }
 
 // Feed takes the latest frame of every camera, in the same order as the homographies.
@@ -100,7 +111,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 
 	moving := false
 	for i, f := range frames {
-		if w.changedSamples(w.prev[i], f) > w.opts.MotionPixels {
+		if w.changedSamples(i, w.prev[i], f) > w.params[i].motionSamples {
 			moving = true
 		}
 	}
@@ -125,14 +136,16 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	ref := w.ref
 	w.ref = frames
 
-	changed := 0
+	changed, takeout := false, false
 	for i, f := range frames {
-		changed = max(changed, w.changedSamples(ref[i], f))
+		n := w.changedSamples(i, ref[i], f)
+		changed = changed || n > w.params[i].motionSamples
+		takeout = takeout || n > w.params[i].takeoutSamples
 	}
-	if changed <= w.opts.MotionPixels {
+	if !changed {
 		return nil // e.g. a shadow passed by
 	}
-	if changed > w.opts.TakeoutPixels {
+	if takeout {
 		return w.takeout(ref, frames)
 	}
 
@@ -142,7 +155,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	errs := make([]error, len(frames))
 	var wg sync.WaitGroup
 	for i, f := range frames {
-		wg.Go(func() { detections[i], areas[i], errs[i] = detect(ref[i], f, w.opts.Detect) })
+		wg.Go(func() { detections[i], areas[i], errs[i] = detect(ref[i], f, w.params[i].detect) })
 	}
 	wg.Wait()
 
@@ -152,9 +165,6 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	}
 
 	e := &Event{Kind: EventDart, Cameras: map[int]dartboard.Point{}, Tips: map[int]dartboard.Point{}, Before: ref, After: frames}
-	w.toBoardMu.Lock()
-	toBoard := slices.Clone(w.toBoard)
-	w.toBoardMu.Unlock()
 	var points []dartboard.Point
 	for i, f := range frames {
 		w.rememberDart(i, f.Bounds(), areas[i])
@@ -162,7 +172,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 			continue
 		}
 		d := detections[i]
-		p := toBoard[i].Apply(d.Tip)
+		p := w.toBoard[i].Apply(d.Tip)
 		if p.Radius() > MaxBoardRadius {
 			continue // e.g. a reflection outside the board was taken for the dart
 		}
@@ -237,16 +247,6 @@ func pixelDiff(a, b *image.RGBA, p image.Point) int {
 	return d
 }
 
-// SetToBoard replaces a camera's calibration, e.g. after it was calibrated again.
-// It is safe to call while Feed runs.
-func (w *Watcher) SetToBoard(camera int, toBoard Homography) {
-	w.toBoardMu.Lock()
-	defer w.toBoardMu.Unlock()
-	if camera < len(w.toBoard) {
-		w.toBoard[camera] = toBoard
-	}
-}
-
 // takeout forgets the darts on the board.
 func (w *Watcher) takeout(before, after []*image.RGBA) *Event {
 	w.darts = nil
@@ -266,7 +266,7 @@ func (w *Watcher) rememberDart(camera int, bounds image.Rectangle, area []image.
 	for _, p := range area {
 		m.Pix[p.Y*m.W+p.X] = true
 	}
-	grown := m.dilate(5)
+	grown := m.dilate(w.params[camera].dartMargin)
 	for i, set := range grown.Pix {
 		if set {
 			w.darts[camera].Pix[i] = true
@@ -274,9 +274,9 @@ func (w *Watcher) rememberDart(camera int, bounds image.Rectangle, area []image.
 	}
 }
 
-// changedSamples counts the sampled pixels that changed clearly between two frames.
-func (w *Watcher) changedSamples(a, b *image.RGBA) int {
-	step, threshold := w.opts.SampleStep, int(w.opts.MotionThreshold)
+// changedSamples counts the sampled pixels that changed clearly between two frames of a camera.
+func (w *Watcher) changedSamples(camera int, a, b *image.RGBA) int {
+	step, threshold := w.params[camera].sampleStep, w.params[camera].motionThreshold
 	n := 0
 	bounds := a.Bounds()
 	for y := bounds.Min.Y; y < bounds.Max.Y; y += step {

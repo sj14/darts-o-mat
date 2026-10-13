@@ -290,9 +290,14 @@ templ Boards(user string, boards []service.BoardView, errMsg string, newToken *N
 			if newToken != nil {
 				<div class="mb-6 rounded-3xl border border-board-green/50 bg-board-green/10 p-5" role="status">
 					<div class="font-display text-2xl font-extrabold uppercase text-emerald-300">Kamera-Token für „{ newToken.BoardName }“</div>
-					<p class="mt-2">Er wird nur jetzt angezeigt. Starte damit die Kamera-Erkennung am Rechner mit den Kameras:</p>
-					<pre class="mt-3 overflow-x-auto rounded-xl bg-pub-950 p-3 text-sm whitespace-pre-wrap break-all text-emerald-200"><code>go run ./cmd/darts-o-cam detect -calibration calibration.json -server { newToken.Server } -token { newToken.Token }</code></pre>
-					<p class="mt-3 text-sm text-white/60">Die Kalibrierung (<code>calibration.json</code>) liegt auf dem Rechner mit den Kameras, nicht auf diesem Server. Noch keine? Erstelle sie dort mit <code>go run ./cmd/darts-o-cam ui</code> und öffne <code>http://localhost:8090</code>.</p>
+					<p class="mt-2">Er wird nur jetzt angezeigt. Trage beides in darts-o-cam am Rechner mit den Kameras unter „Einstellungen“ ein:</p>
+					<dl class="mt-3 grid gap-2 rounded-xl bg-pub-950 p-3 text-sm sm:grid-cols-[auto_1fr]">
+						<dt class="text-white/60">Server</dt>
+						<dd class="break-all font-mono text-emerald-200">{ newToken.Server }</dd>
+						<dt class="text-white/60">Kamera-Token</dt>
+						<dd class="break-all font-mono text-emerald-200">{ newToken.Token }</dd>
+					</dl>
+					<p class="mt-3 text-sm text-white/60">Die Kalibrierung liegt auf dem Rechner mit den Kameras, nicht auf diesem Server. Noch keine? Starte dort <code>go run ./cmd/darts-o-cam</code>; die Oberfläche öffnet sich im Browser (<code>http://localhost:8090</code>).</p>
 				</div>
 			}
 			@panel("") {

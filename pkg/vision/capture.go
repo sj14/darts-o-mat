@@ -1,9 +1,9 @@
 package vision
 
 import (
-	"fmt"
+	"cmp"
+	"errors"
 	"image"
-	"slices"
 	"sync"
 	"time"
 
@@ -14,134 +14,143 @@ import (
 // views are compared and the exposure is locked.
 const settleTime = time.Second
 
-// OpenCameras opens the cameras of a calibration, in the calibration's order.
-// Cameras without a fixed device are found among the devices named DeviceName
-// by comparing their view with the reference images; cameras not calibrated yet
-// (no reference image) get the remaining devices, in device order.
-func OpenCameras(calib Calibration, width, height, fps int) ([]*camera.Camera, error) {
-	cams := make([]*camera.Camera, len(calib.Cameras))
-	closeAll := func() {
-		for _, c := range cams {
-			if c != nil {
-				c.Close()
-			}
+// ErrNotConnected means that no device was found for a camera of a calibration.
+var ErrNotConnected = errors.New("not connected")
+
+// OpenCameras opens the cameras of a calibration, in the calibration's order. Each camera
+// is found among the devices with its DeviceName by comparing their views with the
+// reference images, so it doesn't matter which USB port it is plugged into. A camera
+// that isn't connected stays nil, with ErrNotConnected in problems. If the views of a
+// device name don't match the references (e.g. a camera was moved), those cameras are
+// opened in device order with ErrAmbiguousCameras in problems: they need to be
+// calibrated again. The exposure is locked once it settled.
+func OpenCameras(calib Calibration, opts camera.Options) (cams []*camera.Camera, problems []error) {
+	cams = make([]*camera.Camera, len(calib.Cameras))
+	problems = make([]error, len(calib.Cameras))
+	if len(calib.Cameras) == 0 {
+		return cams, problems
+	}
+	devices, err := camera.Devices()
+	if err != nil {
+		for i := range problems {
+			problems[i] = err
 		}
+		return cams, problems
 	}
 
-	var unresolved []int
+	// The cameras of each device name, in the calibration's order.
+	var names []string
+	byName := map[string][]int{}
 	for i, c := range calib.Cameras {
-		if c.Device == "" {
-			unresolved = append(unresolved, i)
+		if _, ok := byName[c.DeviceName]; !ok {
+			names = append(names, c.DeviceName)
+		}
+		byName[c.DeviceName] = append(byName[c.DeviceName], i)
+	}
+	for _, name := range names {
+		openGroup(calib, byName[name], devices, opts, cams, problems)
+	}
+	return cams, problems
+}
+
+// openGroup opens the cameras of a calibration that share a device name (indexes),
+// see OpenCameras.
+func openGroup(calib Calibration, indexes []int, devices []camera.Device, opts camera.Options, cams []*camera.Camera, problems []error) {
+	fail := func(err error) {
+		for _, i := range indexes {
+			problems[i] = err
+		}
+	}
+	var candidates []*camera.Camera
+	var openErr error
+	for _, d := range devices {
+		if d.Name != calib.Cameras[indexes[0]].DeviceName {
 			continue
 		}
-		cam, err := camera.Open(c.Device, camera.Options{Width: width, Height: height, FPS: fps})
+		cam, err := camera.Open(d.ID, opts)
 		if err != nil {
-			closeAll()
-			return nil, fmt.Errorf("camera %s: %w", c.Name, err)
-		}
-		cams[i] = cam
-	}
-	if len(unresolved) == 0 {
-		if _, err := settle(cams); err != nil {
-			closeAll()
-			return nil, err
-		}
-		return cams, nil
-	}
-
-	candidates, err := OpenCamerasNamed(calib.DeviceName, width, height, fps)
-	if err != nil {
-		closeAll()
-		return nil, err
-	}
-	closeCandidates := func(keep map[int]bool) {
-		for i, c := range candidates {
-			if !keep[i] {
-				c.Close()
-			}
-		}
-	}
-	// The candidates come first, so frames[i] belongs to candidates[i].
-	frames, err := settle(append(slices.Clone(candidates), slices.DeleteFunc(slices.Clone(cams), func(c *camera.Camera) bool { return c == nil })...))
-	if err != nil {
-		closeCandidates(nil)
-		closeAll()
-		return nil, err
-	}
-
-	// Cameras not calibrated yet have no reference image; they get the devices left over.
-	var refs []image.Image
-	var withRef, fresh []int
-	for _, i := range unresolved {
-		if calib.Cameras[i].Reference == "" {
-			fresh = append(fresh, i)
+			openErr = err // e.g. used by another program
 			continue
 		}
-		withRef = append(withRef, i)
+		candidates = append(candidates, cam)
+	}
+	if len(candidates) == 0 {
+		fail(cmp.Or(openErr, ErrNotConnected))
+		return
+	}
+	frames, err := settle(candidates)
+	if err != nil {
+		closeAll(candidates)
+		fail(err)
+		return
+	}
+
+	var views, refs []image.Image
+	for _, f := range frames {
+		views = append(views, f)
+	}
+	for _, i := range indexes {
 		ref, err := calib.LoadReference(calib.Cameras[i])
 		if err != nil {
-			closeCandidates(nil)
-			closeAll()
-			return nil, err
+			closeAll(candidates)
+			fail(err)
+			return
 		}
 		refs = append(refs, ref)
 	}
-	var views []image.Image
-	for _, f := range frames[:len(candidates)] {
-		views = append(views, f)
-	}
 	assignment, err := AssignCameras(views, refs)
-	if err != nil {
-		closeCandidates(nil)
-		closeAll()
-		return nil, fmt.Errorf("%d devices named %q: %w", len(candidates), calib.DeviceName, err)
-	}
-
-	keep := map[int]bool{}
-	for r, f := range assignment {
-		cams[withRef[r]] = candidates[f]
-		keep[f] = true
-	}
-	for f := range candidates {
-		if len(fresh) > 0 && !keep[f] {
-			cams[fresh[0]], fresh = candidates[f], fresh[1:]
-			keep[f] = true
+	var mismatch error
+	if errors.Is(err, ErrAmbiguousCameras) {
+		// Open them anyway, in device order, so they can be calibrated again.
+		mismatch = err
+		assignment = make([]int, len(refs))
+		for r := range assignment {
+			assignment[r] = -1
+			if r < len(candidates) {
+				assignment[r] = r
+			}
 		}
+	} else if err != nil {
+		closeAll(candidates)
+		fail(err)
+		return
 	}
-	if len(fresh) > 0 {
-		closeCandidates(keep)
-		closeAll()
-		return nil, fmt.Errorf("%d devices named %q, %d cameras in the calibration", len(candidates), calib.DeviceName, len(calib.Cameras))
-	}
-	closeCandidates(keep)
-	return cams, nil
-}
 
-// OpenCamerasNamed opens all cameras with the given name, in device order. It is used
-// to set up a board that has no calibration yet. The exposure isn't locked yet.
-func OpenCamerasNamed(name string, width, height, fps int) ([]*camera.Camera, error) {
-	devices, err := camera.Devices()
-	if err != nil {
-		return nil, err
-	}
-	var cams []*camera.Camera
-	for _, d := range devices {
-		if d.Name != name {
+	used := make([]bool, len(candidates))
+	for r, f := range assignment {
+		i := indexes[r]
+		if f < 0 {
+			problems[i] = ErrNotConnected
 			continue
 		}
-		cam, err := camera.Open(d.ID, camera.Options{Width: width, Height: height, FPS: fps})
-		if err != nil {
-			for _, c := range cams {
-				c.Close()
-			}
-			return nil, err
+		cams[i], problems[i], used[f] = candidates[f], mismatch, true
+	}
+	for f, c := range candidates {
+		if !used[f] {
+			c.Close()
 		}
-		cams = append(cams, cam)
 	}
-	if len(cams) == 0 {
-		return nil, fmt.Errorf("no camera named %q", name)
+}
+
+// OpenCamera opens a single device, e.g. a camera being added to a board, and returns
+// it with a frame taken once the exposure settled; the exposure is locked then.
+func OpenCamera(id string, opts camera.Options) (*camera.Camera, *image.RGBA, error) {
+	cam, err := camera.Open(id, opts)
+	if err != nil {
+		return nil, nil, err
 	}
-	return cams, nil
+	frames, err := settle([]*camera.Camera{cam})
+	if err != nil {
+		cam.Close()
+		return nil, nil, err
+	}
+	return cam, frames[0], nil
+}
+
+func closeAll(cams []*camera.Camera) {
+	for _, c := range cams {
+		c.Close()
+	}
 }
 
 // settle waits until the cameras have adjusted their exposure, then locks it, so a

@@ -22,9 +22,9 @@ Then open <http://localhost:3000> in the browser and create an account ("Registr
 
 ## Playing with cameras
 
-1. Calibrate the cameras once on the computer they are connected to: [darts-o-cam → calibrate](cmd/darts-o-cam/README.md#calibrate).
-2. In darts-o-mat, create your board under "Boards" and click "Kamera-Token erzeugen". A ready-made command is shown.
-3. Run that command on the computer with the cameras: [darts-o-cam → detect darts](cmd/darts-o-cam/README.md#detect-darts).
+1. Start darts-o-cam on the computer the cameras are connected to, add the cameras and calibrate them once: [darts-o-cam → start](cmd/darts-o-cam/README.md#start).
+2. In darts-o-mat, create your board under "Boards" and click "Kamera-Token erzeugen".
+3. Enter the server address and the token in darts-o-cam under "Einstellungen".
 4. Select this board when starting a game. Darts now appear by themselves; correct misdetections as usual.
 
 On a board the next player is only up once the darts have been pulled out – the camera notices that; without a camera, tap "Pfeile gezogen". If a dart of the visit is missing (e.g. bounced out), it counts as a miss.

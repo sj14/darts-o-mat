@@ -10,28 +10,44 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 )
 
-// DetectOptions tune the dart detection. The zero value is not useful, see DefaultDetectOptions.
+// DetectOptions tune the dart detection. Sizes are on the board, in mm and mm², and
+// converted to each camera's pixels with its scale (see PixelScale). The zero value is
+// not useful, see DefaultDetectOptions.
 type DetectOptions struct {
 	// DiffThreshold is the difference (0-255) in any color channel above which a pixel counts as changed.
-	DiffThreshold uint8
+	DiffThreshold uint8 `json:"diff_threshold"`
 	// WeakThreshold is a lower difference that only counts for pixels connected to
 	// pixels above DiffThreshold. It keeps the faint, thin point attached to the
 	// barrel without picking up noise elsewhere.
-	WeakThreshold uint8
-	// BlurRadius smooths the images before comparing them against noise; 1 means 3x3 pixels.
-	BlurRadius int
-	// MinPixels is the minimum size of the changed area to be a dart.
-	MinPixels int
-	// MinSpeck is the size below which separate changed specks are ignored as noise.
-	MinSpeck int
+	WeakThreshold uint8 `json:"weak_threshold"`
+	// Blur is the radius the images are smoothed with before comparing them, against noise (mm).
+	Blur float64 `json:"blur"`
+	// MinArea is the minimum size of the changed area to be a dart (mm²).
+	MinArea float64 `json:"min_area"`
+	// MinSpeck is the size below which separate changed specks are ignored as noise (mm²).
+	MinSpeck float64 `json:"min_speck"`
 	// MinElongation is the minimum ratio of the length to the width of a dart.
-	MinElongation float64
-	// GapRadius bridges gaps of up to twice this many pixels when grouping changed pixels into
-	// pieces: a barrel in front of black fields often only shows as a dashed line.
-	GapRadius int
+	MinElongation float64 `json:"min_elongation"`
+	// Gap bridges gaps of up to twice this size when grouping changed pixels into
+	// pieces: a barrel in front of black fields often only shows as a dashed line (mm).
+	Gap float64 `json:"gap"`
+	// AxisDistance is how far from the dart's axis a piece's center may be to belong to
+	// the dart, like the flight above the barrel (mm).
+	AxisDistance float64 `json:"axis_distance"`
 }
 
-var DefaultDetectOptions = DetectOptions{DiffThreshold: 25, WeakThreshold: 12, BlurRadius: 2, MinPixels: 150, MinSpeck: 15, MinElongation: 4, GapRadius: 3}
+// DefaultDetectOptions were measured in pixels on the development board (see ReferenceScale):
+// blur radius 2 px, at least 150 px, specks below 15 px, gaps up to 6 px, axis distance 12 px.
+var DefaultDetectOptions = DetectOptions{
+	DiffThreshold: 25,
+	WeakThreshold: 12,
+	Blur:          px(2),
+	MinArea:       px2(150),
+	MinSpeck:      px2(15),
+	MinElongation: 4,
+	Gap:           px(3),
+	AxisDistance:  px(12),
+}
 
 var (
 	ErrNoDart       = errors.New("no dart found")
@@ -136,17 +152,18 @@ func abs(v int) int {
 
 // DetectDart finds the dart that appeared between before and after and returns its tip.
 // All changed areas except tiny specks count as the dart: it often falls apart into
-// pieces where it crosses board areas of similar brightness.
-func DetectDart(before, after *image.RGBA, opts DetectOptions) (Detection, error) {
-	d, _, err := detect(before, after, opts)
+// pieces where it crosses board areas of similar brightness. scale is the camera's
+// pixels per board millimetre (see PixelScale).
+func DetectDart(before, after *image.RGBA, opts DetectOptions, scale float64) (Detection, error) {
+	d, _, err := detect(before, after, opts.pixels(scale))
 	return d, err
 }
 
 // detect is DetectDart that also returns the changed area, so the watcher compares the
 // images only once per camera.
-func detect(before, after *image.RGBA, opts DetectOptions) (Detection, []image.Point, error) {
-	seed, area := dartArea(before, after, opts)
-	if len(area) < opts.MinPixels {
+func detect(before, after *image.RGBA, p detectParams) (Detection, []image.Point, error) {
+	seed, area := dartArea(before, after, p)
+	if len(area) < p.minPixels {
 		return Detection{}, area, ErrNoDart
 	}
 	if seed == nil {
@@ -157,8 +174,8 @@ func detect(before, after *image.RGBA, opts DetectOptions) (Detection, []image.P
 }
 
 // ChangedArea returns the changed pixels that DetectDart looks at, e.g. to debug a detection.
-func ChangedArea(before, after *image.RGBA, opts DetectOptions) []image.Point {
-	_, area := dartArea(before, after, opts)
+func ChangedArea(before, after *image.RGBA, opts DetectOptions, scale float64) []image.Point {
+	_, area := dartArea(before, after, opts.pixels(scale))
 	return area
 }
 
@@ -167,11 +184,11 @@ func ChangedArea(before, after *image.RGBA, opts DetectOptions) []image.Point {
 // the thin point may break off. The seed is the largest elongated piece (barrel and point;
 // for pieces that include the flight, their lower half must be elongated). Pieces on the
 // seed's axis, like the flight above, belong to the dart; specks elsewhere don't.
-func dartArea(before, after *image.RGBA, opts DetectOptions) (seed, area []image.Point) {
-	mask := Diff(before, after, opts.DiffThreshold, opts.WeakThreshold, opts.BlurRadius)
+func dartArea(before, after *image.RGBA, p detectParams) (seed, area []image.Point) {
+	mask := Diff(before, after, p.diff, p.weak, p.blur)
 	var comps [][]image.Point
-	for _, c := range mask.componentsBridging(opts.GapRadius) {
-		if len(c) >= opts.MinSpeck {
+	for _, c := range mask.componentsBridging(p.gap) {
+		if len(c) >= p.minSpeck {
 			comps = append(comps, c)
 		}
 	}
@@ -180,7 +197,7 @@ func dartArea(before, after *image.RGBA, opts DetectOptions) (seed, area []image
 	seedIndex := -1
 	for i, c := range comps {
 		if lower := lowerHalf(c); len(lower) >= 10 {
-			if _, _, e := principalAxis(lower); e >= opts.MinElongation {
+			if _, _, e := principalAxis(lower); e >= p.minElongation {
 				seedIndex = i
 				break
 			}
@@ -199,7 +216,7 @@ func dartArea(before, after *image.RGBA, opts DetectOptions) (seed, area []image
 	for _, c := range comps {
 		cc, _, _ := principalAxis(c)
 		// Distance of the piece's center from the axis line.
-		if math.Abs((cc.X-center.X)*axis.Y-(cc.Y-center.Y)*axis.X) <= 12 {
+		if math.Abs((cc.X-center.X)*axis.Y-(cc.Y-center.Y)*axis.X) <= float64(p.axisDistance) {
 			area = append(area, c...)
 		}
 	}

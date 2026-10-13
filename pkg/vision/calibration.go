@@ -52,12 +52,19 @@ func (c CalibrationPoint) Board() (dartboard.Point, error) {
 
 type CameraCalibration struct {
 	Name string `json:"name"`
-	// Device fixes the capture device by its camera.Device ID. Usually it is empty and the
-	// camera is found by the calibration's DeviceName and its Reference view, because the
-	// IDs change with the USB port and identical cameras can't be told apart otherwise.
-	Device string `json:"device,omitempty"`
+	// DeviceName is the name of the camera's capture device, e.g. "Autodarts DIY Cam".
+	// It selects the camera independent of the USB port; among cameras with the same name,
+	// which one is which is told by their view (see Reference and AssignCameras).
+	DeviceName string `json:"device_name"`
+	// DeviceModel is the USB vendor:product id of the device, e.g. "1e45:8022", to
+	// recognize it when shown; it is not used to select it.
+	DeviceModel string `json:"device_model,omitempty"`
 	// Reference is an image of the camera's view, relative to the calibration file.
 	Reference string `json:"reference,omitempty"`
+	// Width and Height are the size of the frames the camera was calibrated on: the
+	// calibration is in pixels and doesn't fit frames of another size.
+	Width  int `json:"width,omitempty"`
+	Height int `json:"height,omitempty"`
 	// Empty is an image of the empty board, relative to the calibration file. It lets the
 	// detection tell darts pulled out from darts thrown (see Watcher.Empty).
 	Empty string `json:"empty,omitempty"`
@@ -66,6 +73,12 @@ type CameraCalibration struct {
 	// Refined is the calibration improved by RefineCalibration (image pixels to board mm).
 	// If set, it is used instead of the points.
 	Refined *Homography `json:"refined,omitempty"`
+}
+
+// Calibrated reports whether the camera has a calibration for frames of the given size.
+func (c CameraCalibration) Calibrated(width, height int) bool {
+	_, err := c.ToBoard()
+	return err == nil && c.Width == width && c.Height == height
 }
 
 // ToBoard returns the homography mapping image pixels to board millimeters:
@@ -91,31 +104,16 @@ func (c CameraCalibration) FromPoints() (Homography, error) {
 	return EstimateHomography(image, board)
 }
 
+// Calibration are the cameras of a board.
 type Calibration struct {
-	// DeviceName is the name of the board's capture devices, e.g. "Autodarts DIY Cam".
-	// It selects the board's cameras independent of the USB port; which camera is which
-	// is told by its view (see AssignCameras).
-	DeviceName string `json:"device_name,omitempty"`
-	// DeviceModel is the USB vendor:product id of the devices, e.g. "1e45:8022",
-	// to recognize them when shown; it is not used to select them.
-	DeviceModel string              `json:"device_model,omitempty"`
-	Cameras     []CameraCalibration `json:"cameras"`
+	Cameras []CameraCalibration `json:"cameras"`
 
 	dir string // of the calibration file, for the reference images
 }
 
-// Save writes the calibration as JSON.
-func (c Calibration) Save(path string) error {
-	data, err := json.MarshalIndent(c, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, append(data, '\n'), 0o644)
-}
-
-// NewCalibration starts an empty calibration that will be saved at path.
-func NewCalibration(path, deviceName string) Calibration {
-	return Calibration{DeviceName: deviceName, dir: filepath.Dir(path)}
+// NewCalibration returns a calibration of the cameras whose images are in dir.
+func NewCalibration(dir string, cameras []CameraCalibration) Calibration {
+	return Calibration{Cameras: cameras, dir: dir}
 }
 
 // SaveImage writes an image next to the calibration file, e.g. a reference image.
@@ -131,6 +129,7 @@ func (c Calibration) SaveImage(name string, img image.Image) error {
 	return f.Close()
 }
 
+// LoadCalibration reads the cameras from a JSON file, e.g. darts-o-cam's configuration.
 func LoadCalibration(path string) (Calibration, error) {
 	var c Calibration
 	data, err := os.ReadFile(path)
@@ -145,7 +144,7 @@ func LoadCalibration(path string) (Calibration, error) {
 // LoadReference loads the reference view of a camera.
 func (c Calibration) LoadReference(cam CameraCalibration) (image.Image, error) {
 	if cam.Reference == "" {
-		return nil, fmt.Errorf("camera %s has neither a device nor a reference image", cam.Name)
+		return nil, fmt.Errorf("camera %s has no reference image", cam.Name)
 	}
 	return c.loadImage(cam.Reference)
 }

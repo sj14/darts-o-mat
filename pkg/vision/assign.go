@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"slices"
 )
 
 // thumbSize is the size frames are reduced to for comparing camera views.
@@ -45,14 +46,12 @@ func viewDistance(a, b []float64) float64 {
 var ErrAmbiguousCameras = errors.New("camera views don't match the reference images")
 
 // AssignCameras finds which frame belongs to which reference view: result[i] is the
-// index of the frame for reference i. Each camera of a board sees the board from its
-// own fixed angle, so this works even if the cameras are plugged in differently.
+// index of the frame for reference i, or -1 if there are fewer frames than references
+// and none is left for it. Each camera of a board sees the board from its own fixed
+// angle, so this works even if the cameras are plugged in differently.
 // It fails if a camera's view doesn't resemble its reference at all, e.g. a laptop
-// camera got picked.
+// camera got picked or the camera was moved.
 func AssignCameras(frames []image.Image, references []image.Image) ([]int, error) {
-	if len(frames) < len(references) {
-		return nil, fmt.Errorf("%d cameras found, %d needed", len(frames), len(references))
-	}
 	ft := make([][]float64, len(frames))
 	for i, f := range frames {
 		ft[i] = thumbnail(f)
@@ -62,31 +61,39 @@ func AssignCameras(frames []image.Image, references []image.Image) ([]int, error
 		rt[i] = thumbnail(r)
 	}
 
-	// Try all assignments; boards have only a handful of cameras.
+	// Try all assignments; boards have only a handful of cameras. As many references
+	// as possible get a frame: only the surplus of references stays without one.
+	skips := max(len(references)-len(frames), 0)
 	best, bestCost := []int(nil), math.Inf(1)
-	var try func(assign []int, used []bool, cost float64)
-	try = func(assign []int, used []bool, cost float64) {
+	var try func(assign []int, used []bool, skipped int, cost float64)
+	try = func(assign []int, used []bool, skipped int, cost float64) {
 		if cost >= bestCost {
 			return
 		}
 		r := len(assign)
 		if r == len(references) {
-			best, bestCost = append([]int(nil), assign...), cost
+			best, bestCost = slices.Clone(assign), cost
 			return
 		}
 		for f := range frames {
 			if !used[f] {
 				used[f] = true
-				try(append(assign, f), used, cost+viewDistance(ft[f], rt[r]))
+				try(append(assign, f), used, skipped, cost+viewDistance(ft[f], rt[r]))
 				used[f] = false
 			}
 		}
+		if skipped < skips {
+			try(append(assign, -1), used, skipped+1, cost)
+		}
 	}
-	try(nil, make([]bool, len(frames)), 0)
+	try(nil, make([]bool, len(frames)), 0, 0)
 
 	// A matching view differs mostly by darts and lighting; a different scene by much more.
 	const maxDistance = 25
 	for r, f := range best {
+		if f < 0 {
+			continue
+		}
 		if d := viewDistance(ft[f], rt[r]); d > maxDistance {
 			return nil, fmt.Errorf("%w: camera %d differs by %.0f from reference %d", ErrAmbiguousCameras, f, d, r)
 		}

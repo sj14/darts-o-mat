@@ -57,7 +57,7 @@ New features build on the existing stack; don't introduce additional frameworks 
 ## Structure
 
 - [`cmd/darts-o-mat`](cmd/darts-o-mat/AGENTS.md): web server
-- [`cmd/darts-o-cam`](cmd/darts-o-cam/AGENTS.md): camera tool (detect darts, calibrate, debug)
+- [`cmd/darts-o-cam`](cmd/darts-o-cam/AGENTS.md): camera app (web interface to add and calibrate cameras, detection)
 - `pkg/api`: JSON API under `/api` (server)
 - `pkg/service`: application logic including permission checks (server)
 - `pkg/auth`: session cookie and middleware (server)
@@ -66,15 +66,16 @@ New features build on the existing stack; don't introduce additional frameworks 
 - `pkg/frontend`: the server's web interface: controllers, templ views (`view`) and embedded static files (`static`, also used by `pkg/camui`)
 - [`pkg/camera`](pkg/camera/AGENTS.md): camera access per operating system (macOS, Linux, Windows)
 - `pkg/vision`: camera geometry and dart detection in pure Go (darts-o-cam)
-- `pkg/camui`: local interface of `darts-o-cam` (darts-o-cam)
+- `pkg/camapp`: darts-o-cam at runtime: configuration, cameras, detection (darts-o-cam)
+- `pkg/camui`: web interface of `darts-o-cam` (darts-o-cam)
 - `tools/tailwind`: downloads and runs the Tailwind CLI for `go generate`
 
 What the server packages do in detail is under [server → structure](cmd/darts-o-mat/AGENTS.md#structure), the camera packages under [camera → structure](cmd/darts-o-cam/AGENTS.md#structure).
 
 ## How server and camera work together
 
-- **The calibration stays with the client** (user's decision, 2026-10-11): the calibration file lives on the computer with the cameras, never on the server – that way the same board works with different servers; server and token are passed separately via `-server`/`-token`.
-- **Connection:** one camera token per board, created on the server. `darts-o-cam detect` uses it to send darts (with their position in mm) and the takeout to `POST /api/board/darts` and `/api/board/takeout`; the server enters them into the board's running game like darts typed in by hand. Server side: [server → camera connection](cmd/darts-o-mat/AGENTS.md#camera-connection), client side: [camera → connection to the game](cmd/darts-o-cam/AGENTS.md#connection-to-the-game).
+- **The calibration stays with the client** (user's decision, 2026-10-11): the calibration lives on the computer with the cameras (darts-o-cam's configuration), never on the server – that way the same board works with different servers; server and token are set separately in darts-o-cam's settings.
+- **Connection:** one camera token per board, created on the server. darts-o-cam (token and server URL entered in its settings) uses it to send darts (with their position in mm) and the takeout to `POST /api/board/darts` and `/api/board/takeout`; the server enters them into the board's running game like darts typed in by hand. Server side: [server → camera connection](cmd/darts-o-mat/AGENTS.md#camera-connection), client side: [camera → connection to the game](cmd/darts-o-cam/AGENTS.md#connection-to-the-game).
 - **Positions** are only sent to the server as the fused position in mm (origin at the bull, Y towards the 20, `pkg/domain/dartboard`); no values per camera and nothing from the calibration. They are comparable across camera setups (heatmap). Darts-o-cam has to send correct positions itself; the server stores them for statistics and doesn't correct anything (user's decision, 2026-10-13), see [server → statistics](cmd/darts-o-mat/AGENTS.md#statistics).
 
 ## Testing

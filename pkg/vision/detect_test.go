@@ -77,7 +77,7 @@ func TestDetectDart(t *testing.T) {
 			after := loadRGBA(t, "testdata/cam3.jpg")
 			drawDart(after, tt.tip, tt.dir)
 
-			d, err := DetectDart(before, after, DefaultDetectOptions)
+			d, err := DetectDart(before, after, DefaultDetectOptions, ReferenceScale)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -104,7 +104,7 @@ func TestDetectDartIgnoresSpecks(t *testing.T) {
 		}
 	}
 
-	d, err := DetectDart(before, after, DefaultDetectOptions)
+	d, err := DetectDart(before, after, DefaultDetectOptions, ReferenceScale)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,14 +122,14 @@ func TestDetectDartOnlyFlight(t *testing.T) {
 			after.SetRGBA(x, y, color.RGBA{30, 60, 170, 255})
 		}
 	}
-	if _, err := DetectDart(before, after, DefaultDetectOptions); err != ErrNotElongated {
+	if _, err := DetectDart(before, after, DefaultDetectOptions, ReferenceScale); err != ErrNotElongated {
 		t.Errorf("got %v, want ErrNotElongated", err)
 	}
 }
 
 func TestDetectDartNothingChanged(t *testing.T) {
 	img := loadRGBA(t, "testdata/cam3.jpg")
-	if _, err := DetectDart(img, img, DefaultDetectOptions); err != ErrNoDart {
+	if _, err := DetectDart(img, img, DefaultDetectOptions, ReferenceScale); err != ErrNoDart {
 		t.Errorf("got %v, want ErrNoDart", err)
 	}
 }
@@ -220,7 +220,7 @@ func TestComponentsBridging(t *testing.T) {
 	}
 }
 
-// TestRealThrows runs the detection on real throws recorded with darts-o-cam detect -save
+// TestRealThrows runs the detection on real throws recorded with darts-o-cam -save
 // (2026-10-11), with the fields confirmed by the player.
 func TestRealThrows(t *testing.T) {
 	calib, err := LoadCalibration("testdata/calibration.json")
@@ -254,7 +254,8 @@ func TestRealThrows(t *testing.T) {
 			before := loadRGBA(t, "testdata/throws/"+tt.name+"-"+tt.camera+"-before.jpg")
 			after := loadRGBA(t, "testdata/throws/"+tt.name+"-"+tt.camera+"-after.jpg")
 
-			d, err := DetectDart(before, after, DefaultDetectOptions)
+			// With the camera's own scale, as the watcher does.
+			d, err := DetectDart(before, after, DefaultDetectOptions, PixelScale(toBoard))
 			if err != nil {
 				t.Fatal(err)
 			}

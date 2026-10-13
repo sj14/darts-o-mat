@@ -39,6 +39,8 @@ type Device struct {
 
 // Options for opening a camera.
 type Options struct {
+	// Width and Height are the wanted frame size: the camera's own mode closest to it
+	// is used, frames aren't scaled. So the frames may come in another size.
 	Width, Height int
 	// FPS limits the frames delivered per second; frames in between are dropped.
 	// 0 delivers every frame of the camera.

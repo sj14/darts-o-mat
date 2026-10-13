@@ -194,7 +194,7 @@ func TestWatcherRemovedReal(t *testing.T) {
 			after := loadRGBA(t, "testdata/throws/"+tt.event+"-"+tt.camera+"-after.jpg")
 			w := NewWatcher(nil, DefaultWatchOptions)
 			w.Empty = []*image.RGBA{loadRGBA(t, "testdata/"+tt.camera+"-empty.jpg")}
-			area := ChangedArea(before, after, DefaultDetectOptions)
+			area := ChangedArea(before, after, DefaultDetectOptions, ReferenceScale)
 			if got := w.removed([]*image.RGBA{before}, []*image.RGBA{after}, [][]image.Point{area}); got != tt.removed {
 				t.Errorf("removed = %v, want %v", got, tt.removed)
 			}
@@ -220,7 +220,7 @@ func TestWatcherRemovedExposure(t *testing.T) {
 				b, a := loadRGBA(t, name+"before.jpg"), loadRGBA(t, name+"after.jpg")
 				before, after = append(before, b), append(after, a)
 				empty = append(empty, loadRGBA(t, fmt.Sprintf("testdata/exposure/cam%d-empty.jpg", c)))
-				areas = append(areas, ChangedArea(b, a, DefaultDetectOptions))
+				areas = append(areas, ChangedArea(b, a, DefaultDetectOptions, ReferenceScale))
 			}
 			w := NewWatcher(nil, DefaultWatchOptions)
 			w.Empty = empty

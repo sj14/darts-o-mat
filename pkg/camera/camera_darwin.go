@@ -29,7 +29,7 @@ var (
 	loadErr  error
 
 	mediaTypeVideo                                objc.ID
-	keyPixelFormat, keyWidth, keyHeight           objc.ID
+	keyPixelFormat                                objc.ID
 	presets                                       = map[[2]int]objc.ID{}
 	frameDelegate                                 objc.Class
 	delegates                                     sync.Map // delegate objc.ID → *Camera
@@ -126,12 +126,6 @@ func loadFrameworks() error {
 		return err
 	}
 	if keyPixelFormat, err = constant(cv, "kCVPixelBufferPixelFormatTypeKey"); err != nil {
-		return err
-	}
-	if keyWidth, err = constant(cv, "kCVPixelBufferWidthKey"); err != nil {
-		return err
-	}
-	if keyHeight, err = constant(cv, "kCVPixelBufferHeightKey"); err != nil {
 		return err
 	}
 	for _, size := range [][2]int{{320, 240}, {352, 288}, {640, 480}, {960, 540}, {1280, 720}, {1920, 1080}, {3840, 2160}} {
@@ -255,23 +249,22 @@ func open(id string, opts Options) (*Camera, error) {
 
 	c.session = class("AVCaptureSession").Send(sel("alloc")).Send(sel("init"))
 	c.session.Send(sel("beginConfiguration"))
-	// The preset picks the camera's own mode; the output below scales if there is none.
-	if preset, ok := presets[[2]int{opts.Width, opts.Height}]; ok && objc.Send[bool](c.session, sel("canSetSessionPreset:"), preset) {
-		c.session.Send(sel("setSessionPreset:"), preset)
-	}
 	if !objc.Send[bool](c.session, sel("canAddInput:"), c.input) {
 		return fail("can't use it as input")
 	}
 	c.session.Send(sel("addInput:"), c.input)
+	// The preset picks one of the camera's own modes, the closest to the wanted size, like
+	// the drivers on Linux and Windows do. Only with the input added, the session knows
+	// which presets the camera can do. Frames aren't scaled, they come in the mode's size.
+	if size, ok := c.closestPreset(opts.Width, opts.Height); ok {
+		c.session.Send(sel("setSessionPreset:"), presets[size])
+		c.Format = fmt.Sprintf("%d×%d", size[0], size[1])
+	}
 
 	c.output = class("AVCaptureVideoDataOutput").Send(sel("alloc")).Send(sel("init"))
 	settings := class("NSMutableDictionary").Send(sel("dictionary"))
 	number := class("NSNumber")
 	settings.Send(sel("setObject:forKey:"), number.Send(sel("numberWithUnsignedInt:"), uint32(pixelFormatBGRA)), keyPixelFormat)
-	if opts.Width > 0 && opts.Height > 0 {
-		settings.Send(sel("setObject:forKey:"), number.Send(sel("numberWithInt:"), int32(opts.Width)), keyWidth)
-		settings.Send(sel("setObject:forKey:"), number.Send(sel("numberWithInt:"), int32(opts.Height)), keyHeight)
-	}
 	c.output.Send(sel("setVideoSettings:"), settings)
 	c.output.Send(sel("setAlwaysDiscardsLateVideoFrames:"), true)
 
@@ -291,6 +284,34 @@ func open(id string, opts Options) (*Camera, error) {
 	}
 	_ = c.autoExposure() // undo a lock left from the last time
 	return c, nil
+}
+
+// closestPreset returns the size of the session preset the camera can do that is
+// closest to the wanted size; false without a wanted size or a preset it can do.
+func (c *Camera) closestPreset(width, height int) ([2]int, bool) {
+	if width <= 0 || height <= 0 {
+		return [2]int{}, false
+	}
+	var best [2]int
+	found := false
+	dist := func(s [2]int) int { return abs(s[0]-width) + abs(s[1]-height) }
+	for size, preset := range presets {
+		if !objc.Send[bool](c.session, sel("canSetSessionPreset:"), preset) {
+			continue
+		}
+		// Ties go to the larger size, so the choice doesn't depend on the map's order.
+		if !found || dist(size) < dist(best) || (dist(size) == dist(best) && size[0] > best[0]) {
+			best, found = size, true
+		}
+	}
+	return best, found
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // didOutputSampleBuffer is called by AVFoundation on the camera's queue for every frame.

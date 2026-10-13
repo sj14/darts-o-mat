@@ -1,6 +1,5 @@
-// Package camui is the local web interface of darts-o-cam to calibrate a board's cameras.
-// The calibration stays on the computer with the cameras, so the same board works with
-// any darts-o-mat server.
+// Package camui is the web interface of darts-o-cam (see pkg/camapp): add the board's
+// cameras, calibrate them, connect to darts-o-mat and see the latest detections.
 package camui
 
 import (
@@ -14,11 +13,12 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
-	"time"
 
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
+	"github.com/sj14/darts-o-mat/pkg/camapp"
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 	"github.com/sj14/darts-o-mat/pkg/frontend/static"
 	"github.com/sj14/darts-o-mat/pkg/vision"
@@ -40,28 +40,13 @@ const MinPoints = 4
 const minFoundShare = 0.5
 
 type UI struct {
-	// OnCalibrated is called after a camera was calibrated, e.g. to use the new
-	// calibration for the running detection right away.
-	OnCalibrated func(camera int, toBoard vision.Homography)
+	app *camapp.App
 
-	path  string
-	cams  []*vision.Live
-	mu    sync.Mutex
-	calib vision.Calibration
-	// session is the calibration in progress, per camera.
-	session map[int]*session
-	// events are the latest detections, newest last.
-	events []shownEvent
-	nextID int
-	// checks are the latest grid checks, per camera.
-	checks map[int]check
-}
-
-// shownEvent is a detection kept to show it.
-type shownEvent struct {
-	ID    int
-	Time  time.Time
-	Event *vision.Event
+	mu sync.Mutex
+	// session is the calibration in progress, per camera name.
+	session map[string]*session
+	// checks are the latest grid checks, per camera name.
+	checks map[string]check
 }
 
 // check is a refinement run on a camera's current frame, to show the features found.
@@ -69,29 +54,6 @@ type check struct {
 	frame  *image.RGBA
 	result vision.RefineResult
 	err    error
-}
-
-// maxEvents is how many detections are kept to show them.
-const maxEvents = 20
-
-// AddEvent shows a detection.
-func (ui *UI) AddEvent(e *vision.Event) {
-	ui.mu.Lock()
-	defer ui.mu.Unlock()
-	ui.nextID++
-	ui.events = append(ui.events, shownEvent{ID: ui.nextID, Time: time.Now(), Event: e})
-	if len(ui.events) > maxEvents {
-		ui.events = ui.events[len(ui.events)-maxEvents:]
-	}
-}
-
-func (ui *UI) event(id int) (shownEvent, bool) {
-	for _, e := range ui.events {
-		if e.ID == id {
-			return e, true
-		}
-	}
-	return shownEvent{}, false
 }
 
 // session is a camera's calibration in progress: the frame the user clicks on,
@@ -103,175 +65,298 @@ type session struct {
 	err    string
 }
 
-// New serves the calibration at path for the cameras, in the calibration's order.
-// If the calibration has fewer cameras, the missing ones are added as cam1, cam2, ….
-func New(path string, calib vision.Calibration, cams []*vision.Live) *UI {
-	for i := len(calib.Cameras); i < len(cams); i++ {
-		calib.Cameras = append(calib.Cameras, vision.CameraCalibration{Name: fmt.Sprintf("cam%d", i+1)})
-	}
-	return &UI{path: path, cams: cams, calib: calib, session: map[int]*session{}, checks: map[int]check{}}
+// New serves the web interface of the app.
+func New(app *camapp.App) *UI {
+	return &UI{app: app, session: map[string]*session{}, checks: map[string]check{}}
 }
 
 func (ui *UI) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServerFS(static.FS)))
 	r.Get("/", ui.overview)
+	r.Post("/detect", ui.setDetect)
+	r.Post("/reconnect", ui.reconnect)
+	r.Get("/settings", ui.settingsPage)
+	r.Post("/settings", ui.saveSettings)
+	r.Post("/settings/defaults", ui.defaultDetection)
 	r.Get("/devices", ui.devicesPage)
-	r.Post("/devices", ui.chooseDevices)
-	r.Get("/cam/{i}/frame.jpg", ui.frame)
-	r.Get("/cam/{i}/calibrate", ui.calibratePage)
-	r.Get("/cam/{i}/clicked.jpg", ui.clickedImage)
-	r.Post("/cam/{i}/start", ui.start)
-	r.Post("/cam/{i}/point", ui.point)
-	r.Post("/cam/{i}/skip", ui.skip)
-	r.Post("/cam/{i}/finish", ui.finish)
-	r.Post("/cam/{i}/refine", ui.refineAgain)
-	r.Get("/cam/{i}/check", ui.checkPage)
-	r.Get("/cam/{i}/features.jpg", ui.featuresImage)
+	r.Get("/devices/snapshot.jpg", ui.snapshot)
+	r.Post("/devices/refresh", ui.refreshSnapshots)
+	r.Post("/devices/add", ui.addCamera)
+	r.Get("/cam/{name}/frame.jpg", ui.frame)
+	r.Get("/cam/{name}/remove", ui.removePage)
+	r.Post("/cam/{name}/remove", ui.removeCamera)
+	r.Get("/cam/{name}/calibrate", ui.calibratePage)
+	r.Get("/cam/{name}/clicked.jpg", ui.clickedImage)
+	r.Post("/cam/{name}/start", ui.start)
+	r.Post("/cam/{name}/point", ui.point)
+	r.Post("/cam/{name}/skip", ui.skip)
+	r.Post("/cam/{name}/finish", ui.finish)
+	r.Post("/cam/{name}/refine", ui.refineAgain)
+	r.Get("/cam/{name}/check", ui.checkPage)
+	r.Get("/cam/{name}/features.jpg", ui.featuresImage)
 	r.Get("/event/{id}", ui.eventPage)
 	r.Get("/event/{id}/cam/{i}.jpg", ui.eventImage)
 	return r
 }
 
-// camera returns the index from the URL, writing 404 if it doesn't exist.
-func (ui *UI) camera(w http.ResponseWriter, r *http.Request) (int, bool) {
-	i, err := strconv.Atoi(chi.URLParam(r, "i"))
-	if err != nil || i < 0 || i >= len(ui.cams) {
+// camera returns the camera named in the URL, writing 404 if there is none.
+func (ui *UI) camera(w http.ResponseWriter, r *http.Request) (camapp.CameraState, bool) {
+	c, ok := ui.app.Camera(chi.URLParam(r, "name"))
+	if !ok {
 		http.NotFound(w, r)
-		return 0, false
 	}
-	return i, true
+	return c, ok
+}
+
+// latest returns the camera's current frame, writing an error if there is none.
+func latest(w http.ResponseWriter, c camapp.CameraState) (*image.RGBA, bool) {
+	if c.Live == nil {
+		http.Error(w, "camera not connected", http.StatusServiceUnavailable)
+		return nil, false
+	}
+	img, err := c.Live.Latest()
+	if img == nil {
+		http.Error(w, fmt.Sprintf("no frame yet: %v", err), http.StatusServiceUnavailable)
+		return nil, false
+	}
+	return img, true
 }
 
 func (ui *UI) overview(w http.ResponseWriter, r *http.Request) {
-	ui.mu.Lock()
-	var cams []CameraModel
-	for i, c := range ui.calib.Cameras {
-		if i >= len(ui.cams) {
-			break // a camera of the calibration isn't connected
-		}
-		cams = append(cams, CameraModel{Index: i, Name: c.Name, Device: ui.cams[i].Device().ID, Calibrated: c.Refined != nil})
+	m := OverviewModel{Dir: ui.app.Dir(), Status: ui.app.Status(), Settings: ui.app.Settings()}
+	for _, c := range ui.app.Cameras() {
+		m.Cameras = append(m.Cameras, cameraModel(c))
 	}
-	var events []EventModel
-	for i := len(ui.events) - 1; i >= 0; i-- {
-		events = append(events, ui.eventModel(ui.events[i]))
+	for _, e := range ui.app.Events() {
+		m.Events = append(m.Events, eventModel(e))
 	}
-	ui.mu.Unlock()
-	m := OverviewModel{Path: ui.path, Cameras: cams, Events: events, DeviceName: ui.calib.DeviceName, DeviceModel: ui.calib.DeviceModel}
 	render(w, r, Overview(m))
 }
 
-// devicesPage lists the kinds of cameras connected, to choose the board's cameras.
-func (ui *UI) devicesPage(w http.ResponseWriter, r *http.Request) {
-	ui.renderDevices(w, r, "", false)
+func cameraModel(c camapp.CameraState) CameraModel {
+	m := CameraModel{Name: c.Name, DeviceName: c.DeviceName, DeviceModel: c.DeviceModel, Open: c.Live != nil, Calibrated: c.Calibrated}
+	if toBoard, err := c.ToBoard(); err == nil && c.Calibrated {
+		m.Scale = strings.Replace(strconv.FormatFloat(vision.PixelScale(toBoard), 'f', 2, 64), ".", ",", 1)
+	}
+	if c.Live != nil {
+		m.Device = c.Live.Device().ID
+		if c.Frame.X > 0 {
+			m.Size = fmt.Sprintf("%d×%d", c.Frame.X, c.Frame.Y)
+		}
+		if !c.Calibrated && c.Width != 0 {
+			// Calibrated, but on frames of another size.
+			m.OtherSize = fmt.Sprintf("%d×%d", c.Width, c.Height)
+		}
+	}
+	switch {
+	case c.Problem == nil:
+	case errors.Is(c.Problem, vision.ErrNotConnected):
+		m.Problem = "Nicht angeschlossen."
+	case errors.Is(c.Problem, vision.ErrAmbiguousCameras):
+		m.Problem = "Das Bild passt nicht mehr zum Bild bei der Kalibrierung (Kamera verschoben?). Bitte neu kalibrieren."
+	default:
+		m.Problem = c.Problem.Error()
+	}
+	return m
 }
 
-func (ui *UI) renderDevices(w http.ResponseWriter, r *http.Request, errMsg string, saved bool) {
-	groups, err := vision.ListDeviceGroups()
-	m := DevicesModel{Groups: groups, Saved: saved, Error: errMsg}
+func (ui *UI) setDetect(w http.ResponseWriter, r *http.Request) {
+	if err := ui.app.SetDetect(r.FormValue("on") == "true"); err != nil {
+		log.Printf("detection: %v", err)
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (ui *UI) reconnect(w http.ResponseWriter, r *http.Request) {
+	ui.app.Reconnect()
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (ui *UI) settingsPage(w http.ResponseWriter, r *http.Request) {
+	render(w, r, SettingsPage(SettingsModel{Settings: ui.app.Settings(), Saved: r.URL.Query().Has("saved")}))
+}
+
+// Sizes are the frame sizes offered in the settings.
+var Sizes = [][2]int{{640, 480}, {1280, 720}, {1920, 1080}}
+
+func (ui *UI) saveSettings(w http.ResponseWriter, r *http.Request) {
+	s := camapp.Settings{Server: r.FormValue("server"), Token: r.FormValue("token")}
+	if _, err := fmt.Sscanf(r.FormValue("size"), "%dx%d", &s.Width, &s.Height); err != nil {
+		s.Width, s.Height = 0, 0
+	}
+	s.FPS, _ = strconv.Atoi(r.FormValue("fps"))
+	s.Detection = detectionForm(r)
+	ui.applySettings(w, r, s)
+}
+
+// defaultDetection resets the detection's thresholds to their defaults.
+func (ui *UI) defaultDetection(w http.ResponseWriter, r *http.Request) {
+	s := ui.app.Settings()
+	s.Detection = vision.DefaultWatchOptions
+	ui.applySettings(w, r, s)
+}
+
+// detectionForm reads the detection's thresholds from the settings form; a field that
+// isn't a number becomes 0, which the app rejects.
+func detectionForm(r *http.Request) vision.WatchOptions {
+	num := func(name string) float64 {
+		f, _ := strconv.ParseFloat(strings.Replace(r.FormValue(name), ",", ".", 1), 64)
+		return f
+	}
+	color := func(name string) uint8 {
+		return uint8(min(max(num(name), 0), 255))
+	}
+	return vision.WatchOptions{
+		Detect: vision.DetectOptions{
+			DiffThreshold: color("diff_threshold"),
+			WeakThreshold: color("weak_threshold"),
+			Blur:          num("blur"),
+			MinArea:       num("min_area"),
+			MinSpeck:      num("min_speck"),
+			MinElongation: num("min_elongation"),
+			Gap:           num("gap"),
+			AxisDistance:  num("axis_distance"),
+		},
+		SampleStep:      num("sample_step"),
+		MotionThreshold: color("motion_threshold"),
+		MotionArea:      num("motion_area"),
+		StableFrames:    int(num("stable_frames")),
+		TakeoutArea:     num("takeout_area"),
+	}
+}
+
+func (ui *UI) applySettings(w http.ResponseWriter, r *http.Request, s camapp.Settings) {
+	if err := ui.app.SetSettings(s); err != nil {
+		m := SettingsModel{Settings: s, Error: err.Error()}
+		if errors.Is(err, camapp.ErrInvalidSettings) {
+			m.Error = "Ungültige Einstellungen: " + err.Error()
+		}
+		render(w, r, SettingsPage(m))
+		return
+	}
+	http.Redirect(w, r, "/settings?saved", http.StatusSeeOther)
+}
+
+func (ui *UI) devicesPage(w http.ResponseWriter, r *http.Request) {
+	devices, err := ui.app.Devices()
+	m := DevicesModel{Devices: devices}
 	if err != nil {
 		m.Error = err.Error()
 	}
-	ui.mu.Lock()
-	m.Current, m.Open = ui.calib.DeviceName, len(ui.cams)
-	ui.mu.Unlock()
 	render(w, r, Devices(m))
 }
 
-// chooseDevices saves which cameras belong to the board. They are opened at the next start.
-func (ui *UI) chooseDevices(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("name")
-	groups, err := vision.ListDeviceGroups()
+// snapshot serves a frame of a connected device, to tell the cameras apart.
+func (ui *UI) snapshot(w http.ResponseWriter, r *http.Request) {
+	img, err := ui.app.Snapshot(r.URL.Query().Get("id"))
 	if err != nil {
-		ui.renderDevices(w, r, err.Error(), false)
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
-	i := slices.IndexFunc(groups, func(g vision.DeviceGroup) bool { return g.Name == name })
-	if i < 0 {
-		ui.renderDevices(w, r, "Diese Kameras sind nicht (mehr) angeschlossen.", false)
-		return
-	}
+	writeJPEG(w, img)
+}
 
-	ui.mu.Lock()
-	ui.calib.DeviceName, ui.calib.DeviceModel = groups[i].Name, groups[i].Model
-	err = ui.calib.Save(ui.path)
-	ui.mu.Unlock()
+func (ui *UI) refreshSnapshots(w http.ResponseWriter, r *http.Request) {
+	ui.app.ClearSnapshots()
+	http.Redirect(w, r, "/devices", http.StatusSeeOther)
+}
+
+// addCamera adds a device to the board and goes on to calibrate it.
+func (ui *UI) addCamera(w http.ResponseWriter, r *http.Request) {
+	name, err := ui.app.AddCamera(r.FormValue("id"))
 	if err != nil {
-		ui.renderDevices(w, r, err.Error(), false)
+		devices, _ := ui.app.Devices()
+		render(w, r, Devices(DevicesModel{Devices: devices, Error: "Kamera konnte nicht hinzugefügt werden: " + err.Error()}))
 		return
 	}
-	ui.renderDevices(w, r, "", true)
+	http.Redirect(w, r, "/cam/"+name+"/calibrate", http.StatusSeeOther)
+}
+
+func (ui *UI) removePage(w http.ResponseWriter, r *http.Request) {
+	c, ok := ui.camera(w, r)
+	if !ok {
+		return
+	}
+	render(w, r, RemovePage(cameraModel(c)))
+}
+
+func (ui *UI) removeCamera(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	if err := ui.app.RemoveCamera(name); err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	ui.mu.Lock()
+	delete(ui.session, name)
+	delete(ui.checks, name)
+	ui.mu.Unlock()
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // frame serves the camera's newest frame, with the board drawn on it if calibrated.
 func (ui *UI) frame(w http.ResponseWriter, r *http.Request) {
-	i, ok := ui.camera(w, r)
+	c, ok := ui.camera(w, r)
 	if !ok {
 		return
 	}
-	img, err := ui.cams[i].Latest()
-	if img == nil {
-		http.Error(w, fmt.Sprintf("no frame yet: %v", err), http.StatusServiceUnavailable)
+	img, ok := latest(w, c)
+	if !ok {
 		return
 	}
-	ui.mu.Lock()
-	cam := ui.calib.Cameras[i]
-	ui.mu.Unlock()
 	var out image.Image = img
-	if cam.Refined != nil {
-		if toImage, err := cam.Refined.Inverse(); err == nil {
+	if c.Calibrated {
+		toBoard, _ := c.ToBoard()
+		if toImage, err := toBoard.Inverse(); err == nil {
 			out = vision.DrawBoard(img, toImage, color.RGBA{0, 255, 255, 255})
 		}
 	}
 	writeJPEG(w, out)
 }
 
+func calibrateURL(name string) string {
+	return "/cam/" + name + "/calibrate"
+}
+
 // start begins a new calibration of a camera on its current frame.
 func (ui *UI) start(w http.ResponseWriter, r *http.Request) {
-	i, ok := ui.camera(w, r)
+	c, ok := ui.camera(w, r)
 	if !ok {
 		return
 	}
-	img, _ := ui.cams[i].Latest()
-	if img == nil {
-		http.Error(w, "no frame yet", http.StatusServiceUnavailable)
+	img, ok := latest(w, c)
+	if !ok {
 		return
 	}
 	ui.mu.Lock()
-	ui.session[i] = &session{frame: img}
+	ui.session[c.Name] = &session{frame: img}
 	ui.mu.Unlock()
-	http.Redirect(w, r, fmt.Sprintf("/cam/%d/calibrate", i), http.StatusSeeOther)
+	http.Redirect(w, r, calibrateURL(c.Name), http.StatusSeeOther)
 }
 
 func (ui *UI) calibratePage(w http.ResponseWriter, r *http.Request) {
-	i, ok := ui.camera(w, r)
+	c, ok := ui.camera(w, r)
 	if !ok {
 		return
 	}
 	ui.mu.Lock()
-	s := ui.session[i]
-	cam := ui.calib.Cameras[i]
+	s := ui.session[c.Name]
 	ui.mu.Unlock()
 	if s == nil {
 		ui.start(w, r)
 		return
 	}
-	m := CalibrateModel{Index: i, Name: cam.Name, Points: len(s.points), MinPoints: MinPoints, Error: s.err}
+	m := CalibrateModel{Name: c.Name, Points: len(s.points), MinPoints: MinPoints, Error: s.err, Bounds: s.frame.Bounds()}
 	if s.target < len(Targets) {
 		m.Target = &Targets[s.target]
 	}
-	m.Bounds = s.frame.Bounds()
 	render(w, r, Calibrate(m))
 }
 
 // clickedImage serves the frame being calibrated with the clicked points marked.
 func (ui *UI) clickedImage(w http.ResponseWriter, r *http.Request) {
-	i, ok := ui.camera(w, r)
-	if !ok {
-		return
-	}
 	ui.mu.Lock()
-	s := ui.session[i]
+	s := ui.session[chi.URLParam(r, "name")]
 	ui.mu.Unlock()
 	if s == nil {
 		http.NotFound(w, r)
@@ -288,14 +373,11 @@ func (ui *UI) clickedImage(w http.ResponseWriter, r *http.Request) {
 // point records a click on the image for the current target. The image input of the
 // form sends the click position in pixels of the image, which is shown in full size.
 func (ui *UI) point(w http.ResponseWriter, r *http.Request) {
-	i, ok := ui.camera(w, r)
-	if !ok {
-		return
-	}
+	name := chi.URLParam(r, "name")
 	x, errX := strconv.ParseFloat(r.FormValue("click.x"), 64)
 	y, errY := strconv.ParseFloat(r.FormValue("click.y"), 64)
 	ui.mu.Lock()
-	if s := ui.session[i]; s != nil && errX == nil && errY == nil && s.target < len(Targets) {
+	if s := ui.session[name]; s != nil && errX == nil && errY == nil && s.target < len(Targets) {
 		s.points = append(s.points, vision.CalibrationPoint{
 			Image:   dartboard.Point{X: x, Y: y},
 			Between: Targets[s.target],
@@ -305,77 +387,66 @@ func (ui *UI) point(w http.ResponseWriter, r *http.Request) {
 		s.err = ""
 	}
 	ui.mu.Unlock()
-	http.Redirect(w, r, fmt.Sprintf("/cam/%d/calibrate", i), http.StatusSeeOther)
+	http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
 }
 
 // skip moves on to the next target, e.g. when the point is hidden by a dart.
 func (ui *UI) skip(w http.ResponseWriter, r *http.Request) {
-	i, ok := ui.camera(w, r)
-	if !ok {
-		return
-	}
+	name := chi.URLParam(r, "name")
 	ui.mu.Lock()
-	if s := ui.session[i]; s != nil && s.target < len(Targets) {
+	if s := ui.session[name]; s != nil && s.target < len(Targets) {
 		s.target++
 	}
 	ui.mu.Unlock()
-	http.Redirect(w, r, fmt.Sprintf("/cam/%d/calibrate", i), http.StatusSeeOther)
+	http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
 }
 
 // finish refines the clicked calibration on the frame and saves it.
 func (ui *UI) finish(w http.ResponseWriter, r *http.Request) {
-	i, ok := ui.camera(w, r)
-	if !ok {
+	name := chi.URLParam(r, "name")
+	ui.mu.Lock()
+	s := ui.session[name]
+	ui.mu.Unlock()
+	if s == nil {
+		http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
+		return
+	}
+	if err := ui.refine(name, s.points, s.frame); err != nil {
+		ui.mu.Lock()
+		s.err = err.Error()
+		ui.mu.Unlock()
+		http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
 		return
 	}
 	ui.mu.Lock()
-	defer ui.mu.Unlock()
-	s := ui.session[i]
-	if s == nil {
-		http.Redirect(w, r, fmt.Sprintf("/cam/%d/calibrate", i), http.StatusSeeOther)
-		return
-	}
-
-	cam := ui.calib.Cameras[i]
-	cam.Points = s.points
-	cam.Refined = nil
-	if err := ui.refine(i, &cam, s.frame); err != nil {
-		s.err = err.Error()
-		http.Redirect(w, r, fmt.Sprintf("/cam/%d/calibrate", i), http.StatusSeeOther)
-		return
-	}
-	delete(ui.session, i)
-	http.Redirect(w, r, fmt.Sprintf("/cam/%d/check", i), http.StatusSeeOther) // show the result
+	delete(ui.session, name)
+	ui.mu.Unlock()
+	http.Redirect(w, r, "/cam/"+name+"/check", http.StatusSeeOther) // show the result
 }
 
 // refineAgain refines a calibrated camera again on its current frame, keeping its
 // points, e.g. after the camera was bumped a little.
 func (ui *UI) refineAgain(w http.ResponseWriter, r *http.Request) {
-	i, ok := ui.camera(w, r)
+	c, ok := ui.camera(w, r)
 	if !ok {
 		return
 	}
-	img, _ := ui.cams[i].Latest()
-	ui.mu.Lock()
-	defer ui.mu.Unlock()
-	cam := ui.calib.Cameras[i]
-	if img == nil || len(cam.Points) < MinPoints {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+	img, ok := latest(w, c)
+	if !ok {
 		return
 	}
-	if err := ui.refine(i, &cam, img); err != nil {
-		log.Printf("refine %s: %v", cam.Name, err)
+	if err := ui.refine(c.Name, c.Points, img); err != nil {
+		log.Printf("refine %s: %v", c.Name, err)
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// refine refines the camera's calibration on an image of the empty board and saves the
-// calibration with the image as reference and empty board. ui.mu must be held.
-func (ui *UI) refine(i int, cam *vision.CameraCalibration, img *image.RGBA) error {
-	if len(cam.Points) < MinPoints {
+// refine refines the clicked calibration on an image of the empty board and stores it.
+func (ui *UI) refine(name string, points []vision.CalibrationPoint, img *image.RGBA) error {
+	if len(points) < MinPoints {
 		return fmt.Errorf("mindestens %d Punkte nötig", MinPoints)
 	}
-	rough, err := cam.FromPoints()
+	rough, err := vision.CameraCalibration{Name: name, Points: points}.FromPoints()
 	if err != nil {
 		return errors.New("die Punkte passen nicht zusammen, bitte neu beginnen")
 	}
@@ -383,36 +454,25 @@ func (ui *UI) refine(i int, cam *vision.CameraCalibration, img *image.RGBA) erro
 	if err != nil {
 		return fmt.Errorf("Feinkalibrierung fehlgeschlagen (%v); ist das Board leer und gut zu sehen?", err)
 	}
-	cam.Refined = &res.ToBoard
-	cam.Reference = cam.Name + ".jpg"
-	cam.Empty = cam.Name + "-empty.jpg"
-	for _, name := range []string{cam.Reference, cam.Empty} {
-		if err := ui.calib.SaveImage(name, img); err != nil {
-			return err
-		}
+	log.Printf("%s: %d board features, deviation %.2f px before, %.2f px after", name, res.Matches, res.RMSBefore, res.RMSAfter)
+	if err := ui.app.Calibrate(name, points, res.ToBoard, img); err != nil {
+		return err
 	}
-	ui.calib.Cameras[i] = *cam
-	ui.checks[i] = check{frame: img, result: res}
-	log.Printf("%s: %d board features, deviation %.2f px before, %.2f px after", cam.Name, res.Matches, res.RMSBefore, res.RMSAfter)
-	if ui.OnCalibrated != nil {
-		ui.OnCalibrated(i, res.ToBoard)
-	}
-	return ui.calib.Save(ui.path)
+	ui.mu.Lock()
+	ui.checks[name] = check{frame: img, result: res}
+	ui.mu.Unlock()
+	return nil
 }
 
 // checkPage runs the refinement on the camera's current frame without saving it, and shows
 // the ring edges and wires found: whether the board's grid is recognized correctly.
 func (ui *UI) checkPage(w http.ResponseWriter, r *http.Request) {
-	i, ok := ui.camera(w, r)
+	cam, ok := ui.camera(w, r)
 	if !ok {
 		return
 	}
-	img, _ := ui.cams[i].Latest()
-	ui.mu.Lock()
-	cam := ui.calib.Cameras[i]
-	ui.mu.Unlock()
-	if img == nil {
-		http.Error(w, "no frame yet", http.StatusServiceUnavailable)
+	img, ok := latest(w, cam)
+	if !ok {
 		return
 	}
 	start, err := cam.ToBoard()
@@ -421,10 +481,10 @@ func (ui *UI) checkPage(w http.ResponseWriter, r *http.Request) {
 		c.result, c.err = vision.RefineCalibration(img, start)
 	}
 	ui.mu.Lock()
-	ui.checks[i] = c
+	ui.checks[cam.Name] = c
 	ui.mu.Unlock()
 
-	m := CheckModel{Index: i, Name: cam.Name}
+	m := CheckModel{Name: cam.Name}
 	if c.err != nil {
 		m.Error = c.err.Error()
 	} else {
@@ -450,12 +510,8 @@ func (ui *UI) checkPage(w http.ResponseWriter, r *http.Request) {
 // featuresImage draws the latest check: the board's grid as the refined calibration
 // expects it (cyan) and the features found, colored by how well they fit.
 func (ui *UI) featuresImage(w http.ResponseWriter, r *http.Request) {
-	i, ok := ui.camera(w, r)
-	if !ok {
-		return
-	}
 	ui.mu.Lock()
-	c, ok := ui.checks[i]
+	c, ok := ui.checks[chi.URLParam(r, "name")]
 	ui.mu.Unlock()
 	if !ok || c.err != nil {
 		http.NotFound(w, r)
@@ -492,53 +548,48 @@ func dot(img *image.RGBA, p dartboard.Point, c color.Color) {
 	}
 }
 
-func (ui *UI) eventModel(e shownEvent) EventModel {
-	m := EventModel{ID: e.ID, Time: e.Time.Format("15:04:05"), Takeout: e.Event.Kind == vision.EventTakeout}
+func eventModel(e camapp.Event) EventModel {
+	m := EventModel{ID: e.ID, Time: e.Time.Format("15:04:05"), Takeout: e.Kind == vision.EventTakeout, Game: e.Game}
+	if e.ReportErr != nil {
+		m.ReportErr = e.ReportErr.Error()
+	}
 	if !m.Takeout {
-		m.Label = e.Event.Dart.String()
-		m.Board = e.Event.Board
+		m.Label = e.Dart.String()
+		m.Board = e.Board
 		for i, p := range e.Event.Cameras {
-			m.Cameras = append(m.Cameras, CameraPoint{Index: i, Name: ui.calib.Cameras[i].Name, Board: p, Label: dartboard.Score(p).String()})
+			m.Cameras = append(m.Cameras, CameraPoint{Index: i, Name: e.Cameras[i], Board: p, Label: dartboard.Score(p).String()})
 		}
 		slices.SortFunc(m.Cameras, func(a, b CameraPoint) int { return a.Index - b.Index })
+	}
+	for i, name := range e.Cameras {
+		m.AllCameras = append(m.AllCameras, CameraPoint{Index: i, Name: name})
 	}
 	return m
 }
 
 func (ui *UI) eventPage(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
-	ui.mu.Lock()
-	e, ok := ui.event(id)
-	var m EventModel
-	if ok {
-		m = ui.eventModel(e)
-		for i := range ui.calib.Cameras {
-			m.AllCameras = append(m.AllCameras, CameraPoint{Index: i, Name: ui.calib.Cameras[i].Name})
-		}
-	}
-	ui.mu.Unlock()
+	e, ok := ui.app.Event(id)
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
-	render(w, r, EventPage(m))
+	render(w, r, EventPage(eventModel(e)))
 }
 
 // eventImage shows a camera's frame after the event, around the tip it found.
 func (ui *UI) eventImage(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
 	i, err := strconv.Atoi(chi.URLParam(r, "i"))
-	ui.mu.Lock()
-	e, ok := ui.event(id)
-	ui.mu.Unlock()
-	if !ok || err != nil || i < 0 || i >= len(e.Event.After) {
+	e, ok := ui.app.Event(id)
+	if !ok || err != nil || i < 0 || i >= len(e.After) {
 		http.NotFound(w, r)
 		return
 	}
-	frame := e.Event.After[i]
+	frame := e.After[i]
 	out := image.NewRGBA(frame.Bounds())
 	copy(out.Pix, frame.Pix)
-	tip, found := e.Event.Tips[i]
+	tip, found := e.Tips[i]
 	if found {
 		vision.DrawCross(out, tip, 12, color.RGBA{0, 255, 0, 255})
 		// Show the area around the tip, where it matters.

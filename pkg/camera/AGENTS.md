@@ -27,7 +27,7 @@ The shared part (`camera.go`) is tested without a camera: handing over the frame
 - The watchdog (`watch`, a `time.AfterFunc` reset by `deliver`) fails the camera when it delivers no frame for 5 s (unplugged); this used to be done separately by each backend (unified 2026-10-12).
 - `Close` calls the backend's `stop`.
 
- `pkg/vision` only uses this interface (`OpenCameras`, `OpenCamerasNamed`, `ListDeviceGroups`, `Live`).
+ `pkg/vision` (`OpenCameras`, `OpenCamera`, `Live`) and `pkg/camapp` (device list) only use this interface.
 
 Names are the same on all systems (macOS name, Linux USB product from sysfs, Windows friendly name), so calibrations work across systems. `Device.ID` depends on the USB port on all systems and changes when replugging; that's why darts-o-cam assigns the cameras by image, see [darts-o-cam → finding cameras](../../cmd/darts-o-cam/AGENTS.md#finding-cameras).
 
@@ -35,8 +35,8 @@ Names are the same on all systems (macOS name, Linux USB product from sysfs, Win
 
 AVFoundation via purego (Apache 2.0, approved by the user) instead of cgo – no Xcode needed to build, `CGO_ENABLED=0` works.
 
-- Frameworks via `Dlopen`, C functions of CoreMedia/CoreVideo/libdispatch via `RegisterLibFunc`, constants (`AVMediaTypeVideo`, `kCVPixelBuffer*Key`, session presets) via `Dlsym`.
-- A delegate class registered at runtime (`DartsOCamFrameDelegate`) receives the frames on a serial dispatch queue per camera; format BGRA (swapped to RGBA in Go), resolution via session preset plus `videoSettings`, the fps limit already drops frames in the callback (before copying).
+- Frameworks via `Dlopen`, C functions of CoreMedia/CoreVideo/libdispatch via `RegisterLibFunc`, constants (`AVMediaTypeVideo`, `kCVPixelBufferPixelFormatTypeKey`, session presets) via `Dlsym`.
+- A delegate class registered at runtime (`DartsOCamFrameDelegate`) receives the frames on a serial dispatch queue per camera; format BGRA (swapped to RGBA in Go); the size is the session preset the camera can do (`canSetSessionPreset:`, only meaningful once the input is added) closest to the wanted size, frames aren't scaled (until 2026-10-13 they were scaled to the wanted size via `videoSettings`, even up; now all three systems behave the same: the camera's own mode closest to the wanted size, see `camera.Options`); the fps limit already drops frames in the callback (before copying).
 - No ARC: alloc/init objects are freed with `release`, otherwise an autorelease pool per call on a fixed thread (`withPool`). On close the queue is drained with `dispatch_sync` before the delegate is released.
 - `Device.ID` is the `uniqueID` (location ID + VID + PID), `Device.Model` VID:PID from `AVCaptureDevice.modelID`.
 - Camera permission: requested the first time (dialog for the terminal), otherwise an error pointing to the system settings.
@@ -54,8 +54,8 @@ Implemented 2026-10-12. V4L2 via ioctl with `golang.org/x/sys/unix` (structs fro
 
 **libjpeg-turbo optional** (user's wish 2026-10-12, `turbojpeg_linux.go`): if `libturbojpeg.so.0` is installed, purego loads it at runtime (TurboJPEG 2 API, also available in libjpeg-turbo 3) and decodes directly to RGBA, one handle per camera; otherwise `image/jpeg`.
 
-- Per frame 3.5 instead of 18 ms (`image/jpeg` 11.5 ms + 5.6 ms converting to RGBA), `detect` 15 % instead of 56 % of a core.
-- Frames with a warning (e.g. extraneous bytes) count, only fatal errors drop the frame. `Camera.Format` says which decoder runs; `detect` prints it at startup.
+- Per frame 3.5 instead of 18 ms (`image/jpeg` 11.5 ms + 5.6 ms converting to RGBA), the detection 15 % instead of 56 % of a core.
+- Frames with a warning (e.g. extraneous bytes) count, only fatal errors drop the frame. `Camera.Format` says which decoder runs; darts-o-cam logs it when it opens a camera.
 - **Caution:** because of purego, even a build with `CGO_ENABLED=0` depends on the glibc loader (previously static) – doesn't run under musl/Alpine and under NixOS only with nix-ld. With the build tag `noturbojpeg` libjpeg-turbo is left out (`turbojpeg_none_linux.go`) and the binary is static again. Under NixOS the library isn't in the search path: set `LD_LIBRARY_PATH` to `libjpeg_turbo` (64-bit variant).
 - Rejected: VA-API (own parsing of the JPEG header, driver-dependent, lots of code) and OpenGL (can't decode JPEG, only the conversion, reading back eats the gain).
 
@@ -69,7 +69,7 @@ Implemented 2026-10-12, `camera_windows.go`. Media Foundation via `syscall.Sysca
 - A synchronous source reader with `MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING`: from the native modes the one with the closest size is chosen, then MJPEG, then the most fps; output RGB32 (BGRX, stride from `MF_MT_DEFAULT_STRIDE`, converted to RGBA in Go). So Media Foundation decodes, all 30 frames per second; the fps limit then drops before copying. The buffers have no `IMF2DBuffer`, therefore `IMFMediaBuffer::Lock`.
 - One goroutine per camera waits in `ReadSample`; this **can't be interrupted** (tested: neither `Shutdown` nor `Stop` nor `Flush` of the source reliably end a waiting `ReadSample`, `Stop` hung in one of three cases), therefore `Close` sets a flag and the loop ends with the next frame; if the camera delivers no more frames, `Close` gives up after 5 s with an error (reader stays open).
 - Unplugging (tested on the development board): `ReadSample` returns immediately with `MF_E_VIDEO_RECORDING_DEVICE_INVALIDATED` (`Read`: "camera is gone (unplugged?)"), for one camera 2.5 s after the last frame, so before the watchdog; `Close` afterwards in ~3 ms.
-- Unlike under macOS only one program can use a camera (second one: `MF_E_HW_MFT_FAILED_START_STREAMING`, reported as "used by another program"), e.g. not `ui` and `detect` at the same time.
+- Unlike under macOS only one program can use a camera (second one: `MF_E_HW_MFT_FAILED_START_STREAMING`, reported as "used by another program"), e.g. not two darts-o-cam at the same time; darts-o-cam itself shares its open cameras between detection and web interface, and takes the still images of devices it doesn't use by opening them for a moment.
 - Measured on the development board (i5-11400H): 3 cameras 1280×720, ~100 MB; assignment via reference image with the macOS reference images correct.
 
 **Load, because all 30 frames are decoded** (investigated 2026-10-12, only the camera part without detection, median of 7 alternating runs; the laptop's clocking makes individual measurements scatter strongly, so always measure alternating and several times):
