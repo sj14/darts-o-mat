@@ -129,6 +129,22 @@ func TestSettings(t *testing.T) {
 	if blur := want.Detection.Detect.Blur; blur != 1.42 {
 		t.Errorf("blur = %v mm, want 1.42 as shown in the form", blur)
 	}
+	// Enter in a field submits with the form's first own submit button (buttons with a
+	// form attribute belong to another form): that must save.
+	_, page := get(t, srv, "/settings")
+	form := page[strings.Index(page, `<form method="post" action="/settings"`):]
+	form = form[:strings.Index(form, "</form>")]
+	for _, button := range strings.Split(form, "<button")[1:] {
+		tag := button[:strings.Index(button, ">")]
+		if !strings.Contains(tag, `type="submit"`) || strings.Contains(tag, "form=") {
+			continue
+		}
+		if !strings.HasPrefix(button[len(tag)+1:], "Speichern") {
+			t.Errorf("the settings form's first submit button isn't Speichern: %s", button[:min(len(button), 300)])
+		}
+		break
+	}
+
 	if _, body := get(t, srv, "/"); !strings.Contains(body, "http://darts.local:3000") {
 		t.Errorf("overview doesn't show the server")
 	}

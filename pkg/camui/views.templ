@@ -619,12 +619,15 @@ templ SettingsPage(m SettingsModel) {
 						</label>
 					}
 				</div>
-				<button type="submit" formaction="/settings/defaults" class={ btnSecondary, btnSmall, "mt-4" }>Standardwerte</button>
+				// Belongs to its own form below: Enter in a field submits with the form's first
+				// button, which must be "Speichern", not this one.
+				<button type="submit" form="detection-defaults" class={ btnSecondary, btnSmall, "mt-4" }>Standardwerte</button>
 			</details>
 			<div class="flex items-center gap-3">
 				<button type="submit" class={ btnPrimary }>Speichern</button>
 				<a href="/" class={ linkClass }>Zurück</a>
 			</div>
 		</form>
+		<form id="detection-defaults" method="post" action="/settings/defaults"></form>
 	}
 }
