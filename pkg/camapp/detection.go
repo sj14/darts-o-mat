@@ -5,31 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/jpeg"
 	"log"
-	"os"
-	"path/filepath"
-	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/vision"
 )
-
-// maxEvents is how many detections are kept to show them. Each keeps the frames of all
-// cameras (about 22 MB for three cameras at 1280×720).
-const maxEvents = 20
-
-// Event is a detection, as kept to show it.
-type Event struct {
-	ID   int
-	Time time.Time
-	*vision.Event
-	// Cameras are the names of the cameras by their index in the vision.Event.
-	Cameras []string
-	// Game is the game the server entered the dart in, 0 if it wasn't reported;
-	// ReportErr is why the server didn't take it.
-	Game      int64
-	ReportErr error
-}
 
 // Status tells what the detection is doing.
 type Status struct {
@@ -56,45 +35,6 @@ func (a *App) setStatus(s Status) {
 	a.evMu.Lock()
 	defer a.evMu.Unlock()
 	a.status = s
-}
-
-// Events returns the latest detections, newest first.
-func (a *App) Events() []Event {
-	a.evMu.Lock()
-	defer a.evMu.Unlock()
-	events := make([]Event, len(a.events))
-	for i, e := range a.events {
-		events[len(events)-1-i] = e
-	}
-	return events
-}
-
-// Event returns the detection with the given ID.
-func (a *App) Event(id int) (Event, bool) {
-	a.evMu.Lock()
-	defer a.evMu.Unlock()
-	for _, e := range a.events {
-		if e.ID == id {
-			return e, true
-		}
-	}
-	return Event{}, false
-}
-
-// AddEvent keeps a detection to show it and returns its ID.
-func (a *App) AddEvent(e Event) int {
-	a.evMu.Lock()
-	defer a.evMu.Unlock()
-	a.nextID++
-	e.ID = a.nextID
-	if e.Time.IsZero() {
-		e.Time = time.Now()
-	}
-	a.events = append(a.events, e)
-	if len(a.events) > maxEvents {
-		a.events = a.events[len(a.events)-maxEvents:]
-	}
-	return e.ID
 }
 
 // run is a running detection.
@@ -231,12 +171,8 @@ func (a *App) handle(ctx context.Context, d detection, e *vision.Event) {
 	} else if ev.Game != 0 {
 		log.Printf("  entered in game %d", ev.Game)
 	}
-	id := a.AddEvent(ev)
-	if a.opts.SaveDir != "" {
-		if err := saveEvent(a.opts.SaveDir, id, d.names, e); err != nil {
-			log.Printf("save event: %v", err)
-		}
-	}
+	// Saving the frames takes a moment: the detection goes on meanwhile.
+	go a.AddEvent(ev)
 }
 
 func hasAll(images []*image.RGBA) bool {
@@ -246,36 +182,4 @@ func hasAll(images []*image.RGBA) bool {
 		}
 	}
 	return true
-}
-
-// saveEvent writes the frames before and after an event as JPEGs, e.g. 003-cam1-after.jpg.
-func saveEvent(dir string, n int, names []string, e *vision.Event) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	for i, name := range names {
-		for kind, img := range map[string]*image.RGBA{"before": e.Before[i], "after": e.After[i]} {
-			if err := WriteJPEG(filepath.Join(dir, fmt.Sprintf("%03d-%s-%s.jpg", n, name, kind)), img); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// JPEGQuality is the quality frames are saved with for debugging: high, so the
-// detection on them works like on the original frames.
-const JPEGQuality = 95
-
-// WriteJPEG saves an image as JPEG.
-func WriteJPEG(path string, img image.Image) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	if err := jpeg.Encode(f, img, &jpeg.Options{Quality: JPEGQuality}); err != nil {
-		f.Close()
-		return err
-	}
-	return f.Close()
 }

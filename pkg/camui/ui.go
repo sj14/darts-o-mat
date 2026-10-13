@@ -11,6 +11,8 @@ import (
 	"image/jpeg"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -581,26 +583,43 @@ func (ui *UI) eventPage(w http.ResponseWriter, r *http.Request) {
 // eventImage shows a camera's frame after the event, around the tip it found.
 func (ui *UI) eventImage(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
-	i, err := strconv.Atoi(chi.URLParam(r, "i"))
-	e, ok := ui.app.Event(id)
-	if !ok || err != nil || i < 0 || i >= len(e.After) {
+	i, _ := strconv.Atoi(chi.URLParam(r, "i"))
+	path, ok := ui.app.EventFrame(id, i, "after")
+	if !ok {
 		http.NotFound(w, r)
 		return
 	}
-	frame := e.After[i]
-	out := image.NewRGBA(frame.Bounds())
-	copy(out.Pix, frame.Pix)
-	tip, found := e.Tips[i]
-	if found {
-		vision.DrawCross(out, tip, 12, color.RGBA{0, 255, 0, 255})
-		// Show the area around the tip, where it matters.
-		const w2, h2 = 200, 150
-		x0 := min(max(int(tip.X)-w2, 0), out.Bounds().Dx()-2*w2)
-		y0 := min(max(int(tip.Y)-h2, 0), out.Bounds().Dy()-2*h2)
-		writeJPEG(w, out.SubImage(image.Rect(x0, y0, x0+2*w2, y0+2*h2)))
+	e, _ := ui.app.Event(id)
+	frame, err := readJPEG(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	writeJPEG(w, out)
+	tip, found := e.Tips[i]
+	if !found {
+		http.ServeFile(w, r, path)
+		return
+	}
+	vision.DrawCross(frame, tip, 12, color.RGBA{0, 255, 0, 255})
+	// Show the area around the tip, where it matters.
+	const w2, h2 = 200, 150
+	x0 := min(max(int(tip.X)-w2, 0), frame.Bounds().Dx()-2*w2)
+	y0 := min(max(int(tip.Y)-h2, 0), frame.Bounds().Dy()-2*h2)
+	writeJPEG(w, frame.SubImage(image.Rect(x0, y0, x0+2*w2, y0+2*h2)))
+}
+
+// readJPEG loads a saved frame.
+func readJPEG(path string) (*image.RGBA, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	img, err := jpeg.Decode(f)
+	if err != nil {
+		return nil, err
+	}
+	return vision.ToRGBA(img), nil
 }
 
 // eventFrame serves a camera's whole frame before or after the event as a download, to
@@ -608,20 +627,14 @@ func (ui *UI) eventImage(w http.ResponseWriter, r *http.Request) {
 // 028-cam3-before.jpg), so darts-o-cam analyze reads them.
 func (ui *UI) eventFrame(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
-	i, err := strconv.Atoi(chi.URLParam(r, "i"))
-	e, ok := ui.app.Event(id)
-	if !ok || err != nil || i < 0 || i >= len(e.Cameras) {
+	i, _ := strconv.Atoi(chi.URLParam(r, "i"))
+	path, ok := ui.app.EventFrame(id, i, chi.URLParam(r, "kind"))
+	if !ok {
 		http.NotFound(w, r)
 		return
 	}
-	kind := chi.URLParam(r, "kind")
-	frames := map[string][]*image.RGBA{"before": e.Before, "after": e.After}[kind]
-	if i >= len(frames) || frames[i] == nil {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%03d-%s-%s.jpg"`, e.ID, e.Cameras[i], kind))
-	writeJPEGQuality(w, frames[i], camapp.JPEGQuality)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filepath.Base(path)+`"`)
+	http.ServeFile(w, r, path)
 }
 
 func render(w http.ResponseWriter, r *http.Request, c templ.Component) {
@@ -632,12 +645,8 @@ func render(w http.ResponseWriter, r *http.Request, c templ.Component) {
 }
 
 func writeJPEG(w http.ResponseWriter, img image.Image) {
-	writeJPEGQuality(w, img, 85)
-}
-
-func writeJPEGQuality(w http.ResponseWriter, img image.Image, quality int) {
 	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: quality}); err != nil {
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 85}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
