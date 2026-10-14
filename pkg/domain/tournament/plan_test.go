@@ -117,3 +117,29 @@ func TestStandings(t *testing.T) {
 		t.Errorf("player 1: %+v, want 2 played, 1 won, 3:5", s)
 	}
 }
+
+func TestKnockoutSizes(t *testing.T) {
+	for _, n := range []int{MinPlayers, 16, 17, MaxPlayers} {
+		var players []int64
+		for i := range n {
+			players = append(players, int64(i+1))
+		}
+		st := Plan(Knockout, players, nil)
+		size := 1
+		for size < n {
+			size *= 2
+		}
+		byes := 0
+		for _, m := range st.Matches {
+			if m.Bye {
+				byes++
+				if m.PlayerIDs[0] == 0 && m.PlayerIDs[1] == 0 {
+					t.Errorf("%d players: match %d without players", n, m.Index)
+				}
+			}
+		}
+		if len(st.Matches) != size-1 || byes != size-n {
+			t.Errorf("%d players: %d matches, %d byes, want %d and %d", n, len(st.Matches), byes, size-1, size-n)
+		}
+	}
+}

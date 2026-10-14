@@ -3,6 +3,8 @@
 Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../../TODO.md).
 
 - Add admin area
+- Do not allow the same guest name twice
+- Allow to delete guests
 - Unsure: switch the primary IDs to UUIDs.
 - Allow others to watch games if they know the link.
 - Tournaments (base built 2026-10-14, see [AGENTS.md → tournaments](AGENTS.md#tournaments)):

@@ -55,6 +55,8 @@ func roundName(rounds, r int) string {
 		return "Viertelfinale"
 	case 3:
 		return "Achtelfinale"
+	case 4:
+		return "Sechzehntelfinale"
 	}
 	return "Runde " + strconv.Itoa(r)
 }

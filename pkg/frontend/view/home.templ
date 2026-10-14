@@ -6,6 +6,7 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
+	"github.com/sj14/darts-o-mat/pkg/domain/tournament"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
 
@@ -169,7 +170,7 @@ templ formatChoice() {
 			@choice("format", "knockout", "🏆 K.-o.-Turnier", false)
 			@choice("format", "round_robin", "🏆 Jeder gegen jeden", false)
 		</div>
-		<p class={ hintClass }>Ein Turnier braucht 3 bis 16 Spieler; die Reihenfolge wird ausgelost, jedes Spiel hat die Einstellungen hier.</p>
+		<p class={ hintClass }>Ein Turnier braucht { strconv.Itoa(tournament.MinPlayers) } bis { strconv.Itoa(tournament.MaxPlayers) } Spieler; die Reihenfolge wird ausgelost, jedes Spiel hat die Einstellungen hier.</p>
 	}
 }
 

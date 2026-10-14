@@ -11,7 +11,7 @@ Whoever finishes first wins the leg immediately. When starting a game you choose
 
 ## Tournaments
 
-Every game mode can also be played as a tournament: under "Spielform" on the start page choose a knockout tournament ("K.-o.-Turnier") or all against all ("Jeder gegen jeden"), with 3 to 16 players – you, your guests and invited friends. The order is drawn at random. On the tournament's page you start the games one after another; the bracket or the table fills in by itself, and below you see everyone's statistics in this tournament. Invited friends accept once for the whole tournament.
+Every game mode can also be played as a tournament: under "Spielform" on the start page choose a knockout tournament ("K.-o.-Turnier") or all against all ("Jeder gegen jeden"), with 3 to 32 players – you, your guests and invited friends. The order is drawn at random. On the tournament's page you start the games one after another; the bracket or the table fills in by itself, and below you see everyone's statistics in this tournament. Invited friends accept once for the whole tournament.
 
 ## Start
 

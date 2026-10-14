@@ -27,10 +27,10 @@ const (
 )
 
 // MinPlayers and MaxPlayers limit the players of a tournament: with two it is a
-// single game, and more than 16 don't fit on a screen.
+// single game; 32 is a knockout bracket of five rounds (user's choice, 2026-10-14).
 const (
 	MinPlayers = 3
-	MaxPlayers = 16
+	MaxPlayers = 32
 )
 
 // Tournament holds what is needed to compute its state: the format, the settings of
