@@ -2,6 +2,7 @@
 
 Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../../TODO.md).
 
+- Add sets
 - Unsure: switch the primary IDs to UUIDs.
 - Allow others to watch games if they know the link.
 - Tournament mode.
