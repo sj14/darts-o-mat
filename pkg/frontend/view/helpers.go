@@ -91,10 +91,20 @@ func outModeLabel(m x01.OutMode) string {
 }
 
 func modeLabel(g game.Game) string {
-	if g.Legs > 1 {
+	switch {
+	case g.Sets > 1:
+		return modeName(g) + " · First to " + strconv.Itoa(g.Sets) + " Sets à " + strconv.Itoa(g.Legs) + " " + plural(g.Legs, "Leg", "Legs")
+	case g.Legs > 1:
 		return modeName(g) + " · First to " + strconv.Itoa(g.Legs)
 	}
 	return modeName(g)
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }
 
 func modeName(g game.Game) string {
@@ -154,7 +164,7 @@ func orDash(ok bool, value string) string {
 // player list shows them.
 type playerLine struct {
 	ID                                int64
-	Legs                              int
+	Sets, Legs                        int // won; legs in the current set
 	Value, Caption, Stat, StatCaption string
 }
 
@@ -165,11 +175,11 @@ func playerLines(v service.GameView, p progress) []playerLine {
 	switch st := v.State.(type) {
 	case x01.State:
 		for _, ps := range st.Players {
-			lines = append(lines, playerLine{ps.PlayerID, ps.Legs, strconv.FormatUint(ps.Remaining, 10), "Rest", orDash(ps.Stats.Darts > 0, decimal(ps.Stats.Average)), "Ø 3 Darts"})
+			lines = append(lines, playerLine{ps.PlayerID, ps.Sets, ps.SetLegs, strconv.FormatUint(ps.Remaining, 10), "Rest", orDash(ps.Stats.Darts > 0, decimal(ps.Stats.Average)), "Ø 3 Darts"})
 		}
 	case aroundtheclock.State:
 		for _, ps := range st.Players {
-			lines = append(lines, playerLine{ps.PlayerID, ps.Legs, targetLabel(ps.Target), "Ziel", orDash(ps.Stats.Darts > 0, percent(ps.Stats.HitRate)), "Trefferquote"})
+			lines = append(lines, playerLine{ps.PlayerID, ps.Sets, ps.SetLegs, targetLabel(ps.Target), "Ziel", orDash(ps.Stats.Darts > 0, percent(ps.Stats.HitRate)), "Trefferquote"})
 		}
 	}
 	first := p.CurrentPlayerID

@@ -78,7 +78,9 @@ func (s Settings) Validate() error {
 type PlayerState struct {
 	PlayerID  int64  `json:"player_id"`
 	Remaining uint64 `json:"remaining"` // in the current leg
-	Legs      int    `json:"legs"`      // legs won
+	Legs      int    `json:"legs"`      // legs won, over the whole game
+	SetLegs   int    `json:"set_legs"`  // legs won in the current set (all legs without sets)
+	Sets      int    `json:"sets"`      // sets won
 	Stats     Stats  `json:"stats"`
 }
 
@@ -118,7 +120,8 @@ type State struct {
 // Turn is one player's turn of up to three darts.
 type Turn struct {
 	PlayerID  int64        `json:"player_id"`
-	Leg       int          `json:"leg"`
+	Set       int          `json:"set"`
+	Leg       int          `json:"leg"` // in the set
 	Round     int          `json:"round"`
 	Darts     []throw.Dart `json:"darts"`
 	Points    uint64       `json:"points"`    // scored in this turn, 0 when busted
@@ -159,7 +162,7 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 		p := &st.Players[t.Player]
 		if t.Dart == 0 {
 			turnStart = p.Remaining
-			st.Turns = append(st.Turns, Turn{PlayerID: p.PlayerID, Leg: t.Leg, Round: t.Round})
+			st.Turns = append(st.Turns, Turn{PlayerID: p.PlayerID, Set: t.Set, Leg: t.Leg, Round: t.Round})
 			cur = &st.Turns[len(st.Turns)-1]
 		}
 		p.Stats.Darts++
@@ -203,7 +206,7 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 
 	for i := range st.Players {
 		p := &st.Players[i]
-		p.Legs, p.Stats.BestLeg = t.LegsWon[i], t.BestLeg[i]
+		p.Legs, p.SetLegs, p.Sets, p.Stats.BestLeg = t.LegsWon[i], t.SetLegs[i], t.SetsWon[i], t.BestLeg[i]
 		if p.Stats.Darts > 0 {
 			p.Stats.Average = float64(p.Stats.Points) * 3 / float64(p.Stats.Darts)
 		}

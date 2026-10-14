@@ -72,6 +72,51 @@ func TestLegs(t *testing.T) {
 	}
 }
 
+func TestSets(t *testing.T) {
+	tr := Log{Legs: 2, Sets: 2, WaitForTakeout: true}.Turn(2)
+	check := func(step string, set, leg, player int) {
+		t.Helper()
+		if tr.Over() || tr.Set != set || tr.Leg != leg || tr.Player != player {
+			t.Fatalf("%s: set %d leg %d player %d over %v, want set %d leg %d started by player %d", step, tr.Set, tr.Leg, tr.Player, tr.Over(), set, leg, player)
+		}
+	}
+	finish := func() {
+		tr.Finish()
+		tr.Takeout()
+	}
+
+	finish() // player 0 wins leg 1
+	check("after leg 1", 1, 2, 1)
+	finish() // player 1 wins leg 2
+	check("after leg 2", 1, 3, 0)
+	tr.Finish() // player 0 wins leg 3 and the set
+	if s := tr.State([]int64{10, 11}); !s.LegOver || !s.SetOver || s.SetWinner == nil || *s.SetWinner != 10 {
+		t.Fatalf("after the set: leg over %v, set over %v, set winner %v, want set over, won by 10", s.LegOver, s.SetOver, s.SetWinner)
+	}
+	tr.Takeout()
+	// The second set is started by the next player after the one who started the first.
+	check("after set 1", 2, 1, 1)
+	if tr.SetsWon[0] != 1 || tr.LegsWon[0] != 2 || tr.SetLegs[0] != 0 {
+		t.Fatalf("sets %v, legs %v, legs in the set %v, want player 0 with 1 set, 2 legs, none in the new set", tr.SetsWon, tr.LegsWon, tr.SetLegs)
+	}
+	finish() // player 1 wins leg 1 of set 2
+	check("set 2, after leg 1", 2, 2, 0)
+	finish() // player 0
+	check("set 2, after leg 2", 2, 3, 1)
+	finish() // player 1 wins set 2
+	check("after set 2", 3, 1, 0)
+	finish() // player 0
+	check("set 3, after leg 1", 3, 2, 1)
+	for range DartsPerTurn {
+		tr.Advance()
+	}
+	tr.Takeout()
+	tr.Finish() // player 0 wins set 3 and the game
+	if !tr.Over() || tr.Player != 0 || tr.Waiting() {
+		t.Errorf("player %d over %v waiting %v, want player 0 to win at once", tr.Player, tr.Over(), tr.Waiting())
+	}
+}
+
 func TestReplay(t *testing.T) {
 	dart, takeout := throw.Dart{Number: 20, Multiplier: 1}, throw.Dart{Takeout: true}
 	advance := func(tr *Turn) func(int, throw.Dart) error {

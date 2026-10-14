@@ -5,6 +5,11 @@
 // first wins the agreed number of legs wins the game. Each leg is started by the next
 // player in turn.
 //
+// Optionally the legs are grouped into sets: whoever first wins the agreed number of
+// legs wins the set, whoever first wins the agreed number of sets the game. The first
+// leg of each set is started by the next player in turn after the one who started the
+// previous set; within the set the legs go round from there.
+//
 // Optionally the players bull off first: each throws one dart at the bull, the closest
 // starts the first leg. Players who are equally close throw again.
 //
@@ -34,8 +39,10 @@ type Log struct {
 	Entries []throw.Dart
 	// WaitForTakeout keeps a finished turn until the darts were pulled out.
 	WaitForTakeout bool
-	// Legs is how many legs win the game; 0 counts as 1.
+	// Legs is how many legs win the game, or a set when playing sets; 0 counts as 1.
 	Legs int
+	// Sets is how many sets win the game; 0 or 1 is a game without sets.
+	Sets int
 	// BullOff lets the players bull off for who starts (with more than one player).
 	BullOff bool
 	// BullOffCloser is the index of the player the players found closer when bulling
@@ -46,7 +53,11 @@ type Log struct {
 
 // Turn returns the order of play for the log's settings.
 func (l Log) Turn(players int) *Turn {
-	t := &Turn{Round: 1, Leg: 1, LegsWon: make([]int, players), BestLeg: make([]int, players), legDarts: make([]int, players), legs: max(l.Legs, 1), waitForTakeout: l.WaitForTakeout}
+	t := &Turn{
+		Round: 1, Set: 1, Leg: 1,
+		LegsWon: make([]int, players), SetLegs: make([]int, players), SetsWon: make([]int, players), BestLeg: make([]int, players),
+		legDarts: make([]int, players), legs: max(l.Legs, 1), sets: max(l.Sets, 1), waitForTakeout: l.WaitForTakeout,
+	}
 	if l.BullOff && players > 1 {
 		t.bull = newBullOff(players, l.BullOffCloser)
 	}
@@ -79,11 +90,11 @@ func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
 			next, decided := t.bull.throw(i, t.Player, d)
 			t.Player = next
 			if decided {
-				t.starter = next
+				t.starter, t.setStarter = next, next
 			}
 			continue
 		}
-		t.legWinner = nil
+		t.legWinner, t.setWinner = nil, nil
 		if err := dart(i, d); err != nil {
 			return err
 		}
@@ -98,27 +109,34 @@ const (
 	nothing    afterTakeout = iota // not waiting
 	nextPlayer                     // the next player throws
 	nextLeg                        // the turn won a leg, the next leg starts
+	nextSet                        // the turn won a set, the next set starts
 )
 
 type Turn struct {
 	Player  int   // index of the player whose turn it is; the winner once the game is over
 	Round   int   // of the current leg, starts at 1
 	Dart    int   // darts already thrown in this turn
-	Leg     int   // starts at 1
-	LegsWon []int // per player
+	Set     int   // starts at 1; always 1 without sets
+	Leg     int   // in the current set, starts at 1
+	LegsWon []int // per player, over the whole game
+	SetLegs []int // per player: legs won in the current set (all legs without sets)
+	SetsWon []int // per player
 	BestLeg []int // per player: fewest darts in a won leg, 0 without one
 	// OnLegStart is called when the next leg starts, so the game mode resets the scores.
 	OnLegStart func()
 	// Throwers is the index of the player who threw each log entry, -1 for takeouts.
 	Throwers []int
 
-	legs           int   // to win the game
+	legs           int   // to win a set (the game without sets)
+	sets           int   // to win the game
 	legDarts       []int // per player, in the current leg
 	starter        int   // the player who began the current leg
+	setStarter     int   // the player who began the current set
 	waitForTakeout bool
 	waiting        afterTakeout
 	over           bool
 	legWinner      *int     // who won a leg with the last dart, while the game goes on
+	setWinner      *int     // who won a set with the last dart, while the game goes on
 	bull           *bullOff // nil without bulling off
 }
 
@@ -136,21 +154,28 @@ func (t *Turn) End() {
 	t.pass(nextPlayer)
 }
 
-// Finish counts the dart the current player finished with: they win the leg, and the
-// game once they have won enough legs.
+// Finish counts the dart the current player finished with: they win the leg, the set
+// once they have won enough legs, and the game once they have won enough sets.
 func (t *Turn) Finish() {
 	t.count()
 	if best := t.BestLeg[t.Player]; best == 0 || t.legDarts[t.Player] < best {
 		t.BestLeg[t.Player] = t.legDarts[t.Player]
 	}
 	t.LegsWon[t.Player]++
-	if t.LegsWon[t.Player] >= t.legs {
-		t.over = true
-		return
-	}
+	t.SetLegs[t.Player]++
 	winner := t.Player
 	t.legWinner = &winner
-	t.pass(nextLeg)
+	if t.SetLegs[t.Player] < t.legs {
+		t.pass(nextLeg)
+		return
+	}
+	t.SetsWon[t.Player]++
+	if t.SetsWon[t.Player] >= t.sets {
+		t.legWinner, t.over = nil, true
+		return
+	}
+	t.setWinner = &winner
+	t.pass(nextSet)
 }
 
 // count counts a dart of the current player.
@@ -178,13 +203,25 @@ func (t *Turn) do(next afterTakeout) {
 			t.Round++
 		}
 	case nextLeg:
-		t.Leg, t.Round, t.Dart = t.Leg+1, 1, 0
-		clear(t.legDarts)
+		t.Leg++
 		t.starter = (t.starter + 1) % len(t.LegsWon)
-		t.Player = t.starter
-		if t.OnLegStart != nil {
-			t.OnLegStart()
-		}
+		t.startLeg()
+	case nextSet:
+		t.Set, t.Leg = t.Set+1, 1
+		clear(t.SetLegs)
+		t.setStarter = (t.setStarter + 1) % len(t.LegsWon)
+		t.starter = t.setStarter
+		t.startLeg()
+	}
+}
+
+// startLeg starts a leg with t.starter.
+func (t *Turn) startLeg() {
+	t.Round, t.Dart = 1, 0
+	clear(t.legDarts)
+	t.Player = t.starter
+	if t.OnLegStart != nil {
+		t.OnLegStart()
 	}
 }
 

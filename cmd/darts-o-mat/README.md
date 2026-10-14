@@ -7,7 +7,7 @@ The web app for playing darts: enter throws, the score is counted automatically.
 - **X01** (e.g. 301 or 501): play down from the start score to exactly 0. To finish, depending on the setting any dart, a double, or a double/triple ("Master Out"). The game page suggests a checkout.
 - **Around the Clock**: hit the numbers 1 to 20 in order, optionally the bull at the end. The next target lights up on the dartboard of the game page.
 
-Whoever finishes first wins the leg immediately. When starting a game you choose how many legs are needed to win ("First to 3"); each leg is started by the next player. Who starts the first leg can be decided by a bull-off (option when starting a game): everyone throws one dart at the bull, the closest starts – with cameras to the millimeter.
+Whoever finishes first wins the leg immediately. When starting a game you choose how many legs are needed to win ("First to 3"); each leg is started by the next player. Optionally the legs are played in sets ("First to 3 Sets à 3 Legs"): whoever wins the legs of a set first wins the set, and whoever wins enough sets wins the game; each set is started by the next player. Who starts the first leg can be decided by a bull-off (option when starting a game): everyone throws one dart at the bull, the closest starts – with cameras to the millimeter.
 
 ## Start
 

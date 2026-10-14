@@ -12,8 +12,11 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 )
 
-// MaxLegs is the most legs a game can need to win.
-const MaxLegs = 11
+// MaxLegs is the most legs a game (or a set) can need to win, MaxSets the most sets.
+const (
+	MaxLegs = 11
+	MaxSets = 7
+)
 
 type Mode string
 
@@ -35,8 +38,10 @@ type Game struct {
 	// BullOffCloser is the player the players found closer when bulling off ended in a
 	// tie, see turn.Log.BullOffCloser.
 	BullOffCloser *int64 `json:"bull_off_closer,omitempty"`
-	// Legs is how many legs win the game, at least 1.
-	Legs           int                      `bun:",notnull,default:1" json:"legs"`
+	// Legs is how many legs win the game, or a set when playing sets; at least 1.
+	Legs int `bun:",notnull,default:1" json:"legs"`
+	// Sets is how many sets win the game; 1 is a game without sets.
+	Sets           int                      `bun:",notnull,default:1" json:"sets"`
 	X01            *x01.Settings            `json:"x01,omitempty"`
 	AroundTheClock *aroundtheclock.Settings `json:"around_the_clock,omitempty"`
 	CreatedAt      time.Time                `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
@@ -55,6 +60,9 @@ func (g Game) Validate() error {
 	}
 	if g.Legs < 1 || g.Legs > MaxLegs {
 		return fmt.Errorf("legs must be between 1 and %d", MaxLegs)
+	}
+	if g.Sets < 1 || g.Sets > MaxSets {
+		return fmt.Errorf("sets must be between 1 and %d", MaxSets)
 	}
 	seen := map[int64]bool{}
 	for _, id := range g.PlayerIDs {
@@ -89,7 +97,7 @@ func (g Game) WaitsForTakeout() bool {
 // Play replays the game's log (darts and takeouts, as stored) and returns the state of
 // the game mode, x01.State or aroundtheclock.State.
 func (g Game) Play(entries []throw.Dart) (any, error) {
-	log := turn.Log{Entries: entries, WaitForTakeout: g.WaitsForTakeout(), Legs: g.Legs, BullOff: g.BullOff}
+	log := turn.Log{Entries: entries, WaitForTakeout: g.WaitsForTakeout(), Legs: g.Legs, Sets: g.Sets, BullOff: g.BullOff}
 	if g.BullOffCloser != nil {
 		if i := slices.Index(g.PlayerIDs, *g.BullOffCloser); i >= 0 {
 			log.BullOffCloser = &i

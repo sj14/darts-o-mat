@@ -124,6 +124,9 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 	if g.Legs == 0 {
 		g.Legs = 1 // a single leg unless asked otherwise
 	}
+	if g.Sets == 0 {
+		g.Sets = 1 // no sets unless asked otherwise
+	}
 
 	own, err := s.store.ListPlayers(ctx, acc.ID, acc.PlayerID)
 	if err != nil {

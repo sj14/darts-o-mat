@@ -15,8 +15,8 @@ var ErrInvalid = errors.New("invalid dart")
 // darts being pulled out of the board (Takeout), which ends a turn in games played on
 // a board.
 type Dart struct {
-	ID         int64 `bun:",pk,autoincrement" json:"id"`
-	GameID     int64 `bun:",notnull" json:"-"`
+	ID     int64 `bun:",pk,autoincrement" json:"id"`
+	GameID int64 `bun:",notnull" json:"-"`
 	// Number is the field's number, for a miss the number it went beside (the lines
 	// between the numbers drawn on, from the cameras' position; 0 if unknown).
 	Number     uint8 `json:"number"`

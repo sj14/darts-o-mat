@@ -249,10 +249,10 @@ func TestTurns(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []Turn{
-		{PlayerID: 1, Leg: 1, Round: 1, Points: 66, Remaining: 34, Complete: true},
-		{PlayerID: 2, Leg: 1, Round: 1, Points: 90, Remaining: 10, Complete: true},
-		{PlayerID: 1, Leg: 1, Round: 2, Points: 0, Remaining: 34, Bust: true, Complete: true},
-		{PlayerID: 2, Leg: 1, Round: 2, Points: 10, Remaining: 0, Checkout: true, Complete: true},
+		{PlayerID: 1, Set: 1, Leg: 1, Round: 1, Points: 66, Remaining: 34, Complete: true},
+		{PlayerID: 2, Set: 1, Leg: 1, Round: 1, Points: 90, Remaining: 10, Complete: true},
+		{PlayerID: 1, Set: 1, Leg: 1, Round: 2, Points: 0, Remaining: 34, Bust: true, Complete: true},
+		{PlayerID: 2, Set: 1, Leg: 1, Round: 2, Points: 10, Remaining: 0, Checkout: true, Complete: true},
 	}
 	wantDarts := []int{3, 3, 3, 1}
 	if len(st.Turns) != len(want) {

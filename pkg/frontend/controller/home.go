@@ -130,6 +130,13 @@ func gameFromForm(r *http.Request) (game.Game, []string, error) {
 		}
 		g.Legs = legs
 	}
+	if s := r.FormValue("sets"); s != "" {
+		sets, err := strconv.Atoi(s)
+		if err != nil {
+			return g, nil, fmt.Errorf("%w: invalid sets", service.ErrInvalid)
+		}
+		g.Sets = sets
+	}
 
 	if s := r.FormValue("board_id"); s != "" {
 		id, err := strconv.ParseInt(s, 10, 64)
