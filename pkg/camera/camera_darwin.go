@@ -185,6 +185,11 @@ func Devices() ([]Device, error) {
 	if err := load(); err != nil {
 		return nil, err
 	}
+	// Before access is granted macOS apparently lists no cameras, so a calibration's cameras would look
+	// unplugged; ask (and wait for the answer) before listing.
+	if err := authorize(); err != nil {
+		return nil, err
+	}
 	return withPool(func() ([]Device, error) {
 		list := class("AVCaptureDevice").Send(sel("devicesWithMediaType:"), mediaTypeVideo)
 		devices := []Device{}
@@ -195,7 +200,8 @@ func Devices() ([]Device, error) {
 	})
 }
 
-// authorize asks for camera access the first time; macOS shows a dialog for the terminal.
+// authorize asks for camera access the first time and waits for the answer; macOS shows
+// a dialog for the responsible app (the terminal, or darts-o-cam.app, see tools/macapp).
 func authorize() error {
 	devices := class("AVCaptureDevice")
 	switch objc.Send[int](devices, sel("authorizationStatusForMediaType:"), mediaTypeVideo) {
