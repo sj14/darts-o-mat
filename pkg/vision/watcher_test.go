@@ -44,7 +44,7 @@ func TestWatcher(t *testing.T) {
 		t.Fatalf("got %d events, want 1", len(events))
 	}
 	e := events[0]
-	if e.Kind != EventDart || e.Dart != (throw.Dart{Number: 1, Multiplier: 1}) {
+	if e.Kind != EventDart || e.Dart.Number != 1 || !e.Dart.Segment.IsSingle() {
 		t.Errorf("event = %+v, want a single 1", e)
 	}
 	want := toBoard.Apply(tip)
@@ -266,7 +266,7 @@ func TestWatcherUnlocatedMiss(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("got %d events, want 1", len(events))
 	}
-	if e := events[0]; e.Kind != EventDart || !e.Dart.Miss || e.Located {
+	if e := events[0]; e.Kind != EventDart || e.Dart.Segment != throw.Miss || e.Located {
 		t.Errorf("got %s %+v, located %v; want a miss without position", e.Kind, e.Dart, e.Located)
 	}
 }

@@ -98,7 +98,7 @@ func drawBoard() ([]boardShape, []boardNumber) {
 // targetPath outlines the field to hit next in around the clock: the whole segment of
 // the number, since single, double and triple all count, or the bull.
 func targetPath(target uint8) string {
-	if target == throw.Bull {
+	if target == throw.BullNumber {
 		r := dartboard.BullRadius
 		return fmt.Sprintf("M%g %gA%g %g 0 1 0 %g %gA%g %g 0 1 0 %g %gZ", boardCenter-r, boardCenter, r, r, boardCenter+r, boardCenter, r, r, boardCenter-r, boardCenter)
 	}
@@ -125,25 +125,26 @@ func boardTargetOf(v service.GameView, p progress) uint8 {
 // fieldCenter is where a dart entered by hand is drawn: in the middle of its field.
 // Several darts in the same field are moved apart a little.
 func fieldCenter(d throw.Dart, nth int) (dartboard.Point, bool) {
-	if d.Miss {
-		return dartboard.Point{}, false
-	}
 	shift := float64(nth) * 5
-	if d.Number == throw.Bull {
-		if d.Multiplier == 2 {
-			return dartboard.Polar(shift/2, 90*float64(nth)), true
-		}
+	switch d.Segment {
+	case throw.Miss, throw.NoSegment:
+		return dartboard.Point{}, false
+	case throw.Bullseye:
+		return dartboard.Polar(shift/2, 90*float64(nth)), true
+	case throw.Bull:
 		return dartboard.Polar(11, 45+90*float64(nth)), true
 	}
 	i := dartboard.SegmentIndex(d.Number)
 	if i < 0 {
 		return dartboard.Point{}, false
 	}
-	radius := map[uint8]float64{
-		1: (dartboard.TripleOuterRadius + dartboard.DoubleInnerRadius) / 2,
-		2: (dartboard.DoubleInnerRadius + dartboard.DoubleOuterRadius) / 2,
-		3: (dartboard.TripleInnerRadius + dartboard.TripleOuterRadius) / 2,
-	}[d.Multiplier]
+	radius := map[throw.Segment]float64{
+		throw.Inner:  (dartboard.BullRadius + dartboard.TripleInnerRadius) / 2,
+		throw.Single: (dartboard.TripleOuterRadius + dartboard.DoubleInnerRadius) / 2,
+		throw.Outer:  (dartboard.TripleOuterRadius + dartboard.DoubleInnerRadius) / 2,
+		throw.Double: (dartboard.DoubleInnerRadius + dartboard.DoubleOuterRadius) / 2,
+		throw.Triple: (dartboard.TripleInnerRadius + dartboard.TripleOuterRadius) / 2,
+	}[d.Segment]
 	return dartboard.Polar(radius, float64(i)*dartboard.SegmentAngle+shift-5), true
 }
 
@@ -188,7 +189,7 @@ func markDarts(v service.GameView, darts []throw.Dart, faded []bool) []boardDart
 		} else {
 			nth := 0
 			for _, e := range darts[:i] {
-				if e.Number == d.Number && e.Multiplier == d.Multiplier && e.Miss == d.Miss {
+				if e.Number == d.Number && e.Segment == d.Segment {
 					nth++
 				}
 			}

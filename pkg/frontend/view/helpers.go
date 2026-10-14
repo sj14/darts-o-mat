@@ -72,7 +72,7 @@ func targetLabel(t Texts, target uint8) string {
 	switch target {
 	case 0:
 		return "✓"
-	case throw.Bull:
+	case throw.BullNumber:
 		return t.Bull()
 	}
 	return strconv.Itoa(int(target))
@@ -228,7 +228,7 @@ func countTrue(flags []bool) int {
 // target in around the clock, empty otherwise.
 func dartClass(v service.GameView, d throw.Dart) string {
 	switch {
-	case d.Miss:
+	case d.Segment == throw.Miss:
 		return "miss"
 	case hitTarget(v, d):
 		return "hit"
@@ -240,11 +240,11 @@ func dartClass(v service.GameView, d throw.Dart) string {
 // 7), or "Miss" when unknown where.
 func dartLabel(t Texts, d throw.Dart) string {
 	switch {
-	case d.Miss && d.Number == 0:
+	case d.Segment == throw.Miss && d.Number == 0:
 		return t.Miss()
-	case d.Number == throw.Bull && d.Multiplier == 2:
+	case d.Segment == throw.Bullseye:
 		return t.Bullseye()
-	case d.Number == throw.Bull:
+	case d.Segment == throw.Bull:
 		return t.Bull()
 	}
 	return d.String()
@@ -350,15 +350,15 @@ func soundKind(v service.GameView) string {
 		return "takeout"
 	case c.GameOver || c.LegWinner != nil:
 		return "win"
-	case last.Miss || counted && !hit: // in around the clock, every dart off the target misses
+	case last.Segment == throw.Miss || counted && !hit: // in around the clock, every dart off the target misses
 		return "miss"
 	case hit:
 		return "hit"
-	case last.Number == throw.Bull:
+	case last.Segment.IsBull():
 		return "bull"
-	case last.Multiplier == 3:
+	case last.Segment == throw.Triple:
 		return "triple"
-	case last.Multiplier == 2:
+	case last.Segment == throw.Double:
 		return "double"
 	}
 	return "dart"

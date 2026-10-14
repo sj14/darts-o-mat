@@ -118,7 +118,7 @@ func TestSets(t *testing.T) {
 }
 
 func TestReplay(t *testing.T) {
-	dart, takeout := throw.Dart{Number: 20, Multiplier: 1}, throw.Dart{Takeout: true}
+	dart, takeout := throw.Dart{Number: 20, Segment: throw.Single}, throw.Dart{Takeout: true}
 	advance := func(tr *Turn) func(int, throw.Dart) error {
 		return func(int, throw.Dart) error { tr.Advance(); return nil }
 	}
@@ -142,10 +142,10 @@ func TestReplay(t *testing.T) {
 }
 
 func TestBullOff(t *testing.T) {
-	at := func(x, y float64) throw.Dart { return throw.Dart{Number: 20, Multiplier: 1, X: &x, Y: &y} }
-	bullseye := throw.Dart{Number: throw.Bull, Multiplier: 2}
-	bull := throw.Dart{Number: throw.Bull, Multiplier: 1}
-	miss := throw.Dart{Miss: true}
+	at := func(x, y float64) throw.Dart { return throw.Dart{Number: 20, Segment: throw.Single, X: &x, Y: &y} }
+	bullseye := throw.Dart{Number: throw.BullNumber, Segment: throw.Bullseye}
+	bull := throw.Dart{Number: throw.BullNumber, Segment: throw.Bull}
+	miss := throw.Dart{Segment: throw.Miss}
 	var played []int
 	replay := func(entries ...throw.Dart) *Turn {
 		t.Helper()
@@ -181,8 +181,8 @@ func TestBullOff(t *testing.T) {
 }
 
 func TestBullOffStartsLegs(t *testing.T) {
-	bullseye := throw.Dart{Number: throw.Bull, Multiplier: 2}
-	miss := throw.Dart{Miss: true}
+	bullseye := throw.Dart{Number: throw.BullNumber, Segment: throw.Bullseye}
+	miss := throw.Dart{Segment: throw.Miss}
 	log := Log{BullOff: true, Legs: 2, Entries: []throw.Dart{miss, bullseye}}
 	tr := log.Turn(2)
 	if err := log.Replay(tr, func(int, throw.Dart) error { return nil }); err != nil {
@@ -198,8 +198,8 @@ func TestBullOffStartsLegs(t *testing.T) {
 }
 
 func TestBullOffCloser(t *testing.T) {
-	bull := throw.Dart{Number: throw.Bull, Multiplier: 1}
-	miss := throw.Dart{Miss: true}
+	bull := throw.Dart{Number: throw.BullNumber, Segment: throw.Bull}
+	miss := throw.Dart{Segment: throw.Miss}
 	two := 2
 	log := Log{BullOff: true, Entries: []throw.Dart{bull, miss, bull}}
 	tr := log.Turn(3)

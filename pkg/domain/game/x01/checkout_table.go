@@ -55,28 +55,29 @@ func doubleOutRoute(remaining uint64) []throw.Dart {
 		return nil
 	}
 	if remaining%2 == 0 {
-		return []throw.Dart{{Number: uint8(remaining / 2), Multiplier: 2}}
+		return []throw.Dart{{Number: uint8(remaining / 2), Segment: throw.Double}}
 	}
 	leave := uint64(32)
 	for leave >= remaining {
 		leave /= 2
 	}
-	return []throw.Dart{{Number: uint8(remaining - leave), Multiplier: 1}, {Number: uint8(leave / 2), Multiplier: 2}}
+	return []throw.Dart{{Number: uint8(remaining - leave), Segment: throw.Single}, {Number: uint8(leave / 2), Segment: throw.Double}}
 }
 
 // parseRoute reads a route like "T20 10 D16"; DB is the bullseye.
 func parseRoute(route string) []throw.Dart {
 	var darts []throw.Dart
 	for _, f := range strings.Fields(route) {
-		d := throw.Dart{Multiplier: 1}
+		d := throw.Dart{Segment: throw.Single}
 		switch f[0] {
 		case 'T':
-			d.Multiplier, f = 3, f[1:]
+			d.Segment, f = throw.Triple, f[1:]
 		case 'D':
-			d.Multiplier, f = 2, f[1:]
+			d.Segment, f = throw.Double, f[1:]
 		}
 		if f == "B" {
-			d.Number = throw.Bull
+			d.Number = throw.BullNumber
+			d.Segment = map[throw.Segment]throw.Segment{throw.Single: throw.Bull, throw.Double: throw.Bullseye}[d.Segment]
 		} else {
 			n, _ := strconv.Atoi(f)
 			d.Number = uint8(n)

@@ -8,7 +8,7 @@ import (
 )
 
 func TestCheckout(t *testing.T) {
-	bull := throw.Dart{Number: throw.Bull, Multiplier: 2}
+	bull := throw.Dart{Number: throw.BullNumber, Segment: throw.Bullseye}
 	tests := []struct {
 		mode      OutMode
 		remaining uint64

@@ -198,7 +198,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		// With the empty board, a takeout is told apart above: this was a dart no camera
 		// located, e.g. far out in the surround, where a thin change along the board's rim
 		// (the surround moved when hit) was taken for it (2026-10-13). A miss.
-		e.Dart = throw.Dart{Miss: true}
+		e.Dart = throw.Dart{Segment: throw.Miss}
 		return e
 	}
 	e.Board, e.Located = board, true

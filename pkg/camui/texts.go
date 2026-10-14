@@ -178,7 +178,7 @@ func textsOf(l i18n.Lang) Texts {
 // dartLabel is how a detected dart is shown: 20, D20, T20, Bull, Bullseye, M7 (a miss
 // beside the 7), or "Miss" when unknown where.
 func dartLabel(t Texts, d throw.Dart) string {
-	if d.Miss && d.Number == 0 {
+	if d.Segment == throw.Miss && d.Number == 0 {
 		return t.Miss()
 	}
 	return d.String()

@@ -66,24 +66,26 @@ func SegmentIndex(number uint8) int {
 	return -1
 }
 
-// Score returns the dart hitting the board at p.
+// Score returns the dart hitting the board at p, with the single field's side (Inner,
+// Outer).
 func Score(p Point) throw.Dart {
 	r := p.Radius()
+	d := throw.Dart{Number: p.Number()}
 	switch {
 	case r <= BullseyeRadius:
-		return throw.Dart{Number: throw.Bull, Multiplier: 2}
+		return throw.Dart{Number: throw.BullNumber, Segment: throw.Bullseye}
 	case r <= BullRadius:
-		return throw.Dart{Number: throw.Bull, Multiplier: 1}
+		return throw.Dart{Number: throw.BullNumber, Segment: throw.Bull}
 	case r > DoubleOuterRadius:
-		return throw.Dart{Miss: true, Number: p.Number()}
-	}
-
-	d := throw.Dart{Number: p.Number(), Multiplier: 1}
-	switch {
+		d.Segment = throw.Miss
 	case r >= DoubleInnerRadius:
-		d.Multiplier = 2
-	case r >= TripleInnerRadius && r <= TripleOuterRadius:
-		d.Multiplier = 3
+		d.Segment = throw.Double
+	case r > TripleOuterRadius:
+		d.Segment = throw.Outer
+	case r >= TripleInnerRadius:
+		d.Segment = throw.Triple
+	default:
+		d.Segment = throw.Inner
 	}
 	return d
 }

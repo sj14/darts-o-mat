@@ -183,7 +183,7 @@ func TestRealDarts(t *testing.T) {
 		}
 		d := dartboard.Score(p)
 		got := "S" + itoa(d.Number)
-		if d.Multiplier != 1 || got != dart.want {
+		if !d.Segment.IsSingle() || got != dart.want {
 			t.Errorf("dart at %.1f,%.1f mm scored %+v, want %s", p.X, p.Y, d, dart.want)
 		}
 	}
@@ -235,13 +235,13 @@ func TestRealThrows(t *testing.T) {
 		want   throw.Dart
 	}{
 		// A reflection on a wire far below the dart used to be taken for the tip.
-		{"003", "cam3", throw.Dart{Number: 8, Multiplier: 1}},
+		{"003", "cam3", throw.Dart{Number: 8, Segment: throw.Single}},
 		// The barrel in front of black fields only shows as a dashed line.
-		{"004", "cam1", throw.Dart{Number: 13, Multiplier: 1}},
+		{"004", "cam1", throw.Dart{Number: 13, Segment: throw.Single}},
 		// A dart in the bull, recorded while pulling it out (before and after swapped,
 		// which doesn't matter for the comparison). Following the axis further used to
 		// run 14 px into the shadow, out of the bull.
-		{"005", "cam2", throw.Dart{Number: throw.Bull, Multiplier: 1}},
+		{"005", "cam2", throw.Dart{Number: throw.BullNumber, Segment: throw.Bull}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name+"-"+tt.camera, func(t *testing.T) {
@@ -261,7 +261,8 @@ func TestRealThrows(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := dartboard.Score(toBoard.Apply(d.Tip)); got != tt.want {
+			// The field and its multiplier; the side of a single doesn't matter here.
+			if got := dartboard.Score(toBoard.Apply(d.Tip)); got.Number != tt.want.Number || got.Segment.Multiplier() != tt.want.Segment.Multiplier() {
 				t.Errorf("scored %+v, want %+v", got, tt.want)
 			}
 		})
@@ -336,13 +337,13 @@ func TestFuseTips(t *testing.T) {
 		want   throw.Dart
 	}{
 		// Real T18: two cameras in the triple, one 3 mm inside (2026-10-11).
-		{"two of three in the triple", []dartboard.Point{{X: 56.0, Y: 82.3}, {X: 55.6, Y: 78.6}, {X: 59.7, Y: 80.4}}, throw.Dart{Number: 18, Multiplier: 3}},
+		{"two of three in the triple", []dartboard.Point{{X: 56.0, Y: 82.3}, {X: 55.6, Y: 78.6}, {X: 59.7, Y: 80.4}}, throw.Dart{Number: 18, Segment: throw.Triple}},
 		// One camera far off doesn't matter.
-		{"outlier", []dartboard.Point{{X: 0, Y: 130}, {X: 1, Y: 131}, {X: 40, Y: 60}}, throw.Dart{Number: 20, Multiplier: 1}},
+		{"outlier", []dartboard.Point{{X: 0, Y: 130}, {X: 1, Y: 131}, {X: 40, Y: 60}}, throw.Dart{Number: 20, Segment: throw.Outer}},
 		// Around the center the angles say nothing.
-		{"bullseye", []dartboard.Point{{X: 3, Y: 0}, {X: -3, Y: 1}, {X: 0, Y: -2}}, throw.Dart{Number: 25, Multiplier: 2}},
+		{"bullseye", []dartboard.Point{{X: 3, Y: 0}, {X: -3, Y: 1}, {X: 0, Y: -2}}, throw.Dart{Number: throw.BullNumber, Segment: throw.Bullseye}},
 		// Angles across the wrap-around at ±180° (left of the board, segment 11).
-		{"wrap around", []dartboard.Point{{X: -120, Y: 2}, {X: -121, Y: -2}, {X: -119, Y: 0}}, throw.Dart{Number: 11, Multiplier: 1}},
+		{"wrap around", []dartboard.Point{{X: -120, Y: 2}, {X: -121, Y: -2}, {X: -119, Y: 0}}, throw.Dart{Number: 11, Segment: throw.Outer}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -380,7 +381,7 @@ func TestFuseTipsWeighted(t *testing.T) {
 	if math.Abs(p.Radius()-want) > 0.01 {
 		t.Errorf("two cameras: %.2f mm, want the weighted mean %.2f", p.Radius(), want)
 	}
-	if got := dartboard.Score(p); got != (throw.Dart{Number: 14, Multiplier: 1}) {
+	if got := dartboard.Score(p); got != (throw.Dart{Number: 14, Segment: throw.Outer}) {
 		t.Errorf("scored %+v, want S14", got)
 	}
 

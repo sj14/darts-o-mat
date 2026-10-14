@@ -20,7 +20,7 @@ func quickTournament(format tournament.Format, playerIDs ...int64) tournament.To
 	}
 }
 
-var d20 = throw.Dart{Number: 20, Multiplier: 2}
+var d20 = throw.Dart{Number: 20, Segment: throw.Double}
 
 func TestRoundRobinTournament(t *testing.T) {
 	ctx := context.Background()

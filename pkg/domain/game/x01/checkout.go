@@ -10,21 +10,21 @@ import (
 // trebles first, high numbers first.
 var fields = func() []throw.Dart {
 	var fs []throw.Dart
-	for _, m := range []uint8{3, 1} {
+	for _, s := range []throw.Segment{throw.Triple, throw.Single} {
 		for n := uint8(20); n >= 1; n-- {
-			fs = append(fs, throw.Dart{Number: n, Multiplier: m})
+			fs = append(fs, throw.Dart{Number: n, Segment: s})
 		}
 	}
-	fs = append(fs, throw.Dart{Number: throw.Bull, Multiplier: 1})
+	fs = append(fs, throw.Dart{Number: throw.BullNumber, Segment: throw.Bull})
 	for n := uint8(20); n >= 1; n-- {
-		fs = append(fs, throw.Dart{Number: n, Multiplier: 2})
+		fs = append(fs, throw.Dart{Number: n, Segment: throw.Double})
 	}
-	return append(fs, throw.Dart{Number: throw.Bull, Multiplier: 2})
+	return append(fs, throw.Dart{Number: throw.BullNumber, Segment: throw.Bullseye})
 }()
 
 // finishOrder ranks the numbers to finish on: the common doubles first (D16 can be
 // split into D8 and D4 after a miss into the single), the bull last.
-var finishOrder = []uint8{20, 16, 8, 18, 12, 10, 14, 4, 6, 2, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1, throw.Bull}
+var finishOrder = []uint8{20, 16, 8, 18, 12, 10, 14, 4, 6, 2, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1, throw.BullNumber}
 
 // Checkout suggests how to finish remaining with at most darts darts, nil if that
 // isn't possible. For double out it is the usual route of the checkout tables (see
@@ -79,14 +79,15 @@ func (c checkoutCost) less(o checkoutCost) bool {
 func (m OutMode) cost(path []throw.Dart) checkoutCost {
 	last := path[len(path)-1]
 	// Single out prefers to finish with a single, master out with a double.
-	class := map[uint8]int{1: 1, 2: 0, 3: 2}[last.Multiplier]
+	multiplier := last.Segment.Multiplier()
+	class := map[int]int{1: 1, 2: 0, 3: 2}[multiplier]
 	if m == OutModeSingle {
-		class = int(last.Multiplier) - 1
+		class = multiplier - 1
 	}
 	c := checkoutCost{darts: len(path), finish: class*len(finishOrder) + slices.Index(finishOrder, last.Number)}
 	for _, d := range path[:len(path)-1] {
-		difficulty := map[uint8]int{1: 1, 3: 2, 2: 3}[d.Multiplier]
-		if d.Number == throw.Bull {
+		difficulty := map[int]int{1: 1, 3: 2, 2: 3}[d.Segment.Multiplier()]
+		if d.Segment.IsBull() {
 			difficulty = 3
 		}
 		c.setup += difficulty*100 - int(d.Number)

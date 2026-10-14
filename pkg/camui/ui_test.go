@@ -69,7 +69,7 @@ func TestEventPages(t *testing.T) {
 	app.AddEvent(camapp.Event{Cameras: names, Game: 12, Event: &vision.Event{
 		Kind:    vision.EventDart,
 		Board:   dartboard.Point{X: 71, Y: 67},
-		Dart:    throw.Dart{Number: 4, Multiplier: 1},
+		Dart:    throw.Dart{Number: 4, Segment: throw.Outer},
 		Located: true,
 		Cameras: map[int]vision.Tip{
 			0: {Point: dartboard.Point{X: 74, Y: 66}, Radial: 1.8, Tangential: 1.3},
@@ -251,7 +251,7 @@ func TestEventStream(t *testing.T) {
 	frames := []*image.RGBA{image.NewRGBA(image.Rect(0, 0, 4, 4))}
 	app.AddEvent(camapp.Event{Cameras: []string{"cam1"}, Event: &vision.Event{
 		Kind:    vision.EventDart,
-		Dart:    throw.Dart{Number: 19, Multiplier: 3},
+		Dart:    throw.Dart{Number: 19, Segment: throw.Triple},
 		Cameras: map[int]vision.Tip{0: {}},
 		Before:  frames,
 		After:   frames,

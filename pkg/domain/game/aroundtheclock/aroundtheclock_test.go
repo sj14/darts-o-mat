@@ -9,8 +9,14 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 )
 
+// hit is a dart entered by hand: number and multiplier (for the bull number, 1 is the
+// bull and 2 the bullseye; anything else stays invalid).
 func hit(number, multiplier uint8) throw.Dart {
-	return throw.Dart{Number: number, Multiplier: multiplier}
+	segments := []throw.Segment{1: throw.Single, 2: throw.Double, 3: throw.Triple}
+	if number == throw.BullNumber && multiplier < 3 {
+		segments = []throw.Segment{1: throw.Bull, 2: throw.Bullseye}
+	}
+	return throw.Dart{Number: number, Segment: segments[multiplier]}
 }
 
 // hitsUpTo returns single hits on 1 to n.
@@ -65,13 +71,13 @@ func TestPlay(t *testing.T) {
 			name:        "bull is the last target",
 			settings:    Settings{Bull: true},
 			darts:       oneplayer(hitsUpTo(20)),
-			wantTargets: []uint8{throw.Bull, 1},
+			wantTargets: []uint8{throw.BullNumber, 1},
 			wantCurrent: 1,
 		},
 		{
 			name:        "win with bull",
 			settings:    Settings{Bull: true},
-			darts:       oneplayer(append(hitsUpTo(20), hit(throw.Bull, 1))),
+			darts:       oneplayer(append(hitsUpTo(20), hit(throw.BullNumber, 1))),
 			wantTargets: []uint8{0, 1},
 			wantWinner:  1,
 		},
@@ -79,7 +85,7 @@ func TestPlay(t *testing.T) {
 			name:        "skipping past 20 goes to bull",
 			settings:    Settings{Bull: true, MultiplierSkips: true},
 			darts:       oneplayer(append(hitsUpTo(18), hit(19, 3))),
-			wantTargets: []uint8{throw.Bull, 1},
+			wantTargets: []uint8{throw.BullNumber, 1},
 			wantCurrent: 1,
 		},
 	}
@@ -119,21 +125,21 @@ func oneplayer(darts []throw.Dart) []throw.Dart {
 	for i, d := range darts {
 		result = append(result, d)
 		if i%3 == 2 && i != len(darts)-1 {
-			result = append(result, throw.Dart{Miss: true}, throw.Dart{Miss: true}, throw.Dart{Miss: true})
+			result = append(result, throw.Dart{Segment: throw.Miss}, throw.Dart{Segment: throw.Miss}, throw.Dart{Segment: throw.Miss})
 		}
 	}
 	return result
 }
 
 func TestPlayAfterWin(t *testing.T) {
-	_, err := Play(Settings{}, []int64{1}, append(hitsUpTo(20), throw.Dart{Miss: true}))
+	_, err := Play(Settings{}, []int64{1}, append(hitsUpTo(20), throw.Dart{Segment: throw.Miss}))
 	if !errors.Is(err, turn.ErrGameOver) {
 		t.Errorf("got %v, want ErrGameOver", err)
 	}
 }
 
 func TestStats(t *testing.T) {
-	darts := []throw.Dart{hit(1, 1), hit(5, 1), hit(2, 1), throw.Dart{Miss: true}}
+	darts := []throw.Dart{hit(1, 1), hit(5, 1), hit(2, 1), throw.Dart{Segment: throw.Miss}}
 	st, err := Play(Settings{}, []int64{1, 2}, darts)
 	if err != nil {
 		t.Fatal(err)
@@ -147,7 +153,7 @@ func TestStats(t *testing.T) {
 }
 
 func TestTurns(t *testing.T) {
-	darts := []throw.Dart{hit(1, 1), hit(5, 1), hit(2, 1), {Miss: true}, hit(3, 1)}
+	darts := []throw.Dart{hit(1, 1), hit(5, 1), hit(2, 1), {Segment: throw.Miss}, hit(3, 1)}
 	st, err := Play(Settings{}, []int64{1, 2}, darts)
 	if err != nil {
 		t.Fatal(err)

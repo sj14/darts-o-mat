@@ -91,11 +91,11 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 			cur = &st.Turns[len(st.Turns)-1]
 		}
 		p.Stats.Darts++
-		hit := !d.Miss && d.Number == p.Target
+		hit := d.Segment != throw.Miss && d.Number == p.Target
 		cur.Darts, cur.Hits = append(cur.Darts, d), append(cur.Hits, hit)
 		if hit {
 			p.Stats.Hits++
-			p.Target = s.next(p.Target, d.Multiplier)
+			p.Target = s.next(p.Target, d.Segment.Multiplier())
 		}
 		cur.Target = p.Target
 		if p.Target == 0 {
@@ -124,21 +124,21 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 }
 
 // next returns the target after hitting target, 0 if the player has finished.
-func (s Settings) next(target, multiplier uint8) uint8 {
-	if target == throw.Bull {
+func (s Settings) next(target uint8, multiplier int) uint8 {
+	if target == throw.BullNumber {
 		return 0
 	}
 
 	steps := uint8(1)
 	if s.MultiplierSkips {
-		steps = multiplier
+		steps = uint8(multiplier)
 	}
 
 	if target+steps <= 20 {
 		return target + steps
 	}
 	if s.Bull {
-		return throw.Bull
+		return throw.BullNumber
 	}
 	return 0
 }

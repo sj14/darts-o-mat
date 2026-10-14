@@ -52,9 +52,9 @@ func (m OutMode) minFinish() uint64 {
 func (m OutMode) finishes(d throw.Dart) bool {
 	switch m {
 	case OutModeDouble:
-		return d.Multiplier == 2
+		return d.Segment.IsDouble()
 	case OutModeMaster:
-		return d.Multiplier >= 2
+		return d.Segment.Multiplier() >= 2
 	default:
 		return true
 	}

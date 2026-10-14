@@ -71,9 +71,9 @@ func bullDistance(d throw.Dart) float64 {
 	switch {
 	case d.X != nil && d.Y != nil:
 		return math.Hypot(*d.X, *d.Y)
-	case d.Number == throw.Bull && d.Multiplier == 2:
+	case d.Segment == throw.Bullseye:
 		return 0
-	case d.Number == throw.Bull:
+	case d.Segment == throw.Bull:
 		return singleBull
 	}
 	return math.Inf(1)

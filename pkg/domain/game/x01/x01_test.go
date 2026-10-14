@@ -9,11 +9,17 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 )
 
+// hit is a dart entered by hand: number and multiplier (for the bull number, 1 is the
+// bull and 2 the bullseye; anything else stays invalid).
 func hit(number, multiplier uint8) throw.Dart {
-	return throw.Dart{Number: number, Multiplier: multiplier}
+	segments := []throw.Segment{1: throw.Single, 2: throw.Double, 3: throw.Triple}
+	if number == throw.BullNumber && multiplier < 3 {
+		segments = []throw.Segment{1: throw.Bull, 2: throw.Bullseye}
+	}
+	return throw.Dart{Number: number, Segment: segments[multiplier]}
 }
 
-var miss = throw.Dart{Miss: true}
+var miss = throw.Dart{Segment: throw.Miss}
 
 func TestPlay(t *testing.T) {
 	tests := []struct {
@@ -86,7 +92,7 @@ func TestPlay(t *testing.T) {
 		{
 			name:          "bullseye counts as double",
 			settings:      Settings{StartScore: 50, OutMode: OutModeDouble},
-			darts:         []throw.Dart{hit(throw.Bull, 2)},
+			darts:         []throw.Dart{hit(throw.BullNumber, 2)},
 			wantRemaining: []uint64{0, 50},
 			wantRound:     1,
 			wantDarts:     1,
@@ -180,7 +186,7 @@ func TestPlayErrors(t *testing.T) {
 		t.Errorf("dart after win: got %v, want ErrGameOver", err)
 	}
 
-	_, err = Play(s, []int64{1}, []throw.Dart{hit(throw.Bull, 3)})
+	_, err = Play(s, []int64{1}, []throw.Dart{hit(throw.BullNumber, 3)})
 	if !errors.Is(err, throw.ErrInvalid) {
 		t.Errorf("triple bull: got %v, want ErrInvalid", err)
 	}
