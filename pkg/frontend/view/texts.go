@@ -3,15 +3,12 @@ package view
 import (
 	"context"
 
-	"github.com/sj14/darts-o-mat/pkg/auth"
 	"github.com/sj14/darts-o-mat/pkg/i18n"
 )
 
 // Texts are the texts of the web interface, one method per text (see pkg/i18n). English
 // (textsEN) implements all of them; the other languages embed it and override what is
 // translated, the rest stays English. TestTranslations lists what isn't translated yet.
-//
-// Not all pages use it yet: so far the frame of the pages and the game page (2026-10-14).
 type Texts interface {
 	// Numbers.
 	Decimal(f float64) string // one decimal place
@@ -23,7 +20,6 @@ type Texts interface {
 	NavBoards() string
 	Logout() string
 	Language() string
-	LanguageBrowser() string
 	SoundOn() string
 	SoundOff() string
 	SoundBlocked() string
@@ -53,7 +49,7 @@ type Texts interface {
 	AbortGameConfirm() string
 
 	// Game page: playing.
-	Wins(name string) string
+	WinsGame(name string) string
 	NewGame() string
 	GameAborted() string
 	CheckoutSuggestion() string
@@ -126,6 +122,147 @@ type Texts interface {
 	ErrAborted() string
 	ErrNothingToUndo() string
 	ErrForbidden() string
+
+	// Start page and new game.
+	HomeTitle() string
+	FriendRequests(n int) string
+	Show() string
+	Tournaments() string
+	Invitations() string
+	TournamentInvitations() string
+	WithPlayers(names string) string
+	PlayerCount(n int) string
+	Guests() string
+	GuestsHint() string
+	Name() string
+	GuestName() string
+	Add() string
+	RecentGames() string
+	StatusAborted() string
+	StatusWaiting() string
+	StatusOver() string
+	StatusRunning() string
+	GameFormat() string
+	SingleGame() string
+	Knockout() string
+	RoundRobin() string
+	TournamentHint(min, max int) string
+	Legs() string
+	Sets() string
+	OneLeg() string
+	LegsHint() string
+	NoSets() string
+	SetsHint() string
+	WhoStarts() string
+	BullOffOptionHint() string
+	Players() string
+	Me(name string) string
+	InviteFriends() string
+	NoFriendsBefore() string
+	NoFriendsAfter() string
+	Board() string
+	NoBoard() string
+	X01Description() string
+	AroundTheClockDescription() string
+	StartScore() string
+	CheckOutWith() string
+	AnyDart() string
+	DoubleOrTriple() string
+	StartMode(mode string) string
+	Rules() string
+	BullAtTheEnd() string
+	SkipsRule() string
+	ChooseMode() string
+
+	// Boards.
+	BoardsHint() string
+	CameraTokenFor(board string) string
+	TokenShownOnce() string
+	Server() string
+	CameraToken() string
+	CalibrationHintBefore() string
+	CalibrationHintMiddle() string
+	CameraTokenActive() string
+	CreateCameraToken() string
+	NewCameraToken() string
+	Delete() string
+	BoardNameExample() string
+	BoardName() string
+
+	// Login and registration.
+	Login() string
+	Register() string
+	Username() string
+	Password() string
+	NoAccountYet() string
+	UsernameHint() string
+	DisplayName() string
+	DisplayNameHint() string
+	PasswordHint() string
+	CreateAccount() string
+	RegistrationClosed() string
+	AlreadyRegistered() string
+
+	// Friends.
+	FriendsHint() string
+	SendRequest() string
+	RequestsToYou() string
+	AcceptRequest() string
+	DeclineRequest() string
+	YourFriends() string
+	NoFriendsYet() string
+	Remove() string
+	SentRequests() string
+	WithdrawRequest() string
+
+	// Statistics.
+	StatsHint() string
+	NoFinishedGames() string
+	Count180() string
+	GamesWinsLegs() string
+	SetsWonLabel() string
+	TournamentsWon() string
+	HighestFinish() string
+	BestLeg() string
+	NDarts(n int) string
+	Games() string
+	DartsHits() string
+
+	// Tournaments.
+	InvitedToTournament() string
+	WaitingFor(names string) string
+	WinsTournament(name string) string
+	AbortTournament() string
+	AbortTournamentConfirm() string
+	Bracket() string
+	RoundName(rounds, round int) string
+	Bye() string
+	Open() string
+	StartGame() string
+	RunningToGame() string
+	ToGame() string
+	Table() string
+	Wins() string
+	Difference() string
+	TieBreakHint(unit string) string
+	Finish() string
+	TournamentStatsHint() string
+
+	// Errors of these pages.
+	ErrLogin() string
+	ErrUsernameTaken() string
+	ErrRegisterInput() string
+	ErrEnterName() string
+	ErrGameNotStarted() string
+	ErrChoosePlayer() string
+	ErrTournamentPlayers(min, max int) string
+	ErrUnknownUser(username string) string
+	ErrNotFriend(username string) string
+	ErrInviteSelf() string
+	ErrAlreadyFriends() string
+	ErrFriendSelf() string
+	ErrMatchNotStartable() string
+	ErrAbortTournament() string
 }
 
 // T returns the texts in the language of the request (see i18n.From).
@@ -149,10 +286,11 @@ func languageName(l i18n.Lang) string {
 	return "English"
 }
 
-// accountLanguage is the language the logged-in account chose, empty for the browser's.
-func accountLanguage(ctx context.Context) i18n.Lang {
-	if l, ok := i18n.Parse(auth.Account(ctx).Language); ok {
-		return l
+// languageFlag is the flag a language is shown with.
+func languageFlag(l i18n.Lang) string {
+	switch l {
+	case i18n.German:
+		return "🇩🇪"
 	}
-	return ""
+	return "🇬🇧"
 }

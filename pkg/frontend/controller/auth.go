@@ -17,7 +17,7 @@ func (c *Controller) login(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	_, err := auth.Login(w, r, c.svc, username, r.FormValue("password"))
 	if errors.Is(err, service.ErrUnauthenticated) {
-		m := view.AuthModel{Username: username, Error: "Benutzername oder Passwort ist falsch.", Registration: c.svc.RegistrationOpen()}
+		m := view.AuthModel{Username: username, Error: view.T(r.Context()).ErrLogin(), Registration: c.svc.RegistrationOpen()}
 		render(w, r, http.StatusUnauthorized, view.Login(m))
 		return
 	}
@@ -40,11 +40,11 @@ func (c *Controller) register(w http.ResponseWriter, r *http.Request) {
 	_, err := c.svc.Register(r.Context(), m.Username, m.Name, password)
 	switch {
 	case errors.Is(err, service.ErrUsernameTaken):
-		m.Error = "Dieser Benutzername ist schon vergeben."
+		m.Error = view.T(r.Context()).ErrUsernameTaken()
 	case errors.Is(err, service.ErrInvalid):
-		m.Error = "Bitte Benutzername (3 bis 32 Zeichen: Buchstaben, Ziffern, . - _) und Passwort (mindestens 8 Zeichen) prüfen."
+		m.Error = view.T(r.Context()).ErrRegisterInput()
 	case errors.Is(err, service.ErrRegistrationClosed):
-		m.Error = "Die Registrierung ist abgeschaltet."
+		m.Error = view.T(r.Context()).RegistrationClosed()
 	case err != nil:
 		serverError(w, err)
 		return

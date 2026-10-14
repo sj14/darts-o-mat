@@ -23,6 +23,7 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/camapp"
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 	"github.com/sj14/darts-o-mat/pkg/frontend/static"
+	"github.com/sj14/darts-o-mat/pkg/i18n"
 	"github.com/sj14/darts-o-mat/pkg/vision"
 )
 
@@ -64,7 +65,7 @@ type session struct {
 	frame  *image.RGBA
 	points []vision.CalibrationPoint
 	target int
-	err    string
+	err    error // of the last attempt to finish, see calibrationError
 }
 
 // New serves the web interface of the app.
@@ -74,6 +75,7 @@ func New(app *camapp.App) *UI {
 
 func (ui *UI) Routes() http.Handler {
 	r := chi.NewRouter()
+	r.Use(i18n.Middleware) // the browser's language; darts-o-cam has no accounts
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServerFS(static.FS)))
 	r.Get("/", ui.overview)
 	r.Post("/detect", ui.setDetect)
@@ -130,16 +132,16 @@ func latest(w http.ResponseWriter, c camapp.CameraState) (*image.RGBA, bool) {
 func (ui *UI) overview(w http.ResponseWriter, r *http.Request) {
 	m := OverviewModel{Dir: ui.app.Dir(), Status: ui.app.Status(), Settings: ui.app.Settings()}
 	for _, c := range ui.app.Cameras() {
-		m.Cameras = append(m.Cameras, cameraModel(c))
+		m.Cameras = append(m.Cameras, cameraModel(T(r.Context()), c))
 	}
-	m.Events = ui.events()
+	m.Events = ui.events(T(r.Context()))
 	render(w, r, Overview(m))
 }
 
-func cameraModel(c camapp.CameraState) CameraModel {
+func cameraModel(t Texts, c camapp.CameraState) CameraModel {
 	m := CameraModel{Name: c.Name, DeviceName: c.DeviceName, DeviceModel: c.DeviceModel, Open: c.Live != nil, Calibrated: c.Calibrated}
 	if toBoard, err := c.ToBoard(); err == nil && c.Calibrated {
-		m.Scale = strings.Replace(strconv.FormatFloat(vision.PixelScale(toBoard), 'f', 2, 64), ".", ",", 1)
+		m.Scale = t.Number(vision.PixelScale(toBoard), 2)
 	}
 	if c.Live != nil {
 		m.Device = c.Live.Device().ID
@@ -154,9 +156,9 @@ func cameraModel(c camapp.CameraState) CameraModel {
 	switch {
 	case c.Problem == nil:
 	case errors.Is(c.Problem, vision.ErrNotConnected):
-		m.Problem = "Nicht angeschlossen."
+		m.Problem = t.ProblemNotConnected()
 	case errors.Is(c.Problem, vision.ErrAmbiguousCameras):
-		m.Problem = "Das Bild passt nicht mehr zum Bild bei der Kalibrierung (Kamera verschoben?). Bitte neu kalibrieren."
+		m.Problem = t.ProblemMoved()
 	default:
 		m.Problem = c.Problem.Error()
 	}
@@ -233,7 +235,7 @@ func (ui *UI) applySettings(w http.ResponseWriter, r *http.Request, s camapp.Set
 	if err := ui.app.SetSettings(s); err != nil {
 		m := SettingsModel{Settings: s, Error: err.Error()}
 		if errors.Is(err, camapp.ErrInvalidSettings) {
-			m.Error = "Ungültige Einstellungen: " + err.Error()
+			m.Error = T(r.Context()).ErrInvalidSettings(err.Error())
 		}
 		render(w, r, SettingsPage(m))
 		return
@@ -270,7 +272,7 @@ func (ui *UI) addCamera(w http.ResponseWriter, r *http.Request) {
 	name, err := ui.app.AddCamera(r.FormValue("id"))
 	if err != nil {
 		devices, _ := ui.app.Devices()
-		render(w, r, Devices(DevicesModel{Devices: devices, Error: "Kamera konnte nicht hinzugefügt werden: " + err.Error()}))
+		render(w, r, Devices(DevicesModel{Devices: devices, Error: T(r.Context()).ErrAddCamera(err.Error())}))
 		return
 	}
 	http.Redirect(w, r, "/cam/"+name+"/calibrate", http.StatusSeeOther)
@@ -281,7 +283,7 @@ func (ui *UI) removePage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	render(w, r, RemovePage(cameraModel(c)))
+	render(w, r, RemovePage(cameraModel(T(r.Context()), c)))
 }
 
 func (ui *UI) removeCamera(w http.ResponseWriter, r *http.Request) {
@@ -350,7 +352,7 @@ func (ui *UI) calibratePage(w http.ResponseWriter, r *http.Request) {
 		ui.start(w, r)
 		return
 	}
-	m := CalibrateModel{Name: c.Name, Points: len(s.points), MinPoints: MinPoints, Error: s.err, Bounds: s.frame.Bounds()}
+	m := CalibrateModel{Name: c.Name, Points: len(s.points), MinPoints: MinPoints, Error: calibrationError(T(r.Context()), s.err), Bounds: s.frame.Bounds()}
 	if s.target < len(Targets) {
 		m.Target = &Targets[s.target]
 	}
@@ -388,7 +390,7 @@ func (ui *UI) point(w http.ResponseWriter, r *http.Request) {
 			Ring:    vision.RingDoubleOuter,
 		})
 		s.target++
-		s.err = ""
+		s.err = nil
 	}
 	ui.mu.Unlock()
 	http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
@@ -417,7 +419,7 @@ func (ui *UI) finish(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := ui.refine(name, s.points, s.frame); err != nil {
 		ui.mu.Lock()
-		s.err = err.Error()
+		s.err = err
 		ui.mu.Unlock()
 		http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
 		return
@@ -445,18 +447,47 @@ func (ui *UI) refineAgain(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+// Why finishing a calibration failed; calibrationError says it in the user's language.
+var (
+	errTooFewPoints  = fmt.Errorf("at least %d points needed", MinPoints)
+	errPointsDontFit = errors.New("the points don't fit together")
+)
+
+// refineError is a failed fine calibration.
+type refineError struct{ err error }
+
+func (e refineError) Error() string { return "fine calibration failed: " + e.err.Error() }
+func (e refineError) Unwrap() error { return e.err }
+
+// calibrationError is the message of an error from finishing a calibration, empty
+// for none.
+func calibrationError(t Texts, err error) string {
+	var refine refineError
+	switch {
+	case err == nil:
+		return ""
+	case errors.Is(err, errTooFewPoints):
+		return t.ErrTooFewPoints(MinPoints)
+	case errors.Is(err, errPointsDontFit):
+		return t.ErrPointsDontFit()
+	case errors.As(err, &refine):
+		return t.ErrRefine(refine.err)
+	}
+	return err.Error()
+}
+
 // refine refines the clicked calibration on an image of the empty board and stores it.
 func (ui *UI) refine(name string, points []vision.CalibrationPoint, img *image.RGBA) error {
 	if len(points) < MinPoints {
-		return fmt.Errorf("mindestens %d Punkte nötig", MinPoints)
+		return errTooFewPoints
 	}
 	rough, err := vision.CameraCalibration{Name: name, Points: points}.FromPoints()
 	if err != nil {
-		return errors.New("die Punkte passen nicht zusammen, bitte neu beginnen")
+		return errPointsDontFit
 	}
 	res, err := vision.RefineCalibration(img, rough)
 	if err != nil {
-		return fmt.Errorf("Feinkalibrierung fehlgeschlagen (%v); ist das Board leer und gut zu sehen?", err)
+		return refineError{err}
 	}
 	log.Printf("%s: %d board features, deviation %.2f px before, %.2f px after", name, res.Matches, res.RMSBefore, res.RMSAfter)
 	if err := ui.app.Calibrate(name, points, res.Mapping(), img); err != nil {
@@ -551,10 +582,10 @@ func dot(img *image.RGBA, p dartboard.Point, c color.Color) {
 	}
 }
 
-func (ui *UI) events() []EventModel {
+func (ui *UI) events(t Texts) []EventModel {
 	var events []EventModel
 	for _, e := range ui.app.Events() {
-		events = append(events, eventModel(e))
+		events = append(events, eventModel(t, e))
 	}
 	return events
 }
@@ -580,7 +611,7 @@ func (ui *UI) eventStream(w http.ResponseWriter, r *http.Request) {
 		case <-changes:
 		}
 		var buf bytes.Buffer
-		if err := eventList(ui.events()).Render(r.Context(), &buf); err != nil {
+		if err := eventList(ui.events(T(r.Context()))).Render(r.Context(), &buf); err != nil {
 			log.Printf("render events: %v", err)
 			return
 		}
@@ -593,18 +624,18 @@ func (ui *UI) eventStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func eventModel(e camapp.Event) EventModel {
+func eventModel(t Texts, e camapp.Event) EventModel {
 	m := EventModel{ID: e.ID, Time: e.Time.Format("15:04:05"), Takeout: e.Kind == vision.EventTakeout, Game: e.Game}
 	if e.ReportErr != nil {
 		m.ReportErr = e.ReportErr.Error()
 	}
 	if !m.Takeout {
-		m.Label = e.Dart.String()
+		m.Label = dartLabel(t, e.Dart)
 		m.Board, m.Located = e.Board, e.Located
-		for i, t := range e.Event.Cameras {
+		for i, tip := range e.Event.Cameras {
 			m.Cameras = append(m.Cameras, CameraPoint{
-				Index: i, Name: e.Cameras[i], Board: t.Point, Label: dartboard.Score(t.Point).String(),
-				Radial: t.Radial, Tangential: t.Tangential, Hidden: t.Hidden,
+				Index: i, Name: e.Cameras[i], Board: tip.Point, Label: dartLabel(t, dartboard.Score(tip.Point)),
+				Radial: tip.Radial, Tangential: tip.Tangential, Hidden: tip.Hidden,
 			})
 		}
 		slices.SortFunc(m.Cameras, func(a, b CameraPoint) int { return a.Index - b.Index })
@@ -622,7 +653,7 @@ func (ui *UI) eventPage(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	render(w, r, EventPage(eventModel(e)))
+	render(w, r, EventPage(eventModel(T(r.Context()), e)))
 }
 
 // eventImage shows a camera's frame after the event, around the tip it found.

@@ -3,7 +3,7 @@
 A darts scorer for home: enter your throws, the score is counted automatically.
 In the long run darts-o-mat aims to be a free alternative to Autodarts and Scolia, with cameras that detect the throws by themselves.
 
-> **Status:** early development. Darts are entered by hand or detected by cameras at the board; the camera detection already works for normal throws but is still in progress. The user interface is in English and German (being translated: some pages are still German only).
+> **Status:** early development. Darts are entered by hand or detected by cameras at the board; the camera detection already works for normal throws but is still in progress. The user interface is in English and German, following the browser.
 
 ## What's in it
 
@@ -18,16 +18,16 @@ Requirement: [Go](https://go.dev/dl/) is installed.
 go run ./cmd/darts-o-mat
 ```
 
-Then open <http://localhost:3000> in the browser and create an account ("Registrieren"). How to play and more options: [darts-o-mat](cmd/darts-o-mat/README.md).
+Then open <http://localhost:3000> in the browser and create an account ("Register"). How to play and more options: [darts-o-mat](cmd/darts-o-mat/README.md).
 
 ## Playing with cameras
 
 1. Start darts-o-cam on the computer the cameras are connected to, add the cameras and calibrate them once: [darts-o-cam → start](cmd/darts-o-cam/README.md#start).
-2. In darts-o-mat, create your board under "Boards" and click "Kamera-Token erzeugen".
-3. Enter the server address and the token in darts-o-cam under "Einstellungen".
+2. In darts-o-mat, create your board under "Boards" and click "Create camera token".
+3. Enter the server address and the token in darts-o-cam under "Settings".
 4. Select this board when starting a game. Darts now appear by themselves; correct misdetections as usual.
 
-On a board the next player is only up once the darts have been pulled out – the camera notices that; without a camera, tap "Pfeile gezogen". If a dart of the visit is missing (e.g. bounced out), it counts as a miss.
+On a board the next player is only up once the darts have been pulled out – the camera notices that; without a camera, tap "Darts pulled out". If a dart of the visit is missing (e.g. bounced out), it counts as a miss.
 
 ## For developers
 

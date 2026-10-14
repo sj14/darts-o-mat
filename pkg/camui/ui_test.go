@@ -83,20 +83,20 @@ func TestEventPages(t *testing.T) {
 	app.AddEvent(camapp.Event{Cameras: names, ReportErr: errors.New("no game"), Event: &vision.Event{Kind: vision.EventTakeout, After: frames}})
 
 	code, body := get(t, srv, "/")
-	if code != 200 || !strings.Contains(body, ">4<") || !strings.Contains(body, "herausgezogen") {
+	if code != 200 || !strings.Contains(body, ">4<") || !strings.Contains(body, "pulled out") {
 		t.Errorf("overview: %d, events missing", code)
 	}
-	if !strings.Contains(body, "Spiel 12") || !strings.Contains(body, "no game") {
+	if !strings.Contains(body, "game 12") || !strings.Contains(body, "no game") {
 		t.Errorf("overview: what the server did is missing")
 	}
-	if !strings.Contains(body, "wartet auf eine kalibrierte Kamera") {
+	if !strings.Contains(body, "waiting for a calibrated camera") {
 		t.Errorf("overview: detection status missing")
 	}
 	code, body = get(t, srv, "/event/1")
 	if code != 200 || !strings.Contains(body, "<svg") || !strings.Contains(body, "97.6") {
 		t.Errorf("event page: %d, sketch or distance missing", code)
 	}
-	if !strings.Contains(body, "0.7 / 1.4") || !strings.Contains(body, "(verdeckt)") {
+	if !strings.Contains(body, "0.7 / 1.4") || !strings.Contains(body, "(hidden)") {
 		t.Error("event page: resolution or hidden camera missing")
 	}
 	if code, body := get(t, srv, "/event/1/cam/0.jpg"); code != 200 || !strings.HasPrefix(body, "\xff\xd8") {
@@ -141,7 +141,7 @@ func TestSettings(t *testing.T) {
 	post := func(values url.Values) (int, string) {
 		t.Helper()
 		// The detection's thresholds as the form shows them, unless given.
-		for _, f := range detectionFields(vision.DefaultWatchOptions) {
+		for _, f := range detectionFields(textsEN{}, vision.DefaultWatchOptions) {
 			if !values.Has(f.Name) {
 				values.Set(f.Name, f.Value)
 			}
@@ -156,7 +156,7 @@ func TestSettings(t *testing.T) {
 	}
 
 	code, body := post(url.Values{"server": {"http://darts.local:3000/"}, "token": {" abc "}, "size": {"640x480"}, "fps": {"15"}})
-	if code != 200 || !strings.Contains(body, "Gespeichert") {
+	if code != 200 || !strings.Contains(body, "Saved") {
 		t.Errorf("save: %d, not saved", code)
 	}
 	want := camapp.Settings{Server: "http://darts.local:3000", Token: "abc", Width: 640, Height: 480, FPS: 15, Detection: app.Settings().Detection}
@@ -176,8 +176,8 @@ func TestSettings(t *testing.T) {
 		if !strings.Contains(tag, `type="submit"`) || strings.Contains(tag, "form=") {
 			continue
 		}
-		if !strings.HasPrefix(button[len(tag)+1:], "Speichern") {
-			t.Errorf("the settings form's first submit button isn't Speichern: %s", button[:min(len(button), 300)])
+		if !strings.HasPrefix(button[len(tag)+1:], "Save") {
+			t.Errorf("the settings form's first submit button isn't Save: %s", button[:min(len(button), 300)])
 		}
 		break
 	}
@@ -186,10 +186,10 @@ func TestSettings(t *testing.T) {
 		t.Errorf("overview doesn't show the server")
 	}
 
-	if _, body := post(url.Values{"server": {"darts.local"}, "size": {"640x480"}, "fps": {"15"}}); !strings.Contains(body, "Ungültige Einstellungen") {
+	if _, body := post(url.Values{"server": {"darts.local"}, "size": {"640x480"}, "fps": {"15"}}); !strings.Contains(body, "Invalid settings") {
 		t.Errorf("server without scheme: no error shown")
 	}
-	if _, body := post(url.Values{"size": {"640x480"}, "fps": {"15"}, "weak_threshold": {"30"}}); !strings.Contains(body, "Ungültige Einstellungen") {
+	if _, body := post(url.Values{"size": {"640x480"}, "fps": {"15"}, "weak_threshold": {"30"}}); !strings.Contains(body, "Invalid settings") {
 		t.Errorf("weak threshold above the strong one: no error shown")
 	}
 	if got := app.Settings(); got != want {

@@ -12,15 +12,14 @@ type textsEN struct{}
 func (textsEN) Decimal(f float64) string     { return strconv.FormatFloat(f, 'f', 1, 64) }
 func (textsEN) Percent(ratio float64) string { return strconv.Itoa(int(math.Round(ratio*100))) + "%" }
 
-func (textsEN) NavStats() string        { return "Statistics" }
-func (textsEN) NavFriends() string      { return "Friends" }
-func (textsEN) NavBoards() string       { return "Boards" }
-func (textsEN) Logout() string          { return "Log out" }
-func (textsEN) Language() string        { return "Language" }
-func (textsEN) LanguageBrowser() string { return "Browser" }
-func (textsEN) SoundOn() string         { return "🔊 Sound on" }
-func (textsEN) SoundOff() string        { return "🔇 Sound off" }
-func (textsEN) SoundBlocked() string    { return "🔈 Click for sound" }
+func (textsEN) NavStats() string     { return "Statistics" }
+func (textsEN) NavFriends() string   { return "Friends" }
+func (textsEN) NavBoards() string    { return "Boards" }
+func (textsEN) Logout() string       { return "Log out" }
+func (textsEN) Language() string     { return "Language" }
+func (textsEN) SoundOn() string      { return "🔊 Sound on" }
+func (textsEN) SoundOff() string     { return "🔇 Sound off" }
+func (textsEN) SoundBlocked() string { return "🔈 Click for sound" }
 
 func (textsEN) AroundTheClock() string  { return "Around the Clock" }
 func (textsEN) WithBull() string        { return " with bull" }
@@ -50,14 +49,14 @@ func (textsEN) AbortGameConfirm() string {
 	return "Really abort the game? It won't count in the statistics."
 }
 
-func (textsEN) Wins(name string) string    { return "🏆 " + name + " wins!" }
-func (textsEN) NewGame() string            { return "New game" }
-func (textsEN) GameAborted() string        { return "Game aborted" }
-func (textsEN) CheckoutSuggestion() string { return "Suggested checkout" }
-func (textsEN) Checkout() string           { return "Checkout" }
-func (textsEN) PullDarts() string          { return "Pull out the darts" }
-func (textsEN) ThenSet(n int) string       { return "Then set " + strconv.Itoa(n) + " starts." }
-func (textsEN) ThenLeg(n int) string       { return "Then leg " + strconv.Itoa(n) + " starts." }
+func (textsEN) WinsGame(name string) string { return "🏆 " + name + " wins!" }
+func (textsEN) NewGame() string             { return "New game" }
+func (textsEN) GameAborted() string         { return "Game aborted" }
+func (textsEN) CheckoutSuggestion() string  { return "Suggested checkout" }
+func (textsEN) Checkout() string            { return "Checkout" }
+func (textsEN) PullDarts() string           { return "Pull out the darts" }
+func (textsEN) ThenSet(n int) string        { return "Then set " + strconv.Itoa(n) + " starts." }
+func (textsEN) ThenLeg(n int) string        { return "Then leg " + strconv.Itoa(n) + " starts." }
 func (textsEN) ThenPlayer(name string) string {
 	return "Then it's " + name + "'s turn."
 }
@@ -140,3 +139,208 @@ func (textsEN) ErrNotReady() string      { return "Not everyone invited has acce
 func (textsEN) ErrAborted() string       { return "The game was aborted." }
 func (textsEN) ErrNothingToUndo() string { return "There is no dart to undo." }
 func (textsEN) ErrForbidden() string     { return "You aren't allowed to do that in this game." }
+
+func (textsEN) HomeTitle() string { return "Home" }
+func (textsEN) FriendRequests(n int) string {
+	if n == 1 {
+		return "You have a new friend request."
+	}
+	return "You have " + strconv.Itoa(n) + " new friend requests."
+}
+func (textsEN) Show() string                    { return "Show" }
+func (textsEN) Tournaments() string             { return "Tournaments" }
+func (textsEN) Invitations() string             { return "Invitations" }
+func (textsEN) TournamentInvitations() string   { return "Tournament invitations" }
+func (textsEN) WithPlayers(names string) string { return "with " + names }
+func (textsEN) PlayerCount(n int) string {
+	return strconv.Itoa(n) + " " + plural(n, "player", "players")
+}
+func (textsEN) Guests() string { return "Guest players" }
+func (textsEN) GuestsHint() string {
+	return "For fellow players without an account of their own. Only you see them."
+}
+func (textsEN) Name() string          { return "Name" }
+func (textsEN) GuestName() string     { return "Name of the guest player" }
+func (textsEN) Add() string           { return "Add" }
+func (textsEN) RecentGames() string   { return "Recent games" }
+func (textsEN) StatusAborted() string { return "aborted" }
+func (textsEN) StatusWaiting() string { return "waiting" }
+func (textsEN) StatusOver() string    { return "over" }
+func (textsEN) StatusRunning() string { return "running" }
+func (textsEN) GameFormat() string    { return "Format" }
+func (textsEN) SingleGame() string    { return "Single game" }
+func (textsEN) Knockout() string      { return "Knockout tournament" }
+func (textsEN) RoundRobin() string    { return "Round robin" }
+func (textsEN) TournamentHint(min, max int) string {
+	return "A tournament needs " + strconv.Itoa(min) + " to " + strconv.Itoa(max) + " players; the order is drawn, every game has the settings chosen here."
+}
+func (textsEN) Legs() string   { return "Legs" }
+func (textsEN) Sets() string   { return "Sets" }
+func (textsEN) OneLeg() string { return "1 leg" }
+func (textsEN) LegsHint() string {
+	return "Whoever checks out wins the leg at once; each leg is started by the next player. With sets, this counts per set."
+}
+func (textsEN) NoSets() string { return "No sets" }
+func (textsEN) SetsHint() string {
+	return "Whoever wins the legs of a set first wins the set; each set is started by the next player."
+}
+func (textsEN) WhoStarts() string { return "Who starts" }
+func (textsEN) BullOffOptionHint() string {
+	return "– closest to the bull; with cameras to the millimetre"
+}
+func (textsEN) Players() string         { return "Players" }
+func (textsEN) Me(name string) string   { return "Me (" + name + ")" }
+func (textsEN) InviteFriends() string   { return "Invite friends" }
+func (textsEN) NoFriendsBefore() string { return "Add other accounts under " }
+func (textsEN) NoFriendsAfter() string  { return " to invite them." }
+func (textsEN) Board() string           { return "Board" }
+func (textsEN) NoBoard() string         { return "none" }
+func (textsEN) X01Description() string  { return "Play down from 301, 501 or 701 to exactly 0." }
+func (textsEN) AroundTheClockDescription() string {
+	return "Hit the numbers 1 to 20 in order."
+}
+func (textsEN) StartScore() string           { return "Starting score" }
+func (textsEN) CheckOutWith() string         { return "Check out with" }
+func (textsEN) AnyDart() string              { return "any dart" }
+func (textsEN) DoubleOrTriple() string       { return "double or triple" }
+func (textsEN) StartMode(mode string) string { return "Start " + mode }
+func (textsEN) Rules() string                { return "Rules" }
+func (textsEN) BullAtTheEnd() string         { return "Hit the bull at the end" }
+func (textsEN) SkipsRule() string            { return "A double moves 2 fields on, a triple 3" }
+func (textsEN) ChooseMode() string           { return "Choose a game mode first." }
+
+func (textsEN) BoardsHint() string {
+	return "Your dartboards, e.g. one in the basement and one at the club. When starting a game you choose the board it's played on; its cameras then enter the throws by themselves."
+}
+func (textsEN) CameraTokenFor(board string) string { return "Camera token for “" + board + "”" }
+func (textsEN) TokenShownOnce() string {
+	return "It's shown only now. Enter both in darts-o-cam on the computer with the cameras, under “Settings”:"
+}
+func (textsEN) Server() string      { return "Server" }
+func (textsEN) CameraToken() string { return "Camera token" }
+func (textsEN) CalibrationHintBefore() string {
+	return "The calibration stays on the computer with the cameras, not on this server. None yet? Start "
+}
+func (textsEN) CalibrationHintMiddle() string {
+	return " there; its interface opens in the browser ("
+}
+func (textsEN) CameraTokenActive() string { return "Camera token active" }
+func (textsEN) CreateCameraToken() string { return "Create camera token" }
+func (textsEN) NewCameraToken() string    { return "Create a new camera token" }
+func (textsEN) Delete() string            { return "Delete" }
+func (textsEN) BoardNameExample() string  { return "Name, e.g. basement" }
+func (textsEN) BoardName() string         { return "Name of the board" }
+
+func (textsEN) Login() string        { return "Log in" }
+func (textsEN) Register() string     { return "Register" }
+func (textsEN) Username() string     { return "Username" }
+func (textsEN) Password() string     { return "Password" }
+func (textsEN) NoAccountYet() string { return "No account yet?" }
+func (textsEN) UsernameHint() string {
+	return "3 to 32 characters: letters, digits, dot, hyphen or underscore. Others invite you to games with it."
+}
+func (textsEN) DisplayName() string { return "Display name" }
+func (textsEN) DisplayNameHint() string {
+	return "Your name in games. Leave it empty to use the username."
+}
+func (textsEN) PasswordHint() string       { return "At least 8 characters." }
+func (textsEN) CreateAccount() string      { return "Create account" }
+func (textsEN) RegistrationClosed() string { return "Registration is turned off on this server." }
+func (textsEN) AlreadyRegistered() string  { return "Already registered?" }
+
+func (textsEN) FriendsHint() string {
+	return "You can only invite friends to games. A friendship counts once the other side accepts your request."
+}
+func (textsEN) SendRequest() string     { return "Send request" }
+func (textsEN) RequestsToYou() string   { return "Requests to you" }
+func (textsEN) AcceptRequest() string   { return "Accept" }
+func (textsEN) DeclineRequest() string  { return "Decline" }
+func (textsEN) YourFriends() string     { return "Your friends" }
+func (textsEN) NoFriendsYet() string    { return "No friends yet." }
+func (textsEN) Remove() string          { return "Remove" }
+func (textsEN) SentRequests() string    { return "Sent requests" }
+func (textsEN) WithdrawRequest() string { return "Withdraw" }
+
+func (textsEN) StatsHint() string {
+	return "Over all finished games and tournaments of you and your guest players."
+}
+func (textsEN) NoFinishedGames() string { return "No finished games yet." }
+func (textsEN) Count180() string        { return "180s" }
+func (textsEN) GamesWinsLegs() string   { return "Games / wins / legs" }
+func (textsEN) SetsWonLabel() string    { return "Sets won" }
+func (textsEN) TournamentsWon() string  { return "Tournaments / won" }
+func (textsEN) HighestFinish() string   { return "Highest finish" }
+func (textsEN) BestLeg() string         { return "Best leg" }
+func (textsEN) NDarts(n int) string     { return strconv.Itoa(n) + " darts" }
+func (textsEN) Games() string           { return "Games" }
+func (textsEN) DartsHits() string       { return "Darts / hits" }
+
+func (textsEN) InvitedToTournament() string {
+	return "You're invited to this tournament. The games start as soon as everyone has accepted."
+}
+func (textsEN) WaitingFor(names string) string {
+	return "Waiting for " + names + " to accept. Then the games can start."
+}
+func (textsEN) WinsTournament(name string) string { return "🏆 " + name + " wins the tournament!" }
+func (textsEN) AbortTournament() string           { return "Abort tournament" }
+func (textsEN) AbortTournamentConfirm() string    { return "Really abort the tournament?" }
+func (textsEN) Bracket() string                   { return "Bracket" }
+func (t textsEN) RoundName(rounds, round int) string {
+	switch rounds - round {
+	case 0:
+		return "Final"
+	case 1:
+		return "Semi-finals"
+	case 2:
+		return "Quarter-finals"
+	case 3:
+		return "Round of 16"
+	case 4:
+		return "Round of 32"
+	}
+	return t.RoundN(round)
+}
+func (textsEN) Bye() string           { return "bye" }
+func (textsEN) Open() string          { return "open" }
+func (textsEN) StartGame() string     { return "Start game" }
+func (textsEN) RunningToGame() string { return "running – to the game" }
+func (textsEN) ToGame() string        { return "to the game" }
+func (textsEN) Table() string         { return "Table" }
+func (textsEN) Wins() string          { return "Wins" }
+func (textsEN) Difference() string    { return "Diff." }
+func (textsEN) TieBreakHint(unit string) string {
+	return "With equal wins, the difference of " + unit + " won and lost decides, then more won, then the draw."
+}
+func (textsEN) Finish() string              { return "Finish" }
+func (textsEN) TournamentStatsHint() string { return "Over the finished games of this tournament." }
+
+func (textsEN) ErrLogin() string         { return "Wrong username or password." }
+func (textsEN) ErrUsernameTaken() string { return "This username is already taken." }
+func (textsEN) ErrRegisterInput() string {
+	return "Please check the username (3 to 32 characters: letters, digits, . - _) and the password (at least 8 characters)."
+}
+func (textsEN) ErrEnterName() string { return "Please enter a name." }
+func (textsEN) ErrGameNotStarted() string {
+	return "The game couldn't be started. Please check the settings."
+}
+func (textsEN) ErrChoosePlayer() string { return "Please choose or invite at least one player." }
+func (textsEN) ErrTournamentPlayers(min, max int) string {
+	return "A tournament needs " + strconv.Itoa(min) + " to " + strconv.Itoa(max) + " players: you, guests and invited friends."
+}
+func (textsEN) ErrUnknownUser(username string) string {
+	return "There is no account with the username “" + username + "”."
+}
+func (textsEN) ErrNotFriend(username string) string {
+	return "“" + username + "” isn't your friend, so you can't invite them."
+}
+func (textsEN) ErrInviteSelf() string {
+	return "You can't invite yourself. Tick yourself among the players instead."
+}
+func (textsEN) ErrAlreadyFriends() string {
+	return "You're already friends, or the request is pending."
+}
+func (textsEN) ErrFriendSelf() string        { return "You can't add yourself as a friend." }
+func (textsEN) ErrMatchNotStartable() string { return "This game can't be started right now." }
+func (textsEN) ErrAbortTournament() string {
+	return "Only whoever created the tournament can abort it, and only while it's running."
+}

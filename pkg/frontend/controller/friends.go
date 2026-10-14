@@ -2,7 +2,6 @@ package controller
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/sj14/darts-o-mat/pkg/auth"
@@ -31,11 +30,11 @@ func (c *Controller) requestFriend(w http.ResponseWriter, r *http.Request) {
 	case err == nil:
 		http.Redirect(w, r, "/friends", http.StatusSeeOther)
 	case errors.As(err, &unknown):
-		c.renderFriends(w, r, http.StatusBadRequest, fmt.Sprintf("Einen Account mit dem Benutzernamen „%s“ gibt es nicht.", unknown.Username), "")
+		c.renderFriends(w, r, http.StatusBadRequest, view.T(r.Context()).ErrUnknownUser(unknown.Username), "")
 	case errors.Is(err, service.ErrAlreadyFriends):
-		c.renderFriends(w, r, http.StatusConflict, "Ihr seid schon befreundet oder die Anfrage läuft bereits.", "")
+		c.renderFriends(w, r, http.StatusConflict, view.T(r.Context()).ErrAlreadyFriends(), "")
 	case errors.Is(err, service.ErrInvalid):
-		c.renderFriends(w, r, http.StatusBadRequest, "Du kannst dich nicht selbst als Freund hinzufügen.", "")
+		c.renderFriends(w, r, http.StatusBadRequest, view.T(r.Context()).ErrFriendSelf(), "")
 	default:
 		serverError(w, err)
 	}

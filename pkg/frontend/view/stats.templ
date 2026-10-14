@@ -7,62 +7,62 @@ import (
 )
 
 templ Stats(user string, summaries []stats.Summary) {
-	@layout("Statistik", user) {
-		@pageTitle("Statistik", "Über alle beendeten Spiele und Turniere von dir und deinen Gastspielern.")
+	@layout(T(ctx).NavStats(), user) {
+		@pageTitle(T(ctx).NavStats(), T(ctx).StatsHint())
 		<div class="flex flex-col gap-6">
 			for i, s := range summaries {
 				@panel("") {
 					<h2 class="mb-4 font-display text-3xl font-extrabold uppercase tracking-wide text-board-cream">
 						{ s.Player.Name }
 						if i > 0 {
-							<span class="font-sans text-base font-normal normal-case text-white/40">(Gast)</span>
+							<span class="font-sans text-base font-normal normal-case text-white/40">{ T(ctx).GuestMark() }</span>
 						}
 					</h2>
 					if s.X01.Games == 0 && s.AroundTheClock.Games == 0 {
-						<p class="text-white/50">Noch keine beendeten Spiele.</p>
+						<p class="text-white/50">{ T(ctx).NoFinishedGames() }</p>
 					}
 					<div class="grid gap-6 md:grid-cols-2">
 						if s.X01.Games > 0 {
 							<div>
 								<h3 class={ labelClass }>X01</h3>
 								<div class="mb-3 grid grid-cols-3 gap-2">
-									@statTile(T(ctx).Decimal(s.X01.Average), "Ø 3 Darts")
-									@statTile(strconv.FormatUint(s.X01.HighestTurn, 10), "Höchste")
-									@statTile(strconv.Itoa(s.X01.Turns180), "180er")
+									@statTile(T(ctx).Decimal(s.X01.Average), T(ctx).Average3())
+									@statTile(strconv.FormatUint(s.X01.HighestTurn, 10), T(ctx).Highest())
+									@statTile(strconv.Itoa(s.X01.Turns180), T(ctx).Count180())
 								</div>
 								<dl class="divide-y divide-white/5 text-sm">
-									@statRow("Spiele / Siege / Legs", strconv.Itoa(s.X01.Games)+" / "+strconv.Itoa(s.X01.Wins)+" / "+strconv.Itoa(s.X01.Legs))
+									@statRow(T(ctx).GamesWinsLegs(), strconv.Itoa(s.X01.Games)+" / "+strconv.Itoa(s.X01.Wins)+" / "+strconv.Itoa(s.X01.Legs))
 									if s.X01.Sets > 0 {
-										@statRow("Sets gewonnen", strconv.Itoa(s.X01.Sets))
+										@statRow(T(ctx).SetsWonLabel(), strconv.Itoa(s.X01.Sets))
 									}
 									if s.X01.Tournaments > 0 {
-										@statRow("Turniere / gewonnen", strconv.Itoa(s.X01.Tournaments)+" / "+strconv.Itoa(s.X01.TournamentWins))
+										@statRow(T(ctx).TournamentsWon(), strconv.Itoa(s.X01.Tournaments)+" / "+strconv.Itoa(s.X01.TournamentWins))
 									}
-									@statRow("Darts", strconv.Itoa(s.X01.Darts))
+									@statRow(T(ctx).Darts(), strconv.Itoa(s.X01.Darts))
 									@statRow("100+ / 140+", strconv.Itoa(s.X01.Turns100)+" / "+strconv.Itoa(s.X01.Turns140))
-									@statRow("Höchstes Finish", orDash(s.X01.HighestCheckout > 0, strconv.FormatUint(s.X01.HighestCheckout, 10)))
-									@statRow("Bestes Leg", orDash(s.X01.BestLeg > 0, strconv.Itoa(s.X01.BestLeg)+" Darts"))
+									@statRow(T(ctx).HighestFinish(), orDash(s.X01.HighestCheckout > 0, strconv.FormatUint(s.X01.HighestCheckout, 10)))
+									@statRow(T(ctx).BestLeg(), orDash(s.X01.BestLeg > 0, T(ctx).NDarts(s.X01.BestLeg)))
 								</dl>
 							</div>
 						}
 						if s.AroundTheClock.Games > 0 {
 							<div>
-								<h3 class={ labelClass }>Around the Clock</h3>
+								<h3 class={ labelClass }>{ T(ctx).AroundTheClock() }</h3>
 								<div class="mb-3 grid grid-cols-3 gap-2">
-									@statTile(T(ctx).Percent(s.AroundTheClock.HitRate), "Treffer")
-									@statTile(strconv.Itoa(s.AroundTheClock.Games), "Spiele")
-									@statTile(orDash(s.AroundTheClock.BestLeg > 0, strconv.Itoa(s.AroundTheClock.BestLeg)), "Bestes Leg")
+									@statTile(T(ctx).Percent(s.AroundTheClock.HitRate), T(ctx).Hits())
+									@statTile(strconv.Itoa(s.AroundTheClock.Games), T(ctx).Games())
+									@statTile(orDash(s.AroundTheClock.BestLeg > 0, strconv.Itoa(s.AroundTheClock.BestLeg)), T(ctx).BestLeg())
 								</div>
 								<dl class="divide-y divide-white/5 text-sm">
-									@statRow("Spiele / Siege / Legs", strconv.Itoa(s.AroundTheClock.Games)+" / "+strconv.Itoa(s.AroundTheClock.Wins)+" / "+strconv.Itoa(s.AroundTheClock.Legs))
+									@statRow(T(ctx).GamesWinsLegs(), strconv.Itoa(s.AroundTheClock.Games)+" / "+strconv.Itoa(s.AroundTheClock.Wins)+" / "+strconv.Itoa(s.AroundTheClock.Legs))
 									if s.AroundTheClock.Sets > 0 {
-										@statRow("Sets gewonnen", strconv.Itoa(s.AroundTheClock.Sets))
+										@statRow(T(ctx).SetsWonLabel(), strconv.Itoa(s.AroundTheClock.Sets))
 									}
 									if s.AroundTheClock.Tournaments > 0 {
-										@statRow("Turniere / gewonnen", strconv.Itoa(s.AroundTheClock.Tournaments)+" / "+strconv.Itoa(s.AroundTheClock.TournamentWins))
+										@statRow(T(ctx).TournamentsWon(), strconv.Itoa(s.AroundTheClock.Tournaments)+" / "+strconv.Itoa(s.AroundTheClock.TournamentWins))
 									}
-									@statRow("Darts / Treffer", strconv.Itoa(s.AroundTheClock.Darts)+" / "+strconv.Itoa(s.AroundTheClock.Hits))
-									@statRow("Bestes Leg", orDash(s.AroundTheClock.BestLeg > 0, strconv.Itoa(s.AroundTheClock.BestLeg)+" Darts"))
+									@statRow(T(ctx).DartsHits(), strconv.Itoa(s.AroundTheClock.Darts)+" / "+strconv.Itoa(s.AroundTheClock.Hits))
+									@statRow(T(ctx).BestLeg(), orDash(s.AroundTheClock.BestLeg > 0, T(ctx).NDarts(s.AroundTheClock.BestLeg)))
 								</dl>
 							</div>
 						}

@@ -63,7 +63,7 @@ func (c *Controller) renderHome(w http.ResponseWriter, r *http.Request, status i
 func (c *Controller) createGuest(w http.ResponseWriter, r *http.Request) {
 	_, err := c.svc.CreateGuest(r.Context(), auth.Account(r.Context()), r.FormValue("name"))
 	if errors.Is(err, service.ErrInvalid) {
-		c.renderHome(w, r, http.StatusBadRequest, "", "Bitte einen Namen eingeben.")
+		c.renderHome(w, r, http.StatusBadRequest, "", view.T(r.Context()).ErrEnterName())
 		return
 	}
 	if err != nil {
@@ -109,20 +109,21 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	msg := "Das Spiel konnte nicht gestartet werden. Bitte die Einstellungen prüfen."
+	texts := view.T(r.Context())
+	msg := texts.ErrGameNotStarted()
 	var unknown service.UnknownUserError
 	var notFriend service.NotFriendError
 	switch {
 	case len(g.PlayerIDs) == 0 && len(invite) == 0:
-		msg = "Bitte mindestens einen Mitspieler auswählen oder einladen."
+		msg = texts.ErrChoosePlayer()
 	case errors.Is(err, tournament.ErrPlayerCount):
-		msg = fmt.Sprintf("Ein Turnier braucht %d bis %d Spieler: dich, Gäste und eingeladene Freunde.", tournament.MinPlayers, tournament.MaxPlayers)
+		msg = texts.ErrTournamentPlayers(tournament.MinPlayers, tournament.MaxPlayers)
 	case errors.As(err, &unknown):
-		msg = fmt.Sprintf("Einen Account mit dem Benutzernamen „%s“ gibt es nicht.", unknown.Username)
+		msg = texts.ErrUnknownUser(unknown.Username)
 	case errors.As(err, &notFriend):
-		msg = fmt.Sprintf("„%s“ ist nicht mit dir befreundet und kann deshalb nicht eingeladen werden.", notFriend.Username)
+		msg = texts.ErrNotFriend(notFriend.Username)
 	case errors.Is(err, service.ErrInviteSelf):
-		msg = "Du kannst dich nicht selbst einladen. Kreuze dich stattdessen bei den Mitspielern an."
+		msg = texts.ErrInviteSelf()
 	}
 	c.renderHome(w, r, http.StatusBadRequest, game.Mode(r.FormValue("mode")), msg)
 }

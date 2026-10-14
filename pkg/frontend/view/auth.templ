@@ -31,46 +31,46 @@ templ formField(label, id, hint string) {
 }
 
 templ Login(m AuthModel) {
-	@layout("Anmelden", "") {
-		@authCard("Anmelden") {
+	@layout(T(ctx).Login(), "") {
+		@authCard(T(ctx).Login()) {
 			@errorAlert(m.Error)
 			<form method="post" action="/login" class="flex flex-col gap-4">
-				@formField("Benutzername", "username", "") {
+				@formField(T(ctx).Username(), "username", "") {
 					<input type="text" id="username" name="username" class={ inputClass } value={ m.Username } autocomplete="username" autocapitalize="none" required autofocus/>
 				}
-				@formField("Passwort", "password", "") {
+				@formField(T(ctx).Password(), "password", "") {
 					<input type="password" id="password" name="password" class={ inputClass } autocomplete="current-password" required/>
 				}
-				<button type="submit" class={ btnPrimary, "py-3 font-display text-2xl uppercase" }>Anmelden</button>
+				<button type="submit" class={ btnPrimary, "py-3 font-display text-2xl uppercase" }>{ T(ctx).Login() }</button>
 			</form>
 			if m.Registration {
-				<p class="text-center text-white/60">Noch kein Account? <a href="/register" class={ linkClass }>Registrieren</a></p>
+				<p class="text-center text-white/60">{ T(ctx).NoAccountYet() } <a href="/register" class={ linkClass }>{ T(ctx).Register() }</a></p>
 			}
 		}
 	}
 }
 
 templ Register(m AuthModel) {
-	@layout("Registrieren", "") {
-		@authCard("Registrieren") {
+	@layout(T(ctx).Register(), "") {
+		@authCard(T(ctx).Register()) {
 			@errorAlert(m.Error)
 			if m.Registration {
 				<form method="post" action="/register" class="flex flex-col gap-4">
-					@formField("Benutzername", "username", "3 bis 32 Zeichen: Buchstaben, Ziffern, Punkt, Bindestrich oder Unterstrich. Damit laden dich andere zu Spielen ein.") {
+					@formField(T(ctx).Username(), "username", T(ctx).UsernameHint()) {
 						<input type="text" id="username" name="username" class={ inputClass } value={ m.Username } autocomplete="username" autocapitalize="none" pattern="[A-Za-z0-9._\-]{3,32}" required autofocus/>
 					}
-					@formField("Anzeigename", "name", "So heißt du im Spiel. Leer lassen, um den Benutzernamen zu verwenden.") {
+					@formField(T(ctx).DisplayName(), "name", T(ctx).DisplayNameHint()) {
 						<input type="text" id="name" name="name" class={ inputClass } value={ m.Name } autocomplete="nickname"/>
 					}
-					@formField("Passwort", "password", "Mindestens 8 Zeichen.") {
+					@formField(T(ctx).Password(), "password", T(ctx).PasswordHint()) {
 						<input type="password" id="password" name="password" class={ inputClass } autocomplete="new-password" minlength="8" required/>
 					}
-					<button type="submit" class={ btnPrimary, "py-3 font-display text-2xl uppercase" }>Account anlegen</button>
+					<button type="submit" class={ btnPrimary, "py-3 font-display text-2xl uppercase" }>{ T(ctx).CreateAccount() }</button>
 				</form>
 			} else {
-				<p>Die Registrierung ist auf diesem Server abgeschaltet.</p>
+				<p>{ T(ctx).RegistrationClosed() }</p>
 			}
-			<p class="text-center text-white/60">Schon registriert? <a href="/login" class={ linkClass }>Anmelden</a></p>
+			<p class="text-center text-white/60">{ T(ctx).AlreadyRegistered() } <a href="/login" class={ linkClass }>{ T(ctx).Login() }</a></p>
 		}
 	}
 }

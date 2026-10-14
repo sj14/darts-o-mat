@@ -25,18 +25,14 @@ type HomeModel struct {
 }
 
 templ Home(m HomeModel) {
-	@layout("Start", m.Account.Username) {
+	@layout(T(ctx).HomeTitle(), m.Account.Username) {
 		@errorAlert(m.Error)
 		if len(m.Friends.Incoming) > 0 {
 			<div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-400/40 bg-sky-400/10 px-4 py-3">
 				<span>
-					if len(m.Friends.Incoming) == 1 {
-						Du hast eine neue Freundschaftsanfrage.
-					} else {
-						Du hast { strconv.Itoa(len(m.Friends.Incoming)) } neue Freundschaftsanfragen.
-					}
+					{ T(ctx).FriendRequests(len(m.Friends.Incoming)) }
 				</span>
-				<a href="/friends" class={ btnSecondary, btnSmall }>Ansehen</a>
+				<a href="/friends" class={ btnSecondary, btnSmall }>{ T(ctx).Show() }</a>
 			</div>
 		}
 		if len(m.Invitations) > 0 {
@@ -50,7 +46,7 @@ templ Home(m HomeModel) {
 			<div class="flex flex-col gap-6">
 				if len(m.Tournaments) > 0 {
 					@panel("") {
-						@sectionTitle("Turniere")
+						@sectionTitle(T(ctx).Tournaments())
 						@tournamentList(m.Tournaments)
 					}
 				}
@@ -65,13 +61,13 @@ templ Home(m HomeModel) {
 
 templ invitations(views []service.GameView) {
 	@panel("mb-6 border-amber-400/50 [--glow-color:var(--color-amber-400)] animate-glow") {
-		@sectionTitle("Einladungen")
+		@sectionTitle(T(ctx).Invitations())
 		<ul class="divide-y divide-white/10">
 			for _, v := range views {
 				<li class="flex flex-wrap items-center justify-between gap-3 py-3">
 					<div>
 						<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">{ modeLabel(T(ctx), v.Game) }</a>
-						<div class="text-sm text-white/50">mit { playerNames(v, v.Game.PlayerIDs) }</div>
+						<div class="text-sm text-white/50">{ T(ctx).WithPlayers(playerNames(v, v.Game.PlayerIDs)) }</div>
 					</div>
 					@answerInvitation(v.Game.ID)
 				</li>
@@ -82,13 +78,13 @@ templ invitations(views []service.GameView) {
 
 templ tournamentInvitations(views []service.TournamentView) {
 	@panel("mb-6 border-amber-400/50 [--glow-color:var(--color-amber-400)] animate-glow") {
-		@sectionTitle("Turnier-Einladungen")
+		@sectionTitle(T(ctx).TournamentInvitations())
 		<ul class="divide-y divide-white/10">
 			for _, v := range views {
 				<li class="flex flex-wrap items-center justify-between gap-3 py-3">
 					<div>
-						<a href={ templ.URL(tournamentURL(v.Tournament.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">🏆 { formatName(v.Tournament.Format) }</a>
-						<div class="text-sm text-white/50">{ modeLabel(T(ctx), v.Tournament.Settings) } · { strconv.Itoa(len(v.Players)) } Spieler</div>
+						<a href={ templ.URL(tournamentURL(v.Tournament.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">🏆 { formatName(T(ctx), v.Tournament.Format) }</a>
+						<div class="text-sm text-white/50">{ modeLabel(T(ctx), v.Tournament.Settings) } · { T(ctx).PlayerCount(len(v.Players)) }</div>
 					</div>
 					@answerTournament(v.Tournament.ID)
 				</li>
@@ -100,18 +96,18 @@ templ tournamentInvitations(views []service.TournamentView) {
 templ answerInvitation(gameID int64) {
 	<div class="flex gap-2">
 		<form method="post" action={ templ.URL(gameURL(gameID, "/accept")) }>
-			<button type="submit" class={ btnPrimary }>Zusagen</button>
+			<button type="submit" class={ btnPrimary }>{ T(ctx).Accept() }</button>
 		</form>
 		<form method="post" action={ templ.URL(gameURL(gameID, "/decline")) }>
-			<button type="submit" class={ btnDanger }>Absagen</button>
+			<button type="submit" class={ btnDanger }>{ T(ctx).Decline() }</button>
 		</form>
 	</div>
 }
 
 templ guests(players []player.Player) {
 	@panel("") {
-		@sectionTitle("Gastspieler")
-		<p class="mb-3 text-sm text-white/50">Für Mitspieler ohne eigenen Account. Nur du siehst sie.</p>
+		@sectionTitle(T(ctx).Guests())
+		<p class="mb-3 text-sm text-white/50">{ T(ctx).GuestsHint() }</p>
 		if len(players) > 1 {
 			<ul class="mb-4 flex flex-wrap gap-2">
 				for _, p := range players[1:] {
@@ -120,15 +116,15 @@ templ guests(players []player.Player) {
 			</ul>
 		}
 		<form method="post" action="/guests" class="flex gap-2">
-			<input type="text" name="name" class={ inputClass } placeholder="Name" required aria-label="Name des Gastspielers"/>
-			<button type="submit" class={ btnSecondary }>Anlegen</button>
+			<input type="text" name="name" class={ inputClass } placeholder={ T(ctx).Name() } required aria-label={ T(ctx).GuestName() }/>
+			<button type="submit" class={ btnSecondary }>{ T(ctx).Add() }</button>
 		</form>
 	}
 }
 
 templ recentGames(views []service.GameView) {
 	@panel("") {
-		@sectionTitle("Letzte Spiele")
+		@sectionTitle(T(ctx).RecentGames())
 		<ul class="-mx-2 flex flex-col gap-1">
 			for _, v := range views {
 				<li>
@@ -137,13 +133,13 @@ templ recentGames(views []service.GameView) {
 							<span class="font-display text-xl font-semibold uppercase">{ modeLabel(T(ctx), v.Game) }</span>
 							switch  {
 								case v.Game.Aborted():
-									@statusBadge("abgebrochen", "bg-white/10 text-white/50")
+									@statusBadge(T(ctx).StatusAborted(), "bg-white/10 text-white/50")
 								case !v.Ready:
-									@statusBadge("wartet", "bg-amber-400/20 text-amber-300")
+									@statusBadge(T(ctx).StatusWaiting(), "bg-amber-400/20 text-amber-300")
 								case progressOf(v).GameOver:
-									@statusBadge("beendet", "bg-board-cream/15 text-board-cream")
+									@statusBadge(T(ctx).StatusOver(), "bg-board-cream/15 text-board-cream")
 								default:
-									@statusBadge("läuft", "bg-board-green/25 text-emerald-300")
+									@statusBadge(T(ctx).StatusRunning(), "bg-board-green/25 text-emerald-300")
 							}
 						</div>
 						<div class="text-sm text-white/50">{ playerNames(v, v.Game.PlayerIDs) }</div>
@@ -164,39 +160,39 @@ templ fieldset(label string) {
 
 // formatChoice picks a single game or a tournament of games with these settings.
 templ formatChoice() {
-	@fieldset("Spielform") {
+	@fieldset(T(ctx).GameFormat()) {
 		<div class="flex flex-wrap gap-2">
-			@choice("format", "", "Einzelspiel", true)
-			@choice("format", "knockout", "🏆 K.-o.-Turnier", false)
-			@choice("format", "round_robin", "🏆 Jeder gegen jeden", false)
+			@choice("format", "", T(ctx).SingleGame(), true)
+			@choice("format", "knockout", "🏆 "+T(ctx).Knockout(), false)
+			@choice("format", "round_robin", "🏆 "+T(ctx).RoundRobin(), false)
 		</div>
-		<p class={ hintClass }>Ein Turnier braucht { strconv.Itoa(tournament.MinPlayers) } bis { strconv.Itoa(tournament.MaxPlayers) } Spieler; die Reihenfolge wird ausgelost, jedes Spiel hat die Einstellungen hier.</p>
+		<p class={ hintClass }>{ T(ctx).TournamentHint(tournament.MinPlayers, tournament.MaxPlayers) }</p>
 	}
 }
 
 // legsChoice picks how many legs win the game, and optionally how many sets.
 templ legsChoice() {
-	@fieldset("Legs") {
+	@fieldset(T(ctx).Legs()) {
 		<div class="flex flex-wrap gap-2">
-			@choice("legs", "1", "1 Leg", true)
+			@choice("legs", "1", T(ctx).OneLeg(), true)
 			for _, n := range []int{2, 3, 4, 5} {
 				@choice("legs", strconv.Itoa(n), "First to "+strconv.Itoa(n), false)
 			}
 		</div>
-		<p class={ hintClass }>Wer auscheckt, gewinnt das Leg sofort; jedes Leg beginnt der Nächste. Mit Sets gilt das pro Set.</p>
+		<p class={ hintClass }>{ T(ctx).LegsHint() }</p>
 	}
-	@fieldset("Sets") {
+	@fieldset(T(ctx).Sets()) {
 		<div class="flex flex-wrap gap-2">
-			@choice("sets", "1", "Ohne Sets", true)
+			@choice("sets", "1", T(ctx).NoSets(), true)
 			for _, n := range []int{2, 3, 4, 5} {
 				@choice("sets", strconv.Itoa(n), "First to "+strconv.Itoa(n), false)
 			}
 		</div>
-		<p class={ hintClass }>Wer die Legs eines Sets zuerst gewinnt, gewinnt das Set; jedes Set beginnt der Nächste.</p>
+		<p class={ hintClass }>{ T(ctx).SetsHint() }</p>
 	}
-	@fieldset("Wer beginnt") {
+	@fieldset(T(ctx).WhoStarts()) {
 		@checkbox("bull-off", "bull_off", "on", false) {
-			Ausbullen <span class="text-white/40">– wer am nächsten am Bull ist; mit Kamera auf den Millimeter</span>
+			{ T(ctx).BullOff() } <span class="text-white/40">{ T(ctx).BullOffOptionHint() }</span>
 		}
 	}
 }
@@ -204,22 +200,22 @@ templ legsChoice() {
 // participants lets the user pick who plays and on which board.
 // The players throw in the listed order, invited accounts last.
 templ participants(m HomeModel) {
-	@fieldset("Mitspieler") {
+	@fieldset(T(ctx).Players()) {
 		<div class="flex flex-col gap-1">
 			for i, p := range m.Players {
 				@checkbox("player-"+strconv.FormatInt(p.ID, 10), "player_ids", strconv.FormatInt(p.ID, 10), i == 0) {
 					if i == 0 {
-						Ich ({ p.Name })
+						{ T(ctx).Me(p.Name) }
 					} else {
-						{ p.Name } <span class="text-white/40">(Gast)</span>
+						{ p.Name } <span class="text-white/40">{ T(ctx).GuestMark() }</span>
 					}
 				}
 			}
 		</div>
 	}
-	@fieldset("Freunde einladen") {
+	@fieldset(T(ctx).InviteFriends()) {
 		if len(m.Friends.Friends) == 0 {
-			<p class="text-white/50">Füge unter <a href="/friends" class={ linkClass }>Freunde</a> andere Accounts hinzu, um sie einzuladen.</p>
+			<p class="text-white/50">{ T(ctx).NoFriendsBefore() }<a href="/friends" class={ linkClass }>{ T(ctx).NavFriends() }</a>{ T(ctx).NoFriendsAfter() }</p>
 		}
 		<div class="flex flex-col gap-1">
 			for _, f := range m.Friends.Friends {
@@ -229,14 +225,14 @@ templ participants(m HomeModel) {
 			}
 		</div>
 		if len(m.Friends.Friends) > 0 {
-			<p class={ hintClass }>Das Spiel beginnt, sobald alle Eingeladenen zugesagt haben.</p>
+			<p class={ hintClass }>{ T(ctx).GameStartsWhenAccepted() }</p>
 		}
 	}
 	if len(m.Boards) > 0 {
-		@fieldset("Board") {
+		@fieldset(T(ctx).Board()) {
 			{{ last := lastUsedBoard(m.Boards) }}
 			<div class="flex flex-wrap gap-2">
-				@choice("board_id", "", "ohne", last == 0)
+				@choice("board_id", "", T(ctx).NoBoard(), last == 0)
 				for _, b := range m.Boards {
 					@choice("board_id", strconv.FormatInt(b.ID, 10), "📷 "+b.Name, b.ID == last)
 				}
@@ -250,46 +246,46 @@ templ participants(m HomeModel) {
 templ newGame(m HomeModel) {
 	<div id="new-game">
 		@panel("flex flex-col gap-5") {
-			<h2 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream">Neues Spiel</h2>
+			<h2 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream">{ T(ctx).NewGame() }</h2>
 			<div class="grid gap-3 sm:grid-cols-2">
-				@modeTile(game.ModeX01, m.Mode, "X01", "Von 301, 501 oder 701 auf genau 0 runterspielen.", "501")
-				@modeTile(game.ModeAroundTheClock, m.Mode, "Around the Clock", "Die Zahlen 1 bis 20 der Reihe nach treffen.", "1→20")
+				@modeTile(game.ModeX01, m.Mode, "X01", T(ctx).X01Description(), "501")
+				@modeTile(game.ModeAroundTheClock, m.Mode, T(ctx).AroundTheClock(), T(ctx).AroundTheClockDescription(), "1→20")
 			</div>
 			switch m.Mode {
 				case game.ModeX01:
 					<form method="post" action="/games" class="flex flex-col gap-5">
 						<input type="hidden" name="mode" value="x01"/>
-						@fieldset("Startpunkte") {
+						@fieldset(T(ctx).StartScore()) {
 							<div class="flex flex-wrap gap-2">
 								for _, score := range []int{301, 501, 701} {
 									@choice("start_score", strconv.Itoa(score), strconv.Itoa(score), score == 501)
 								}
 							</div>
 						}
-						@fieldset("Auschecken mit") {
+						@fieldset(T(ctx).CheckOutWith()) {
 							<div class="flex flex-wrap gap-2">
-								@choice("out_mode", "single", "beliebigem Dart", false)
-								@choice("out_mode", "double", "Doppel", true)
-								@choice("out_mode", "master", "Doppel oder Triple", false)
+								@choice("out_mode", "single", T(ctx).AnyDart(), false)
+								@choice("out_mode", "double", T(ctx).Double(), true)
+								@choice("out_mode", "master", T(ctx).DoubleOrTriple(), false)
 							</div>
 						}
 						@formatChoice()
 						@legsChoice()
 						@participants(m)
 						<div>
-							<button type="submit" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>X01 starten</button>
+							<button type="submit" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>{ T(ctx).StartMode("X01") }</button>
 						</div>
 					</form>
 				case game.ModeAroundTheClock:
 					<form method="post" action="/games" class="flex flex-col gap-5">
 						<input type="hidden" name="mode" value="around_the_clock"/>
-						@fieldset("Regeln") {
+						@fieldset(T(ctx).Rules()) {
 							<div class="flex flex-col gap-1">
 								@checkbox("atc-bull", "bull", "on", true) {
-									Zum Schluss das Bull treffen
+									{ T(ctx).BullAtTheEnd() }
 								}
 								@checkbox("atc-skips", "multiplier_skips", "on", false) {
-									Doppel springt 2 Felder, Triple 3 Felder weiter
+									{ T(ctx).SkipsRule() }
 								}
 							</div>
 						}
@@ -297,11 +293,11 @@ templ newGame(m HomeModel) {
 						@legsChoice()
 						@participants(m)
 						<div>
-							<button type="submit" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>Around the Clock starten</button>
+							<button type="submit" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>{ T(ctx).StartMode(T(ctx).AroundTheClock()) }</button>
 						</div>
 					</form>
 				default:
-					<p class="text-white/50">Wähle zuerst einen Spielmodus.</p>
+					<p class="text-white/50">{ T(ctx).ChooseMode() }</p>
 			}
 		}
 	</div>
@@ -336,21 +332,21 @@ type NewBoardToken struct {
 }
 
 templ Boards(user string, boards []service.BoardView, errMsg string, newToken *NewBoardToken) {
-	@layout("Boards", user) {
+	@layout(T(ctx).NavBoards(), user) {
 		<div class="mx-auto max-w-3xl">
-			@pageTitle("Boards", "Deine Dartboards, z. B. eins im Keller und eins im Vereinsheim. Beim Spielstart wählst du, auf welchem Board gespielt wird; dessen Kameras tragen die Würfe dann automatisch ein.")
+			@pageTitle(T(ctx).NavBoards(), T(ctx).BoardsHint())
 			@errorAlert(errMsg)
 			if newToken != nil {
 				<div class="mb-6 rounded-3xl border border-board-green/50 bg-board-green/10 p-5" role="status">
-					<div class="font-display text-2xl font-extrabold uppercase text-emerald-300">Kamera-Token für „{ newToken.BoardName }“</div>
-					<p class="mt-2">Er wird nur jetzt angezeigt. Trage beides in darts-o-cam am Rechner mit den Kameras unter „Einstellungen“ ein:</p>
+					<div class="font-display text-2xl font-extrabold uppercase text-emerald-300">{ T(ctx).CameraTokenFor(newToken.BoardName) }</div>
+					<p class="mt-2">{ T(ctx).TokenShownOnce() }</p>
 					<dl class="mt-3 grid gap-2 rounded-xl bg-pub-950 p-3 text-sm sm:grid-cols-[auto_1fr]">
-						<dt class="text-white/60">Server</dt>
+						<dt class="text-white/60">{ T(ctx).Server() }</dt>
 						<dd class="break-all font-mono text-emerald-200">{ newToken.Server }</dd>
-						<dt class="text-white/60">Kamera-Token</dt>
+						<dt class="text-white/60">{ T(ctx).CameraToken() }</dt>
 						<dd class="break-all font-mono text-emerald-200">{ newToken.Token }</dd>
 					</dl>
-					<p class="mt-3 text-sm text-white/60">Die Kalibrierung liegt auf dem Rechner mit den Kameras, nicht auf diesem Server. Noch keine? Starte dort <code>go run ./cmd/darts-o-cam</code>; die Oberfläche öffnet sich im Browser (<code>http://localhost:8090</code>).</p>
+					<p class="mt-3 text-sm text-white/60">{ T(ctx).CalibrationHintBefore() }<code>go run ./cmd/darts-o-cam</code>{ T(ctx).CalibrationHintMiddle() }<code>http://localhost:8090</code>).</p>
 				</div>
 			}
 			@panel("") {
@@ -361,21 +357,21 @@ templ Boards(user string, boards []service.BoardView, errMsg string, newToken *N
 								<span class="flex items-center gap-3">
 									<span class="font-display text-2xl font-semibold uppercase">📷 { b.Name }</span>
 									if b.HasToken {
-										@statusBadge("Kamera-Token aktiv", "bg-board-green/25 text-emerald-300")
+										@statusBadge(T(ctx).CameraTokenActive(), "bg-board-green/25 text-emerald-300")
 									}
 								</span>
 								<span class="flex gap-2">
 									<form method="post" action={ templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/token") }>
 										<button type="submit" class={ btnSecondary, btnSmall }>
 											if b.HasToken {
-												Neuen Kamera-Token erzeugen
+												{ T(ctx).NewCameraToken() }
 											} else {
-												Kamera-Token erzeugen
+												{ T(ctx).CreateCameraToken() }
 											}
 										</button>
 									</form>
 									<form method="post" action={ templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/delete") }>
-										<button type="submit" class={ btnDanger, btnSmall }>Löschen</button>
+										<button type="submit" class={ btnDanger, btnSmall }>{ T(ctx).Delete() }</button>
 									</form>
 								</span>
 							</li>
@@ -383,8 +379,8 @@ templ Boards(user string, boards []service.BoardView, errMsg string, newToken *N
 					</ul>
 				}
 				<form method="post" action="/boards" class="flex gap-2">
-					<input type="text" name="name" class={ inputClass } placeholder="Name, z. B. Keller" required aria-label="Name des Boards"/>
-					<button type="submit" class={ btnPrimary }>Anlegen</button>
+					<input type="text" name="name" class={ inputClass } placeholder={ T(ctx).BoardNameExample() } required aria-label={ T(ctx).BoardName() }/>
+					<button type="submit" class={ btnPrimary }>{ T(ctx).Add() }</button>
 				</form>
 			}
 		</div>

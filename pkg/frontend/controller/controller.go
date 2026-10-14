@@ -102,7 +102,7 @@ func render(w http.ResponseWriter, r *http.Request, status int, c templ.Componen
 
 func serverError(w http.ResponseWriter, err error) {
 	log.Printf("error: %v", err)
-	http.Error(w, "Interner Fehler", http.StatusInternalServerError)
+	http.Error(w, "Internal error", http.StatusInternalServerError)
 }
 
 func isNotFound(err error) bool {

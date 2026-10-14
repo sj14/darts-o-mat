@@ -7,39 +7,39 @@ import (
 )
 
 templ Friends(user string, list service.FriendList, errMsg, info string) {
-	@layout("Freunde", user) {
+	@layout(T(ctx).NavFriends(), user) {
 		<div class="mx-auto flex max-w-3xl flex-col gap-6">
 			<div>
-				@pageTitle("Freunde", "Nur Freunde kannst du zu Spielen einladen. Eine Freundschaft gilt, sobald die andere Seite deine Anfrage annimmt.")
+				@pageTitle(T(ctx).NavFriends(), T(ctx).FriendsHint())
 				@errorAlert(errMsg)
 				@notice(info)
 				<form method="post" action="/friends" class="flex gap-2">
-					<input type="text" name="username" class={ inputClass } placeholder="Benutzername" autocapitalize="none" required aria-label="Benutzername"/>
-					<button type="submit" class={ btnPrimary, "shrink-0" }>Anfrage senden</button>
+					<input type="text" name="username" class={ inputClass } placeholder={ T(ctx).Username() } autocapitalize="none" required aria-label={ T(ctx).Username() }/>
+					<button type="submit" class={ btnPrimary, "shrink-0" }>{ T(ctx).SendRequest() }</button>
 				</form>
 			</div>
 			if len(list.Incoming) > 0 {
 				@panel("border-sky-400/50 [--glow-color:var(--color-sky-400)] animate-glow") {
-					@sectionTitle("Anfragen an dich")
+					@sectionTitle(T(ctx).RequestsToYou())
 					<ul class="divide-y divide-white/10">
 						for _, f := range list.Incoming {
 							@friendItem(f) {
-								@friendAction(f, "/accept", "Annehmen", btnPrimary)
-								@friendAction(f, "/remove", "Ablehnen", btnDanger)
+								@friendAction(f, "/accept", T(ctx).AcceptRequest(), btnPrimary)
+								@friendAction(f, "/remove", T(ctx).DeclineRequest(), btnDanger)
 							}
 						}
 					</ul>
 				}
 			}
 			@panel("") {
-				@sectionTitle("Deine Freunde")
+				@sectionTitle(T(ctx).YourFriends())
 				if len(list.Friends) == 0 {
-					<p class="text-white/50">Noch keine Freunde.</p>
+					<p class="text-white/50">{ T(ctx).NoFriendsYet() }</p>
 				} else {
 					<ul class="divide-y divide-white/10">
 						for _, f := range list.Friends {
 							@friendItem(f) {
-								@friendAction(f, "/remove", "Entfernen", btnDanger)
+								@friendAction(f, "/remove", T(ctx).Remove(), btnDanger)
 							}
 						}
 					</ul>
@@ -47,11 +47,11 @@ templ Friends(user string, list service.FriendList, errMsg, info string) {
 			}
 			if len(list.Outgoing) > 0 {
 				@panel("") {
-					@sectionTitle("Gesendete Anfragen")
+					@sectionTitle(T(ctx).SentRequests())
 					<ul class="divide-y divide-white/10">
 						for _, f := range list.Outgoing {
 							@friendItem(f) {
-								@friendAction(f, "/remove", "Zurückziehen", btnSecondary)
+								@friendAction(f, "/remove", T(ctx).WithdrawRequest(), btnSecondary)
 							}
 						}
 					</ul>

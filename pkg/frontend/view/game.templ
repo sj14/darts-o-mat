@@ -142,7 +142,7 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 		@errorAlert(errMsg)
 		if p.GameOver {
 			<div class="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-amber-300 via-amber-400 to-orange-500 p-6 text-pub-950 shadow-2xl shadow-amber-500/30 animate-dart-in" role="status">
-				<div class="font-display text-5xl font-extrabold uppercase sm:text-6xl">{ T(ctx).Wins(playerName(v, *p.WinnerID)) }</div>
+				<div class="font-display text-5xl font-extrabold uppercase sm:text-6xl">{ T(ctx).WinsGame(playerName(v, *p.WinnerID)) }</div>
 				<a href="/" class="mt-4 inline-block rounded-xl bg-pub-950 px-5 py-2.5 font-semibold text-amber-300 hover:bg-pub-800">{ T(ctx).NewGame() }</a>
 			</div>
 		}

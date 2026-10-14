@@ -58,7 +58,7 @@ func (c *Controller) createBoardToken(w http.ResponseWriter, r *http.Request) {
 func (c *Controller) createBoard(w http.ResponseWriter, r *http.Request) {
 	_, err := c.svc.CreateBoard(r.Context(), auth.Account(r.Context()), r.FormValue("name"))
 	if errors.Is(err, service.ErrInvalid) {
-		c.renderBoards(w, r, http.StatusBadRequest, "Bitte einen Namen eingeben.", nil)
+		c.renderBoards(w, r, http.StatusBadRequest, view.T(r.Context()).ErrEnterName(), nil)
 		return
 	}
 	if err != nil {

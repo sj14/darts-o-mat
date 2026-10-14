@@ -55,7 +55,7 @@ func (c *Controller) startMatch(w http.ResponseWriter, r *http.Request) {
 	case isNotFound(err):
 		http.NotFound(w, r)
 	case errors.Is(err, service.ErrInvalid), errors.Is(err, service.ErrForbidden), errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrAborted):
-		c.renderTournament(w, r, http.StatusConflict, "Dieses Spiel kann gerade nicht gestartet werden.")
+		c.renderTournament(w, r, http.StatusConflict, view.T(r.Context()).ErrMatchNotStartable())
 	default:
 		serverError(w, err)
 	}
@@ -97,7 +97,7 @@ func (c *Controller) abortTournament(w http.ResponseWriter, r *http.Request) {
 	case isNotFound(err):
 		http.NotFound(w, r)
 	case errors.Is(err, service.ErrForbidden), errors.Is(err, service.ErrInvalid):
-		c.renderTournament(w, r, http.StatusConflict, "Nur wer das Turnier angelegt hat, kann es abbrechen, und nur solange es läuft.")
+		c.renderTournament(w, r, http.StatusConflict, view.T(r.Context()).ErrAbortTournament())
 	default:
 		serverError(w, err)
 	}

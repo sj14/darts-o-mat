@@ -15,24 +15,24 @@ templ Tournament(user string, v service.TournamentView, errMsg string) {
 	@layout(tournamentLabel(T(ctx), v.Tournament), user) {
 		<div class="mb-5 flex flex-wrap items-end justify-between gap-2">
 			<div>
-				<h1 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl">{ formatName(v.Tournament.Format) }</h1>
-				<p class="mt-1 text-white/60">{ modeLabel(T(ctx), v.Tournament.Settings) } · { strconv.Itoa(len(v.Players)) } Spieler</p>
+				<h1 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl">{ formatName(T(ctx), v.Tournament.Format) }</h1>
+				<p class="mt-1 text-white/60">{ modeLabel(T(ctx), v.Tournament.Settings) } · { T(ctx).PlayerCount(len(v.Players)) }</p>
 			</div>
 			@tournamentBadge(v)
 		</div>
 		@errorAlert(errMsg)
 		if v.Invited {
 			<div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3">
-				<span>Du bist zu diesem Turnier eingeladen. Die Spiele beginnen, sobald alle zugesagt haben.</span>
+				<span>{ T(ctx).InvitedToTournament() }</span>
 				@answerTournament(v.Tournament.ID)
 			</div>
 		} else if !v.Ready && !v.Tournament.Aborted() {
 			<div class="mb-6 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3">
-				Wartet auf die Zusage von { tournamentPending(v) }. Danach können die Spiele beginnen.
+				{ T(ctx).WaitingFor(tournamentPending(v)) }
 			</div>
 		}
 		if v.State.Over {
-			<div class="mb-6 rounded-3xl bg-gradient-to-r from-amber-300 to-amber-500 px-5 py-4 text-center font-display text-4xl font-extrabold uppercase text-pub-950 shadow-lg shadow-amber-500/30">🏆 { tournamentPlayerName(v, *v.State.WinnerID) } gewinnt das Turnier!</div>
+			<div class="mb-6 rounded-3xl bg-gradient-to-r from-amber-300 to-amber-500 px-5 py-4 text-center font-display text-4xl font-extrabold uppercase text-pub-950 shadow-lg shadow-amber-500/30">{ T(ctx).WinsTournament(tournamentPlayerName(v, *v.State.WinnerID)) }</div>
 		}
 		<div class="flex flex-col gap-6">
 			if v.Tournament.Format == tournament.Knockout {
@@ -43,8 +43,8 @@ templ Tournament(user string, v service.TournamentView, errMsg string) {
 			}
 			@tournamentStats(v)
 			if v.IsOwner && !v.State.Over && !v.Tournament.Aborted() {
-				<form method="post" action={ templ.URL(tournamentURL(v.Tournament.ID, "/abort")) } onsubmit="return confirm('Turnier wirklich abbrechen?')">
-					<button type="submit" class={ btnDanger, btnSmall }>Turnier abbrechen</button>
+				<form method="post" action={ templ.URL(tournamentURL(v.Tournament.ID, "/abort")) } data-confirm={ T(ctx).AbortTournamentConfirm() } onsubmit="return confirm(this.dataset.confirm)">
+					<button type="submit" class={ btnDanger, btnSmall }>{ T(ctx).AbortTournament() }</button>
 				</form>
 			}
 		</div>
@@ -54,23 +54,23 @@ templ Tournament(user string, v service.TournamentView, errMsg string) {
 templ tournamentBadge(v service.TournamentView) {
 	switch {
 		case v.Tournament.Aborted():
-			@statusBadge("abgebrochen", "bg-white/10 text-white/50")
+			@statusBadge(T(ctx).StatusAborted(), "bg-white/10 text-white/50")
 		case !v.Ready:
-			@statusBadge("wartet", "bg-amber-400/20 text-amber-300")
+			@statusBadge(T(ctx).StatusWaiting(), "bg-amber-400/20 text-amber-300")
 		case v.State.Over:
-			@statusBadge("beendet", "bg-board-cream/15 text-board-cream")
+			@statusBadge(T(ctx).StatusOver(), "bg-board-cream/15 text-board-cream")
 		default:
-			@statusBadge("läuft", "bg-board-green/25 text-emerald-300")
+			@statusBadge(T(ctx).StatusRunning(), "bg-board-green/25 text-emerald-300")
 	}
 }
 
 templ answerTournament(id int64) {
 	<div class="flex gap-2">
 		<form method="post" action={ templ.URL(tournamentURL(id, "/accept")) }>
-			<button type="submit" class={ btnPrimary }>Zusagen</button>
+			<button type="submit" class={ btnPrimary }>{ T(ctx).Accept() }</button>
 		</form>
 		<form method="post" action={ templ.URL(tournamentURL(id, "/decline")) }>
-			<button type="submit" class={ btnDanger }>Absagen</button>
+			<button type="submit" class={ btnDanger }>{ T(ctx).Decline() }</button>
 		</form>
 	</div>
 }
@@ -78,12 +78,12 @@ templ answerTournament(id int64) {
 // bracket shows the knockout bracket, one column per round.
 templ bracket(v service.TournamentView) {
 	@panel("") {
-		@sectionTitle("Turnierbaum")
+		@sectionTitle(T(ctx).Bracket())
 		<div class="-mx-2 overflow-x-auto px-2 pb-2">
 			<div class="flex min-w-max gap-4">
 				for r := 1; r <= v.State.Rounds; r++ {
 					<div class="flex w-60 flex-col">
-						<div class={ labelClass }>{ roundName(v.State.Rounds, r) }</div>
+						<div class={ labelClass }>{ T(ctx).RoundName(v.State.Rounds, r) }</div>
 						<div class="flex flex-1 flex-col justify-around gap-3">
 							for _, m := range v.State.Matches {
 								if m.Round == r {
@@ -107,9 +107,9 @@ templ matchCard(v service.TournamentView, m tournament.Match) {
 					if id != 0 {
 						{ tournamentPlayerName(v, id) }
 					} else if m.Bye {
-						Freilos
+						{ T(ctx).Bye() }
 					} else {
-						offen
+						{ T(ctx).Open() }
 					}
 				</span>
 				if m.Result != nil {
@@ -126,29 +126,29 @@ templ matchAction(v service.TournamentView, m tournament.Match) {
 	switch {
 		case v.CanStart(m):
 			<form method="post" action={ templ.URL(tournamentURL(v.Tournament.ID, "/matches/"+strconv.Itoa(m.Index))) } class="mt-1">
-				<button type="submit" class={ btnPrimary, btnSmall, "w-full" }>Spiel starten</button>
+				<button type="submit" class={ btnPrimary, btnSmall, "w-full" }>{ T(ctx).StartGame() }</button>
 			</form>
 		case m.Result != nil && !m.Result.Over:
-			<a href={ templ.URL(gameURL(m.Result.GameID, "")) } class={ "mt-1 block text-center text-sm", linkClass }>läuft – zum Spiel</a>
+			<a href={ templ.URL(gameURL(m.Result.GameID, "")) } class={ "mt-1 block text-center text-sm", linkClass }>{ T(ctx).RunningToGame() }</a>
 		case m.Result != nil:
-			<a href={ templ.URL(gameURL(m.Result.GameID, "")) } class="mt-1 block text-center text-sm text-white/50 hover:text-white/80">zum Spiel</a>
+			<a href={ templ.URL(gameURL(m.Result.GameID, "")) } class="mt-1 block text-center text-sm text-white/50 hover:text-white/80">{ T(ctx).ToGame() }</a>
 	}
 }
 
 // standings shows the table of a round-robin tournament.
 templ standings(v service.TournamentView) {
 	@panel("") {
-		@sectionTitle("Tabelle")
+		@sectionTitle(T(ctx).Table())
 		<div class="overflow-x-auto">
 			<table class="w-full text-left">
 				<thead class="text-xs uppercase tracking-widest text-white/50">
 					<tr>
 						<th class="py-2 font-semibold">#</th>
-						<th class="py-2 font-semibold">Spieler</th>
-						<th class="py-2 text-right font-semibold">Spiele</th>
-						<th class="py-2 text-right font-semibold">Siege</th>
-						<th class="py-2 text-right font-semibold">{ scoreUnit(v.Tournament.Settings) }</th>
-						<th class="py-2 text-right font-semibold">Diff.</th>
+						<th class="py-2 font-semibold">{ T(ctx).Player() }</th>
+						<th class="py-2 text-right font-semibold">{ T(ctx).Games() }</th>
+						<th class="py-2 text-right font-semibold">{ T(ctx).Wins() }</th>
+						<th class="py-2 text-right font-semibold">{ scoreUnit(T(ctx), v.Tournament.Settings) }</th>
+						<th class="py-2 text-right font-semibold">{ T(ctx).Difference() }</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-white/5">
@@ -165,18 +165,18 @@ templ standings(v service.TournamentView) {
 				</tbody>
 			</table>
 		</div>
-		<p class={ hintClass }>Bei gleich vielen Siegen entscheidet die Differenz der gewonnenen und verlorenen { scoreUnit(v.Tournament.Settings) }, dann mehr gewonnene, dann die Auslosung.</p>
+		<p class={ hintClass }>{ T(ctx).TieBreakHint(scoreUnit(T(ctx), v.Tournament.Settings)) }</p>
 	}
 }
 
 // roundRobinMatches lists the matches of a round-robin tournament by round.
 templ roundRobinMatches(v service.TournamentView) {
 	@panel("") {
-		@sectionTitle("Spiele")
+		@sectionTitle(T(ctx).Games())
 		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			for r := 1; r <= v.State.Rounds; r++ {
 				<div class="flex flex-col gap-2">
-					<div class={ labelClass }>Runde { strconv.Itoa(r) }</div>
+					<div class={ labelClass }>{ T(ctx).RoundN(r) }</div>
 					for _, m := range v.State.Matches {
 						if m.Round == r {
 							@matchCard(v, m)
@@ -191,27 +191,27 @@ templ roundRobinMatches(v service.TournamentView) {
 // tournamentStats shows each player's statistics over the finished games of the tournament.
 templ tournamentStats(v service.TournamentView) {
 	@panel("") {
-		@sectionTitle("Statistik")
+		@sectionTitle(T(ctx).Statistics())
 		<div class="overflow-x-auto">
 			<table class="w-full text-left">
 				<thead class="text-xs uppercase tracking-widest text-white/50">
 					<tr>
-						<th class="py-2 font-semibold">Spieler</th>
-						<th class="py-2 text-right font-semibold">Spiele</th>
-						<th class="py-2 text-right font-semibold">Siege</th>
-						<th class="py-2 text-right font-semibold">Legs</th>
+						<th class="py-2 font-semibold">{ T(ctx).Player() }</th>
+						<th class="py-2 text-right font-semibold">{ T(ctx).Games() }</th>
+						<th class="py-2 text-right font-semibold">{ T(ctx).Wins() }</th>
+						<th class="py-2 text-right font-semibold">{ T(ctx).Legs() }</th>
 						if v.Tournament.Settings.Sets > 1 {
-							<th class="py-2 text-right font-semibold">Sets</th>
+							<th class="py-2 text-right font-semibold">{ T(ctx).Sets() }</th>
 						}
 						if v.Tournament.Settings.Mode == game.ModeX01 {
-							<th class="py-2 text-right font-semibold">Ø 3 Darts</th>
-							<th class="py-2 text-right font-semibold">Höchste</th>
+							<th class="py-2 text-right font-semibold">{ T(ctx).Average3() }</th>
+							<th class="py-2 text-right font-semibold">{ T(ctx).Highest() }</th>
 							<th class="py-2 text-right font-semibold">180</th>
-							<th class="py-2 text-right font-semibold">Finish</th>
+							<th class="py-2 text-right font-semibold">{ T(ctx).Finish() }</th>
 						} else {
-							<th class="py-2 text-right font-semibold">Treffer</th>
+							<th class="py-2 text-right font-semibold">{ T(ctx).Hits() }</th>
 						}
-						<th class="py-2 text-right font-semibold">Bestes Leg</th>
+						<th class="py-2 text-right font-semibold">{ T(ctx).BestLeg() }</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-white/5">
@@ -221,7 +221,7 @@ templ tournamentStats(v service.TournamentView) {
 				</tbody>
 			</table>
 		</div>
-		<p class={ hintClass }>Über die beendeten Spiele dieses Turniers.</p>
+		<p class={ hintClass }>{ T(ctx).TournamentStatsHint() }</p>
 	}
 }
 
@@ -260,10 +260,10 @@ templ tournamentList(views []service.TournamentView) {
 			<li>
 				<a href={ templ.URL(tournamentURL(v.Tournament.ID, "")) } class="block rounded-2xl px-3 py-2.5 transition hover:bg-white/5">
 					<div class="flex items-center justify-between gap-2">
-						<span class="font-display text-xl font-semibold uppercase">🏆 { formatName(v.Tournament.Format) }</span>
+						<span class="font-display text-xl font-semibold uppercase">🏆 { formatName(T(ctx), v.Tournament.Format) }</span>
 						@tournamentBadge(v)
 					</div>
-					<div class="text-sm text-white/50">{ modeLabel(T(ctx), v.Tournament.Settings) } · { strconv.Itoa(len(v.Players)) } Spieler</div>
+					<div class="text-sm text-white/50">{ modeLabel(T(ctx), v.Tournament.Settings) } · { T(ctx).PlayerCount(len(v.Players)) }</div>
 				</a>
 			</li>
 		}
