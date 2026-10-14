@@ -74,6 +74,7 @@ New features build on the existing stack; don't introduce additional frameworks 
 - `tools/linuxpkg`: builds darts-o-cam's Linux packages (.deb, .rpm, .tar.gz), same place; a Go module of its own
 - `tools/winpkg`: builds darts-o-cam's Windows .zip (.exe with icon), same place; a Go module of its own
 - `Makefile`: `make macapp`, `make linux`, `make windows`, `make apps` (all), `make clean`; only for these builds, everything else is the go command
+- `Containerfile`: image of the server, see [server → structure](cmd/darts-o-mat/AGENTS.md#structure)
 - `tools/internal/appicon`: the app icon for all of them, rendered from `favicon.svg`; `tools/internal/version`: the packages' version from git
 
 What the server packages do in detail is under [server → structure](cmd/darts-o-mat/AGENTS.md#structure), the camera packages under [camera → structure](cmd/darts-o-cam/AGENTS.md#structure).

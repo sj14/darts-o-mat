@@ -24,6 +24,20 @@ Options:
 - `-addr :8080` – listen on another port
 - `-registration=false` – turn off registering new accounts, e.g. if darts-o-mat is publicly reachable
 
+### In a container
+
+Instead of Go, [Docker](https://www.docker.com) (or Podman) is enough. From the project folder:
+
+```sh
+docker build -f Containerfile -t darts-o-mat .
+```
+
+```sh
+docker run -d -p 3000:3000 -v darts-o-mat:/data darts-o-mat
+```
+
+The data is kept in the volume `darts-o-mat`. Options go after the image name, e.g. `docker run … darts-o-mat -registration=false`.
+
 ### With PostgreSQL instead of a file
 
 ```sh

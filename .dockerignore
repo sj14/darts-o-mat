@@ -1,0 +1,5 @@
+# Not needed to build the server image (Containerfile); keeps local data out of it.
+.git
+*.db
+/darts-o-cam.app
+/dist/

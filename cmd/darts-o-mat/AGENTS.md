@@ -22,6 +22,7 @@ Project-wide rules, the shared stack and how server and camera work together: [r
 - `pkg/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock), see [game state](#game-state)
 - `pkg/frontend`: web interface: controllers, templ views (`view`) and embedded static files (`static`)
 - `pkg/repos/store`: persistence; one shared Bun store for both databases, only the connection setup (`NewPostgres`/`NewSQLite`) differs
+- `Containerfile` (project root, 2026-10-14): image of the server only. Build stage `golang:1` (user's choice, 2026-10-14: the latest Go 1.x; should `go.mod` ever need a newer one, the go command fetches it itself) on `$BUILDPLATFORM`, cross-compiled with `TARGETOS`/`TARGETARCH` (multi-platform without emulation), `CGO_ENABLED=0`; runs in `gcr.io/distroless/static-debian13:nonroot` (user's wish: distroless) – possible because the server has no cgo (pure Go SQLite) and reads its templates and static files from the binary. `/data` belongs to `nonroot` (a new volume takes over its owner) and is the working directory, so the default `-dsn file:darts-o-mat.db` lands in the volume and flags can be given without repeating it. `.dockerignore` keeps `.git`, databases and build outputs out of the context. darts-o-cam has no image: see [camera TODO](../darts-o-cam/TODO.md). Tested 2026-10-14 with Docker (Rancher Desktop): page, CSS and the database in the volume.
 
 ## Database
 
