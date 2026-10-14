@@ -371,12 +371,45 @@ func principalAxis(pts []image.Point) (center, axis dartboard.Point, elongation 
 	return center, axis, elongation
 }
 
+// tipAxis returns a point on the dart's axis and its direction towards the tip. The lower
+// half of the seed in the image is barrel and point for a dart standing up in the image,
+// but includes part of the flight for one lying flat (event 66 of 2026-10-14: the tip
+// found was 15 px from the point, in the double); so the axis is fitted again, twice, to
+// the part of the seed nearest the tip (tipAxisPart of its length along the axis).
+func tipAxis(seed []image.Point) (center, axis dartboard.Point) {
+	center, axis, _ = principalAxis(lowerHalf(seed))
+	axis = downwards(axis)
+	for range 2 {
+		end := extent(seed, axis)
+		length := end + extent(seed, dartboard.Point{X: -axis.X, Y: -axis.Y})
+		var near []image.Point
+		for _, p := range seed {
+			if float64(p.X)*axis.X+float64(p.Y)*axis.Y >= end-tipAxisPart*length {
+				near = append(near, p)
+			}
+		}
+		if len(near) < 10 {
+			break
+		}
+		c, a, _ := principalAxis(near)
+		if a.X*axis.X+a.Y*axis.Y < 0 {
+			a = dartboard.Point{X: -a.X, Y: -a.Y} // keep pointing towards the tip
+		}
+		center, axis = c, a
+	}
+	return center, axis
+}
+
+// tipAxisPart is the part of the seed's length the axis is fitted to: barrel and point
+// without the flight. 0.3–0.5 gave the same fields on the measurement series and on 20
+// throws (2026-10-14).
+const tipAxisPart = 0.4
+
 // tipOf finds the tip of the dart: the lower end of the area along the seed's axis.
 // The cameras look across the board from its rim, so a dart sticking out of the
 // board points up in the image.
 func tipOf(seed, area []image.Point) (Detection, error) {
-	center, axis, _ := principalAxis(lowerHalf(seed))
-	axis = downwards(axis) // towards the tip
+	center, axis := tipAxis(seed)
 
 	ts := make([]float64, len(area))
 	for i, p := range area {

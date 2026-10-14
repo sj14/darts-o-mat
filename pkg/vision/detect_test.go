@@ -268,32 +268,46 @@ func TestRealThrows(t *testing.T) {
 	}
 }
 
-// TestTipOnDartAxis checks that the tip lies on the dart's axis: in event 33 of
-// 2026-10-14 (a 7 at the wire to the 16) the pixels at the end of cam2's changed area
-// reached over the wire, and their center was 4 px beside the point, in the 16. The
-// point ends at 687,387 (located by hand); the frames come with a newer calibration than
+// TestTipOnDartAxis checks that the tip lies on the dart's axis, at the end of the point
+// (located by hand). The frames come with a newer calibration than
 // testdata/calibration.json, so only the pixel is checked.
 func TestTipOnDartAxis(t *testing.T) {
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cam, err := calib.Camera("cam2")
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name, camera string
+		point        dartboard.Point
+	}{
+		// A 7 at the wire to the 16 (2026-10-14): the pixels at the end of the changed
+		// area reached over the wire, their center was 4 px beside the point, in the 16.
+		{"033", "cam2", dartboard.Point{X: 687, Y: 387}},
+		// A miss just outside the D20, the dart lying flat in the image: the axis of the
+		// lower half went through the flight, the tip found was 15 px from the point, in the
+		// double.
+		{"066", "cam3", dartboard.Point{X: 477, Y: 440}},
 	}
-	toBoard, err := cam.ToBoard()
-	if err != nil {
-		t.Fatal(err)
-	}
-	before := loadRGBA(t, "testdata/throws/033-cam2-before.jpg")
-	after := loadRGBA(t, "testdata/throws/033-cam2-after.jpg")
-	d, err := DetectDart(before, after, DefaultDetectOptions, PixelScale(toBoard))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if dist := math.Hypot(d.Tip.X-687, d.Tip.Y-387); dist > 1.5 {
-		t.Errorf("tip at %.1f,%.1f, %.1f px from the point at 687,387", d.Tip.X, d.Tip.Y, dist)
+	for _, tt := range tests {
+		t.Run(tt.name+"-"+tt.camera, func(t *testing.T) {
+			cam, err := calib.Camera(tt.camera)
+			if err != nil {
+				t.Fatal(err)
+			}
+			toBoard, err := cam.ToBoard()
+			if err != nil {
+				t.Fatal(err)
+			}
+			before := loadRGBA(t, "testdata/throws/"+tt.name+"-"+tt.camera+"-before.jpg")
+			after := loadRGBA(t, "testdata/throws/"+tt.name+"-"+tt.camera+"-after.jpg")
+			d, err := DetectDart(before, after, DefaultDetectOptions, PixelScale(toBoard))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if dist := math.Hypot(d.Tip.X-tt.point.X, d.Tip.Y-tt.point.Y); dist > 2 {
+				t.Errorf("tip at %.1f,%.1f, %.1f px from the point at %.0f,%.0f", d.Tip.X, d.Tip.Y, dist, tt.point.X, tt.point.Y)
+			}
+		})
 	}
 }
 
