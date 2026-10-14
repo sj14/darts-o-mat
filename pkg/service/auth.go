@@ -15,6 +15,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
+	"github.com/sj14/darts-o-mat/pkg/i18n"
 	"github.com/sj14/darts-o-mat/pkg/repos/store"
 )
 
@@ -118,4 +119,18 @@ func newToken() (string, error) {
 func hashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+// SetLanguage sets the language of the account's web interface; empty means the
+// browser's.
+func (s *Service) SetLanguage(ctx context.Context, acc account.Account, lang string) (account.Account, error) {
+	if lang != "" {
+		l, ok := i18n.Parse(lang)
+		if !ok {
+			return acc, fmt.Errorf("%w: unsupported language %q", ErrInvalid, lang)
+		}
+		lang = string(l)
+	}
+	acc.Language = lang
+	return acc, s.store.SetLanguage(ctx, &acc)
 }

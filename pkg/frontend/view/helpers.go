@@ -68,12 +68,12 @@ func turnDarts(v service.GameView, p progress) []throw.Dart {
 	return v.Darts[len(v.Darts)-p.DartsInTurn:]
 }
 
-func targetLabel(target uint8) string {
+func targetLabel(t Texts, target uint8) string {
 	switch target {
 	case 0:
 		return "✓"
 	case throw.Bull:
-		return "Bull"
+		return t.Bull()
 	}
 	return strconv.Itoa(int(target))
 }
@@ -90,14 +90,14 @@ func outModeLabel(m x01.OutMode) string {
 	return ""
 }
 
-func modeLabel(g game.Game) string {
+func modeLabel(t Texts, g game.Game) string {
 	switch {
 	case g.Sets > 1:
-		return modeName(g) + " · First to " + strconv.Itoa(g.Sets) + " Sets à " + strconv.Itoa(g.Legs) + " " + plural(g.Legs, "Leg", "Legs")
+		return modeName(t, g) + " · " + t.FirstToSets(g.Sets, g.Legs)
 	case g.Legs > 1:
-		return modeName(g) + " · First to " + strconv.Itoa(g.Legs)
+		return modeName(t, g) + " · First to " + strconv.Itoa(g.Legs)
 	}
-	return modeName(g)
+	return modeName(t, g)
 }
 
 func plural(n int, one, many string) string {
@@ -107,17 +107,17 @@ func plural(n int, one, many string) string {
 	return many
 }
 
-func modeName(g game.Game) string {
+func modeName(t Texts, g game.Game) string {
 	switch g.Mode {
 	case game.ModeX01:
 		return fmt.Sprintf("%d %s", g.X01.StartScore, outModeLabel(g.X01.OutMode))
 	case game.ModeAroundTheClock:
-		label := "Around the Clock"
+		label := t.AroundTheClock()
 		if g.AroundTheClock.Bull {
-			label += " mit Bull"
+			label += t.WithBull()
 		}
 		if g.AroundTheClock.MultiplierSkips {
-			label += ", Doppel/Triple springen"
+			label += t.MultiplierSkips()
 		}
 		return label
 	}
@@ -142,16 +142,6 @@ func gameURL(id int64, suffix string) string {
 	return fmt.Sprintf("/games/%d%s", id, suffix)
 }
 
-// decimal formats a number with one decimal place and a German decimal comma.
-func decimal(f float64) string {
-	return strings.Replace(strconv.FormatFloat(f, 'f', 1, 64), ".", ",", 1)
-}
-
-// percent formats a ratio from 0 to 1 as a whole percentage.
-func percent(ratio float64) string {
-	return strconv.Itoa(int(math.Round(ratio*100))) + " %"
-}
-
 // orDash returns value if ok, otherwise a dash for "no value yet".
 func orDash(ok bool, value string) string {
 	if !ok {
@@ -170,16 +160,16 @@ type playerLine struct {
 
 // playerLines returns the players in the order they throw from now on: the current
 // player first (the winner once the game is over), then the others.
-func playerLines(v service.GameView, p progress) []playerLine {
+func playerLines(t Texts, v service.GameView, p progress) []playerLine {
 	var lines []playerLine
 	switch st := v.State.(type) {
 	case x01.State:
 		for _, ps := range st.Players {
-			lines = append(lines, playerLine{ps.PlayerID, ps.Sets, ps.SetLegs, strconv.FormatUint(ps.Remaining, 10), "Rest", orDash(ps.Stats.Darts > 0, decimal(ps.Stats.Average)), "Ø 3 Darts"})
+			lines = append(lines, playerLine{ps.PlayerID, ps.Sets, ps.SetLegs, strconv.FormatUint(ps.Remaining, 10), t.Remaining(), orDash(ps.Stats.Darts > 0, t.Decimal(ps.Stats.Average)), t.Average3()})
 		}
 	case aroundtheclock.State:
 		for _, ps := range st.Players {
-			lines = append(lines, playerLine{ps.PlayerID, ps.Sets, ps.SetLegs, targetLabel(ps.Target), "Ziel", orDash(ps.Stats.Darts > 0, percent(ps.Stats.HitRate)), "Trefferquote"})
+			lines = append(lines, playerLine{ps.PlayerID, ps.Sets, ps.SetLegs, targetLabel(t, ps.Target), t.Target(), orDash(ps.Stats.Darts > 0, t.Percent(ps.Stats.HitRate)), t.HitRate()})
 		}
 	}
 	first := p.CurrentPlayerID
@@ -246,10 +236,24 @@ func dartClass(v service.GameView, d throw.Dart) string {
 	return ""
 }
 
+// dartLabel is how a dart is shown: 20, D20, T20, Bull, Bullseye, M7 (a miss beside the
+// 7), or "Miss" when unknown where.
+func dartLabel(t Texts, d throw.Dart) string {
+	switch {
+	case d.Miss && d.Number == 0:
+		return t.Miss()
+	case d.Number == throw.Bull && d.Multiplier == 2:
+		return t.Bullseye()
+	case d.Number == throw.Bull:
+		return t.Bull()
+	}
+	return d.String()
+}
+
 // dartTileClasses style a dart's large tile; the dart just thrown flies in.
-func dartTileClasses(v service.GameView, d throw.Dart) string {
+func dartTileClasses(t Texts, v service.GameView, d throw.Dart) string {
 	classes := "flex h-20 items-center justify-center rounded-2xl font-display font-extrabold uppercase shadow-lg transition sm:h-24 lg:h-20 " + dartTileColors(v, d)
-	if len(d.String()) > 4 {
+	if len([]rune(dartLabel(t, d))) > 4 {
 		classes += " text-2xl sm:text-3xl"
 	} else {
 		classes += " text-5xl"
@@ -393,11 +397,11 @@ func bullOffDecided(v service.GameView, p progress) (int64, bool) {
 }
 
 // bullOffDistance describes how close a bull-off dart came: in mm if the cameras saw it.
-func bullOffDistance(d throw.Dart) string {
+func bullOffDistance(t Texts, d throw.Dart) string {
 	if d.X == nil || d.Y == nil {
 		return ""
 	}
-	return decimal(math.Hypot(*d.X, *d.Y)) + " mm"
+	return t.Decimal(math.Hypot(*d.X, *d.Y)) + " mm"
 }
 
 // hasTurns reports whether the game has darts beyond the bull-off.

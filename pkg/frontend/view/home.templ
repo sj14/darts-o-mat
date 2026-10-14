@@ -70,7 +70,7 @@ templ invitations(views []service.GameView) {
 			for _, v := range views {
 				<li class="flex flex-wrap items-center justify-between gap-3 py-3">
 					<div>
-						<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">{ modeLabel(v.Game) }</a>
+						<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">{ modeLabel(T(ctx), v.Game) }</a>
 						<div class="text-sm text-white/50">mit { playerNames(v, v.Game.PlayerIDs) }</div>
 					</div>
 					@answerInvitation(v.Game.ID)
@@ -88,7 +88,7 @@ templ tournamentInvitations(views []service.TournamentView) {
 				<li class="flex flex-wrap items-center justify-between gap-3 py-3">
 					<div>
 						<a href={ templ.URL(tournamentURL(v.Tournament.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">🏆 { formatName(v.Tournament.Format) }</a>
-						<div class="text-sm text-white/50">{ modeLabel(v.Tournament.Settings) } · { strconv.Itoa(len(v.Players)) } Spieler</div>
+						<div class="text-sm text-white/50">{ modeLabel(T(ctx), v.Tournament.Settings) } · { strconv.Itoa(len(v.Players)) } Spieler</div>
 					</div>
 					@answerTournament(v.Tournament.ID)
 				</li>
@@ -134,7 +134,7 @@ templ recentGames(views []service.GameView) {
 				<li>
 					<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="block rounded-2xl px-3 py-2.5 transition hover:bg-white/5">
 						<div class="flex items-center justify-between gap-2">
-							<span class="font-display text-xl font-semibold uppercase">{ modeLabel(v.Game) }</span>
+							<span class="font-display text-xl font-semibold uppercase">{ modeLabel(T(ctx), v.Game) }</span>
 							switch  {
 								case v.Game.Aborted():
 									@statusBadge("abgebrochen", "bg-white/10 text-white/50")

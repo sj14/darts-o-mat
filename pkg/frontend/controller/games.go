@@ -111,7 +111,7 @@ func (c *Controller) addDart(w http.ResponseWriter, r *http.Request) {
 
 	d, ok := dartFromForm(r)
 	if !ok {
-		c.renderBoard(w, r, id, "Ungültige Eingabe.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrInput())
 		return
 	}
 
@@ -120,9 +120,9 @@ func (c *Controller) addDart(w http.ResponseWriter, r *http.Request) {
 	case err == nil:
 		render(w, r, http.StatusOK, view.Board(v, ""))
 	case d.Number == throw.Bull && d.Multiplier == 3:
-		c.renderBoard(w, r, id, "Es gibt kein Triple-Bull.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrTripleBull())
 	case errors.Is(err, throw.ErrInvalid):
-		c.renderBoard(w, r, id, "Diesen Treffer gibt es nicht.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrNoSuchField())
 	default:
 		c.handleGameError(w, r, id, err)
 	}
@@ -182,7 +182,7 @@ func (c *Controller) editDart(w http.ResponseWriter, r *http.Request) {
 	}
 	d, ok := dartFromForm(r)
 	if !ok {
-		c.renderBoard(w, r, id, "Ungültige Eingabe.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrInput())
 		return
 	}
 	v, err := c.svc.EditDart(r.Context(), auth.Account(r.Context()), id, dartID, d)
@@ -190,13 +190,13 @@ func (c *Controller) editDart(w http.ResponseWriter, r *http.Request) {
 	case err == nil:
 		render(w, r, http.StatusOK, view.Board(v, ""))
 	case errors.Is(err, service.ErrChangesThrowers):
-		c.renderBoard(w, r, id, "Diese Korrektur würde ändern, wer die folgenden Darts geworfen hat (z. B. Überworfen mitten in der Aufnahme). Nimm stattdessen die späteren Darts zurück und trage sie neu ein.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrChangesThrowers())
 	case errors.Is(err, turn.ErrGameOver):
-		c.renderBoard(w, r, id, "Mit dieser Korrektur wäre das Spiel schon vor späteren Darts vorbei. Nimm stattdessen die späteren Darts zurück.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrEndsEarlier())
 	case d.Number == throw.Bull && d.Multiplier == 3:
-		c.renderBoard(w, r, id, "Es gibt kein Triple-Bull.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrTripleBull())
 	case errors.Is(err, throw.ErrInvalid):
-		c.renderBoard(w, r, id, "Diesen Treffer gibt es nicht.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrNoSuchField())
 	default:
 		c.handleGameError(w, r, id, err)
 	}
@@ -227,7 +227,7 @@ func (c *Controller) decideBullOff(w http.ResponseWriter, r *http.Request) {
 	case err == nil:
 		render(w, r, http.StatusOK, view.Board(v, ""))
 	case errors.Is(err, service.ErrInvalid):
-		c.renderBoard(w, r, id, "Gerade ist beim Ausbullen niemand gleichauf.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrNoBullOffTie())
 	default:
 		c.handleGameError(w, r, id, err)
 	}
@@ -288,7 +288,7 @@ func (c *Controller) withdrawInvitation(w http.ResponseWriter, r *http.Request) 
 		// No player left, the game was deleted.
 		w.Header().Set("HX-Redirect", "/")
 	case errors.Is(err, service.ErrInvalid):
-		c.renderBoard(w, r, id, "Diese Einladung gibt es nicht mehr.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrNoInvitation())
 	default:
 		c.handleGameError(w, r, id, err)
 	}
@@ -307,17 +307,17 @@ func (c *Controller) respondBoard(w http.ResponseWriter, r *http.Request, id int
 func (c *Controller) handleGameError(w http.ResponseWriter, r *http.Request, id int64, err error) {
 	switch {
 	case errors.Is(err, turn.ErrGameOver):
-		c.renderBoard(w, r, id, "Das Spiel ist schon vorbei.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrGameOver())
 	case errors.Is(err, turn.ErrWaitingForTakeout):
-		c.renderBoard(w, r, id, "Erst die Pfeile ziehen, dann ist der Nächste dran.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrPullDartsFirst())
 	case errors.Is(err, service.ErrNotReady):
-		c.renderBoard(w, r, id, "Es haben noch nicht alle Eingeladenen zugesagt.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrNotReady())
 	case errors.Is(err, service.ErrAborted):
-		c.renderBoard(w, r, id, "Das Spiel wurde abgebrochen.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrAborted())
 	case errors.Is(err, service.ErrNothingToUndo):
-		c.renderBoard(w, r, id, "Es gibt keinen Dart zum Zurücknehmen.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrNothingToUndo())
 	case errors.Is(err, service.ErrForbidden):
-		c.renderBoard(w, r, id, "Das darfst du in diesem Spiel nicht.")
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrForbidden())
 	case isNotFound(err):
 		http.NotFound(w, r)
 	default:

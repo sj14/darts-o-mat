@@ -4,12 +4,14 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 	"github.com/sj14/darts-o-mat/pkg/auth"
 	"github.com/sj14/darts-o-mat/pkg/frontend/static"
+	"github.com/sj14/darts-o-mat/pkg/i18n"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
 
@@ -23,6 +25,7 @@ func New(svc *service.Service) *Controller {
 
 func (c *Controller) Routes() http.Handler {
 	r := chi.NewRouter()
+	r.Use(i18n.Middleware)
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServerFS(static.FS)))
 	r.Get("/login", c.showLogin)
 	r.Post("/login", c.login)
@@ -34,6 +37,7 @@ func (c *Controller) Routes() http.Handler {
 		r.Use(auth.Require(c.svc, redirectToLogin))
 
 		r.Get("/", c.home)
+		r.Post("/language", c.setLanguage)
 		r.Post("/guests", c.createGuest)
 		r.Get("/stats", c.showStats)
 		r.Get("/friends", c.showFriends)
@@ -103,4 +107,19 @@ func serverError(w http.ResponseWriter, err error) {
 
 func isNotFound(err error) bool {
 	return errors.Is(err, service.ErrNotFound)
+}
+
+// setLanguage stores the language the account chose (empty: the browser's) and goes
+// back to the page it was chosen on.
+func (c *Controller) setLanguage(w http.ResponseWriter, r *http.Request) {
+	_, err := c.svc.SetLanguage(r.Context(), auth.Account(r.Context()), r.FormValue("language"))
+	if err != nil && !errors.Is(err, service.ErrInvalid) {
+		serverError(w, err)
+		return
+	}
+	back := "/"
+	if ref, err := url.Parse(r.Referer()); err == nil && ref.Host == r.Host {
+		back = ref.RequestURI()
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }

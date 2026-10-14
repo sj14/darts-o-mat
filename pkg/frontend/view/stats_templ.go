@@ -132,7 +132,7 @@ func Stats(user string, summaries []stats.Summary) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = statTile(decimal(s.X01.Average), "Ø 3 Darts").Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = statTile(T(ctx).Decimal(s.X01.Average), "Ø 3 Darts").Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -212,7 +212,7 @@ func Stats(user string, summaries []stats.Summary) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = statTile(percent(s.AroundTheClock.HitRate), "Treffer").Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = statTile(T(ctx).Percent(s.AroundTheClock.HitRate), "Treffer").Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}

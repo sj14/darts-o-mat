@@ -70,9 +70,9 @@ func Tournament(user string, v service.TournamentView, errMsg string) templ.Comp
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(v.Tournament.Settings))
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(T(ctx), v.Tournament.Settings))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 19, Col: 68}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 19, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -85,7 +85,7 @@ func Tournament(user string, v service.TournamentView, errMsg string) templ.Comp
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(v.Players)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 19, Col: 104}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 19, Col: 112}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -240,7 +240,7 @@ func Tournament(user string, v service.TournamentView, errMsg string) templ.Comp
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout(tournamentLabel(v.Tournament), user).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout(tournamentLabel(T(ctx), v.Tournament), user).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1314,9 +1314,9 @@ func tournamentStatsRow(v service.TournamentView, s stats.Summary) templ.Compone
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var71 string
-			templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(orDash(s.X01.Darts > 0, decimal(s.X01.Average)))
+			templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(orDash(s.X01.Darts > 0, T(ctx).Decimal(s.X01.Average)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 238, Col: 93}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 238, Col: 100}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
 			if templ_7745c5c3_Err != nil {
@@ -1446,9 +1446,9 @@ func tournamentStatsRow(v service.TournamentView, s stats.Summary) templ.Compone
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var80 string
-			templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.JoinStringErrs(orDash(s.AroundTheClock.Darts > 0, percent(s.AroundTheClock.HitRate)))
+			templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.JoinStringErrs(orDash(s.AroundTheClock.Darts > 0, T(ctx).Percent(s.AroundTheClock.HitRate)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 250, Col: 115}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 250, Col: 122}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var80))
 			if templ_7745c5c3_Err != nil {
@@ -1546,9 +1546,9 @@ func tournamentList(views []service.TournamentView) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var85 string
-			templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(v.Tournament.Settings))
+			templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(T(ctx), v.Tournament.Settings))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 266, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 266, Col: 82}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var85))
 			if templ_7745c5c3_Err != nil {
@@ -1561,7 +1561,7 @@ func tournamentList(views []service.TournamentView) templ.Component {
 			var templ_7745c5c3_Var86 string
 			templ_7745c5c3_Var86, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(v.Players)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 266, Col: 110}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 266, Col: 118}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var86))
 			if templ_7745c5c3_Err != nil {

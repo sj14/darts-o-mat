@@ -10,6 +10,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
+	"github.com/sj14/darts-o-mat/pkg/i18n"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
 
@@ -45,7 +46,11 @@ func Require(svc *service.Service, unauthenticated http.HandlerFunc) func(http.H
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, a)))
+			ctx := context.WithValue(r.Context(), ctxKey{}, a)
+			if l, ok := i18n.Parse(a.Language); ok {
+				ctx = i18n.With(ctx, l) // the account's choice beats the browser's
+			}
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }

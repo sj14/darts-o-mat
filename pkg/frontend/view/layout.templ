@@ -1,10 +1,12 @@
 package view
 
+import "github.com/sj14/darts-o-mat/pkg/i18n"
+
 // layout is the frame of every page, in the dark pub look (Tailwind, see tailwind.css).
 // user is the username of the logged-in account, empty on the login pages.
 templ layout(title, user string) {
 	<!DOCTYPE html>
-	<html lang="de" class="dark">
+	<html lang={ string(i18n.From(ctx)) } class="dark">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -27,13 +29,22 @@ templ layout(title, user string) {
 					</a>
 					if user != "" {
 						<nav class="flex flex-wrap items-center gap-1 text-sm font-semibold">
-							<a href="/stats" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">Statistik</a>
-							<a href="/friends" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">Freunde</a>
-							<a href="/boards" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">Boards</a>
-							<button type="button" id="sound-toggle" hidden class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">🔊 Ton an</button>
+							<a href="/stats" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavStats() }</a>
+							<a href="/friends" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavFriends() }</a>
+							<a href="/boards" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavBoards() }</a>
+							<button
+								type="button"
+								id="sound-toggle"
+								hidden
+								class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white"
+								data-on={ T(ctx).SoundOn() }
+								data-off={ T(ctx).SoundOff() }
+								data-blocked={ T(ctx).SoundBlocked() }
+							>{ T(ctx).SoundOn() }</button>
 							<span class="px-2 text-white/40">{ user }</span>
+							@languageChoice()
 							<form method="post" action="/logout">
-								<button type="submit" class="rounded-lg border border-white/15 px-3 py-1.5 text-white/70 hover:bg-white/10">Abmelden</button>
+								<button type="submit" class="rounded-lg border border-white/15 px-3 py-1.5 text-white/70 hover:bg-white/10">{ T(ctx).Logout() }</button>
 							</form>
 						</nav>
 					}
@@ -44,4 +55,19 @@ templ layout(title, user string) {
 			</main>
 		</body>
 	</html>
+}
+
+// languageChoice sets the account's language; "browser" goes back to the browser's.
+// Choosing submits the form right away; without JavaScript the button does.
+templ languageChoice() {
+	<form method="post" action="/language" class="flex items-center">
+		<label class="sr-only" for="language">{ T(ctx).Language() }</label>
+		<select id="language" name="language" onchange="this.form.submit()" class="rounded-lg border border-white/15 bg-pub-950 px-2 py-1.5 text-white/70" title={ T(ctx).Language() }>
+			<option value="">{ T(ctx).LanguageBrowser() }</option>
+			for _, l := range i18n.Supported {
+				<option value={ string(l) } selected?={ accountLanguage(ctx) == l }>{ languageName(l) }</option>
+			}
+		</select>
+		<noscript><button type="submit" class="ml-1 rounded-lg px-2 py-1.5 text-white/70 hover:bg-white/10">OK</button></noscript>
+	</form>
 }

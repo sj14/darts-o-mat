@@ -19,11 +19,13 @@ var usernamePattern = regexp.MustCompile(`^[a-z0-9._-]{3,32}$`)
 
 // Account is fixed to one player, which represents the account in games.
 type Account struct {
-	ID           int64     `bun:",pk,autoincrement" json:"id"`
-	Username     string    `bun:",notnull,unique" json:"username"`
-	PasswordHash string    `bun:",notnull" json:"-"`
-	PlayerID     int64     `bun:",notnull,unique" json:"player_id"`
-	CreatedAt    time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	ID           int64  `bun:",pk,autoincrement" json:"id"`
+	Username     string `bun:",notnull,unique" json:"username"`
+	PasswordHash string `bun:",notnull" json:"-"`
+	PlayerID     int64  `bun:",notnull,unique" json:"player_id"`
+	// Language of the web interface (see i18n.Lang); empty: the browser's.
+	Language  string    `bun:",notnull,default:''" json:"language"`
+	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
 // NormalizeUsername makes usernames case-insensitive.

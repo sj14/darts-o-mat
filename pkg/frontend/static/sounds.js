@@ -159,7 +159,8 @@
     const toggle = document.getElementById("sound-toggle");
     if (!toggle) return;
     toggle.hidden = !document.getElementById("board");
-    toggle.textContent = !enabled() ? "🔇 Ton aus" : blocked() ? "🔈 Für Ton klicken" : "🔊 Ton an";
+    // The texts in the page's language come from the layout (data-off, data-blocked, data-on).
+    toggle.textContent = !enabled() ? toggle.dataset.off : blocked() ? toggle.dataset.blocked : toggle.dataset.on;
     toggle.classList.toggle("text-amber-300", blocked());
     toggle.classList.toggle("text-white/70", !blocked());
     toggle.setAttribute("aria-pressed", enabled() ? "true" : "false");

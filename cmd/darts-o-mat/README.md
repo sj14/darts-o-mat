@@ -21,7 +21,7 @@ Requirement: [Go](https://go.dev/dl/) is installed. From the project folder:
 go run ./cmd/darts-o-mat
 ```
 
-Then open <http://localhost:3000> in the browser. The data is stored in the file `darts-o-mat.db` in the current folder.
+Then open <http://localhost:3000> in the browser. The interface follows your browser's language (English or German, otherwise English); change it at the top right once you're logged in. The data is stored in the file `darts-o-mat.db` in the current folder.
 
 Options:
 

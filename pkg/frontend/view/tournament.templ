@@ -12,11 +12,11 @@ import (
 // Tournament shows a tournament: who plays, the bracket or table with the results, the
 // games to start next and the statistics of its finished games.
 templ Tournament(user string, v service.TournamentView, errMsg string) {
-	@layout(tournamentLabel(v.Tournament), user) {
+	@layout(tournamentLabel(T(ctx), v.Tournament), user) {
 		<div class="mb-5 flex flex-wrap items-end justify-between gap-2">
 			<div>
 				<h1 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl">{ formatName(v.Tournament.Format) }</h1>
-				<p class="mt-1 text-white/60">{ modeLabel(v.Tournament.Settings) } · { strconv.Itoa(len(v.Players)) } Spieler</p>
+				<p class="mt-1 text-white/60">{ modeLabel(T(ctx), v.Tournament.Settings) } · { strconv.Itoa(len(v.Players)) } Spieler</p>
 			</div>
 			@tournamentBadge(v)
 		</div>
@@ -235,7 +235,7 @@ templ tournamentStatsRow(v service.TournamentView, s stats.Summary) {
 			if v.Tournament.Settings.Sets > 1 {
 				<td class="py-2 text-right tabular-nums">{ strconv.Itoa(s.X01.Sets) }</td>
 			}
-			<td class="py-2 text-right tabular-nums">{ orDash(s.X01.Darts > 0, decimal(s.X01.Average)) }</td>
+			<td class="py-2 text-right tabular-nums">{ orDash(s.X01.Darts > 0, T(ctx).Decimal(s.X01.Average)) }</td>
 			<td class="py-2 text-right tabular-nums">{ orDash(s.X01.Darts > 0, strconv.FormatUint(s.X01.HighestTurn, 10)) }</td>
 			<td class="py-2 text-right tabular-nums">{ strconv.Itoa(s.X01.Turns180) }</td>
 			<td class="py-2 text-right tabular-nums">{ orDash(s.X01.HighestCheckout > 0, strconv.FormatUint(s.X01.HighestCheckout, 10)) }</td>
@@ -247,7 +247,7 @@ templ tournamentStatsRow(v service.TournamentView, s stats.Summary) {
 			if v.Tournament.Settings.Sets > 1 {
 				<td class="py-2 text-right tabular-nums">{ strconv.Itoa(s.AroundTheClock.Sets) }</td>
 			}
-			<td class="py-2 text-right tabular-nums">{ orDash(s.AroundTheClock.Darts > 0, percent(s.AroundTheClock.HitRate)) }</td>
+			<td class="py-2 text-right tabular-nums">{ orDash(s.AroundTheClock.Darts > 0, T(ctx).Percent(s.AroundTheClock.HitRate)) }</td>
 			<td class="py-2 text-right tabular-nums">{ orDash(s.AroundTheClock.BestLeg > 0, strconv.Itoa(s.AroundTheClock.BestLeg)) }</td>
 		}
 	</tr>
@@ -263,7 +263,7 @@ templ tournamentList(views []service.TournamentView) {
 						<span class="font-display text-xl font-semibold uppercase">🏆 { formatName(v.Tournament.Format) }</span>
 						@tournamentBadge(v)
 					</div>
-					<div class="text-sm text-white/50">{ modeLabel(v.Tournament.Settings) } · { strconv.Itoa(len(v.Players)) } Spieler</div>
+					<div class="text-sm text-white/50">{ modeLabel(T(ctx), v.Tournament.Settings) } · { strconv.Itoa(len(v.Players)) } Spieler</div>
 				</a>
 			</li>
 		}

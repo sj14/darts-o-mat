@@ -21,7 +21,7 @@ The documents are split by area and link to each other:
 | Camera | [`cmd/darts-o-cam/README.md`](cmd/darts-o-cam/README.md) | [`cmd/darts-o-cam/AGENTS.md`](cmd/darts-o-cam/AGENTS.md) | [`cmd/darts-o-cam/TODO.md`](cmd/darts-o-cam/TODO.md) |
 | Camera access | [`pkg/camera/README.md`](pkg/camera/README.md) | [`pkg/camera/AGENTS.md`](pkg/camera/AGENTS.md) | [`pkg/camera/TODO.md`](pkg/camera/TODO.md) |
 
-- All documentation is written in English (user's decision, 2026-10-12). The user interface stays German for now (translations are on the TODO list).
+- All documentation is written in English (user's decision, 2026-10-12). The user interface is translated, see [languages](#languages); so far only the frame of the pages and the game page, the rest is still German (TODO).
 - Whatever concerns the whole project (goal, rules, shared stack, structure, how server and camera work together) goes into the documents in the root folder. Whatever concerns only the server or only the camera goes into its folder; details of camera access per operating system go into `pkg/camera`. Don't maintain anything twice, link instead.
 - `README.md` files are for humans only: short, clear and understandable without prior knowledge (what is it, how do I start it, how do I try it).
   No implementation details, architecture or instructions for agents in the READMEs; those belong in the `AGENTS.md` files.
@@ -32,6 +32,16 @@ The documents are split by area and link to each other:
 
 Simple, elegant, idiomatic code matters to the user (noted 2026-10-11).
 Don't implement every feature blindly: if something brings little benefit but makes the code considerably more complicated or worse, first state the effort and the consequences for the code, propose a simpler alternative or advise against it.
+
+## Languages
+
+User's decision 2026-10-14: English is the default language, German the first translation; more languages may follow, also only partly translated.
+
+- **Which language:** the account's choice (`account.Account.Language`, chosen in the page header, "wie Browser"/"Browser" clears it), else the browser's `Accept-Language` (only supported languages count, `de-AT` is German), else English (`i18n.Default`). `pkg/i18n` negotiates it and carries it in the request context (`i18n.Middleware` for the browser, `auth.Require` for the account's choice).
+- **Texts:** an interface with one method per text (`view.Texts`, `view.T(ctx)` in templates and controllers); parameters and plurals are plain Go. English (`textsEN`) implements every method, so a missing English text doesn't compile. Every other language embeds the English type and overrides what is translated (`textsDE struct{ textsEN }`), so whatever isn't translated falls back to English instead of breaking. `TestTranslations` calls every text in every language: a text that comes out the same as in English isn't translated, except those listed in `sameInAllLanguages` (Bull, Checkout, …); languages in `complete` (German) fail the test then, others only log what's missing.
+- **New texts:** never write German or English directly into a template or a handler anymore; add a method to `Texts`, implement it in English and German.
+- Numbers are formatted by the language too (`Texts.Decimal`, `Texts.Percent`: 90.0 / 90,0). The dart labels of the interface come from `dartLabel` ("Miss"/"Daneben"; `throw.Dart.String` stays for logs and darts-o-cam). Texts of JavaScript come from data attributes of the page (sound toggle).
+- Not chosen: go-i18n or `golang.org/x/text/message` with message files – missing texts only show at runtime, and their extraction doesn't know templ; worth reconsidering once translators without Go come in.
 
 ## Breaking changes
 
@@ -64,6 +74,7 @@ New features build on the existing stack; don't introduce additional frameworks 
 - `pkg/auth`: session cookie and middleware (server)
 - `pkg/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock, tournaments); `pkg/domain/dartboard` (board geometry) is used by server and camera
 - `pkg/repos/store`: persistence (server)
+- `pkg/i18n`: language of the web interfaces (negotiation, request context), see [languages](#languages)
 - `pkg/frontend`: the server's web interface: controllers, templ views (`view`) and embedded static files (`static`, also used by `pkg/camui`)
 - [`pkg/camera`](pkg/camera/AGENTS.md): camera access per operating system (macOS, Linux, Windows)
 - `pkg/vision`: camera geometry and dart detection in pure Go (darts-o-cam)

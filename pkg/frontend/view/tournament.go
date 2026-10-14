@@ -20,8 +20,8 @@ func formatName(f tournament.Format) string {
 	return "Jeder gegen jeden"
 }
 
-func tournamentLabel(t tournament.Tournament) string {
-	return formatName(t.Format) + " · " + modeLabel(t.Settings)
+func tournamentLabel(texts Texts, t tournament.Tournament) string {
+	return formatName(t.Format) + " · " + modeLabel(texts, t.Settings)
 }
 
 func tournamentPlayerName(v service.TournamentView, id int64) string {
