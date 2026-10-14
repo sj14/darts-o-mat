@@ -17,6 +17,8 @@ var ErrInvalid = errors.New("invalid dart")
 type Dart struct {
 	ID         int64 `bun:",pk,autoincrement" json:"id"`
 	GameID     int64 `bun:",notnull" json:"-"`
+	// Number is the field's number, for a miss the number it went beside (the lines
+	// between the numbers drawn on, from the cameras' position; 0 if unknown).
 	Number     uint8 `json:"number"`
 	Multiplier uint8 `json:"multiplier"`
 	Miss       bool  `json:"miss"`
@@ -29,10 +31,13 @@ type Dart struct {
 	Y *float64 `json:"y,omitempty"`
 }
 
-// Validate checks that the dart hit a field that exists on the board.
-// Number and Multiplier are ignored for a miss.
+// Validate checks that the dart hit a field that exists on the board. The Multiplier is
+// ignored for a miss.
 func (d Dart) Validate() error {
 	if d.Miss {
+		if d.Number > 20 {
+			return fmt.Errorf("%w: a miss beside number %d", ErrInvalid, d.Number)
+		}
 		return nil
 	}
 	if (d.Number < 1 || d.Number > 20) && d.Number != Bull {
@@ -55,9 +60,12 @@ func (d Dart) Score() uint64 {
 	return uint64(d.Number) * uint64(d.Multiplier)
 }
 
-// String returns the dart as players read it: 20, D20, T20, Bull, Bullseye, Daneben (a miss).
+// String returns the dart as players read it: 20, D20, T20, Bull, Bullseye, M7 (a miss
+// beside the 7), Daneben (a miss, unknown where).
 func (d Dart) String() string {
 	switch {
+	case d.Miss && d.Number > 0:
+		return "M" + strconv.Itoa(int(d.Number))
 	case d.Miss:
 		return "Daneben"
 	case d.Number == Bull && d.Multiplier == 2:

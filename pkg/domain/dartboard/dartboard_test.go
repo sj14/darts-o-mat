@@ -21,7 +21,7 @@ func TestScore(t *testing.T) {
 		{"T11", Polar(103, 270), throw.Dart{Number: 11, Multiplier: 3}},
 		{"5 just left of the 20", Polar(50, 350), throw.Dart{Number: 5, Multiplier: 1}},
 		{"1 just right of the 20", Polar(50, 10), throw.Dart{Number: 1, Multiplier: 1}},
-		{"outside", Polar(175, 45), throw.Dart{Miss: true}},
+		{"outside, beside the 7", Polar(175, 216), throw.Dart{Miss: true, Number: 7}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

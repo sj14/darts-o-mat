@@ -369,12 +369,13 @@ func (s *Service) EditDart(ctx context.Context, acc account.Account, gameID, dar
 	})
 }
 
-// normalizeDart clears what doesn't matter for a dart: a miss has no field, and a
-// missing multiplier counts as single. Takeouts go through Takeout.
+// normalizeDart clears what doesn't matter for a dart: a miss has no multiplier (its
+// number tells where it missed), and a missing multiplier counts as single. Takeouts go
+// through Takeout.
 func normalizeDart(d *throw.Dart) {
 	d.Takeout = false
 	if d.Miss {
-		d.Number, d.Multiplier = 0, 0
+		d.Multiplier = 0
 	} else if d.Multiplier == 0 {
 		d.Multiplier = 1
 	}

@@ -75,7 +75,7 @@ func Score(p Point) throw.Dart {
 	case r <= BullRadius:
 		return throw.Dart{Number: throw.Bull, Multiplier: 1}
 	case r > DoubleOuterRadius:
-		return throw.Dart{Miss: true}
+		return throw.Dart{Miss: true, Number: p.Number()}
 	}
 
 	d := throw.Dart{Number: p.Number(), Multiplier: 1}
