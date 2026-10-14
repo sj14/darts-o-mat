@@ -2,6 +2,8 @@
 
 Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../../TODO.md).
 
+- Instead/Additional of a keyboard, click into the simulated/drawn board.
+  - Maybe hide the keypad by default and when you click in the board, it opens or you can click a second time into the board for the position.
 - Add admin area
 - Do not allow the same guest name twice
 - Allow to delete guests
