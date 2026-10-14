@@ -268,6 +268,35 @@ func TestRealThrows(t *testing.T) {
 	}
 }
 
+// TestTipOnDartAxis checks that the tip lies on the dart's axis: in event 33 of
+// 2026-10-14 (a 7 at the wire to the 16) the pixels at the end of cam2's changed area
+// reached over the wire, and their center was 4 px beside the point, in the 16. The
+// point ends at 687,387 (located by hand); the frames come with a newer calibration than
+// testdata/calibration.json, so only the pixel is checked.
+func TestTipOnDartAxis(t *testing.T) {
+	calib, err := LoadCalibration("testdata/calibration.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cam, err := calib.Camera("cam2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	toBoard, err := cam.ToBoard()
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := loadRGBA(t, "testdata/throws/033-cam2-before.jpg")
+	after := loadRGBA(t, "testdata/throws/033-cam2-after.jpg")
+	d, err := DetectDart(before, after, DefaultDetectOptions, PixelScale(toBoard))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dist := math.Hypot(d.Tip.X-687, d.Tip.Y-387); dist > 1.5 {
+		t.Errorf("tip at %.1f,%.1f, %.1f px from the point at 687,387", d.Tip.X, d.Tip.Y, dist)
+	}
+}
+
 // distanceToWire returns how far p is from the nearest ring or wire between numbers, in mm.
 func distanceToWire(p dartboard.Point) float64 {
 	r := p.Radius()

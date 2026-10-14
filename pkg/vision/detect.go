@@ -375,7 +375,7 @@ func principalAxis(pts []image.Point) (center, axis dartboard.Point, elongation 
 // The cameras look across the board from its rim, so a dart sticking out of the
 // board points up in the image.
 func tipOf(seed, area []image.Point) (Detection, error) {
-	_, axis, _ := principalAxis(lowerHalf(seed))
+	center, axis, _ := principalAxis(lowerHalf(seed))
 	axis = downwards(axis) // towards the tip
 
 	ts := make([]float64, len(area))
@@ -388,22 +388,25 @@ func tipOf(seed, area []image.Point) (Detection, error) {
 	// (A percentile would cut off too much: the point is only about 2 px wide.)
 	tipT := sorted[max(len(sorted)-4, 0)]
 
-	// The tip is the center of the pixels within 3 px of the tip end. (Moving it along the
-	// axis to the very end was tried on real throws in 2026-10 and didn't help.)
-	var tx, ty float64
+	// The tip is where the pixels within 3 px of the tip end are on average along the
+	// axis (moving it to the very end was tried on real throws in 2026-10 and didn't
+	// help), on the axis line through the barrel: across the axis these pixels are
+	// skewed by the point's shadow or a wire beside it (event 33 of 2026-10-14: 4 px
+	// beside the point, on the wire between 16 and 7 instead of in the 7).
+	var t float64
 	var count int
-	for i, p := range area {
+	for i := range area {
 		if math.Abs(ts[i]-tipT) <= 3 {
-			tx += float64(p.X)
-			ty += float64(p.Y)
+			t += ts[i]
 			count++
 		}
 	}
 	if count == 0 {
 		return Detection{}, ErrNoDart
 	}
+	t = t/float64(count) - (center.X*axis.X + center.Y*axis.Y)
 	return Detection{
-		Tip:    dartboard.Point{X: tx / float64(count), Y: ty / float64(count)},
+		Tip:    dartboard.Point{X: center.X + t*axis.X, Y: center.Y + t*axis.Y},
 		Pixels: len(area),
 		Axis:   dartboard.Point{X: -axis.X, Y: -axis.Y},
 	}, nil
