@@ -25,7 +25,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -35,6 +34,7 @@ import (
 	_ "github.com/goreleaser/nfpm/v2/rpm"
 
 	"github.com/sj14/darts-o-mat/tools/internal/appicon"
+	"github.com/sj14/darts-o-mat/tools/internal/version"
 )
 
 const name = "darts-o-cam"
@@ -68,9 +68,9 @@ func main() {
 		log.Fatalf("linuxpkg: %v", err)
 	}
 	out := flag.String("o", filepath.Join(root, "dist"), "directory for the packages")
-	version := flag.String("version", gitVersion(root), "version of the packages")
+	ver := flag.String("version", version.FromGit(root), "version of the packages")
 	flag.Parse()
-	if err := build(root, *out, strings.TrimPrefix(*version, "v")); err != nil {
+	if err := build(root, *out, strings.TrimPrefix(*ver, "v")); err != nil {
 		log.Fatalf("linuxpkg: %v", err)
 	}
 }
@@ -222,21 +222,4 @@ func addFile(tw *tar.Writer, src, dst string, mode os.FileMode) error {
 	}
 	_, err = io.Copy(tw, f)
 	return err
-}
-
-// gitVersion returns the version from the latest git tag, e.g. 1.2.3 for v1.2.3. Without
-// such a tag, or with commits or changes since, it is marked as a development build:
-// 0.0.0+git.abc1234 (dpkg and rpm sort that before 0.0.1).
-func gitVersion(root string) string {
-	describe := exec.Command("git", "describe", "--tags", "--always", "--dirty")
-	describe.Dir = root
-	desc, err := describe.Output()
-	if err != nil {
-		return "0.0.0+unknown"
-	}
-	d := strings.TrimSpace(string(desc))
-	if m := regexp.MustCompile(`^v?(\d+\.\d+\.\d+)$`).FindStringSubmatch(d); m != nil {
-		return m[1]
-	}
-	return "0.0.0+git." + strings.NewReplacer("-", ".").Replace(d)
 }

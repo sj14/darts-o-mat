@@ -3,6 +3,7 @@
 Open tasks of the [camera](README.md). Tasks of the whole project: [TODO.md](../../TODO.md).
 
 - Test the window of its own (glaze) on Linux (with and without WebKitGTK) and Windows.
+- Start the Windows .exe (`make windows`) on Windows: icon in Explorer, taskbar and title bar, version under Properties → Details, sharp window with display scaling, no console window on a double click, log and Ctrl+C when started from a terminal (`console_windows.go`).
 - Install the Linux packages (`tools/linuxpkg`) on a real system: .deb on Debian/Ubuntu and Raspberry Pi OS, .rpm on Fedora; menu entry and icon, window or browser fallback, the systemd service with the cameras (`DynamicUser` plus group `video`).
 - Keep the computer from going to sleep while the detection runs (nobody touches it while playing). [`github.com/crgimenes/native/power`](https://github.com/crgimenes/native/tree/trunk/power) (purego, macOS IOKit assertion, Windows `SetThreadExecutionState`) was rejected for now (user, 2026-10-13) because it doesn't support Linux; that would need systemd-logind's `Inhibit` over D-Bus.
 - Debug images: the frames of the last 20 detections are kept on disk (cache directory) and can be downloaded on the event page; `-save` keeps all. Maybe later: make the number configurable in the web interface.

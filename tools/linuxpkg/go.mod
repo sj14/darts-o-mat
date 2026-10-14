@@ -2,7 +2,7 @@ module github.com/sj14/darts-o-mat/tools/linuxpkg
 
 go 1.27.2
 
-// The icon renderer (tools/internal/appicon) comes from the project itself.
+// The icon renderer and the version (tools/internal) come from the project itself.
 replace github.com/sj14/darts-o-mat => ../..
 
 require (

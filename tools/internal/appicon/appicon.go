@@ -1,5 +1,5 @@
 // Package appicon renders the app icon of darts-o-cam for the packaging tools
-// (tools/macapp, tools/linuxpkg): the concentric rings of favicon.svg, so both stay alike.
+// (tools/macapp, tools/linuxpkg, tools/winpkg): the concentric rings of favicon.svg, so both stay alike.
 package appicon
 
 import (
@@ -15,13 +15,22 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/frontend/static"
 )
 
+// Render renders the icon with size×size pixels.
+func Render(size int) (image.Image, error) {
+	rings, err := faviconRings()
+	if err != nil {
+		return nil, err
+	}
+	return renderRings(rings, size), nil
+}
+
 // WritePNG renders the icon with size×size pixels into a PNG file.
 func WritePNG(path string, size int) error {
-	rings, err := faviconRings()
+	img, err := Render(size)
 	if err != nil {
 		return err
 	}
-	return writePNG(path, renderRings(rings, size))
+	return writePNG(path, img)
 }
 
 // ring is a filled circle of the favicon, in its 32×32 view box.
