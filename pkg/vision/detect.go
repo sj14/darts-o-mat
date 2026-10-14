@@ -242,8 +242,10 @@ func ChangedArea(before, after *image.RGBA, opts DetectOptions, scale float64) [
 
 // dartArea finds the pixels of the new dart. The changed area often falls apart: a dark
 // shaft on a black field doesn't show, so flight and barrel become separate pieces. The
-// seed is the largest elongated piece (barrel and point; for pieces that include the
-// flight, their lower half must be elongated). Pieces on the seed's axis above its lower
+// seed is the largest elongated piece: barrel and point; a piece that includes the flight
+// counts if its lower half is elongated. A barrel alone counts as a whole: its lower half
+// is only half as long (2026-10-14, event 4: a dart passing behind an earlier dart's
+// flight fell apart, its barrel piece had 3.9 in the lower half and 7.4 as a whole). Pieces on the seed's axis above its lower
 // end, like the flight, belong to the dart; specks elsewhere don't. Below the seed is
 // board: a speck there on the axis (color noise at a ring's edge, 56 px below a real
 // dart's tip, 2026-10-13) would become the tip. Small gaps in the point are bridged
@@ -260,7 +262,9 @@ func dartArea(mask *Mask, p detectParams) (seed, area []image.Point) {
 	seedIndex := -1
 	for i, c := range comps {
 		if lower := lowerHalf(c); len(lower) >= 10 {
-			if _, _, e := principalAxis(lower); e >= p.minElongation {
+			_, _, e := principalAxis(lower)
+			_, _, whole := principalAxis(c)
+			if max(e, whole) >= p.minElongation {
 				seedIndex = i
 				break
 			}

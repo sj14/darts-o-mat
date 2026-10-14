@@ -268,8 +268,8 @@ func TestRealThrows(t *testing.T) {
 	}
 }
 
-// TestTipOnDartAxis checks that the tip lies on the dart's axis, at the end of the point
-// (located by hand). The frames come with a newer calibration than
+// TestTipOnDartAxis checks that the tip is found at the end of the point (located by
+// hand) in cases where it used to be off or missing. The frames come with a newer calibration than
 // testdata/calibration.json, so only the pixel is checked.
 func TestTipOnDartAxis(t *testing.T) {
 	calib, err := LoadCalibration("testdata/calibration.json")
@@ -287,6 +287,9 @@ func TestTipOnDartAxis(t *testing.T) {
 		// lower half went through the flight, the tip found was 15 px from the point, in the
 		// double.
 		{"066", "cam3", dartboard.Point{X: 477, Y: 440}},
+		// A T5 passing behind the flight of an earlier dart: only its barrel and point
+		// were a piece of their own, too short to count as elongated in the lower half.
+		{"004", "cam3", dartboard.Point{X: 613, Y: 345}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name+"-"+tt.camera, func(t *testing.T) {

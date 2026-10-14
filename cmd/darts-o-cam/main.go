@@ -234,7 +234,7 @@ func analyze(args []string) error {
 				earlier[c.cam.Name] = append(earlier[c.cam.Name], dartArea...)
 				b := m.Tip(d, opts.TipShift)
 				radial, tangential := m.Resolution(b)
-				line += fmt.Sprintf(", tip %.0f,%.0f px -> %.0f,%.0f mm %s (%.1f/%.1f px/mm towards the center/along the ring)", d.Tip.X, d.Tip.Y, b.X, b.Y, dartboard.Score(b).String(), radial, tangential)
+				line += fmt.Sprintf(", tip %.0f,%.0f px -> %.0f,%.0f mm (%.1f mm from the center) %s (%.1f/%.1f px/mm towards the center/along the ring)", d.Tip.X, d.Tip.Y, b.X, b.Y, b.Radius(), dartboard.Score(b).String(), radial, tangential)
 				if d.Hidden {
 					line += ", ends on an earlier dart (may be hidden)"
 				}
@@ -252,7 +252,7 @@ func analyze(args []string) error {
 		}
 		switch p, err := vision.FuseTips(tips); {
 		case err == nil:
-			fmt.Printf("event %d: %s at %.0f,%.0f mm\n", n, dartboard.Score(p).String(), p.X, p.Y)
+			fmt.Printf("event %d: %s at %.0f,%.0f mm (%.1f mm from the center)\n", n, dartboard.Score(p).String(), p.X, p.Y, p.Radius())
 		case len(cams) == len(empty):
 			fmt.Printf("event %d: a miss no camera located (nothing was pulled out)\n", n)
 		default:
