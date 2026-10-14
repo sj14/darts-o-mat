@@ -47,6 +47,10 @@ type Game struct {
 	CreatedAt      time.Time                `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 	// AbortedAt is set when the owner aborted the game: it takes no more darts and has no winner.
 	AbortedAt *time.Time `bun:",nullzero" json:"aborted_at,omitempty"`
+	// TournamentID is the tournament the game is a match of (TournamentMatch, the index
+	// in its schedule), nil for a single game.
+	TournamentID    *int64 `json:"tournament_id,omitempty"`
+	TournamentMatch int    `bun:",notnull,default:0" json:"tournament_match,omitempty"`
 }
 
 // Aborted reports whether the game was aborted.
@@ -137,4 +141,27 @@ func Common(state any) turn.State {
 		return s.Common()
 	}
 	return turn.State{}
+}
+
+// Score returns what each player has won in the game's state (see Play): sets in a
+// game with sets, legs otherwise.
+func (g Game) Score(state any) map[int64]int {
+	score := map[int64]int{}
+	add := func(id int64, legs, sets int) {
+		score[id] = legs
+		if g.Sets > 1 {
+			score[id] = sets
+		}
+	}
+	switch st := state.(type) {
+	case x01.State:
+		for _, p := range st.Players {
+			add(p.PlayerID, p.Legs, p.Sets)
+		}
+	case aroundtheclock.State:
+		for _, p := range st.Players {
+			add(p.PlayerID, p.Legs, p.Sets)
+		}
+	}
+	return score
 }

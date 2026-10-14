@@ -1,0 +1,104 @@
+package controller
+
+import (
+	"errors"
+	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/sj14/darts-o-mat/pkg/auth"
+	"github.com/sj14/darts-o-mat/pkg/frontend/view"
+	"github.com/sj14/darts-o-mat/pkg/service"
+)
+
+func tournamentURL(id int64) string {
+	return "/tournaments/" + strconv.FormatInt(id, 10)
+}
+
+func (c *Controller) showTournament(w http.ResponseWriter, r *http.Request) {
+	c.renderTournament(w, r, http.StatusOK, "")
+}
+
+func (c *Controller) renderTournament(w http.ResponseWriter, r *http.Request, status int, errMsg string) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	acc := auth.Account(r.Context())
+	v, err := c.svc.Tournament(r.Context(), acc, id)
+	if isNotFound(err) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	render(w, r, status, view.Tournament(acc.Username, v, errMsg))
+}
+
+// startMatch starts the game of a match and goes to it.
+func (c *Controller) startMatch(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	match, err := strconv.Atoi(chi.URLParam(r, "match"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	v, err := c.svc.StartMatch(r.Context(), auth.Account(r.Context()), id, match)
+	switch {
+	case err == nil:
+		http.Redirect(w, r, gameURL(v.Game.ID), http.StatusSeeOther)
+	case isNotFound(err):
+		http.NotFound(w, r)
+	case errors.Is(err, service.ErrInvalid), errors.Is(err, service.ErrForbidden), errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrAborted):
+		c.renderTournament(w, r, http.StatusConflict, "Dieses Spiel kann gerade nicht gestartet werden.")
+	default:
+		serverError(w, err)
+	}
+}
+
+func (c *Controller) acceptTournament(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	if _, err := c.svc.AcceptTournamentInvitation(r.Context(), auth.Account(r.Context()), id); err != nil && !isNotFound(err) {
+		serverError(w, err)
+		return
+	}
+	http.Redirect(w, r, tournamentURL(id), http.StatusSeeOther)
+}
+
+func (c *Controller) declineTournament(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	if err := c.svc.DeclineTournamentInvitation(r.Context(), auth.Account(r.Context()), id); err != nil && !isNotFound(err) {
+		serverError(w, err)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (c *Controller) abortTournament(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	_, err := c.svc.AbortTournament(r.Context(), auth.Account(r.Context()), id)
+	switch {
+	case err == nil, errors.Is(err, service.ErrAborted):
+		http.Redirect(w, r, tournamentURL(id), http.StatusSeeOther)
+	case isNotFound(err):
+		http.NotFound(w, r)
+	case errors.Is(err, service.ErrForbidden), errors.Is(err, service.ErrInvalid):
+		c.renderTournament(w, r, http.StatusConflict, "Nur wer das Turnier angelegt hat, kann es abbrechen, und nur solange es läuft.")
+	default:
+		serverError(w, err)
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
+	"github.com/sj14/darts-o-mat/pkg/domain/tournament"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -51,6 +52,8 @@ func newStore(ctx context.Context, db *bun.DB) (*Store, error) {
 		(*board.Board)(nil),
 		(*board.Token)(nil),
 		(*throw.Dart)(nil),
+		(*tournament.Tournament)(nil),
+		(*tournament.Invitation)(nil),
 	}
 
 	for _, model := range models {

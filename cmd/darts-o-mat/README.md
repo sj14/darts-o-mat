@@ -9,6 +9,10 @@ The web app for playing darts: enter throws, the score is counted automatically.
 
 Whoever finishes first wins the leg immediately. When starting a game you choose how many legs are needed to win ("First to 3"); each leg is started by the next player. Optionally the legs are played in sets ("First to 3 Sets à 3 Legs"): whoever wins the legs of a set first wins the set, and whoever wins enough sets wins the game; each set is started by the next player. Who starts the first leg can be decided by a bull-off (option when starting a game): everyone throws one dart at the bull, the closest starts – with cameras to the millimeter.
 
+## Tournaments
+
+Every game mode can also be played as a tournament: under "Spielform" on the start page choose a knockout tournament ("K.-o.-Turnier") or all against all ("Jeder gegen jeden"), with 3 to 16 players – you, your guests and invited friends. The order is drawn at random. On the tournament's page you start the games one after another; the bracket or the table fills in by itself, and below you see everyone's statistics in this tournament. Invited friends accept once for the whole tournament.
+
 ## Start
 
 Requirement: [Go](https://go.dev/dl/) is installed. From the project folder:

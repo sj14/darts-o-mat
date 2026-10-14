@@ -8,7 +8,7 @@ import (
 
 templ Stats(user string, summaries []stats.Summary) {
 	@layout("Statistik", user) {
-		@pageTitle("Statistik", "Über alle beendeten Spiele von dir und deinen Gastspielern.")
+		@pageTitle("Statistik", "Über alle beendeten Spiele und Turniere von dir und deinen Gastspielern.")
 		<div class="flex flex-col gap-6">
 			for i, s := range summaries {
 				@panel("") {
@@ -32,6 +32,12 @@ templ Stats(user string, summaries []stats.Summary) {
 								</div>
 								<dl class="divide-y divide-white/5 text-sm">
 									@statRow("Spiele / Siege / Legs", strconv.Itoa(s.X01.Games)+" / "+strconv.Itoa(s.X01.Wins)+" / "+strconv.Itoa(s.X01.Legs))
+									if s.X01.Sets > 0 {
+										@statRow("Sets gewonnen", strconv.Itoa(s.X01.Sets))
+									}
+									if s.X01.Tournaments > 0 {
+										@statRow("Turniere / gewonnen", strconv.Itoa(s.X01.Tournaments)+" / "+strconv.Itoa(s.X01.TournamentWins))
+									}
 									@statRow("Darts", strconv.Itoa(s.X01.Darts))
 									@statRow("100+ / 140+", strconv.Itoa(s.X01.Turns100)+" / "+strconv.Itoa(s.X01.Turns140))
 									@statRow("Höchstes Finish", orDash(s.X01.HighestCheckout > 0, strconv.FormatUint(s.X01.HighestCheckout, 10)))
@@ -49,6 +55,12 @@ templ Stats(user string, summaries []stats.Summary) {
 								</div>
 								<dl class="divide-y divide-white/5 text-sm">
 									@statRow("Spiele / Siege / Legs", strconv.Itoa(s.AroundTheClock.Games)+" / "+strconv.Itoa(s.AroundTheClock.Wins)+" / "+strconv.Itoa(s.AroundTheClock.Legs))
+									if s.AroundTheClock.Sets > 0 {
+										@statRow("Sets gewonnen", strconv.Itoa(s.AroundTheClock.Sets))
+									}
+									if s.AroundTheClock.Tournaments > 0 {
+										@statRow("Turniere / gewonnen", strconv.Itoa(s.AroundTheClock.Tournaments)+" / "+strconv.Itoa(s.AroundTheClock.TournamentWins))
+									}
 									@statRow("Darts / Treffer", strconv.Itoa(s.AroundTheClock.Darts)+" / "+strconv.Itoa(s.AroundTheClock.Hits))
 									@statRow("Bestes Leg", orDash(s.AroundTheClock.BestLeg > 0, strconv.Itoa(s.AroundTheClock.BestLeg)+" Darts"))
 								</dl>

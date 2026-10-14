@@ -13,9 +13,10 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
-// CreateGame stores the game and a pending invitation for each of the invited players,
-// and marks its board as used.
-func (store *Store) CreateGame(ctx context.Context, g *game.Game, invitedPlayerIDs []int64) error {
+// CreateGame stores the game and an invitation with the status for each of the invited
+// players (pending; accepted for the games of a tournament, whose players accepted
+// the tournament), and marks its board as used.
+func (store *Store) CreateGame(ctx context.Context, g *game.Game, invitedPlayerIDs []int64, status game.InvitationStatus) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewInsert().Model(g).Returning("*").Exec(ctx); err != nil {
 			return err
@@ -26,7 +27,7 @@ func (store *Store) CreateGame(ctx context.Context, g *game.Game, invitedPlayerI
 			}
 		}
 		for _, id := range invitedPlayerIDs {
-			inv := game.Invitation{GameID: g.ID, PlayerID: id, Status: game.InvitationPending}
+			inv := game.Invitation{GameID: g.ID, PlayerID: id, Status: status}
 			if _, err := tx.NewInsert().Model(&inv).Exec(ctx); err != nil {
 				return err
 			}

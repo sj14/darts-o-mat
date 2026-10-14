@@ -11,6 +11,7 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
+	"github.com/sj14/darts-o-mat/pkg/domain/tournament"
 	"github.com/sj14/darts-o-mat/pkg/frontend/view"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
@@ -48,6 +49,14 @@ func (c *Controller) renderHome(w http.ResponseWriter, r *http.Request, status i
 		serverError(w, err)
 		return
 	}
+	if m.Tournaments, err = c.svc.ListTournaments(ctx, m.Account, 5); err != nil {
+		serverError(w, err)
+		return
+	}
+	if m.TournamentInvitations, err = c.svc.TournamentInvitations(ctx, m.Account); err != nil {
+		serverError(w, err)
+		return
+	}
 	render(w, r, status, view.Home(m))
 }
 
@@ -74,13 +83,24 @@ func homeURL(r *http.Request) string {
 	return "/?" + ref.RawQuery
 }
 
+// createGame starts a game, or a tournament of the game's settings if a format was chosen.
 func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 	g, invite, err := gameFromForm(r)
-	if err == nil {
+	format := tournament.Format(r.FormValue("format"))
+	switch {
+	case err != nil:
+	case format != "":
+		t := tournament.Tournament{Format: format, Settings: g, PlayerIDs: g.PlayerIDs}
+		t.Settings.PlayerIDs = nil
+		var v service.TournamentView
+		if v, err = c.svc.CreateTournament(r.Context(), auth.Account(r.Context()), t, invite); err == nil {
+			http.Redirect(w, r, tournamentURL(v.Tournament.ID), http.StatusSeeOther)
+			return
+		}
+	default:
 		var v service.GameView
-		v, err = c.svc.CreateGame(r.Context(), auth.Account(r.Context()), g, invite)
-		if err == nil {
-			http.Redirect(w, r, fmt.Sprintf("/games/%d", v.Game.ID), http.StatusSeeOther)
+		if v, err = c.svc.CreateGame(r.Context(), auth.Account(r.Context()), g, invite); err == nil {
+			http.Redirect(w, r, gameURL(v.Game.ID), http.StatusSeeOther)
 			return
 		}
 	}
@@ -95,6 +115,8 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case len(g.PlayerIDs) == 0 && len(invite) == 0:
 		msg = "Bitte mindestens einen Mitspieler auswählen oder einladen."
+	case errors.Is(err, tournament.ErrPlayerCount):
+		msg = fmt.Sprintf("Ein Turnier braucht %d bis %d Spieler: dich, Gäste und eingeladene Freunde.", tournament.MinPlayers, tournament.MaxPlayers)
 	case errors.As(err, &unknown):
 		msg = fmt.Sprintf("Einen Account mit dem Benutzernamen „%s“ gibt es nicht.", unknown.Username)
 	case errors.As(err, &notFriend):

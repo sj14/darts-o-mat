@@ -41,6 +41,9 @@ templ gameTitle(v service.GameView, p *progress) {
 	<div class="mb-5 flex flex-wrap items-end justify-between gap-2 lg:mb-3">
 		<h1 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl">{ modeLabel(v.Game) }</h1>
 		<div class="flex items-center gap-2 text-sm text-white/60">
+			if v.Game.TournamentID != nil {
+				<a href={ templ.URL(tournamentURL(*v.Game.TournamentID, "")) } class="rounded-full bg-amber-400/20 px-3 py-1 font-semibold text-amber-300 hover:bg-amber-400/30">🏆 Zum Turnier</a>
+			}
 			if v.Board != nil {
 				<span class="rounded-full bg-white/10 px-3 py-1">📷 { v.Board.Name }</span>
 			}

@@ -2,11 +2,15 @@
 
 Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../../TODO.md).
 
-- Add sets
+- Add admin area
 - Unsure: switch the primary IDs to UUIDs.
 - Allow others to watch games if they know the link.
-- Tournament mode.
-- Play with strangers (idea, not designed yet). For example:
+- Tournaments (base built 2026-10-14, see [AGENTS.md → tournaments](AGENTS.md#tournaments)):
+  - Groups + knockout: groups as round robin, the best N per group into a bracket (group winners against runners-up of other groups). Reuses table and bracket; new: group assignment, qualification, seeding from the groups, stage transition, page with several tables. Effort roughly a third of the base.
+  - JSON API for tournaments.
+  - Update the tournament page live (SSE like the game page).
+  - Final (or last round) with its own legs/sets.
+- Play with strangers (idea, not designed yet), for games and tournaments; inviting is shared (`service.invitedPlayers`, today friends only). For example:
   - When creating a game, tick something like "allow strangers"; the game waits in the lobby for them.
   - Finding a game: either a list of open games to join, or automatic matchmaking.
   - Today only friends can be invited, and games are hidden from everyone else (404); this would be the first exception.

@@ -16,6 +16,9 @@ type HomeModel struct {
 	Games       []service.GameView
 	Invitations []service.GameView
 	Friends     service.FriendList
+
+	Tournaments           []service.TournamentView
+	TournamentInvitations []service.TournamentView
 	Mode        game.Mode // selected mode of the new game, empty until the user picked one
 	Error       string
 }
@@ -38,9 +41,18 @@ templ Home(m HomeModel) {
 		if len(m.Invitations) > 0 {
 			@invitations(m.Invitations)
 		}
+		if len(m.TournamentInvitations) > 0 {
+			@tournamentInvitations(m.TournamentInvitations)
+		}
 		<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
 			@newGame(m)
 			<div class="flex flex-col gap-6">
+				if len(m.Tournaments) > 0 {
+					@panel("") {
+						@sectionTitle("Turniere")
+						@tournamentList(m.Tournaments)
+					}
+				}
 				if len(m.Games) > 0 {
 					@recentGames(m.Games)
 				}
@@ -61,6 +73,23 @@ templ invitations(views []service.GameView) {
 						<div class="text-sm text-white/50">mit { playerNames(v, v.Game.PlayerIDs) }</div>
 					</div>
 					@answerInvitation(v.Game.ID)
+				</li>
+			}
+		</ul>
+	}
+}
+
+templ tournamentInvitations(views []service.TournamentView) {
+	@panel("mb-6 border-amber-400/50 [--glow-color:var(--color-amber-400)] animate-glow") {
+		@sectionTitle("Turnier-Einladungen")
+		<ul class="divide-y divide-white/10">
+			for _, v := range views {
+				<li class="flex flex-wrap items-center justify-between gap-3 py-3">
+					<div>
+						<a href={ templ.URL(tournamentURL(v.Tournament.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">🏆 { formatName(v.Tournament.Format) }</a>
+						<div class="text-sm text-white/50">{ modeLabel(v.Tournament.Settings) } · { strconv.Itoa(len(v.Players)) } Spieler</div>
+					</div>
+					@answerTournament(v.Tournament.ID)
 				</li>
 			}
 		</ul>
@@ -130,6 +159,18 @@ templ fieldset(label string) {
 		<legend class={ labelClass }>{ label }</legend>
 		{ children... }
 	</fieldset>
+}
+
+// formatChoice picks a single game or a tournament of games with these settings.
+templ formatChoice() {
+	@fieldset("Spielform") {
+		<div class="flex flex-wrap gap-2">
+			@choice("format", "", "Einzelspiel", true)
+			@choice("format", "knockout", "🏆 K.-o.-Turnier", false)
+			@choice("format", "round_robin", "🏆 Jeder gegen jeden", false)
+		</div>
+		<p class={ hintClass }>Ein Turnier braucht 3 bis 16 Spieler; die Reihenfolge wird ausgelost, jedes Spiel hat die Einstellungen hier.</p>
+	}
 }
 
 // legsChoice picks how many legs win the game, and optionally how many sets.
@@ -231,6 +272,7 @@ templ newGame(m HomeModel) {
 								@choice("out_mode", "master", "Doppel oder Triple", false)
 							</div>
 						}
+						@formatChoice()
 						@legsChoice()
 						@participants(m)
 						<div>
@@ -250,6 +292,7 @@ templ newGame(m HomeModel) {
 								}
 							</div>
 						}
+						@formatChoice()
 						@legsChoice()
 						@participants(m)
 						<div>

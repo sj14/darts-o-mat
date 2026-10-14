@@ -62,7 +62,7 @@ New features build on the existing stack; don't introduce additional frameworks 
 - `pkg/api`: JSON API under `/api` (server)
 - `pkg/service`: application logic including permission checks (server)
 - `pkg/auth`: session cookie and middleware (server)
-- `pkg/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock); `pkg/domain/dartboard` (board geometry) is used by server and camera
+- `pkg/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock, tournaments); `pkg/domain/dartboard` (board geometry) is used by server and camera
 - `pkg/repos/store`: persistence (server)
 - `pkg/frontend`: the server's web interface: controllers, templ views (`view`) and embedded static files (`static`, also used by `pkg/camui`)
 - [`pkg/camera`](pkg/camera/AGENTS.md): camera access per operating system (macOS, Linux, Windows)

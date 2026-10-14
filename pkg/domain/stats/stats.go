@@ -4,6 +4,7 @@ package stats
 import (
 	"slices"
 
+	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
@@ -13,6 +14,7 @@ type X01 struct {
 	Games           int     `json:"games"`
 	Wins            int     `json:"wins"`
 	Legs            int     `json:"legs"` // legs won
+	Sets            int     `json:"sets"` // sets won
 	Darts           int     `json:"darts"`
 	Points          uint64  `json:"points"`
 	Average         float64 `json:"average"` // points per three darts
@@ -22,16 +24,23 @@ type X01 struct {
 	Turns180        int     `json:"turns_180"`
 	HighestCheckout uint64  `json:"highest_checkout"`
 	BestLeg         int     `json:"best_leg"` // fewest darts in a won leg, 0 without one
+	// Finished tournaments of the mode the player took part in, and won.
+	Tournaments    int `json:"tournaments"`
+	TournamentWins int `json:"tournament_wins"`
 }
 
 type AroundTheClock struct {
 	Games   int     `json:"games"`
 	Wins    int     `json:"wins"`
 	Legs    int     `json:"legs"` // legs won
+	Sets    int     `json:"sets"` // sets won
 	Darts   int     `json:"darts"`
 	Hits    int     `json:"hits"`
 	HitRate float64 `json:"hit_rate"`
 	BestLeg int     `json:"best_leg"` // fewest darts in a won leg, 0 without one
+	// Finished tournaments of the mode the player took part in, and won.
+	Tournaments    int `json:"tournaments"`
+	TournamentWins int `json:"tournament_wins"`
 }
 
 // Summary of a player over all finished games.
@@ -63,6 +72,7 @@ func (s *Summary) Add(state any) {
 func (s *X01) add(p x01.PlayerState, won bool) {
 	s.Games++
 	s.Legs += p.Legs
+	s.Sets += p.Sets
 	s.Darts += p.Stats.Darts
 	s.Points += p.Stats.Points
 	if s.Darts > 0 {
@@ -82,6 +92,7 @@ func (s *X01) add(p x01.PlayerState, won bool) {
 func (s *AroundTheClock) add(p aroundtheclock.PlayerState, won bool) {
 	s.Games++
 	s.Legs += p.Legs
+	s.Sets += p.Sets
 	s.Darts += p.Stats.Darts
 	s.Hits += p.Stats.Hits
 	if s.Darts > 0 {
@@ -90,6 +101,18 @@ func (s *AroundTheClock) add(p aroundtheclock.PlayerState, won bool) {
 	s.BestLeg = best(s.BestLeg, p.Stats.BestLeg)
 	if won {
 		s.Wins++
+	}
+}
+
+// AddTournament adds a finished tournament of the mode the player took part in.
+func (s *Summary) AddTournament(mode game.Mode, won bool) {
+	count, wins := &s.X01.Tournaments, &s.X01.TournamentWins
+	if mode == game.ModeAroundTheClock {
+		count, wins = &s.AroundTheClock.Tournaments, &s.AroundTheClock.TournamentWins
+	}
+	*count++
+	if won {
+		*wins++
 	}
 }
 

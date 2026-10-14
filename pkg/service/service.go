@@ -128,60 +128,82 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 		g.Sets = 1 // no sets unless asked otherwise
 	}
 
-	own, err := s.store.ListPlayers(ctx, acc.ID, acc.PlayerID)
+	if err := s.checkOwnPlayers(ctx, acc, g.PlayerIDs); err != nil {
+		return GameView{}, err
+	}
+	invited, err := s.invitedPlayers(ctx, acc, inviteUsernames)
 	if err != nil {
 		return GameView{}, err
 	}
-	for _, id := range g.PlayerIDs {
-		if !slices.ContainsFunc(own, func(p player.Player) bool { return p.ID == id }) {
-			return GameView{}, fmt.Errorf("%w: player %d is neither you nor one of your guests", ErrInvalid, id)
-		}
+	g.PlayerIDs = append(g.PlayerIDs, invited...)
+	if err := s.checkBoard(ctx, acc, g.BoardID); err != nil {
+		return GameView{}, err
 	}
 
+	if err := g.Validate(); err != nil {
+		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	if err := s.store.CreateGame(ctx, &g, invited, game.InvitationPending); err != nil {
+		return GameView{}, err
+	}
+	return s.view(ctx, acc, g)
+}
+
+// checkOwnPlayers checks that the players are the account's own player or its guests.
+func (s *Service) checkOwnPlayers(ctx context.Context, acc account.Account, playerIDs []int64) error {
+	own, err := s.store.ListPlayers(ctx, acc.ID, acc.PlayerID)
+	if err != nil {
+		return err
+	}
+	for _, id := range playerIDs {
+		if !slices.ContainsFunc(own, func(p player.Player) bool { return p.ID == id }) {
+			return fmt.Errorf("%w: player %d is neither you nor one of your guests", ErrInvalid, id)
+		}
+	}
+	return nil
+}
+
+// invitedPlayers returns the players of the accounts to invite, by username. Only
+// friends can be invited.
+func (s *Service) invitedPlayers(ctx context.Context, acc account.Account, usernames []string) ([]int64, error) {
 	var invited []int64
-	for _, username := range inviteUsernames {
+	for _, username := range usernames {
 		username = account.NormalizeUsername(username)
 		if username == "" {
 			continue
 		}
 		other, err := s.store.GetAccountByUsername(ctx, username)
 		if errors.Is(err, store.ErrNotFound) {
-			return GameView{}, UnknownUserError{Username: username}
+			return nil, UnknownUserError{Username: username}
 		}
 		if err != nil {
-			return GameView{}, err
+			return nil, err
 		}
 		if other.ID == acc.ID {
-			return GameView{}, ErrInviteSelf
+			return nil, ErrInviteSelf
 		}
 		friends, err := s.areFriends(ctx, acc.ID, other.ID)
 		if err != nil {
-			return GameView{}, err
+			return nil, err
 		}
 		if !friends {
-			return GameView{}, NotFriendError{Username: username}
+			return nil, NotFriendError{Username: username}
 		}
-		g.PlayerIDs = append(g.PlayerIDs, other.PlayerID)
 		invited = append(invited, other.PlayerID)
 	}
+	return invited, nil
+}
 
-	if g.BoardID != nil {
-		b, err := s.store.GetBoard(ctx, *g.BoardID)
-		if errors.Is(err, store.ErrNotFound) || (err == nil && b.AccountID != acc.ID) {
-			return GameView{}, fmt.Errorf("%w: unknown board", ErrInvalid)
-		}
-		if err != nil {
-			return GameView{}, err
-		}
+// checkBoard checks that the board, if any, is one of the account's.
+func (s *Service) checkBoard(ctx context.Context, acc account.Account, boardID *int64) error {
+	if boardID == nil {
+		return nil
 	}
-
-	if err := g.Validate(); err != nil {
-		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
+	b, err := s.store.GetBoard(ctx, *boardID)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && b.AccountID != acc.ID) {
+		return fmt.Errorf("%w: unknown board", ErrInvalid)
 	}
-	if err := s.store.CreateGame(ctx, &g, invited); err != nil {
-		return GameView{}, err
-	}
-	return s.view(ctx, acc, g)
+	return err
 }
 
 func (s *Service) Game(ctx context.Context, acc account.Account, id int64) (GameView, error) {
