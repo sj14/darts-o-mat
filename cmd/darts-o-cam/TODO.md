@@ -2,6 +2,7 @@
 
 Open tasks of the [camera](README.md). Tasks of the whole project: [TODO.md](../../TODO.md).
 
+- Optimize for raspi with it's SD-Card so we won't destroy the card after using darts-o-cam for too long (too many writes).
 - Test the window of its own (glaze) on Linux (with and without WebKitGTK) and Windows.
 - Start the Windows .exe (`make windows`) on Windows: icon in Explorer, taskbar and title bar, version under Properties → Details, sharp window with display scaling, no console window on a double click, log and Ctrl+C when started from a terminal (`console_windows.go`).
 - Maybe a container image (decided against for now, 2026-10-14; the server has one, see the root `Containerfile`). Only Linux can pass cameras to a container (`--device /dev/videoN --group-add video`; `pkg/camera` finds `/dev/video*` and reads `/sys/class/video4linux`, both present in a container); Docker on macOS and Windows runs in a VM without the USB cameras (Windows only via WSL and `usbipd`, doubtful at 3 × 30 fps MJPEG). Drawbacks: `--device` only covers the devices present at start, a replugged camera often gets another number and is gone until a restart (unless all of `/dev` is mounted with `--device-cgroup-rule='c 81:* rmw'`, which hardly isolates anything); only `-ui none`; the image needs glibc because of purego (e.g. `debian:stable-slim` with `libturbojpeg0`, not distroless static). The Linux packages with their systemd service cover the headless Raspberry Pi already.
