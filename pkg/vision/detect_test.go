@@ -377,7 +377,7 @@ func TestFuseTipsWeighted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := (166.1*0.49 + 157.1*4.41) / (0.49 + 4.41)
+	want := (166.1*0.7 + 157.1*2.1) / (0.7 + 2.1)
 	if math.Abs(p.Radius()-want) > 0.01 {
 		t.Errorf("two cameras: %.2f mm, want the weighted mean %.2f", p.Radius(), want)
 	}
@@ -385,19 +385,21 @@ func TestFuseTipsWeighted(t *testing.T) {
 		t.Errorf("scored %+v, want S14", got)
 	}
 
-	// Three cameras: the weighted median. Two cameras that see the spot well outweigh one
-	// that doesn't, even if it is in the middle.
+	// Three cameras: the weighted median. Two cameras that agree outweigh one that sees
+	// the spot better (real miss beside the D6, 2026-10-15: with the resolutions squared,
+	// cam1 alone decided D6).
 	tips := []Tip{
-		{Point: dartboard.Polar(163.3, 19), Radial: 2.1, Tangential: 1.2},
-		{Point: dartboard.Polar(161.5, 18), Radial: 0.6, Tangential: 1.3},
-		{Point: dartboard.Polar(161.0, 17), Radial: 2.3, Tangential: 1.5},
+		{Point: dartboard.Polar(169.8, 87), Radial: 2.2, Tangential: 2.5},
+		{Point: dartboard.Polar(176.8, 86), Radial: 1.3, Tangential: 1.2},
+		{Point: dartboard.Polar(179.5, 83), Radial: 1.0, Tangential: 1.3},
 	}
-	if p, _ := FuseTips(tips); math.Abs(p.Radius()-161.0) > 0.01 {
-		t.Errorf("three cameras: %.2f mm, want 161.0 (the heavier of the two good ones on the lighter side)", p.Radius())
+	if p, _ := FuseTips(tips); math.Abs(p.Radius()-176.8) > 0.01 {
+		t.Errorf("three cameras: %.2f mm, want 176.8 (the middle)", p.Radius())
 	}
-	tips[2].Radial = 2.0
-	if p, _ := FuseTips(tips); math.Abs(p.Radius()-163.3) > 0.01 {
-		t.Errorf("three cameras: %.2f mm, want 163.3", p.Radius())
+	// A camera that sees the spot better than the two others together still decides.
+	tips[0].Radial = 2.5
+	if p, _ := FuseTips(tips); math.Abs(p.Radius()-169.8) > 0.01 {
+		t.Errorf("three cameras: %.2f mm, want 169.8 (the camera with most of the weight)", p.Radius())
 	}
 
 	// A camera whose tip ends on an earlier dart only counts if no other camera found it
@@ -407,7 +409,7 @@ func TestFuseTipsWeighted(t *testing.T) {
 		{Point: dartboard.Polar(99.9, 7), Radial: 0.7, Tangential: 1.4},
 		{Point: dartboard.Polar(91.2, 14), Radial: 1.8, Tangential: 1.5, Hidden: true},
 	}
-	want = (98.6*1.8*1.8 + 99.9*0.7*0.7) / (1.8*1.8 + 0.7*0.7)
+	want = (98.6*1.8 + 99.9*0.7) / (1.8 + 0.7)
 	if p, _ := FuseTips(hidden); math.Abs(p.Radius()-want) > 0.01 {
 		t.Errorf("with a hidden camera: %.2f mm, want %.2f (the other two)", p.Radius(), want)
 	}

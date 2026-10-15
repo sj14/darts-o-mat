@@ -454,8 +454,11 @@ type Tip struct {
 	dartboard.Point
 	// Radial and Tangential are the camera's resolution there: image pixels per mm
 	// towards the center and along the ring (see Mapping.Resolution). A camera counts
-	// with their square, the precision of a position found to about a pixel: the same
-	// spot can be 0.6 px/mm in one camera and 2.3 in another. 0 counts as 1.
+	// with them: the same spot can be 0.6 px/mm in one camera and 2.3 in another, and a
+	// position found to about a pixel is that much more precise. Not with their square
+	// (until 2026-10-15): then one camera outweighed two that agreed, e.g. a miss just
+	// outside the D6 (cam1 169.8 mm at 2.2 px/mm, cam2 176.8 and cam3 179.5 at 1.3 and
+	// 1.0) scored D6. 0 counts as 1.
 	Radial, Tangential float64
 	// Hidden tells that the camera may not see the tip, see Detection.Hidden.
 	Hidden bool
@@ -474,7 +477,7 @@ type Tip struct {
 //     and 96.3 mm, at 98.7 mm.)
 //   - With two cameras, the weighted mean: there is no majority, and the median of two
 //     would jump to the heavier one entirely. A real S14 seen by a camera with 0.7 px/mm
-//     at 166 mm and one with 2.1 px/mm at 157 mm: 157.9 mm instead of 161.6, just next
+//     at 166 mm and one with 2.1 px/mm at 157 mm: 159.4 mm instead of 161.6, just next
 //     to the double.
 //
 // Near the center the cameras surround the dart and their angles say nothing: then it
@@ -542,7 +545,7 @@ func weight(resolution float64) float64 {
 	if resolution <= 0 {
 		return 1
 	}
-	return resolution * resolution
+	return resolution
 }
 
 // combine returns the weighted median of the values, for two the weighted mean.

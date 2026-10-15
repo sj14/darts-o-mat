@@ -85,7 +85,7 @@ func (textsEN) Field() string            { return "Field" }
 func (textsEN) Hidden() string           { return "(hidden)" }
 func (textsEN) Result() string           { return "✕ Result" }
 func (textsEN) EventExplanation() string {
-	return "Boundaries: triple 99–107 mm, double 162–170 mm, bull up to 15.9 mm, bullseye up to 6.35 mm. Resolution: pixels per mm at this spot, towards the center / along the ring. The result combines the distances to the center and the angles separately, each camera counting with the square of its resolution in that direction: from three cameras the weighted median, with two the weighted mean (near the center per coordinate). If a camera's tip ends on an earlier dart (“hidden”), it only counts if no other camera sees the dart."
+	return "Boundaries: triple 99–107 mm, double 162–170 mm, bull up to 15.9 mm, bullseye up to 6.35 mm. Resolution: pixels per mm at this spot, towards the center / along the ring. The result combines the distances to the center and the angles separately, each camera counting with its resolution in that direction: from three cameras the weighted median, with two the weighted mean (near the center per coordinate). If a camera's tip ends on an earlier dart (“hidden”), it only counts if no other camera sees the dart."
 }
 func (textsEN) Before() string { return "Before" }
 func (textsEN) After() string  { return "After" }
