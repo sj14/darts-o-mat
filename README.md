@@ -27,7 +27,7 @@ Then open <http://localhost:3000> in the browser and create an account ("Registe
 3. Enter the server address and the token in darts-o-cam under "Settings".
 4. Select this board when starting a game. Darts now appear by themselves; correct misdetections as usual.
 
-On a board the next player is only up once the darts have been pulled out – the camera notices that; without a camera, tap "Darts pulled out". If a dart of the visit is missing (e.g. bounced out), it counts as a miss.
+On a board the next player is only up once the darts have been pulled out – the camera notices that (if it misses it, the next player's first dart counts as pulled out); without a camera, tap "Darts pulled out". If a dart of the visit is missing (e.g. bounced out), it counts as a miss.
 
 ## For developers
 

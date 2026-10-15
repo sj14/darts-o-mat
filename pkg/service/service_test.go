@@ -564,6 +564,37 @@ func TestTakeout(t *testing.T) {
 	}
 }
 
+// A camera dart while the game waits for the takeout means the cameras missed it: the
+// takeout is entered, and the dart is the next player's.
+func TestBoardDartAfterMissedTakeout(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	guest, _ := s.CreateGuest(ctx, anna, "Papa")
+	keller, _ := s.CreateBoard(ctx, anna, "Keller")
+	g := x01Game(anna.PlayerID, guest.ID)
+	g.BoardID = &keller.ID
+	v, err := s.CreateGame(ctx, anna, g, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 3 {
+		if v, err = s.AddBoardDart(ctx, keller, t20); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !v.Common().WaitingForTakeout {
+		t.Fatal("not waiting for the takeout after 3 darts")
+	}
+	if v, err = s.AddBoardDart(ctx, keller, t20); err != nil {
+		t.Fatalf("fourth camera dart: %v", err)
+	}
+	st := v.State.(x01.State)
+	if len(v.Darts) != 5 || !v.Darts[3].Takeout || *st.CurrentPlayerID != guest.ID || v.Common().DartsInTurn != 1 {
+		t.Errorf("%d entries, current %d, %d darts in the turn; want 3 darts, the takeout and the guest's first dart", len(v.Darts), *st.CurrentPlayerID, v.Common().DartsInTurn)
+	}
+}
+
 // Pulling the darts out after a bust passes the turn on without adding misses.
 func TestBoardTakeoutAfterBust(t *testing.T) {
 	ctx := context.Background()
