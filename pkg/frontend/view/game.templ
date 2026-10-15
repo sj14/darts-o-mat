@@ -257,7 +257,7 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 // celebration shows a big effect right after a special turn: 180 or busted.
 templ celebration(v service.GameView, p progress) {
 	if player, decided := bullOffDecided(v, p); decided {
-		<div class="mb-4 animate-dart-in rounded-2xl bg-gradient-to-r from-board-red to-board-green px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-white shadow-lg">{ T(ctx).Starts(playerName(v, player)) }</div>
+		<div class="mb-4 animate-dart-in rounded-2xl bg-gradient-to-r from-board-red to-board-green px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-board-cream shadow-lg">{ T(ctx).Starts(playerName(v, player)) }</div>
 	}
 	if p.SetWinner != nil {
 		<div class="mb-4 animate-dart-in rounded-2xl bg-gradient-to-r from-sky-300 to-sky-500 px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-pub-950 shadow-lg shadow-sky-500/30">{ T(ctx).SetTo(playerName(v, *p.SetWinner)) }</div>
@@ -270,7 +270,7 @@ templ celebration(v service.GameView, p progress) {
 				<div class="animate-celebrate font-display text-[10rem] font-extrabold leading-none text-amber-300 drop-shadow-[0_0_2rem_rgba(251,191,36,0.8)] sm:text-[16rem]">180!</div>
 			</div>
 		case "bust":
-			<div class="mb-4 animate-shake rounded-2xl bg-board-red px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-white shadow-lg shadow-board-red/40">{ T(ctx).Bust() }</div>
+			<div class="mb-4 animate-shake rounded-2xl bg-board-red px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-board-cream shadow-lg shadow-board-red/40">{ T(ctx).Bust() }</div>
 	}
 }
 
@@ -401,7 +401,7 @@ templ playerCard(v service.GameView, p progress, l playerLine) {
 			if winner {
 				<span class="rounded-full bg-amber-400 px-3 py-0.5 font-display text-lg font-extrabold uppercase text-pub-950">{ T(ctx).Win() }</span>
 			} else {
-				<span class="rounded-full bg-board-green px-3 py-0.5 font-display text-lg font-extrabold uppercase text-white">{ T(ctx).ToThrow() }</span>
+				<span class="rounded-full bg-board-green px-3 py-0.5 font-display text-lg font-extrabold uppercase text-board-cream">{ T(ctx).ToThrow() }</span>
 			}
 		</div>
 		<div class="mt-2 flex items-end justify-between gap-3">
@@ -482,7 +482,7 @@ templ keypad(v service.GameView, action string) {
 					name="number"
 					value={ strconv.Itoa(n) }
 					class={ "h-14 rounded-xl font-number text-3xl font-semibold transition active:scale-90 sm:h-16 lg:h-12",
-						templ.KV("bg-board-green text-white shadow-lg shadow-board-green/40 hover:brightness-110", uint8(n) == target),
+						templ.KV("bg-board-green text-board-cream shadow-lg shadow-board-green/40 hover:brightness-110", uint8(n) == target),
 						templ.KV("bg-pub-700 text-board-cream hover:bg-pub-700/70", uint8(n) != target) }
 				><span class="hidden text-xl group-has-[[value='double']:checked]/keypad:inline">D</span><span class="hidden text-xl group-has-[[value='triple']:checked]/keypad:inline">T</span>{ strconv.Itoa(n) }</button>
 			}
@@ -490,7 +490,7 @@ templ keypad(v service.GameView, action string) {
 				type="submit"
 				name="number"
 				value="25"
-				class={ "@container col-span-2 h-14 rounded-xl px-2 font-number font-extrabold uppercase text-white transition active:scale-95 sm:h-16 lg:h-12",
+				class={ "@container col-span-2 h-14 rounded-xl px-2 font-number font-extrabold uppercase text-board-cream transition active:scale-95 sm:h-16 lg:h-12",
 					templ.KV("bg-board-green shadow-lg shadow-board-green/40 ring-2 ring-white", target == throw.BullNumber),
 					templ.KV("bg-board-green/80 hover:bg-board-green", target != throw.BullNumber),
 					"group-has-[[value='triple']:checked]/keypad:pointer-events-none group-has-[[value='triple']:checked]/keypad:opacity-30" }
@@ -498,7 +498,7 @@ templ keypad(v service.GameView, action string) {
 				<span class="group-has-[[value='double']:checked]/keypad:hidden">@fitText(T(ctx).Bull(), "1.875rem")</span>
 				<span class="hidden group-has-[[value='double']:checked]/keypad:inline">@fitText(T(ctx).Bullseye(), "1.875rem")</span>
 			</button>
-			<button type="submit" name="miss" value="true" class="@container col-span-3 h-14 rounded-xl bg-board-red/85 px-2 font-number font-extrabold uppercase text-white transition hover:bg-board-red active:scale-95 sm:h-16 lg:h-12">@fitText(T(ctx).Miss(), "1.875rem")</button>
+			<button type="submit" name="miss" value="true" class="@container col-span-3 h-14 rounded-xl bg-board-red/85 px-2 font-number font-extrabold uppercase text-board-cream transition hover:bg-board-red active:scale-95 sm:h-16 lg:h-12">@fitText(T(ctx).Miss(), "1.875rem")</button>
 		</div>
 	</form>
 }
@@ -520,7 +520,7 @@ templ dartInput(v service.GameView, action string) {
 					@quickDart(action, target, throw.Triple, "T"+targetLabel(T(ctx), target), false, "1.875rem", "h-16 bg-board-green/75 shadow-board-green/30")
 				}
 				<form hx-post={ action } hx-target="#board" hx-swap="outerHTML">
-					<button type="submit" name="miss" value="true" class={ "@container w-full rounded-2xl bg-board-red/85 px-2 font-number font-extrabold uppercase text-white shadow-lg shadow-board-red/30 transition hover:bg-board-red active:scale-95", templ.KV("h-24", !skips), templ.KV("h-16", skips) }>
+					<button type="submit" name="miss" value="true" class={ "@container w-full rounded-2xl bg-board-red/85 px-2 font-number font-extrabold uppercase text-board-cream shadow-lg shadow-board-red/30 transition hover:bg-board-red active:scale-95", templ.KV("h-24", !skips), templ.KV("h-16", skips) }>
 						if skips {
 							@fitText(T(ctx).Miss(), "1.875rem")
 						} else {
@@ -548,7 +548,7 @@ templ quickDart(action string, number uint8, segment throw.Segment, label string
 	<form hx-post={ action } hx-target="#board" hx-swap="outerHTML" class={ templ.KV("col-span-3", wide) }>
 		<input type="hidden" name="number" value={ strconv.Itoa(int(number)) }/>
 		<input type="hidden" name="segment" value={ segment.String() }/>
-		<button type="submit" class={ "@container w-full rounded-2xl px-2 font-number font-extrabold uppercase text-white shadow-lg transition hover:brightness-110 active:scale-95", classes }>@fitText(label, size)</button>
+		<button type="submit" class={ "@container w-full rounded-2xl px-2 font-number font-extrabold uppercase text-board-cream shadow-lg transition hover:brightness-110 active:scale-95", classes }>@fitText(label, size)</button>
 	</form>
 }
 

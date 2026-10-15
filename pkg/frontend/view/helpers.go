@@ -272,9 +272,9 @@ func dartTileClasses(v service.GameView, d throw.Dart) string {
 func dartTileColors(v service.GameView, d throw.Dart) string {
 	switch dartClass(v, d) {
 	case "miss":
-		return "bg-board-red text-white shadow-board-red/30"
+		return "bg-board-red text-board-cream shadow-board-red/30"
 	case "hit":
-		return "bg-board-green text-white shadow-board-green/30"
+		return "bg-board-green text-board-cream shadow-board-green/30"
 	}
 	return "bg-board-cream text-pub-950 shadow-black/30"
 }
