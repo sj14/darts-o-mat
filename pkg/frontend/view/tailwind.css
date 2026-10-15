@@ -22,8 +22,19 @@
   src: url("/static/barlow-condensed-800.woff2") format("woff2");
 }
 
+@font-face {
+  font-family: "Roboto Condensed";
+  font-weight: 600 800;
+  font-display: swap;
+  src: url("/static/roboto-condensed-latin.woff2") format("woff2");
+}
+
 @theme {
   --font-display: "Barlow Condensed", ui-sans-serif, system-ui, sans-serif;
+  /* Numbers and dart labels of the game page: in the display font M looked like 11 and 1
+     like T; a fixed font, not the system's, so labels are as wide everywhere (user's
+     choice, 2026-10-15). */
+  --font-number: "Roboto Condensed", ui-sans-serif, system-ui, sans-serif;
 
   /* The board's own colors, used as accents. */
   --color-board-red: oklch(58% 0.21 25);
@@ -146,4 +157,12 @@
 .svg-center {
   transform-box: fill-box;
   transform-origin: center;
+}
+
+/* text-fit makes a label fit the width of its container (an element with @container):
+   the font size shrinks with the label's length (--fit-len, characters, see fitText)
+   down from --fit-max, so long words like DANEBEN or BULLSEYE fit any tile and font. */
+@utility text-fit {
+  white-space: nowrap;
+  font-size: min(var(--fit-max, 3rem), calc(100cqw / (var(--fit-len, 3) * 0.6)));
 }

@@ -178,14 +178,14 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 								@dartTile(v, thrown[i])
 							} else if j := i - len(thrown); j < len(suggestion) {
 								// The way to finish, like Autodarts shows it.
-								<span class="flex h-20 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-amber-400/60 bg-amber-400/5 font-display text-amber-300 sm:h-24 lg:h-20" title={ T(ctx).CheckoutSuggestion() }>
-									<span class={ templ.KV("text-2xl sm:text-3xl", len(dartLabel(T(ctx), suggestion[j])) > 4), templ.KV("text-4xl", len(dartLabel(T(ctx), suggestion[j])) <= 4) }>{ dartLabel(T(ctx), suggestion[j]) }</span>
+								<span class="@container flex h-20 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-amber-400/60 bg-amber-400/5 px-2 font-number text-amber-300 sm:h-24 lg:h-20" title={ T(ctx).CheckoutSuggestion() }>
+									@fitText(dartLabel(T(ctx), suggestion[j]), "2.25rem")
 									if j == 0 {
 										<span class="text-xs font-semibold uppercase tracking-widest text-amber-300/60">{ T(ctx).Checkout() }</span>
 									}
 								</span>
 							} else {
-								<span class="flex h-20 items-center justify-center rounded-2xl border-2 border-dashed border-white/15 font-display text-4xl text-white/20 sm:h-24 lg:h-20">{ strconv.Itoa(i + 1) }</span>
+								<span class="flex h-20 items-center justify-center rounded-2xl border-2 border-dashed border-white/15 font-number text-4xl text-white/20 sm:h-24 lg:h-20">{ strconv.Itoa(i + 1) }</span>
 							}
 						}
 					</div>
@@ -310,9 +310,9 @@ templ dartboardView(v service.GameView, p progress) {
 			}
 			for _, n := range boardNumbers {
 				if target != 0 && n.Text == strconv.Itoa(int(target)) {
-					<text x={ n.X } y={ n.Y } fill={ boardTarget } font-size="32" font-family="Barlow Condensed, sans-serif" font-weight="800" text-anchor="middle" dominant-baseline="central">{ n.Text }</text>
+					<text x={ n.X } y={ n.Y } fill={ boardTarget } font-size="32" font-family="ui-sans-serif, system-ui, sans-serif" font-weight="800" text-anchor="middle" dominant-baseline="central">{ n.Text }</text>
 				} else {
-					<text x={ n.X } y={ n.Y } fill="#e9dcc0" font-size="24" font-family="Barlow Condensed, sans-serif" font-weight="800" text-anchor="middle" dominant-baseline="central">{ n.Text }</text>
+					<text x={ n.X } y={ n.Y } fill="#e9dcc0" font-size="24" font-family="ui-sans-serif, system-ui, sans-serif" font-weight="800" text-anchor="middle" dominant-baseline="central">{ n.Text }</text>
 				}
 			}
 			for _, d := range boardDarts(v, p) {
@@ -406,11 +406,11 @@ templ playerCard(v service.GameView, p progress, l playerLine) {
 		</div>
 		<div class="mt-2 flex items-end justify-between gap-3">
 			<div>
-				<div class="font-display text-7xl leading-none font-extrabold tabular-nums sm:text-8xl">{ l.Value }</div>
+				<div class="font-number text-6xl leading-none font-extrabold tabular-nums sm:text-7xl">{ l.Value }</div>
 				<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ l.Caption }</div>
 			</div>
 			<div class="text-right">
-				<div class="font-display text-4xl leading-none font-semibold tabular-nums text-white/90">{ l.Stat }</div>
+				<div class="font-number text-3xl leading-none font-semibold tabular-nums text-white/90">{ l.Stat }</div>
 				<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ l.StatCaption }</div>
 			</div>
 		</div>
@@ -430,11 +430,11 @@ templ playerRow(v service.GameView, p progress, l playerLine, next bool) {
 			}
 		</div>
 		<div class="text-right lg:max-xl:hidden">
-			<div class="font-display text-xl leading-none font-semibold tabular-nums text-white/70">{ l.Stat }</div>
+			<div class="font-number text-xl leading-none font-semibold tabular-nums text-white/70">{ l.Stat }</div>
 			<div class="text-[0.65rem] uppercase tracking-widest text-white/40">{ l.StatCaption }</div>
 		</div>
 		<div class="w-20 text-right">
-			<div class="font-display text-4xl leading-none font-extrabold tabular-nums">{ l.Value }</div>
+			<div class="font-number text-4xl leading-none font-extrabold tabular-nums">{ l.Value }</div>
 			<div class="text-[0.65rem] uppercase tracking-widest text-white/40">{ l.Caption }</div>
 		</div>
 	</div>
@@ -481,7 +481,7 @@ templ keypad(v service.GameView, action string) {
 					type="submit"
 					name="number"
 					value={ strconv.Itoa(n) }
-					class={ "h-14 rounded-xl font-display text-3xl font-semibold transition active:scale-90 sm:h-16 lg:h-12",
+					class={ "h-14 rounded-xl font-number text-3xl font-semibold transition active:scale-90 sm:h-16 lg:h-12",
 						templ.KV("bg-board-green text-white shadow-lg shadow-board-green/40 hover:brightness-110", uint8(n) == target),
 						templ.KV("bg-pub-700 text-board-cream hover:bg-pub-700/70", uint8(n) != target) }
 				><span class="hidden text-xl group-has-[[value='double']:checked]/keypad:inline">D</span><span class="hidden text-xl group-has-[[value='triple']:checked]/keypad:inline">T</span>{ strconv.Itoa(n) }</button>
@@ -490,15 +490,15 @@ templ keypad(v service.GameView, action string) {
 				type="submit"
 				name="number"
 				value="25"
-				class={ "col-span-2 h-14 rounded-xl font-display text-3xl font-extrabold uppercase text-white transition active:scale-95 sm:h-16 lg:h-12",
+				class={ "@container col-span-2 h-14 rounded-xl px-2 font-number font-extrabold uppercase text-white transition active:scale-95 sm:h-16 lg:h-12",
 					templ.KV("bg-board-green shadow-lg shadow-board-green/40 ring-2 ring-white", target == throw.BullNumber),
 					templ.KV("bg-board-green/80 hover:bg-board-green", target != throw.BullNumber),
 					"group-has-[[value='triple']:checked]/keypad:pointer-events-none group-has-[[value='triple']:checked]/keypad:opacity-30" }
 			>
-				<span class="group-has-[[value='double']:checked]/keypad:hidden">{ T(ctx).Bull() }</span>
-				<span class="hidden group-has-[[value='double']:checked]/keypad:inline">{ T(ctx).Bullseye() }</span>
+				<span class="group-has-[[value='double']:checked]/keypad:hidden">@fitText(T(ctx).Bull(), "1.875rem")</span>
+				<span class="hidden group-has-[[value='double']:checked]/keypad:inline">@fitText(T(ctx).Bullseye(), "1.875rem")</span>
 			</button>
-			<button type="submit" name="miss" value="true" class="col-span-3 h-14 rounded-xl bg-board-red/85 font-display text-3xl font-extrabold uppercase text-white transition hover:bg-board-red active:scale-95 sm:h-16 lg:h-12">{ T(ctx).Miss() }</button>
+			<button type="submit" name="miss" value="true" class="@container col-span-3 h-14 rounded-xl bg-board-red/85 px-2 font-number font-extrabold uppercase text-white transition hover:bg-board-red active:scale-95 sm:h-16 lg:h-12">@fitText(T(ctx).Miss(), "1.875rem")</button>
 		</div>
 	</form>
 }
@@ -514,13 +514,19 @@ templ dartInput(v service.GameView, action string) {
 		{{ skips := v.Game.AroundTheClock.MultiplierSkips && target != throw.BullNumber }}
 		<div class="flex flex-col gap-3">
 			<div class={ "grid gap-2", templ.KV("grid-cols-2", !skips), templ.KV("grid-cols-3", skips) }>
-				@quickDart(action, target, throw.Single, T(ctx).Hit(), skips, "h-24 bg-board-green text-5xl shadow-board-green/40")
+				@quickDart(action, target, throw.Single, T(ctx).Hit(), skips, "3rem", "h-24 bg-board-green shadow-board-green/40")
 				if skips {
-					@quickDart(action, target, throw.Double, "D"+targetLabel(T(ctx), target), false, "h-16 bg-board-green/75 text-3xl shadow-board-green/30")
-					@quickDart(action, target, throw.Triple, "T"+targetLabel(T(ctx), target), false, "h-16 bg-board-green/75 text-3xl shadow-board-green/30")
+					@quickDart(action, target, throw.Double, "D"+targetLabel(T(ctx), target), false, "1.875rem", "h-16 bg-board-green/75 shadow-board-green/30")
+					@quickDart(action, target, throw.Triple, "T"+targetLabel(T(ctx), target), false, "1.875rem", "h-16 bg-board-green/75 shadow-board-green/30")
 				}
 				<form hx-post={ action } hx-target="#board" hx-swap="outerHTML">
-					<button type="submit" name="miss" value="true" class={ "w-full rounded-2xl bg-board-red/85 font-display font-extrabold uppercase text-white shadow-lg shadow-board-red/30 transition hover:bg-board-red active:scale-95", templ.KV("h-24 text-5xl", !skips), templ.KV("h-16 text-3xl", skips) }>{ T(ctx).Miss() }</button>
+					<button type="submit" name="miss" value="true" class={ "@container w-full rounded-2xl bg-board-red/85 px-2 font-number font-extrabold uppercase text-white shadow-lg shadow-board-red/30 transition hover:bg-board-red active:scale-95", templ.KV("h-24", !skips), templ.KV("h-16", skips) }>
+						if skips {
+							@fitText(T(ctx).Miss(), "1.875rem")
+						} else {
+							@fitText(T(ctx).Miss(), "3rem")
+						}
+					</button>
 				</form>
 			</div>
 			<details class="group">
@@ -536,13 +542,21 @@ templ dartInput(v service.GameView, action string) {
 	}
 }
 
-// quickDart is a button that enters a given field; wide spans the whole row.
-templ quickDart(action string, number uint8, segment throw.Segment, label string, wide bool, classes string) {
+// quickDart is a button that enters a given field; wide spans the whole row, size is the
+// label's largest size (see fitText).
+templ quickDart(action string, number uint8, segment throw.Segment, label string, wide bool, size, classes string) {
 	<form hx-post={ action } hx-target="#board" hx-swap="outerHTML" class={ templ.KV("col-span-3", wide) }>
 		<input type="hidden" name="number" value={ strconv.Itoa(int(number)) }/>
 		<input type="hidden" name="segment" value={ segment.String() }/>
-		<button type="submit" class={ "w-full rounded-2xl font-display font-extrabold uppercase text-white shadow-lg transition hover:brightness-110 active:scale-95", classes }>{ label }</button>
+		<button type="submit" class={ "@container w-full rounded-2xl px-2 font-number font-extrabold uppercase text-white shadow-lg transition hover:brightness-110 active:scale-95", classes }>@fitText(label, size)</button>
 	</form>
+}
+
+// fitText is a label that shrinks to fit the width of its container (an element with
+// @container): the largest size is size, long labels like DANEBEN or BULLSEYE get
+// smaller, whatever the font and the screen.
+templ fitText(label, size string) {
+	<span class="text-fit" style={ fitStyle(label, size) }>{ label }</span>
 }
 
 // segmentButton is one option of the single/double/triple control. On the bull key,
@@ -599,7 +613,7 @@ templ x01HistoryRow(v service.GameView, t x01.Turn) {
 			if t.Bust {
 				<span class="rounded-full bg-board-red/25 px-2 py-0.5 text-xs font-semibold text-red-300">{ T(ctx).Busted() }</span>
 			} else {
-				<span class={ templ.KV("font-display text-lg font-extrabold text-amber-300", t.Points >= 100) }>{ strconv.FormatUint(t.Points, 10) }</span>
+				<span class={ templ.KV("font-number text-lg font-extrabold text-amber-300", t.Points >= 100) }>{ strconv.FormatUint(t.Points, 10) }</span>
 			}
 		</td>
 		<td class="py-2 text-right">
@@ -628,9 +642,9 @@ templ turnDartsList(v service.GameView, darts []throw.Dart, complete bool) {
 // The dart just thrown flies in.
 templ dartTile(v service.GameView, d throw.Dart) {
 	if v.CanThrow {
-		<button type="button" class={ dartTileClasses(T(ctx), v, d), "hover:brightness-110 active:scale-95" } title={ T(ctx).Correct() } hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(T(ctx), d) }</button>
+		<button type="button" class={ dartTileClasses(v, d), "hover:brightness-110 active:scale-95" } title={ T(ctx).Correct() } hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">@fitText(dartLabel(T(ctx), d), "3rem")</button>
 	} else {
-		<span class={ dartTileClasses(T(ctx), v, d) }>{ dartLabel(T(ctx), d) }</span>
+		<span class={ dartTileClasses(v, d) }>@fitText(dartLabel(T(ctx), d), "3rem")</span>
 	}
 }
 
@@ -689,7 +703,7 @@ templ aroundTheClockHistoryRow(v service.GameView, t aroundtheclock.Turn) {
 			if t.Target == 0 {
 				<span class="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-pub-950">{ T(ctx).Finished() }</span>
 			} else if t.Target != t.From {
-				<span class="text-white/40">{ targetLabel(T(ctx), t.From) } →</span> <span class="font-display text-lg font-extrabold text-emerald-300">{ targetLabel(T(ctx), t.Target) }</span>
+				<span class="text-white/40">{ targetLabel(T(ctx), t.From) } →</span> <span class="font-number text-lg font-extrabold text-emerald-300">{ targetLabel(T(ctx), t.Target) }</span>
 			} else {
 				{ targetLabel(T(ctx), t.Target) }
 			}
@@ -756,10 +770,10 @@ templ bullOffPanel(v service.GameView, p progress) {
 	if v.CanThrow {
 		{{ action := gameURL(v.Game.ID, "/darts") }}
 		<div class="grid grid-cols-3 gap-2">
-			@quickDart(action, throw.BullNumber, throw.Bullseye, T(ctx).Bullseye(), false, "h-20 bg-board-red text-3xl shadow-board-red/40")
-			@quickDart(action, throw.BullNumber, throw.Bull, T(ctx).Bull(), false, "h-20 bg-board-green text-3xl shadow-board-green/40")
+			@quickDart(action, throw.BullNumber, throw.Bullseye, T(ctx).Bullseye(), false, "1.875rem", "h-20 bg-board-red shadow-board-red/40")
+			@quickDart(action, throw.BullNumber, throw.Bull, T(ctx).Bull(), false, "1.875rem", "h-20 bg-board-green shadow-board-green/40")
 			<form hx-post={ action } hx-target="#board" hx-swap="outerHTML">
-				<button type="submit" name="miss" value="true" class="h-20 w-full rounded-2xl bg-pub-700 font-display text-3xl font-extrabold uppercase text-white/80 shadow-lg transition hover:bg-pub-700/70 active:scale-95">{ T(ctx).Miss() }</button>
+				<button type="submit" name="miss" value="true" class="@container h-20 w-full rounded-2xl bg-pub-700 px-2 font-number font-extrabold uppercase text-white/80 shadow-lg transition hover:bg-pub-700/70 active:scale-95">@fitText(T(ctx).Miss(), "1.875rem")</button>
 			</form>
 		</div>
 	}

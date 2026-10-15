@@ -6,6 +6,9 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
+
+	"github.com/a-h/templ"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
@@ -250,14 +253,15 @@ func dartLabel(t Texts, d throw.Dart) string {
 	return d.String()
 }
 
+// fitStyle sets what text-fit needs (see fitText): the label's length in characters
+// (at least 3, so short labels don't grow beyond the others) and the largest size.
+func fitStyle(label, maxSize string) templ.SafeCSS {
+	return templ.SafeCSS("--fit-len:" + strconv.Itoa(max(utf8.RuneCountInString(label), 3)) + ";--fit-max:" + maxSize)
+}
+
 // dartTileClasses style a dart's large tile; the dart just thrown flies in.
-func dartTileClasses(t Texts, v service.GameView, d throw.Dart) string {
-	classes := "flex h-20 items-center justify-center rounded-2xl font-display font-extrabold uppercase shadow-lg transition sm:h-24 lg:h-20 " + dartTileColors(v, d)
-	if len([]rune(dartLabel(t, d))) > 4 {
-		classes += " text-2xl sm:text-3xl"
-	} else {
-		classes += " text-5xl"
-	}
+func dartTileClasses(v service.GameView, d throw.Dart) string {
+	classes := "@container flex h-20 items-center justify-center rounded-2xl px-2 font-number font-extrabold uppercase shadow-lg transition sm:h-24 lg:h-20 " + dartTileColors(v, d)
 	if isLatest(v, d) {
 		classes += " animate-dart-in"
 	}
