@@ -237,3 +237,29 @@ func (textsDE) TakeoutArea() string { return "Herausziehen ab" }
 func (textsDE) TakeoutAreaHint() string {
 	return "Ändert sich mehr, war es eine Hand bzw. herausgezogene Pfeile."
 }
+
+func (textsDE) TraceTitle() string { return "Erkennung im Detail" }
+func (textsDE) TraceHint() string {
+	return "Neu berechnet aus den gespeicherten Bildern, mit der aktuellen Kalibrierung und den aktuellen Einstellungen; die früheren Pfeile der Aufnahme werden mit erkannt. Ein Klick aufs Bild zeigt es in voller Größe."
+}
+func (textsDE) LegendSeed() string      { return "Barrel und Spitze" }
+func (textsDE) LegendArea() string      { return "Rest des Pfeils (z. B. Flight)" }
+func (textsDE) LegendPiece() string     { return "verändertes Stück, nicht der Pfeil" }
+func (textsDE) LegendChanged() string   { return "veränderter Fleck" }
+func (textsDE) LegendEarlier() string   { return "frühere Pfeile" }
+func (textsDE) LegendFirstAxis() string { return "Achse der unteren Hälfte" }
+func (textsDE) LegendAxis() string      { return "Achse nahe der Spitze" }
+func (textsDE) LegendTipEnd() string    { return "Ende, aus dem die Spitze gemittelt wird" }
+func (textsDE) LegendTip() string       { return "Spitze" }
+func (textsDE) TraceChanged(pixels, pieces int) string {
+	return strconv.Itoa(pixels) + " Bildpunkte verändert, " + strconv.Itoa(pieces) + " " + plural(pieces, "Stück", "Stücke")
+}
+func (textsDE) TraceDart(seed, area int, elongation string) string {
+	return "Barrel und Spitze " + strconv.Itoa(seed) + " px (Länge : Breite " + elongation + "), ganzer Pfeil " + strconv.Itoa(area) + " px"
+}
+func (textsDE) TraceRetried() string {
+	return "zunächst nicht wie ein Pfeil geformt: ohne die früheren Pfeile neu berechnet"
+}
+func (textsDE) TraceNoDart(err string) string { return "kein Pfeil: " + err }
+func (textsDE) Zoom() string                  { return "Vergrößerung" }
+func (textsDE) WholeImage() string            { return "Ganzes Bild" }

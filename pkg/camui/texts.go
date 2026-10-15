@@ -2,9 +2,12 @@ package camui
 
 import (
 	"context"
+	"fmt"
+	"image/color"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/i18n"
+	"github.com/sj14/darts-o-mat/pkg/vision"
 )
 
 // Texts are the texts of darts-o-cam's web interface, one method per text, like the
@@ -70,6 +73,25 @@ type Texts interface {
 	EventExplanation() string
 	Before() string
 	After() string
+
+	// Detection in detail (trace).
+	TraceTitle() string
+	TraceHint() string
+	LegendSeed() string
+	LegendArea() string
+	LegendPiece() string
+	LegendChanged() string
+	LegendEarlier() string
+	LegendFirstAxis() string
+	LegendAxis() string
+	LegendTipEnd() string
+	LegendTip() string
+	TraceChanged(pixels, pieces int) string
+	TraceDart(seed, area int, elongation string) string
+	TraceRetried() string
+	TraceNoDart(err string) string
+	Zoom() string
+	WholeImage() string
 
 	// Removing a camera.
 	RemoveTitle(name string) string
@@ -182,4 +204,22 @@ func dartLabel(t Texts, d throw.Dart) string {
 		return t.Miss()
 	}
 	return d.String()
+}
+
+// legendItem is a color of the trace images and what it means.
+type legendItem struct{ Color, Text string }
+
+func traceLegend(t Texts) []legendItem {
+	hex := func(c color.RGBA) string { return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B) }
+	return []legendItem{
+		{hex(vision.TraceSeed), t.LegendSeed()},
+		{hex(vision.TraceArea), t.LegendArea()},
+		{hex(vision.TracePiece), t.LegendPiece()},
+		{hex(vision.TraceChanged), t.LegendChanged()},
+		{hex(vision.TraceEarlier), t.LegendEarlier()},
+		{hex(vision.TraceFirst), t.LegendFirstAxis()},
+		{hex(vision.TraceAxis), t.LegendAxis()},
+		{hex(vision.TraceTipEnd), t.LegendTipEnd()},
+		{hex(vision.TraceTipColor), t.LegendTip()},
+	}
 }

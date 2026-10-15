@@ -48,6 +48,6 @@ Then open `http://<computer>:8090` on the other device. The web interface has no
 
 `go run ./cmd/darts-o-cam -h` shows all options. Useful when something goes wrong:
 
-- A detection looks wrong? Open it in the overview: under each camera, "Before" and "After" download its whole images of that throw. The images of the last 20 throws are kept in your cache folder (macOS: `~/Library/Caches/darts-o-cam/events`, Linux: `~/.cache/darts-o-cam/events`, Windows: `%LocalAppData%\darts-o-cam\events`) and are cleared at the next start.
+- A detection looks wrong? Open it in the overview: "Detection in detail" shows step by step what each camera found – the changed pixels, the dart, its axis and the tip – drawn into its image, with a zoom around the tip. Under each camera, "Before" and "After" download its whole images of that throw. The images of the last 20 throws are kept in your cache folder (macOS: `~/Library/Caches/darts-o-cam/events`, Linux: `~/.cache/darts-o-cam/events`, Windows: `%LocalAppData%\darts-o-cam\events`) and are cleared at the next start.
 - `-v` logs every motion, `-save <folder>` keeps the camera images of every throw in that folder instead. These images can show people in the room – keep that in mind before sharing them.
 - `go run ./cmd/darts-o-cam analyze -dir <folder>` explains what was detected in saved or downloaded images.

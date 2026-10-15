@@ -175,16 +175,20 @@ func DetectDart(before, after *image.RGBA, opts DetectOptions, scale float64) (D
 // without them if the change isn't shaped like a dart, see detect. It also returns the
 // changed area of this dart.
 func DetectDartBeside(before, after *image.RGBA, opts DetectOptions, scale float64, earlier []image.Point) (Detection, []image.Point, error) {
-	var darts *Mask
-	if len(earlier) > 0 {
-		b := before.Bounds()
-		darts = &Mask{W: b.Dx(), H: b.Dy(), Pix: make([]bool, b.Dx()*b.Dy())}
-		for _, p := range earlier {
-			darts.Pix[p.Y*darts.W+p.X] = true
-		}
-		darts = darts.dilate(length(dartMargin, scale))
+	return detect(before, after, opts.pixels(scale), dartsMask(before.Bounds(), earlier, scale), nil)
+}
+
+// dartsMask marks the changed pixels of the darts thrown earlier, widened by dartMargin;
+// nil without any.
+func dartsMask(b image.Rectangle, earlier []image.Point, scale float64) *Mask {
+	if len(earlier) == 0 {
+		return nil
 	}
-	return detect(before, after, opts.pixels(scale), darts)
+	darts := &Mask{W: b.Dx(), H: b.Dy(), Pix: make([]bool, b.Dx()*b.Dy())}
+	for _, p := range earlier {
+		darts.Pix[p.Y*darts.W+p.X] = true
+	}
+	return darts.dilate(length(dartMargin, scale))
 }
 
 // detect is DetectDart that also returns the changed area, so the watcher compares the
@@ -195,9 +199,14 @@ func DetectDartBeside(before, after *image.RGBA, opts DetectOptions, scale float
 // new one moves, its outline changes too and can merge with the new dart into one piece
 // that is too wide (2026-10-13, event 95: two parallel darts, elongation 3.1). Only then,
 // because a new dart in front of an old one in the image would lose pixels.
-func detect(before, after *image.RGBA, p detectParams, darts *Mask) (Detection, []image.Point, error) {
+//
+// tr, if not nil, records the steps (see Trace).
+func detect(before, after *image.RGBA, p detectParams, darts *Mask, tr *Trace) (Detection, []image.Point, error) {
 	mask := Diff(before, after, p.diff, p.weak, p.blur)
-	d, area, err := detectIn(mask, p)
+	if tr != nil {
+		tr.Changed, tr.Earlier = mask, darts
+	}
+	d, area, err := detectIn(mask, p, tr)
 	if darts == nil {
 		return d, area, err
 	}
@@ -213,7 +222,14 @@ func detect(before, after *image.RGBA, p detectParams, darts *Mask) (Detection, 
 			without.Pix[i] = false
 		}
 	}
-	if d2, area2, err2 := detectIn(without, p); err2 == nil {
+	retry := tr
+	if tr != nil {
+		retry = &Trace{Changed: tr.Changed, Earlier: darts, Retried: true}
+	}
+	if d2, area2, err2 := detectIn(without, p, retry); err2 == nil {
+		if tr != nil {
+			*tr = *retry
+		}
 		d2.Hidden = darts.at(int(math.Round(d2.Tip.X)), int(math.Round(d2.Tip.Y)))
 		return d2, area2, nil
 	}
@@ -221,22 +237,22 @@ func detect(before, after *image.RGBA, p detectParams, darts *Mask) (Detection, 
 }
 
 // detectIn finds the dart's tip in the changed pixels.
-func detectIn(mask *Mask, p detectParams) (Detection, []image.Point, error) {
-	seed, area := dartArea(mask, p)
+func detectIn(mask *Mask, p detectParams, tr *Trace) (Detection, []image.Point, error) {
+	seed, area := dartArea(mask, p, tr)
 	if len(area) < p.minPixels {
 		return Detection{}, area, ErrNoDart
 	}
 	if seed == nil {
 		return Detection{}, area, ErrNotElongated
 	}
-	d, err := tipOf(seed, area)
+	d, err := tipOf(seed, area, tr)
 	return d, area, err
 }
 
 // ChangedArea returns the changed pixels that DetectDart looks at, e.g. to debug a detection.
 func ChangedArea(before, after *image.RGBA, opts DetectOptions, scale float64) []image.Point {
 	p := opts.pixels(scale)
-	_, area := dartArea(Diff(before, after, p.diff, p.weak, p.blur), p)
+	_, area := dartArea(Diff(before, after, p.diff, p.weak, p.blur), p, nil)
 	return area
 }
 
@@ -245,12 +261,13 @@ func ChangedArea(before, after *image.RGBA, opts DetectOptions, scale float64) [
 // seed is the largest elongated piece: barrel and point; a piece that includes the flight
 // counts if its lower half is elongated. A barrel alone counts as a whole: its lower half
 // is only half as long (2026-10-14, event 4: a dart passing behind an earlier dart's
-// flight fell apart, its barrel piece had 3.9 in the lower half and 7.4 as a whole). Pieces on the seed's axis above its lower
-// end, like the flight, belong to the dart; specks elsewhere don't. Below the seed is
+// flight fell apart, its barrel piece had 3.9 in the lower half and 7.4 as a whole).
+// Pieces on the seed's axis above its lower end, like the flight, belong to the dart;
+// specks elsewhere don't. Below the seed is
 // board: a speck there on the axis (color noise at a ring's edge, 56 px below a real
 // dart's tip, 2026-10-13) would become the tip. Small gaps in the point are bridged
 // already (GapRadius); no real throw had a piece of the dart below the seed.
-func dartArea(mask *Mask, p detectParams) (seed, area []image.Point) {
+func dartArea(mask *Mask, p detectParams, tr *Trace) (seed, area []image.Point) {
 	var comps [][]image.Point
 	for _, c := range mask.componentsBridging(p.gap) {
 		if len(c) >= p.minSpeck {
@@ -258,13 +275,23 @@ func dartArea(mask *Mask, p detectParams) (seed, area []image.Point) {
 		}
 	}
 	slices.SortFunc(comps, func(a, b []image.Point) int { return len(b) - len(a) })
+	if tr != nil {
+		tr.Pieces = comps
+		defer func() { tr.Seed, tr.Area = seed, area }()
+	}
 
 	seedIndex := -1
 	for i, c := range comps {
 		if lower := lowerHalf(c); len(lower) >= 10 {
 			_, _, e := principalAxis(lower)
 			_, _, whole := principalAxis(c)
+			if tr != nil && i == 0 {
+				tr.Elongation = max(e, whole) // of the largest piece, also when it isn't a dart
+			}
 			if max(e, whole) >= p.minElongation {
+				if tr != nil {
+					tr.Elongation = max(e, whole)
+				}
 				seedIndex = i
 				break
 			}
@@ -412,8 +439,13 @@ const tipAxisPart = 0.4
 // tipOf finds the tip of the dart: the lower end of the area along the seed's axis.
 // The cameras look across the board from its rim, so a dart sticking out of the
 // board points up in the image.
-func tipOf(seed, area []image.Point) (Detection, error) {
+func tipOf(seed, area []image.Point, tr *Trace) (Detection, error) {
 	center, axis := tipAxis(seed)
+	if tr != nil {
+		c, a, _ := principalAxis(lowerHalf(seed))
+		tr.FirstAxis = Line{c, downwards(a)}
+		tr.Axis = Line{center, axis}
+	}
 
 	ts := make([]float64, len(area))
 	for i, p := range area {
@@ -432,10 +464,13 @@ func tipOf(seed, area []image.Point) (Detection, error) {
 	// beside the point, on the wire between 16 and 7 instead of in the 7).
 	var t float64
 	var count int
-	for i := range area {
+	for i, p := range area {
 		if math.Abs(ts[i]-tipT) <= 3 {
 			t += ts[i]
 			count++
+			if tr != nil {
+				tr.TipEnd = append(tr.TipEnd, p)
+			}
 		}
 	}
 	if count == 0 {

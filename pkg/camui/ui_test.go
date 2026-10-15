@@ -105,6 +105,17 @@ func TestEventPages(t *testing.T) {
 	if !strings.Contains(body, `href="/event/1/cam/2/before.jpg"`) || !strings.Contains(body, `href="/event/1/cam/2/after.jpg"`) {
 		t.Errorf("event page: links to the whole frames missing")
 	}
+	if !strings.Contains(body, `href="/event/1/trace"`) {
+		t.Errorf("event page: link to the detection in detail missing")
+	}
+	// The detection in detail: these cameras aren't configured in the app, so each says
+	// why it can't be computed again; a takeout has none.
+	if code, body := get(t, srv, "/event/1/trace"); code != 200 || strings.Count(body, "no dart:") != 3 {
+		t.Errorf("trace page: %d, want the three cameras' reasons", code)
+	}
+	if code, _ := get(t, srv, "/event/2/trace"); code != 404 {
+		t.Errorf("trace of a takeout: %d, want 404", code)
+	}
 
 	// The whole frames download under the names darts-o-cam -save uses.
 	resp, err := http.Get(srv.URL + "/event/1/cam/2/before.jpg")

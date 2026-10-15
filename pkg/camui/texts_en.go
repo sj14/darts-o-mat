@@ -236,3 +236,29 @@ func plural(n int, one, many string) string {
 	}
 	return many
 }
+
+func (textsEN) TraceTitle() string { return "Detection in detail" }
+func (textsEN) TraceHint() string {
+	return "Computed again from the saved frames, with the current calibration and settings; the earlier darts of the turn are detected again too. Click an image to see it in full size."
+}
+func (textsEN) LegendSeed() string      { return "barrel and point" }
+func (textsEN) LegendArea() string      { return "rest of the dart (e.g. flight)" }
+func (textsEN) LegendPiece() string     { return "changed piece, not the dart" }
+func (textsEN) LegendChanged() string   { return "changed speck" }
+func (textsEN) LegendEarlier() string   { return "earlier darts" }
+func (textsEN) LegendFirstAxis() string { return "axis of the lower half" }
+func (textsEN) LegendAxis() string      { return "axis near the tip" }
+func (textsEN) LegendTipEnd() string    { return "end the tip is averaged from" }
+func (textsEN) LegendTip() string       { return "tip" }
+func (textsEN) TraceChanged(pixels, pieces int) string {
+	return strconv.Itoa(pixels) + " pixels changed, " + strconv.Itoa(pieces) + " " + plural(pieces, "piece", "pieces")
+}
+func (textsEN) TraceDart(seed, area int, elongation string) string {
+	return "barrel and point " + strconv.Itoa(seed) + " px (length : width " + elongation + "), whole dart " + strconv.Itoa(area) + " px"
+}
+func (textsEN) TraceRetried() string {
+	return "not shaped like a dart at first: computed again without the earlier darts"
+}
+func (textsEN) TraceNoDart(err string) string { return "no dart: " + err }
+func (textsEN) Zoom() string                  { return "Zoom" }
+func (textsEN) WholeImage() string            { return "Whole image" }

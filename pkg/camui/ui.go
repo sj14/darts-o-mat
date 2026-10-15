@@ -9,9 +9,9 @@ import (
 	"image"
 	"image/color"
 	"image/jpeg"
+	"image/png"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -50,6 +50,16 @@ type UI struct {
 	session map[string]*session
 	// checks are the latest grid checks, per camera name.
 	checks map[string]check
+	// traced is the detection last computed again with its steps, see tracePage.
+	traced traced
+}
+
+// traced is a detection computed again with its steps: the images are drawn once, the
+// page and its images are separate requests.
+type traced struct {
+	id     int
+	traces []camapp.CameraTrace
+	images []*image.RGBA // DrawTrace of each camera, nil where it failed
 }
 
 // check is a refinement run on a camera's current frame, to show the features found.
@@ -103,6 +113,9 @@ func (ui *UI) Routes() http.Handler {
 	r.Get("/event/{id}", ui.eventPage)
 	r.Get("/event/{id}/cam/{i}.jpg", ui.eventImage)
 	r.Get("/event/{id}/cam/{i}/{kind}.jpg", ui.eventFrame)
+	r.Get("/event/{id}/trace", ui.tracePage)
+	r.Get("/event/{id}/trace/{i}.jpg", ui.traceImage)
+	r.Get("/event/{id}/trace/{i}/zoom.jpg", ui.traceZoom)
 	return r
 }
 
@@ -666,7 +679,7 @@ func (ui *UI) eventImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e, _ := ui.app.Event(id)
-	frame, err := readJPEG(path)
+	frame, err := camapp.ReadJPEG(path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -682,20 +695,6 @@ func (ui *UI) eventImage(w http.ResponseWriter, r *http.Request) {
 	x0 := min(max(int(tip.X)-w2, 0), frame.Bounds().Dx()-2*w2)
 	y0 := min(max(int(tip.Y)-h2, 0), frame.Bounds().Dy()-2*h2)
 	writeJPEG(w, frame.SubImage(image.Rect(x0, y0, x0+2*w2, y0+2*h2)))
-}
-
-// readJPEG loads a saved frame.
-func readJPEG(path string) (*image.RGBA, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	img, err := jpeg.Decode(f)
-	if err != nil {
-		return nil, err
-	}
-	return vision.ToRGBA(img), nil
 }
 
 // eventFrame serves a camera's whole frame before or after the event as a download, to
@@ -729,4 +728,136 @@ func writeJPEG(w http.ResponseWriter, img image.Image) {
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(buf.Bytes())
+}
+
+// traceFor returns the detection of an event computed again with its steps, computing it
+// only if it isn't the one computed last (it takes a while).
+func (ui *UI) traceFor(id int) (traced, error) {
+	ui.mu.Lock()
+	t := ui.traced
+	ui.mu.Unlock()
+	if t.id == id && t.traces != nil {
+		return t, nil
+	}
+	traces, err := ui.app.Traces(id)
+	if err != nil {
+		return traced{}, err
+	}
+	t = traced{id: id, traces: traces, images: make([]*image.RGBA, len(traces))}
+	for i, c := range traces {
+		if c.Err == nil {
+			t.images[i] = vision.DrawTrace(c.After, c.Trace)
+		}
+	}
+	ui.mu.Lock()
+	ui.traced = t
+	ui.mu.Unlock()
+	return t, nil
+}
+
+// tracePage shows how each camera detected a dart, step by step, computed again from the
+// saved frames on request (not while playing: it costs as much as the detection).
+func (ui *UI) tracePage(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
+	e, ok := ui.app.Event(id)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	t, err := ui.traceFor(id)
+	if errors.Is(err, camapp.ErrNoTrace) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	m := TraceModel{Event: eventModel(T(r.Context()), e)}
+	for i, c := range t.traces {
+		m.Cameras = append(m.Cameras, traceCameraModel(i, c))
+	}
+	render(w, r, TracePage(m))
+}
+
+// traceImage serves a camera's frame with the steps of its detection drawn in.
+func (ui *UI) traceImage(w http.ResponseWriter, r *http.Request) {
+	if img, _, ok := ui.traceImageOf(w, r); ok {
+		writeJPEG(w, img)
+	}
+}
+
+// traceZoom serves the part of traceImage around the tip, to look at it pixel by pixel
+// (the page enlarges it).
+func (ui *UI) traceZoom(w http.ResponseWriter, r *http.Request) {
+	img, c, ok := ui.traceImageOf(w, r)
+	if !ok {
+		return
+	}
+	center := zoomCenter(c.Trace, img.Bounds())
+	x0 := min(max(center.X-zoomW/2, 0), img.Bounds().Dx()-zoomW)
+	y0 := min(max(center.Y-zoomH/2, 0), img.Bounds().Dy()-zoomH)
+	writePNG(w, img.SubImage(image.Rect(x0, y0, x0+zoomW, y0+zoomH)))
+}
+
+// zoomW and zoomH are the size of the zoomed part, in image pixels.
+const zoomW, zoomH = 120, 90
+
+// zoomCenter is where to zoom in: the tip, else the dart's or the largest change's middle.
+func zoomCenter(t vision.Trace, b image.Rectangle) image.Point {
+	if t.Err == nil {
+		return image.Pt(int(t.Tip.Tip.X), int(t.Tip.Tip.Y))
+	}
+	pts := t.Area
+	if len(pts) == 0 && len(t.Pieces) > 0 {
+		pts = t.Pieces[0]
+	}
+	if len(pts) == 0 {
+		return image.Pt(b.Dx()/2, b.Dy()/2)
+	}
+	var sx, sy int
+	for _, p := range pts {
+		sx, sy = sx+p.X, sy+p.Y
+	}
+	return image.Pt(sx/len(pts), sy/len(pts))
+}
+
+// traceImageOf returns the drawn trace of the camera in the URL, writing 404 without one.
+func (ui *UI) traceImageOf(w http.ResponseWriter, r *http.Request) (*image.RGBA, camapp.CameraTrace, bool) {
+	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
+	i, _ := strconv.Atoi(chi.URLParam(r, "i"))
+	t, err := ui.traceFor(id)
+	if err != nil || i < 0 || i >= len(t.images) || t.images[i] == nil {
+		http.NotFound(w, r)
+		return nil, camapp.CameraTrace{}, false
+	}
+	return t.images[i], t.traces[i], true
+}
+
+// writePNG serves an image losslessly, so its pixels stay sharp when enlarged.
+func writePNG(w http.ResponseWriter, img image.Image) {
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(buf.Bytes())
+}
+
+// traceCameraModel is what the trace page says about a camera's detection.
+func traceCameraModel(i int, c camapp.CameraTrace) TraceCamera {
+	t := c.Trace
+	m := TraceCamera{Index: i, Name: c.Name, Retried: t.Retried, Pieces: len(t.Pieces), Elongation: t.Elongation, Found: c.Err == nil && t.Err == nil}
+	if c.Err != nil {
+		m.Err = c.Err.Error()
+	} else if t.Err != nil {
+		m.Err = t.Err.Error()
+	}
+	if t.Changed != nil {
+		m.Changed = t.Changed.Count()
+	}
+	m.Area, m.Seed, m.TipEnd = len(t.Area), len(t.Seed), len(t.TipEnd)
+	return m
 }

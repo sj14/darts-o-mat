@@ -456,6 +456,10 @@ templ EventPage(m EventModel) {
 				{ m.Label }
 			}
 		</h1>
+		if !m.Takeout {
+			// Computed only on request: it costs as much as the detection.
+			<p class="mb-4"><a href={ templ.URL("/event/" + strconv.Itoa(m.ID) + "/trace") } class={ btnSecondary, btnSmall }>🔍 { T(ctx).TraceTitle() }</a></p>
+		}
 		if !m.Takeout && !m.Located {
 			@notice(T(ctx).UnlocatedNotice(), "border-white/15 bg-white/5 text-white/70")
 		}
@@ -668,4 +672,85 @@ templ SettingsPage(m SettingsModel) {
 		</form>
 		<form id="detection-defaults" method="post" action="/settings/defaults"></form>
 	}
+}
+
+type TraceModel struct {
+	Event   EventModel
+	Cameras []TraceCamera
+}
+
+// TraceCamera is a camera's detection computed again, as the trace page tells it.
+type TraceCamera struct {
+	Index, Changed, Pieces, Seed, Area, TipEnd int
+	Name                                       string
+	Found, Retried                             bool
+	Elongation                                 float64
+	Err                                        string
+}
+
+// TracePage shows how each camera detected a dart, step by step, on its frame and
+// enlarged around the tip.
+templ TracePage(m TraceModel) {
+	@layout(T(ctx).TraceTitle()) {
+		<h1 class="mb-2 font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream">
+			{ T(ctx).TraceTitle() }: <span class="text-white/40">{ m.Event.Time }</span> { m.Event.Label }
+		</h1>
+		<p class="mb-4 max-w-3xl text-white/60">{ T(ctx).TraceHint() }</p>
+		<ul class="mb-6 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+			for _, l := range traceLegend(T(ctx)) {
+				<li class="flex items-center gap-1.5"><span class="inline-block size-3 rounded-sm" style={ "background: " + l.Color }></span>{ l.Text }</li>
+			}
+		</ul>
+		<div class="flex flex-col gap-8">
+			for _, c := range m.Cameras {
+				@traceCamera(m.Event.ID, c)
+			}
+		</div>
+		<p class="mt-6"><a href={ templ.URL("/event/" + strconv.Itoa(m.Event.ID)) } class={ linkClass }>← { T(ctx).Back() }</a></p>
+	}
+}
+
+templ traceCamera(id int, c TraceCamera) {
+	<section class="rounded-3xl border border-white/10 bg-pub-900/80 p-4">
+		<h2 class="mb-2 font-display text-2xl font-extrabold uppercase"><span style={ "color: " + cameraColor(c.Index) }>●</span> { c.Name }</h2>
+		<ul class="mb-3 text-sm text-white/70">
+			<li>{ T(ctx).TraceChanged(c.Changed, c.Pieces) }</li>
+			if c.Seed > 0 {
+				<li>{ T(ctx).TraceDart(c.Seed, c.Area, T(ctx).Number(c.Elongation, 1)) }</li>
+			}
+			if c.Retried {
+				<li class="text-amber-300">{ T(ctx).TraceRetried() }</li>
+			}
+			if c.Err != "" {
+				<li class="text-red-300">{ T(ctx).TraceNoDart(c.Err) }</li>
+			}
+		</ul>
+		if c.Changed > 0 || c.Found {
+			<div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,1fr)]">
+				// The zoom changes the size with CSS only (radio buttons, like the keypad of the
+				// game page); the image keeps its pixels sharp.
+				<div class="group/zoom">
+					<div class="mb-2 flex items-center gap-2 text-sm">
+						<span class="text-white/50">{ T(ctx).Zoom() }</span>
+						for _, z := range []int{2, 4, 8} {
+							<label class="cursor-pointer">
+								<input type="radio" name={ "zoom-" + strconv.Itoa(c.Index) } value={ strconv.Itoa(z) } checked?={ z == 4 } class="peer sr-only"/>
+								<span class="rounded-lg border border-white/15 px-2 py-0.5 text-white/70 peer-checked:bg-board-cream peer-checked:text-pub-950">{ strconv.Itoa(z) }×</span>
+							</label>
+						}
+					</div>
+					<div class="max-h-[720px] max-w-[min(960px,90vw)] overflow-auto rounded-xl border border-white/10">
+						<img
+							src={ "/event/" + strconv.Itoa(id) + "/trace/" + strconv.Itoa(c.Index) + "/zoom.jpg" }
+							class="max-w-none [image-rendering:pixelated] w-[240px] group-has-[[value='4']:checked]/zoom:w-[480px] group-has-[[value='8']:checked]/zoom:w-[960px]"
+							alt={ T(ctx).Zoom() }
+						/>
+					</div>
+				</div>
+				<a href={ templ.URL("/event/" + strconv.Itoa(id) + "/trace/" + strconv.Itoa(c.Index) + ".jpg") } target="_blank" title={ T(ctx).WholeImage() }>
+					<img src={ "/event/" + strconv.Itoa(id) + "/trace/" + strconv.Itoa(c.Index) + ".jpg" } class="w-full rounded-xl border border-white/10" alt={ T(ctx).WholeImage() }/>
+				</a>
+			</div>
+		}
+	</section>
 }

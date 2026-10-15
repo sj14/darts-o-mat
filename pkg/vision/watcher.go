@@ -162,7 +162,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		if i < len(w.darts) {
 			darts = w.darts[i]
 		}
-		wg.Go(func() { detections[i], areas[i], errs[i] = detect(ref[i], f, w.params[i].detect, darts) })
+		wg.Go(func() { detections[i], areas[i], errs[i] = detect(ref[i], f, w.params[i].detect, darts, nil) })
 	}
 	wg.Wait()
 
