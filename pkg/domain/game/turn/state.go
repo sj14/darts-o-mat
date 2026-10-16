@@ -1,6 +1,9 @@
 package turn
 
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // State is the part of a game's state that is the same for all modes: whose turn it
 // is, legs, bulling off and the end of the game. The modes embed it in their state.
@@ -32,11 +35,26 @@ type State struct {
 	BullOffTie []int64 `json:"bull_off_tie,omitempty"`
 	// Throwers is the player who threw each entry of the log, 0 for takeouts.
 	Throwers []int64 `json:"-"`
-	// Time is when the game was played so far, Legs and Sets when each finished leg and
-	// set was played, in order.
-	Time Span      `json:"time"`
+	// Times is when the game and its finished legs and sets were played.
+	Times Times `json:"times"`
+}
+
+// Record is what a player has won in a game so far. The modes embed it in their
+// players' state.
+type Record struct {
+	Legs    int `json:"legs"`     // legs won, over the whole game
+	SetLegs int `json:"set_legs"` // legs won in the current set (all legs without sets)
+	Sets    int `json:"sets"`     // sets won
+	BestLeg int `json:"best_leg"` // fewest darts in a won leg, 0 without one
+}
+
+// Times is when a game was played: the game so far, from its first dart (bulling off
+// included) to its last, and each finished leg and set, in order. The time before the
+// first dart and takeouts after the last don't count.
+type Times struct {
+	Game Span      `json:"game"`
 	Legs []LegTime `json:"legs"`
-	Sets []Span    `json:"sets"`
+	Sets []Span    `json:"sets"` // by set, the first at index 0
 }
 
 // Span is when a part of a game was played: from its first dart to its last.
@@ -72,9 +90,9 @@ type LegTime struct {
 	Span
 }
 
-// LegTime returns when a leg was played, the zero Span while it isn't finished.
-func (s State) LegTime(set, leg int) Span {
-	for _, l := range s.Legs {
+// Leg returns when a leg was played, the zero Span while it isn't finished.
+func (t Times) Leg(set, leg int) Span {
+	for _, l := range t.Legs {
 		if l.Set == set && l.Leg == leg {
 			return l.Span
 		}
@@ -82,13 +100,24 @@ func (s State) LegTime(set, leg int) Span {
 	return Span{}
 }
 
-// SetTime returns when a set (starting at 1) was played, the zero Span while it isn't
+// Set returns when a set (starting at 1) was played, the zero Span while it isn't
 // finished.
-func (s State) SetTime(set int) Span {
-	if set < 1 || set > len(s.Sets) {
+func (t Times) Set(set int) Span {
+	if set < 1 || set > len(t.Sets) {
 		return Span{}
 	}
-	return s.Sets[set-1]
+	return t.Sets[set-1]
+}
+
+// LastLeg returns the number of the last finished leg of a set, 0 without one.
+func (t Times) LastLeg(set int) int {
+	last := 0
+	for _, l := range t.Legs {
+		if l.Set == set {
+			last = l.Leg
+		}
+	}
+	return last
 }
 
 // Common returns the state shared by all modes, also from a mode's state embedding it.
@@ -113,9 +142,7 @@ func (t *Turn) State(playerIDs []int64) State {
 		BullingOff:        t.BullingOff(),
 		BullOff:           []BullOffDart{},
 		Throwers:          make([]int64, len(t.Throwers)),
-		Time:              t.Time,
-		Legs:              append([]LegTime{}, t.Legs...),
-		Sets:              append([]Span{}, t.Sets...),
+		Times:             Times{Game: t.Times.Game, Legs: slices.Clone(t.Times.Legs), Sets: slices.Clone(t.Times.Sets)},
 	}
 	if t.legWinner != nil {
 		s.LegWinner = id(*t.legWinner)

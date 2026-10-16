@@ -448,14 +448,8 @@ func clock(d time.Duration) string {
 // setDuration returns how long a set took, if the leg is the set's last; 0 otherwise or
 // while the set goes on. The history shows it with that leg.
 func setDuration(st turn.State, set, leg int) time.Duration {
-	last := 0
-	for _, l := range st.Legs {
-		if l.Set == set {
-			last = l.Leg
-		}
-	}
-	if last != leg {
+	if st.Times.LastLeg(set) != leg {
 		return 0
 	}
-	return st.SetTime(set).Duration()
+	return st.Times.Set(set).Duration()
 }

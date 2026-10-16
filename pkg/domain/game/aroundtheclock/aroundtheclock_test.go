@@ -193,7 +193,7 @@ func TestLegs(t *testing.T) {
 		t.Errorf("after leg 1: over=%v leg=%d legs=%d target=%d, want leg 2 started by player 2 with targets reset",
 			st.GameOver, st.Leg, st.Players[0].Legs, st.Players[0].Target)
 	}
-	if got := st.Players[0].Stats.BestLeg; got != 20 {
+	if got := st.Players[0].BestLeg; got != 20 {
 		t.Errorf("best leg = %d darts, want 20", got)
 	}
 }

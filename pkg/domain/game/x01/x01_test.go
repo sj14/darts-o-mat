@@ -338,9 +338,9 @@ func TestLegs(t *testing.T) {
 	if !st.GameOver || *st.WinnerID != 1 || st.Players[0].Legs != 2 {
 		t.Fatalf("over=%v legs=%d, want player 1 to win 2 legs to 0", st.GameOver, st.Players[0].Legs)
 	}
-	stats := st.Players[0].Stats
-	if stats.BestLeg != 1 || stats.Points != 80 || stats.Checkout != 40 {
-		t.Errorf("stats = %+v, want best leg 1 dart, 80 points over both legs", stats)
+	p := st.Players[0]
+	if p.BestLeg != 1 || p.Stats.Points != 80 || p.Stats.Checkout != 40 {
+		t.Errorf("player = %+v, want best leg 1 dart, 80 points over both legs", p)
 	}
 	if _, err := PlayLog(s, []int64{1, 2}, turn.Log{Legs: 2, Entries: append(log.Entries, miss)}); !errors.Is(err, turn.ErrGameOver) {
 		t.Errorf("dart after the game: got %v, want ErrGameOver", err)

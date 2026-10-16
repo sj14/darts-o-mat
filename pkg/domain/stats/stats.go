@@ -83,7 +83,7 @@ func (s *X01) add(p x01.PlayerState, won bool) {
 	s.Turns140 += p.Stats.Turns140
 	s.Turns180 += p.Stats.Turns180
 	s.HighestCheckout = max(s.HighestCheckout, p.Stats.Checkout)
-	s.BestLeg = best(s.BestLeg, p.Stats.BestLeg)
+	s.BestLeg = best(s.BestLeg, p.BestLeg)
 	if won {
 		s.Wins++
 	}
@@ -98,7 +98,7 @@ func (s *AroundTheClock) add(p aroundtheclock.PlayerState, won bool) {
 	if s.Darts > 0 {
 		s.HitRate = float64(s.Hits) / float64(s.Darts)
 	}
-	s.BestLeg = best(s.BestLeg, p.Stats.BestLeg)
+	s.BestLeg = best(s.BestLeg, p.BestLeg)
 	if won {
 		s.Wins++
 	}

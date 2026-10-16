@@ -78,10 +78,8 @@ func (s Settings) Validate() error {
 type PlayerState struct {
 	PlayerID  int64  `json:"player_id"`
 	Remaining uint64 `json:"remaining"` // in the current leg
-	Legs      int    `json:"legs"`      // legs won, over the whole game
-	SetLegs   int    `json:"set_legs"`  // legs won in the current set (all legs without sets)
-	Sets      int    `json:"sets"`      // sets won
-	Stats     Stats  `json:"stats"`
+	turn.Record
+	Stats Stats `json:"stats"`
 }
 
 // Stats of a player in one game, over all legs. Turns count once they are over:
@@ -95,7 +93,6 @@ type Stats struct {
 	Turns140    int     `json:"turns_140"` // turns scoring 140 to 179
 	Turns180    int     `json:"turns_180"`
 	Checkout    uint64  `json:"checkout"` // points of the highest finishing turn, 0 until finished
-	BestLeg     int     `json:"best_leg"` // fewest darts in a won leg, 0 without one
 }
 
 func (s *Stats) addTurn(points uint64) {
@@ -206,7 +203,7 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 
 	for i := range st.Players {
 		p := &st.Players[i]
-		p.Legs, p.SetLegs, p.Sets, p.Stats.BestLeg = t.LegsWon[i], t.SetLegs[i], t.SetsWon[i], t.BestLeg[i]
+		p.Record = t.Records[i]
 		if p.Stats.Darts > 0 {
 			p.Stats.Average = float64(p.Stats.Points) * 3 / float64(p.Stats.Darts)
 		}

@@ -144,7 +144,7 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 		if p.GameOver {
 			<div class="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-amber-300 via-amber-400 to-orange-500 p-6 text-pub-950 shadow-2xl shadow-amber-500/30 animate-dart-in" role="status">
 				<div class="font-display text-5xl font-extrabold uppercase sm:text-6xl">{ T(ctx).WinsGame(playerName(v, *p.WinnerID)) }</div>
-				if d := p.Time.Duration(); d > 0 {
+				if d := p.Times.Game.Duration(); d > 0 {
 					<div class="mt-1 font-semibold tabular-nums">{ T(ctx).Duration(clock(d)) }</div>
 				}
 				<a href="/" class="mt-4 inline-block rounded-xl bg-pub-950 px-5 py-2.5 font-semibold text-amber-300 hover:bg-pub-800">{ T(ctx).NewGame() }</a>
@@ -728,7 +728,7 @@ templ legSeparator(v service.GameView, set, leg int, first bool, columns int) {
 					</span> ·
 				}
 				{ T(ctx).LegN(leg) }
-				@durationTag(st.LegTime(set, leg).Duration())
+				@durationTag(st.Times.Leg(set, leg).Duration())
 			</td>
 		</tr>
 	}

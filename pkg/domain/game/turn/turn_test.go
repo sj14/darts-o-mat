@@ -53,8 +53,8 @@ func TestLegs(t *testing.T) {
 
 	tr.Advance()
 	tr.Finish() // player 0 wins leg 1
-	if tr.Over() || tr.Leg != 2 || tr.Player != 1 || tr.Round != 1 || tr.LegsWon[0] != 1 || legStarts != 1 {
-		t.Fatalf("after leg 1: over=%v leg=%d player=%d legs=%v, want leg 2 started by player 1", tr.Over(), tr.Leg, tr.Player, tr.LegsWon)
+	if tr.Over() || tr.Leg != 2 || tr.Player != 1 || tr.Round != 1 || tr.Records[0].Legs != 1 || legStarts != 1 {
+		t.Fatalf("after leg 1: over=%v leg=%d player=%d records=%v, want leg 2 started by player 1", tr.Over(), tr.Leg, tr.Player, tr.Records)
 	}
 	// A round of leg 2 is over when its starter throws again.
 	for range 3 * DartsPerTurn {
@@ -98,8 +98,8 @@ func TestSets(t *testing.T) {
 	tr.Takeout()
 	// The second set is started by the next player after the one who started the first.
 	check("after set 1", 2, 1, 1)
-	if tr.SetsWon[0] != 1 || tr.LegsWon[0] != 2 || tr.SetLegs[0] != 0 {
-		t.Fatalf("sets %v, legs %v, legs in the set %v, want player 0 with 1 set, 2 legs, none in the new set", tr.SetsWon, tr.LegsWon, tr.SetLegs)
+	if r := tr.Records[0]; r.Sets != 1 || r.Legs != 2 || r.SetLegs != 0 {
+		t.Fatalf("player 0 has %+v, want 1 set, 2 legs, none in the new set", r)
 	}
 	finish() // player 1 wins leg 1 of set 2
 	check("set 2, after leg 1", 2, 2, 0)
@@ -251,16 +251,16 @@ func TestReplayTimes(t *testing.T) {
 	st := tr.State([]int64{7})
 	span := func(from, to int) Span { return Span{at(from), at(to)} }
 	wantLegs := []LegTime{{1, 1, span(0, 1)}, {1, 2, span(3, 3)}, {2, 1, span(5, 8)}, {2, 2, span(9, 9)}}
-	if !slices.Equal(st.Legs, wantLegs) {
-		t.Errorf("legs %v, want %v", st.Legs, wantLegs)
+	if !slices.Equal(st.Times.Legs, wantLegs) {
+		t.Errorf("legs %v, want %v", st.Times.Legs, wantLegs)
 	}
-	if want := []Span{span(0, 3), span(5, 9)}; !slices.Equal(st.Sets, want) {
-		t.Errorf("sets %v, want %v", st.Sets, want)
+	if want := []Span{span(0, 3), span(5, 9)}; !slices.Equal(st.Times.Sets, want) {
+		t.Errorf("sets %v, want %v", st.Times.Sets, want)
 	}
-	if st.Time != span(0, 9) || st.Time.Duration() != 9*time.Minute {
-		t.Errorf("game %v, want from minute 0 to 9", st.Time)
+	if st.Times.Game != span(0, 9) || st.Times.Game.Duration() != 9*time.Minute {
+		t.Errorf("game %v, want from minute 0 to 9", st.Times.Game)
 	}
-	if got := st.LegTime(2, 1).Duration(); got != 3*time.Minute {
+	if got := st.Times.Leg(2, 1).Duration(); got != 3*time.Minute {
 		t.Errorf("leg 2 of set 2 took %v, want 3m", got)
 	}
 }

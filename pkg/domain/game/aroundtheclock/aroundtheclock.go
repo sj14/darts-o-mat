@@ -23,11 +23,9 @@ type PlayerState struct {
 	PlayerID int64 `json:"player_id"`
 	// Target is the number to hit next in the current leg (1-20, or 25 for the bull),
 	// 0 once the player has finished.
-	Target  uint8 `json:"target"`
-	Legs    int   `json:"legs"`     // legs won, over the whole game
-	SetLegs int   `json:"set_legs"` // legs won in the current set (all legs without sets)
-	Sets    int   `json:"sets"`     // sets won
-	Stats   Stats `json:"stats"`
+	Target uint8 `json:"target"`
+	turn.Record
+	Stats Stats `json:"stats"`
 }
 
 // Stats of a player in one game, over all legs.
@@ -35,7 +33,6 @@ type Stats struct {
 	Darts   int     `json:"darts"`
 	Hits    int     `json:"hits"`     // darts that hit the current target
 	HitRate float64 `json:"hit_rate"` // hits per dart, 0 to 1
-	BestLeg int     `json:"best_leg"` // fewest darts in a won leg, 0 without one
 }
 
 type State struct {
@@ -113,7 +110,7 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 
 	for i := range st.Players {
 		p := &st.Players[i]
-		p.Legs, p.SetLegs, p.Sets, p.Stats.BestLeg = t.LegsWon[i], t.SetLegs[i], t.SetsWon[i], t.BestLeg[i]
+		p.Record = t.Records[i]
 		if p.Stats.Darts > 0 {
 			p.Stats.HitRate = float64(p.Stats.Hits) / float64(p.Stats.Darts)
 		}

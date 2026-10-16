@@ -811,7 +811,7 @@ func scores(v service.GameView, errMsg string, editing *throw.Dart) templ.Compon
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if d := p.Time.Duration(); d > 0 {
+			if d := p.Times.Game.Duration(); d > 0 {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "<div class=\"mt-1 font-semibold tabular-nums\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -4381,7 +4381,7 @@ func legSeparator(v service.GameView, set, leg int, first bool, columns int) tem
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = durationTag(st.LegTime(set, leg).Duration()).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = durationTag(st.Times.Leg(set, leg).Duration()).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

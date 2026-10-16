@@ -274,7 +274,7 @@ func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tou
 		}
 		r := tournament.Result{GameID: g.ID}
 		c := game.Common(state)
-		v.Time = v.Time.Join(c.Time)
+		v.Time = v.Time.Join(c.Times.Game)
 		if c.GameOver {
 			score := g.Score(state)
 			r.Over, r.WinnerID = true, *c.WinnerID
