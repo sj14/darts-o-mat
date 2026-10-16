@@ -49,14 +49,15 @@ func (textsEN) AbortGameConfirm() string {
 	return "Really abort the game? It won't count in the statistics."
 }
 
-func (textsEN) WinsGame(name string) string { return "🏆 " + name + " wins!" }
-func (textsEN) NewGame() string             { return "New game" }
-func (textsEN) GameAborted() string         { return "Game aborted" }
-func (textsEN) CheckoutSuggestion() string  { return "Suggested checkout" }
-func (textsEN) Checkout() string            { return "Checkout" }
-func (textsEN) PullDarts() string           { return "Pull out the darts" }
-func (textsEN) ThenSet(n int) string        { return "Then set " + strconv.Itoa(n) + " starts." }
-func (textsEN) ThenLeg(n int) string        { return "Then leg " + strconv.Itoa(n) + " starts." }
+func (textsEN) WinsGame(name string) string  { return "🏆 " + name + " wins!" }
+func (textsEN) Duration(clock string) string { return "Duration " + clock }
+func (textsEN) NewGame() string              { return "New game" }
+func (textsEN) GameAborted() string          { return "Game aborted" }
+func (textsEN) CheckoutSuggestion() string   { return "Suggested checkout" }
+func (textsEN) Checkout() string             { return "Checkout" }
+func (textsEN) PullDarts() string            { return "Pull out the darts" }
+func (textsEN) ThenSet(n int) string         { return "Then set " + strconv.Itoa(n) + " starts." }
+func (textsEN) ThenLeg(n int) string         { return "Then leg " + strconv.Itoa(n) + " starts." }
 func (textsEN) ThenPlayer(name string) string {
 	return "Then it's " + name + "'s turn."
 }

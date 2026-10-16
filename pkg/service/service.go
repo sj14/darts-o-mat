@@ -346,7 +346,7 @@ func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64
 
 func (s *Service) addDart(ctx context.Context, acc account.Account, gameID int64, d throw.Dart) (GameView, error) {
 	return s.changeGame(ctx, acc, gameID, func(g *game.Game, v GameView) error {
-		d.ID, d.GameID = 0, g.ID
+		d.ID, d.GameID, d.CreatedAt = 0, g.ID, time.Time{} // the database sets the time
 		normalizeDart(&d)
 		// The stored darts were accepted before, so an error can only come from the new
 		// one, e.g. turn.ErrWaitingForTakeout.

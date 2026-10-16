@@ -50,6 +50,8 @@ type Texts interface {
 
 	// Game page: playing.
 	WinsGame(name string) string
+	// Duration is how long a leg, set, game or tournament took, e.g. "Duration 34:12".
+	Duration(clock string) string
 	NewGame() string
 	GameAborted() string
 	CheckoutSuggestion() string

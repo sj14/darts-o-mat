@@ -32,7 +32,12 @@ templ Tournament(user string, v service.TournamentView, errMsg string) {
 			</div>
 		}
 		if v.State.Over {
-			<div class="mb-6 rounded-3xl bg-gradient-to-r from-amber-300 to-amber-500 px-5 py-4 text-center font-display text-4xl font-extrabold uppercase text-pub-950 shadow-lg shadow-amber-500/30">{ T(ctx).WinsTournament(tournamentPlayerName(v, *v.State.WinnerID)) }</div>
+			<div class="mb-6 rounded-3xl bg-gradient-to-r from-amber-300 to-amber-500 px-5 py-4 text-center text-pub-950 shadow-lg shadow-amber-500/30">
+				<div class="font-display text-4xl font-extrabold uppercase">{ T(ctx).WinsTournament(tournamentPlayerName(v, *v.State.WinnerID)) }</div>
+				if d := v.Time.Duration(); d > 0 {
+					<div class="mt-1 font-semibold tabular-nums">{ T(ctx).Duration(clock(d)) }</div>
+				}
+			</div>
 		}
 		<div class="flex flex-col gap-6">
 			if v.Tournament.Format == tournament.Knockout {

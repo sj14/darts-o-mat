@@ -66,10 +66,21 @@ func (l Log) Turn(players int) *Turn {
 
 // Replay calls dart for every dart of the log in order, except those thrown to bull
 // off, and handles the takeouts in between. A dart while the turn waits for the
-// takeout is an error. Afterwards t.Throwers tells who threw each entry.
+// takeout is an error. Afterwards t.Throwers tells who threw each entry, and t.Time,
+// t.Legs and t.Sets when the game and its finished legs and sets were played.
 func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
 	t.Throwers = make([]int, len(l.Entries))
+	legFrom, setFrom := -1, -1 // the first dart of the current leg and set
+	span := func(from, to int) Span {
+		return Span{Start: l.Entries[from].CreatedAt, End: l.Entries[to].CreatedAt}
+	}
 	for i, d := range l.Entries {
+		if !d.Takeout {
+			if t.Time.Start.IsZero() {
+				t.Time.Start = d.CreatedAt
+			}
+			t.Time.End = d.CreatedAt
+		}
 		t.Throwers[i] = t.Player
 		switch {
 		case d.Takeout:
@@ -95,8 +106,23 @@ func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
 			continue
 		}
 		t.legWinner, t.setWinner = nil, nil
+		set, leg := t.Set, t.Leg // the dart may start the next leg
+		if legFrom < 0 {
+			legFrom = i
+		}
+		if setFrom < 0 {
+			setFrom = i
+		}
 		if err := dart(i, d); err != nil {
 			return err
+		}
+		if t.legWinner != nil || t.over {
+			t.Legs = append(t.Legs, LegTime{Set: set, Leg: leg, Span: span(legFrom, i)})
+			legFrom = -1
+			if t.setWinner != nil || t.over {
+				t.Sets = append(t.Sets, span(setFrom, i))
+				setFrom = -1
+			}
 		}
 	}
 	return nil
@@ -126,6 +152,11 @@ type Turn struct {
 	OnLegStart func()
 	// Throwers is the index of the player who threw each log entry, -1 for takeouts.
 	Throwers []int
+	// Time is when the game was played so far, from its first dart (bulling off
+	// included) to its last; Legs and Sets when each finished leg and set was played.
+	Time Span
+	Legs []LegTime
+	Sets []Span
 
 	legs           int   // to win a set (the game without sets)
 	sets           int   // to win the game

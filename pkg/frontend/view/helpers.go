@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/a-h/templ"
@@ -433,4 +434,28 @@ func lastUsedBoard(boards []service.BoardView) int64 {
 		}
 	}
 	return last.ID
+}
+
+// clock formats how long something took as players read it: 3:41, 1:02:05.
+func clock(d time.Duration) string {
+	s := int(d.Round(time.Second).Seconds())
+	if s >= 3600 {
+		return fmt.Sprintf("%d:%02d:%02d", s/3600, s/60%60, s%60)
+	}
+	return fmt.Sprintf("%d:%02d", s/60, s%60)
+}
+
+// setDuration returns how long a set took, if the leg is the set's last; 0 otherwise or
+// while the set goes on. The history shows it with that leg.
+func setDuration(st turn.State, set, leg int) time.Duration {
+	last := 0
+	for _, l := range st.Legs {
+		if l.Set == set {
+			last = l.Leg
+		}
+	}
+	if last != leg {
+		return 0
+	}
+	return st.SetTime(set).Duration()
 }

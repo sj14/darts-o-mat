@@ -62,6 +62,6 @@ go run ./cmd/darts-o-mat -db postgres -dsn "postgres://postgres:geheim@localhost
 6. The game page plays sounds for hits, misses, busts and 180; toggle them at the top with "🔊 Sound on". Browsers only allow sounds once you have clicked or tapped the page. If the top says "🔈 Click for sound", click it – important when the cameras enter the throws and you don't touch anything else.
 7. Had enough? Whoever created the game can end it with "Abort game". It stays in the list but doesn't count in the statistics.
 
-During the game you see the average or hit rate and a small statistic for every player. The history shows every visit with its darts. Under "Statistics" you find your values and those of your guest players over all finished games.
+During the game you see the average or hit rate and a small statistic for every player. The history shows every visit with its darts and how long each leg and set took; at the end you see how long the game (or the tournament) lasted. Under "Statistics" you find your values and those of your guest players over all finished games.
 
 Under "Boards" you can create your dartboards (e.g. basement, club) and select them when starting a game; the board you used last is preselected. To have darts detected automatically, see [playing with cameras](../../README.md#playing-with-cameras).

@@ -170,6 +170,11 @@ func TestKnockoutTournament(t *testing.T) {
 	if !v.State.Over || *v.State.WinnerID != v.Tournament.PlayerIDs[0] {
 		t.Errorf("over %v winner %v, want seed 1", v.State.Over, v.State.WinnerID)
 	}
+	// The database records when each dart was thrown; the tournament lasts from the
+	// first dart of its games to the last.
+	if tm := v.Time; tm.Start.IsZero() || tm.End.Before(tm.Start) {
+		t.Errorf("tournament played %v, want the times of its darts", tm)
+	}
 	if _, err := s.AbortTournament(ctx, anna, id); !errors.Is(err, ErrInvalid) {
 		t.Errorf("aborting a finished tournament: %v, want ErrInvalid", err)
 	}

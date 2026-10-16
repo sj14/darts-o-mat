@@ -2,7 +2,9 @@ package turn
 
 import (
 	"errors"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 )
@@ -218,5 +220,47 @@ func TestBullOffCloser(t *testing.T) {
 	}
 	if tr.BullingOff() || tr.Player != 2 || tr.State([]int64{10, 11, 12}).BullOffTie != nil {
 		t.Errorf("bulling off=%v player=%d, want player 2 to start", tr.BullingOff(), tr.Player)
+	}
+}
+
+// Replay records when the game and each finished leg and set were played: from their
+// first dart to their last, takeouts aside.
+func TestReplayTimes(t *testing.T) {
+	at := func(min int) time.Time { return time.Date(2026, 10, 16, 20, min, 0, 0, time.UTC) }
+	advance, finish := throw.Dart{Number: 1}, throw.Dart{Number: 2}
+	entry := func(d throw.Dart, min int) throw.Dart { d.CreatedAt = at(min); return d }
+	log := Log{Legs: 2, Sets: 2, Entries: []throw.Dart{
+		entry(advance, 0), entry(finish, 1), // set 1, leg 1
+		entry(finish, 3),                                                       // leg 2
+		entry(advance, 5), {Takeout: true, CreatedAt: at(6)}, entry(finish, 8), // set 2, leg 1
+		entry(finish, 9), // leg 2 and the game
+		{Takeout: true, CreatedAt: at(10)},
+	}}
+	tr := log.Turn(1)
+	err := log.Replay(tr, func(_ int, d throw.Dart) error {
+		if d.Number == finish.Number {
+			tr.Finish()
+		} else {
+			tr.Advance()
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := tr.State([]int64{7})
+	span := func(from, to int) Span { return Span{at(from), at(to)} }
+	wantLegs := []LegTime{{1, 1, span(0, 1)}, {1, 2, span(3, 3)}, {2, 1, span(5, 8)}, {2, 2, span(9, 9)}}
+	if !slices.Equal(st.Legs, wantLegs) {
+		t.Errorf("legs %v, want %v", st.Legs, wantLegs)
+	}
+	if want := []Span{span(0, 3), span(5, 9)}; !slices.Equal(st.Sets, want) {
+		t.Errorf("sets %v, want %v", st.Sets, want)
+	}
+	if st.Time != span(0, 9) || st.Time.Duration() != 9*time.Minute {
+		t.Errorf("game %v, want from minute 0 to 9", st.Time)
+	}
+	if got := st.LegTime(2, 1).Duration(); got != 3*time.Minute {
+		t.Errorf("leg 2 of set 2 took %v, want 3m", got)
 	}
 }

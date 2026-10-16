@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 // BullNumber is the number of the bull and the bullseye: the bull scores 25, the
@@ -30,6 +31,9 @@ type Dart struct {
 	// shows how far off the cameras were.
 	X *float64 `json:"x,omitempty"`
 	Y *float64 `json:"y,omitempty"`
+	// CreatedAt is when the entry was made (for the cameras: when the dart was thrown).
+	// A leg, set or game lasts from its first dart to its last (turn.Span).
+	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at,omitzero"`
 }
 
 // Validate checks that the dart hit a field that exists on the board.

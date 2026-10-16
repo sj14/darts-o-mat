@@ -85,6 +85,8 @@ Statistics per game over all legs (X01 sums the points in `Stats.Points` for the
 
 **History:** both modes provide the history of all visits (X01: `x01.State.Turns` with darts, points, remaining, bust, checkout; Around the Clock: `aroundtheclock.State.Turns` with darts, hit per dart, target before/after); the last one can still be running, the game page shows it newest first. A visit is complete as soon as it is over – even if it is still waiting for the takeout (`t.Waiting()`); previously X01 visits on a board therefore didn't count for highest visit/100+/140+/180.
 
+**Durations** (user's wish 2026-10-16): every log entry has `throw.Dart.CreatedAt` (set by the database's default, `service.addDart` clears what a client sends). `turn.Log.Replay` records `turn.Span`s (first dart to last, takeouts aside): the game (`State.Time`, bulling off included), each finished leg (`State.Legs`, with set and leg number; `LegTime(set, leg)`) and set (`State.Sets`, `SetTime`). The time before the first dart (walking to the oche) doesn't count. Tournaments: `service.TournamentView.Time` joins the spans of its games that weren't aborted (`Span.Join`). Shown: the history's leg separator ("Leg 2 ⏱ 3:41", the set's duration with its last leg), the winner banners of game and tournament ("Duration 34:12", `view.clock`). Not in the statistics yet. Breaking: the table `darts` has a new column `created_at`.
+
 ## Tournaments
 
 User's wish 2026-10-14: every game mode as a tournament, with friends, statistics and a page per tournament.

@@ -47,13 +47,14 @@ func (textsDE) AbortGameConfirm() string {
 	return "Spiel wirklich abbrechen? Es zählt dann nicht in die Statistik."
 }
 
-func (textsDE) WinsGame(name string) string { return "🏆 " + name + " gewinnt!" }
-func (textsDE) NewGame() string             { return "Neues Spiel" }
-func (textsDE) GameAborted() string         { return "Spiel abgebrochen" }
-func (textsDE) CheckoutSuggestion() string  { return "Vorschlag zum Auschecken" }
-func (textsDE) PullDarts() string           { return "Pfeile ziehen" }
-func (textsDE) ThenSet(n int) string        { return "Danach beginnt Set " + strconv.Itoa(n) + "." }
-func (textsDE) ThenLeg(n int) string        { return "Danach beginnt Leg " + strconv.Itoa(n) + "." }
+func (textsDE) WinsGame(name string) string  { return "🏆 " + name + " gewinnt!" }
+func (textsDE) Duration(clock string) string { return "Dauer " + clock }
+func (textsDE) NewGame() string              { return "Neues Spiel" }
+func (textsDE) GameAborted() string          { return "Spiel abgebrochen" }
+func (textsDE) CheckoutSuggestion() string   { return "Vorschlag zum Auschecken" }
+func (textsDE) PullDarts() string            { return "Pfeile ziehen" }
+func (textsDE) ThenSet(n int) string         { return "Danach beginnt Set " + strconv.Itoa(n) + "." }
+func (textsDE) ThenLeg(n int) string         { return "Danach beginnt Leg " + strconv.Itoa(n) + "." }
 func (textsDE) ThenPlayer(name string) string {
 	return "Danach ist " + name + " dran."
 }

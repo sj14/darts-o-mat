@@ -8,6 +8,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/stats"
 	"github.com/sj14/darts-o-mat/pkg/domain/tournament"
@@ -23,6 +24,9 @@ type TournamentView struct {
 	// Stats are the statistics of each player over the finished games of the tournament,
 	// in the order of Players.
 	Stats []stats.Summary `json:"stats"`
+	// Time is when the tournament was played so far: from the first dart of its games
+	// to the last.
+	Time turn.Span `json:"time"`
 	// Ready is true once no invitation is pending anymore; only then games can start.
 	Ready bool `json:"ready"`
 
@@ -269,7 +273,9 @@ func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tou
 			return TournamentView{}, err
 		}
 		r := tournament.Result{GameID: g.ID}
-		if c := game.Common(state); c.GameOver {
+		c := game.Common(state)
+		v.Time = v.Time.Join(c.Time)
+		if c.GameOver {
 			score := g.Score(state)
 			r.Over, r.WinnerID = true, *c.WinnerID
 			r.Score = [2]int{score[g.PlayerIDs[0]], score[g.PlayerIDs[1]]}
