@@ -77,6 +77,7 @@ New features build on the existing stack; don't introduce additional frameworks 
 - `pkg/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock, tournaments); `pkg/domain/dartboard` (board geometry) is used by server and camera
 - `pkg/repos/store`: persistence (server)
 - `pkg/i18n`: language of the web interfaces (negotiation, request context), see [languages](#languages)
+- `pkg/notify`: tells subscribers about changes (`Signal`, `Hub` by key); `pkg/sse`: streams Server-Sent Events for htmx (`Stream`, with keepalive); both used by server and camera
 - `pkg/frontend`: the server's web interface: controllers, templ views (`view`) and embedded static files (`static`, also used by `pkg/camui`)
 - [`pkg/camera`](pkg/camera/AGENTS.md): camera access per operating system (macOS, Linux, Windows)
 - `pkg/vision`: camera geometry and dart detection in pure Go (darts-o-cam)

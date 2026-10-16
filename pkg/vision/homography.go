@@ -38,9 +38,9 @@ func EstimateHomography(src, dst []dartboard.Point) (Homography, error) {
 		}
 		rhs := [2]float64{u, v}
 		for r := range rows {
-			for j := 0; j < 8; j++ {
+			for j := range 8 {
 				atb[j] += rows[r][j] * rhs[r]
-				for k := 0; k < 8; k++ {
+				for k := range 8 {
 					ata[j][k] += rows[r][j] * rows[r][k]
 				}
 			}
@@ -72,9 +72,9 @@ func (h Homography) Apply(p dartboard.Point) dartboard.Point {
 
 func (h Homography) Mul(o Homography) Homography {
 	var r Homography
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 3; j++ {
-			for k := 0; k < 3; k++ {
+	for i := range 3 {
+		for j := range 3 {
+			for k := range 3 {
 				r[i*3+j] += h[i*3+k] * o[k*3+j]
 			}
 		}
@@ -146,7 +146,7 @@ func normalize(points []dartboard.Point) ([]dartboard.Point, Homography) {
 // solve solves the linear system with Gaussian elimination and partial pivoting.
 func solve(a [8][8]float64, b [8]float64) ([8]float64, error) {
 	const n = 8
-	for col := 0; col < n; col++ {
+	for col := range n {
 		pivot := col
 		for r := col + 1; r < n; r++ {
 			if math.Abs(a[r][col]) > math.Abs(a[pivot][col]) {

@@ -37,6 +37,8 @@ type State struct {
 	Throwers []int64 `json:"-"`
 	// Times is when the game and its finished legs and sets were played.
 	Times Times `json:"times"`
+	// Records is what each player has won, by player; the modes' players show it too.
+	Records map[int64]Record `json:"-"`
 }
 
 // Record is what a player has won in a game so far. The modes embed it in their
@@ -142,6 +144,7 @@ func (t *Turn) State(playerIDs []int64) State {
 		BullingOff:        t.BullingOff(),
 		BullOff:           []BullOffDart{},
 		Throwers:          make([]int64, len(t.Throwers)),
+		Records:           make(map[int64]Record, len(playerIDs)),
 		Times:             Times{Game: t.Times.Game, Legs: slices.Clone(t.Times.Legs), Sets: slices.Clone(t.Times.Sets)},
 	}
 	if t.legWinner != nil {
@@ -154,6 +157,9 @@ func (t *Turn) State(playerIDs []int64) State {
 		s.GameOver, s.WinnerID = true, id(t.Player)
 	} else {
 		s.CurrentPlayerID = id(t.Player)
+	}
+	for i, r := range t.Records {
+		s.Records[playerIDs[i]] = r
 	}
 	for i, p := range t.Throwers {
 		if p >= 0 {

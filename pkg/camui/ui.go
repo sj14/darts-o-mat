@@ -24,6 +24,7 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 	"github.com/sj14/darts-o-mat/pkg/frontend/static"
 	"github.com/sj14/darts-o-mat/pkg/i18n"
+	"github.com/sj14/darts-o-mat/pkg/sse"
 	"github.com/sj14/darts-o-mat/pkg/vision"
 )
 
@@ -606,35 +607,16 @@ func (ui *UI) events(t Texts) []EventModel {
 // eventStream sends the list of the latest detections whenever there is a new one
 // (Server-Sent Events, event "events"), so the overview shows them without reloading.
 func (ui *UI) eventStream(w http.ResponseWriter, r *http.Request) {
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "streaming not supported", http.StatusInternalServerError)
-		return
-	}
 	changes, stop := ui.app.WatchEvents()
 	defer stop()
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.WriteHeader(http.StatusOK)
-	flusher.Flush()
-	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case <-changes:
-		}
+	sse.Stream(w, r, "events", changes, func() (string, error) {
 		var buf bytes.Buffer
 		if err := eventList(ui.events(T(r.Context()))).Render(r.Context(), &buf); err != nil {
 			log.Printf("render events: %v", err)
-			return
+			return "", err
 		}
-		fmt.Fprint(w, "event: events\n")
-		for _, line := range strings.Split(buf.String(), "\n") {
-			fmt.Fprintf(w, "data: %s\n", line)
-		}
-		fmt.Fprint(w, "\n")
-		flusher.Flush()
-	}
+		return buf.String(), nil
+	})
 }
 
 func eventModel(t Texts, e camapp.Event) EventModel {

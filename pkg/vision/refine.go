@@ -239,9 +239,9 @@ func fitNormal(start Homography, feats []feature) (Homography, error) {
 				ny * x, ny * y, ny,
 				-(nx*u + ny*v) * x, -(nx*u + ny*v) * y,
 			}
-			for a := 0; a < 8; a++ {
+			for a := range 8 {
 				jtr[a] += j[a] * r
-				for b := 0; b < 8; b++ {
+				for b := range 8 {
 					jtj[a][b] += j[a] * j[b]
 				}
 			}
@@ -253,7 +253,7 @@ func fitNormal(start Homography, feats []feature) (Homography, error) {
 		if err != nil {
 			return Homography{}, err
 		}
-		for a := 0; a < 8; a++ {
+		for a := range 8 {
 			h[a] += delta[a]
 		}
 	}
@@ -271,8 +271,8 @@ func newFeatureImage(img *image.RGBA) *featureImage {
 	b := blur(img, 1)
 	w, h := b.Bounds().Dx(), b.Bounds().Dy()
 	f := &featureImage{w: w, h: h, sat: make([]float64, w*h), rg: make([]float64, w*h)}
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			i := b.PixOffset(x, y)
 			r, g, bl := float64(b.Pix[i]), float64(b.Pix[i+1]), float64(b.Pix[i+2])
 			f.sat[y*w+x] = max(r, g, bl) - min(r, g, bl)

@@ -16,6 +16,7 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
+	"github.com/sj14/darts-o-mat/pkg/notify"
 	"github.com/sj14/darts-o-mat/pkg/repos/store"
 )
 
@@ -71,8 +72,8 @@ type Service struct {
 	// mu serializes changes to the darts and players of games, so two darts
 	// can't both pass the replay check against the same previous state.
 	mu sync.Mutex
-	// hub notifies about changed games.
-	hub hub
+	// games notifies about changed games, by ID.
+	games notify.Hub[int64]
 }
 
 func New(store *store.Store, opts Options) *Service {
@@ -90,7 +91,7 @@ type GameView struct {
 	Players     []player.Player   `json:"players"`         // in throwing order
 	Invitations []game.Invitation `json:"invitations"`
 	Darts       []throw.Dart      `json:"darts"` // the log: darts and takeouts
-	State       any               `json:"state"` // x01.State or aroundtheclock.State, depending on the mode
+	State       game.State        `json:"state"` // x01.State or aroundtheclock.State, depending on the mode
 	// Ready is true once no invitation is pending anymore; only then darts can be thrown.
 	Ready bool `json:"ready"`
 
@@ -102,7 +103,10 @@ type GameView struct {
 
 // Common returns the part of the game's state that is the same for all modes.
 func (v GameView) Common() turn.State {
-	return game.Common(v.State)
+	if v.State == nil {
+		return turn.State{}
+	}
+	return v.State.Common()
 }
 
 // InvitationOf returns the invitation of a player, nil if the player wasn't invited (owner or guest).
@@ -387,7 +391,7 @@ func (s *Service) EditDart(ctx context.Context, acc account.Account, gameID, dar
 		if err != nil {
 			return err
 		}
-		if !slices.Equal(v.Common().Throwers, game.Common(after).Throwers) {
+		if !slices.Equal(v.Common().Throwers, after.Common().Throwers) {
 			return ErrChangesThrowers
 		}
 		return s.store.UpdateDart(ctx, &d)
@@ -476,25 +480,14 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 		return GameView{}, err
 	}
 
-	v := GameView{Game: g, Invitations: invitations, Ready: true, IsOwner: g.OwnerAccountID == acc.ID}
-	for _, inv := range invitations {
-		if inv.Status == game.InvitationPending {
-			v.Ready = false
-		}
+	v := GameView{Game: g, Invitations: invitations, IsOwner: g.OwnerAccountID == acc.ID}
+	v.Ready = !slices.ContainsFunc(invitations, func(inv game.Invitation) bool { return inv.Status == game.InvitationPending })
+	var mine *game.InvitationStatus
+	if inv := v.InvitationOf(acc.PlayerID); inv != nil {
+		mine = &inv.Status
 	}
-	mine := v.InvitationOf(acc.PlayerID)
-	switch {
-	case v.IsOwner:
-		v.CanThrow = true
-	case mine == nil:
-		return GameView{}, ErrNotFound
-	case mine.Status == game.InvitationAccepted:
-		v.CanThrow = true
-	default:
-		v.Invited = true
-	}
-	if g.Aborted() {
-		v.CanThrow, v.Invited = false, false
+	if v.CanThrow, v.Invited, err = access(v.IsOwner, mine, g.Aborted()); err != nil {
+		return GameView{}, err
 	}
 
 	if g.BoardID != nil {
@@ -516,17 +509,30 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 		return GameView{}, err
 	}
 
-	players, err := s.store.GetPlayers(ctx, g.PlayerIDs)
+	v.Players, err = s.store.GetPlayers(ctx, g.PlayerIDs)
 	if err != nil {
 		return GameView{}, err
 	}
-	v.Players = []player.Player{}
-	for _, id := range g.PlayerIDs {
-		for _, p := range players {
-			if p.ID == id {
-				v.Players = append(v.Players, p)
-			}
-		}
-	}
 	return v, nil
+}
+
+// access returns what an account may do in a game or tournament, from its part in it:
+// the owner and the players who accepted their invitation (mine) may play, those
+// with a pending one have to answer it first; it is hidden from everyone else
+// (ErrNotFound). Once it was aborted, nobody plays or answers anymore.
+func access(owner bool, mine *game.InvitationStatus, aborted bool) (canPlay, invited bool, err error) {
+	switch {
+	case owner:
+		canPlay = true
+	case mine == nil:
+		return false, false, ErrNotFound
+	case *mine == game.InvitationAccepted:
+		canPlay = true
+	default:
+		invited = true
+	}
+	if aborted {
+		return false, false, nil
+	}
+	return canPlay, invited, nil
 }

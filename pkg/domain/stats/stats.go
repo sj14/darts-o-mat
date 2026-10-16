@@ -2,19 +2,28 @@
 package stats
 
 import (
-	"slices"
-
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 )
 
+// Record is what all modes count: games, wins, won legs and sets, the best leg and
+// tournaments.
+type Record struct {
+	Games   int `json:"games"`
+	Wins    int `json:"wins"`
+	Legs    int `json:"legs"`     // legs won
+	Sets    int `json:"sets"`     // sets won
+	BestLeg int `json:"best_leg"` // fewest darts in a won leg, 0 without one
+	// Finished tournaments of the mode the player took part in, and won.
+	Tournaments    int `json:"tournaments"`
+	TournamentWins int `json:"tournament_wins"`
+}
+
 type X01 struct {
-	Games           int     `json:"games"`
-	Wins            int     `json:"wins"`
-	Legs            int     `json:"legs"` // legs won
-	Sets            int     `json:"sets"` // sets won
+	Record
 	Darts           int     `json:"darts"`
 	Points          uint64  `json:"points"`
 	Average         float64 `json:"average"` // points per three darts
@@ -23,24 +32,13 @@ type X01 struct {
 	Turns140        int     `json:"turns_140"`
 	Turns180        int     `json:"turns_180"`
 	HighestCheckout uint64  `json:"highest_checkout"`
-	BestLeg         int     `json:"best_leg"` // fewest darts in a won leg, 0 without one
-	// Finished tournaments of the mode the player took part in, and won.
-	Tournaments    int `json:"tournaments"`
-	TournamentWins int `json:"tournament_wins"`
 }
 
 type AroundTheClock struct {
-	Games   int     `json:"games"`
-	Wins    int     `json:"wins"`
-	Legs    int     `json:"legs"` // legs won
-	Sets    int     `json:"sets"` // sets won
+	Record
 	Darts   int     `json:"darts"`
 	Hits    int     `json:"hits"`
 	HitRate float64 `json:"hit_rate"`
-	BestLeg int     `json:"best_leg"` // fewest darts in a won leg, 0 without one
-	// Finished tournaments of the mode the player took part in, and won.
-	Tournaments    int `json:"tournaments"`
-	TournamentWins int `json:"tournament_wins"`
 }
 
 // Summary of a player over all finished games.
@@ -52,67 +50,65 @@ type Summary struct {
 
 // Add adds a game with its state (see game.Game.Play) to the summary.
 // Games that are not over or that the player didn't take part in are skipped.
-func (s *Summary) Add(state any) {
+func (s *Summary) Add(state game.State) {
+	c := state.Common()
+	r, ok := c.Records[s.Player.ID]
+	if !c.GameOver || !ok {
+		return
+	}
+	won := *c.WinnerID == s.Player.ID
 	switch st := state.(type) {
 	case x01.State:
-		i := slices.IndexFunc(st.Players, func(p x01.PlayerState) bool { return p.PlayerID == s.Player.ID })
-		if !st.GameOver || i < 0 {
-			return
-		}
-		s.X01.add(st.Players[i], *st.WinnerID == s.Player.ID)
+		p, _ := st.Player(s.Player.ID)
+		s.X01.Record.add(r, won)
+		s.X01.add(p.Stats)
 	case aroundtheclock.State:
-		i := slices.IndexFunc(st.Players, func(p aroundtheclock.PlayerState) bool { return p.PlayerID == s.Player.ID })
-		if !st.GameOver || i < 0 {
-			return
-		}
-		s.AroundTheClock.add(st.Players[i], *st.WinnerID == s.Player.ID)
+		p, _ := st.Player(s.Player.ID)
+		s.AroundTheClock.Record.add(r, won)
+		s.AroundTheClock.add(p.Stats)
 	}
 }
 
-func (s *X01) add(p x01.PlayerState, won bool) {
-	s.Games++
-	s.Legs += p.Legs
-	s.Sets += p.Sets
-	s.Darts += p.Stats.Darts
-	s.Points += p.Stats.Points
+func (r *Record) add(game turn.Record, won bool) {
+	r.Games++
+	r.Legs += game.Legs
+	r.Sets += game.Sets
+	r.BestLeg = best(r.BestLeg, game.BestLeg)
+	if won {
+		r.Wins++
+	}
+}
+
+func (s *X01) add(p x01.Stats) {
+	s.Darts += p.Darts
+	s.Points += p.Points
 	if s.Darts > 0 {
 		s.Average = float64(s.Points) * 3 / float64(s.Darts)
 	}
-	s.HighestTurn = max(s.HighestTurn, p.Stats.HighestTurn)
-	s.Turns100 += p.Stats.Turns100
-	s.Turns140 += p.Stats.Turns140
-	s.Turns180 += p.Stats.Turns180
-	s.HighestCheckout = max(s.HighestCheckout, p.Stats.Checkout)
-	s.BestLeg = best(s.BestLeg, p.BestLeg)
-	if won {
-		s.Wins++
-	}
+	s.HighestTurn = max(s.HighestTurn, p.HighestTurn)
+	s.Turns100 += p.Turns100
+	s.Turns140 += p.Turns140
+	s.Turns180 += p.Turns180
+	s.HighestCheckout = max(s.HighestCheckout, p.Checkout)
 }
 
-func (s *AroundTheClock) add(p aroundtheclock.PlayerState, won bool) {
-	s.Games++
-	s.Legs += p.Legs
-	s.Sets += p.Sets
-	s.Darts += p.Stats.Darts
-	s.Hits += p.Stats.Hits
+func (s *AroundTheClock) add(p aroundtheclock.Stats) {
+	s.Darts += p.Darts
+	s.Hits += p.Hits
 	if s.Darts > 0 {
 		s.HitRate = float64(s.Hits) / float64(s.Darts)
-	}
-	s.BestLeg = best(s.BestLeg, p.BestLeg)
-	if won {
-		s.Wins++
 	}
 }
 
 // AddTournament adds a finished tournament of the mode the player took part in.
 func (s *Summary) AddTournament(mode game.Mode, won bool) {
-	count, wins := &s.X01.Tournaments, &s.X01.TournamentWins
+	r := &s.X01.Record
 	if mode == game.ModeAroundTheClock {
-		count, wins = &s.AroundTheClock.Tournaments, &s.AroundTheClock.TournamentWins
+		r = &s.AroundTheClock.Record
 	}
-	*count++
+	r.Tournaments++
 	if won {
-		*wins++
+		r.TournamentWins++
 	}
 }
 

@@ -199,7 +199,7 @@ func itoa(n uint8) string {
 func TestComponentsBridging(t *testing.T) {
 	m := &Mask{W: 20, H: 20, Pix: make([]bool, 400)}
 	// A dashed vertical line: pieces of 3 px with gaps of 4 px.
-	for y := 0; y < 20; y++ {
+	for y := range 20 {
 		if y%7 < 3 {
 			m.Pix[y*20+10] = true
 		}

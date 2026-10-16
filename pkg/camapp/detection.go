@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"log"
+	"strings"
 
 	"github.com/sj14/darts-o-mat/pkg/vision"
 )
@@ -149,11 +150,11 @@ func (a *App) handle(ctx context.Context, d detection, e *vision.Event) {
 	ev := Event{Event: e, Cameras: d.names}
 	switch e.Kind {
 	case vision.EventDart:
-		cams := ""
+		var cams strings.Builder
 		for i, p := range e.Cameras {
-			cams += fmt.Sprintf(" %s=%.0f,%.0f", d.names[i], p.X, p.Y)
+			fmt.Fprintf(&cams, " %s=%.0f,%.0f", d.names[i], p.X, p.Y)
 		}
-		log.Printf("dart: %s at %.1f,%.1f mm (%d cameras:%s)", e.Dart.String(), e.Board.X, e.Board.Y, len(e.Cameras), cams)
+		log.Printf("dart: %s at %.1f,%.1f mm (%d cameras:%s)", e.Dart.String(), e.Board.X, e.Board.Y, len(e.Cameras), cams.String())
 		if d.server != nil {
 			// The position goes along for the statistics, if the cameras found it.
 			dart := e.Dart

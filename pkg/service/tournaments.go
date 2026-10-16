@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"slices"
 	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
@@ -220,38 +221,21 @@ func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tou
 	if err != nil {
 		return TournamentView{}, err
 	}
-	v := TournamentView{Tournament: t, Invitations: invitations, Ready: true, IsOwner: t.OwnerAccountID == acc.ID, viewer: acc.PlayerID}
-	for _, inv := range invitations {
-		if inv.Status == game.InvitationPending {
-			v.Ready = false
-		}
+	v := TournamentView{Tournament: t, Invitations: invitations, IsOwner: t.OwnerAccountID == acc.ID, viewer: acc.PlayerID}
+	v.Ready = !slices.ContainsFunc(invitations, func(inv tournament.Invitation) bool { return inv.Status == game.InvitationPending })
+	var mine *game.InvitationStatus
+	if inv := v.InvitationOf(acc.PlayerID); inv != nil {
+		mine = &inv.Status
 	}
-	mine := v.InvitationOf(acc.PlayerID)
-	switch {
-	case v.IsOwner:
-		v.CanPlay = true
-	case mine == nil:
-		return TournamentView{}, ErrNotFound
-	case mine.Status == game.InvitationAccepted:
-		v.CanPlay = true
-	default:
-		v.Invited = true
-	}
-	if t.Aborted() {
-		v.CanPlay, v.Invited = false, false
-	}
-
-	players, err := s.store.GetPlayers(ctx, t.PlayerIDs)
-	if err != nil {
+	if v.CanPlay, v.Invited, err = access(v.IsOwner, mine, t.Aborted()); err != nil {
 		return TournamentView{}, err
 	}
-	for _, id := range t.PlayerIDs {
-		for _, p := range players {
-			if p.ID == id {
-				v.Players = append(v.Players, p)
-				v.Stats = append(v.Stats, stats.Summary{Player: p})
-			}
-		}
+
+	if v.Players, err = s.store.GetPlayers(ctx, t.PlayerIDs); err != nil {
+		return TournamentView{}, err
+	}
+	for _, p := range v.Players {
+		v.Stats = append(v.Stats, stats.Summary{Player: p})
 	}
 
 	// The result of each match is that of its newest game that wasn't aborted.
@@ -273,7 +257,7 @@ func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tou
 			return TournamentView{}, err
 		}
 		r := tournament.Result{GameID: g.ID}
-		c := game.Common(state)
+		c := state.Common()
 		v.Time = v.Time.Join(c.Times.Game)
 		if c.GameOver {
 			score := g.Score(state)

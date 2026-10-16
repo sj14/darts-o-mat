@@ -98,9 +98,14 @@ func (g Game) WaitsForTakeout() bool {
 	return g.BoardID != nil
 }
 
-// Play replays the game's log (darts and takeouts, as stored) and returns the state of
-// the game mode, x01.State or aroundtheclock.State.
-func (g Game) Play(entries []throw.Dart) (any, error) {
+// State is a replayed game's state, of its mode's type: x01.State or
+// aroundtheclock.State. The part all modes share is its turn.State.
+type State interface {
+	Common() turn.State
+}
+
+// Play replays the game's log (darts and takeouts, as stored) and returns its state.
+func (g Game) Play(entries []throw.Dart) (State, error) {
 	log := turn.Log{Entries: entries, WaitForTakeout: g.WaitsForTakeout(), Legs: g.Legs, Sets: g.Sets, BullOff: g.BullOff}
 	if g.BullOffCloser != nil {
 		if i := slices.Index(g.PlayerIDs, *g.BullOffCloser); i >= 0 {
@@ -134,33 +139,14 @@ type Invitation struct {
 	CreatedAt time.Time        `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
-// Common returns the part of a replayed game's state that is the same for all modes
-// (turn.State, which every mode's state embeds).
-func Common(state any) turn.State {
-	if s, ok := state.(interface{ Common() turn.State }); ok {
-		return s.Common()
-	}
-	return turn.State{}
-}
-
 // Score returns what each player has won in the game's state (see Play): sets in a
 // game with sets, legs otherwise.
-func (g Game) Score(state any) map[int64]int {
+func (g Game) Score(state State) map[int64]int {
 	score := map[int64]int{}
-	add := func(id int64, legs, sets int) {
-		score[id] = legs
+	for id, r := range state.Common().Records {
+		score[id] = r.Legs
 		if g.Sets > 1 {
-			score[id] = sets
-		}
-	}
-	switch st := state.(type) {
-	case x01.State:
-		for _, p := range st.Players {
-			add(p.PlayerID, p.Legs, p.Sets)
-		}
-	case aroundtheclock.State:
-		for _, p := range st.Players {
-			add(p.PlayerID, p.Legs, p.Sets)
+			score[id] = r.Sets
 		}
 	}
 	return score

@@ -81,13 +81,8 @@ func (a *App) AddEvent(e Event) int {
 	if len(a.events) > maxEvents {
 		a.events = a.events[len(a.events)-maxEvents:]
 	}
-	for ch := range a.watchers {
-		select {
-		case ch <- struct{}{}:
-		default: // it hasn't fetched the last one yet; it will see this one too
-		}
-	}
 	a.evMu.Unlock()
+	a.newEvent.Notify()
 	for _, d := range dropped {
 		for i := range d.Cameras {
 			for _, kind := range frameKinds {
@@ -101,15 +96,7 @@ func (a *App) AddEvent(e Event) int {
 // WatchEvents returns a channel that receives a value after new detections, e.g. to
 // update a page showing them, and a function to stop watching.
 func (a *App) WatchEvents() (<-chan struct{}, func()) {
-	ch := make(chan struct{}, 1)
-	a.evMu.Lock()
-	a.watchers[ch] = struct{}{}
-	a.evMu.Unlock()
-	return ch, func() {
-		a.evMu.Lock()
-		delete(a.watchers, ch)
-		a.evMu.Unlock()
-	}
+	return a.newEvent.Subscribe()
 }
 
 // frameKinds are the frames saved per camera of a detection.

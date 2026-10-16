@@ -114,11 +114,11 @@ func Diff(before, after *image.RGBA, threshold, weak uint8, blurRadius int) *Mas
 	w, h := b.Bounds().Dx(), b.Bounds().Dy()
 
 	diff := make([]uint8, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			i := y*a.Stride + x*4
 			var d int
-			for c := 0; c < 3; c++ {
+			for c := range 3 {
 				d = max(d, abs(int(a.Pix[i+c])-int(b.Pix[i+c])))
 			}
 			diff[y*w+x] = uint8(min(d, 255))
@@ -628,7 +628,7 @@ func blur(src *image.RGBA, r int) *image.RGBA {
 
 	// Rows: running sum along each row.
 	tmp := make([]uint32, w*h*3)
-	for y := 0; y < h; y++ {
+	for y := range h {
 		row := src.Pix[y*src.Stride : y*src.Stride+w*4]
 		out := tmp[y*w*3 : (y+1)*w*3]
 		var sr, sg, sb uint32
@@ -637,7 +637,7 @@ func blur(src *image.RGBA, r int) *image.RGBA {
 			sr, sg, sb = sr+uint32(row[x*4]), sg+uint32(row[x*4+1]), sb+uint32(row[x*4+2])
 			n++
 		}
-		for x := 0; x < w; x++ {
+		for x := range w {
 			d := div[n]
 			out[x*3] = uint32(uint64(sr) * d >> 32)
 			out[x*3+1] = uint32(uint64(sg) * d >> 32)
@@ -663,9 +663,9 @@ func blur(src *image.RGBA, r int) *image.RGBA {
 		}
 		n++
 	}
-	for y := 0; y < h; y++ {
+	for y := range h {
 		dst := out.Pix[y*out.Stride:]
-		for x := 0; x < w; x++ {
+		for x := range w {
 			dst[x*4] = uint8(uint64(sums[x*3]) * div[n] >> 32)
 			dst[x*4+1] = uint8(uint64(sums[x*3+1]) * div[n] >> 32)
 			dst[x*4+2] = uint8(uint64(sums[x*3+2]) * div[n] >> 32)

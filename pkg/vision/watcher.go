@@ -264,7 +264,7 @@ func PulledOut(before, after, empty []*image.RGBA, areas [][]image.Point) bool {
 func pixelDiff(a, b *image.RGBA, p image.Point) int {
 	i, j := a.PixOffset(p.X, p.Y), b.PixOffset(p.X, p.Y)
 	d := 0
-	for c := 0; c < 3; c++ {
+	for c := range 3 {
 		d = max(d, abs(int(a.Pix[i+c])-int(b.Pix[j+c])))
 	}
 	return d
@@ -305,7 +305,7 @@ func (w *Watcher) changedSamples(camera int, a, b *image.RGBA) int {
 	for y := bounds.Min.Y; y < bounds.Max.Y; y += step {
 		for x := bounds.Min.X; x < bounds.Max.X; x += step {
 			i := a.PixOffset(x, y)
-			for c := 0; c < 3; c++ {
+			for c := range 3 {
 				if abs(int(a.Pix[i+c])-int(b.Pix[i+c])) > threshold {
 					n++
 					break

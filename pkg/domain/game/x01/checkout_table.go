@@ -67,7 +67,7 @@ func doubleOutRoute(remaining uint64) []throw.Dart {
 // parseRoute reads a route like "T20 10 D16"; DB is the bullseye.
 func parseRoute(route string) []throw.Dart {
 	var darts []throw.Dart
-	for _, f := range strings.Fields(route) {
+	for f := range strings.FieldsSeq(route) {
 		d := throw.Dart{Segment: throw.Single}
 		switch f[0] {
 		case 'T':

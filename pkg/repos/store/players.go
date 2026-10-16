@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"slices"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/uptrace/bun"
@@ -23,11 +24,21 @@ func (store *Store) ListPlayers(ctx context.Context, accountID, playerID int64) 
 	return result, err
 }
 
+// GetPlayers returns the players with the ids, in their order; ids without a player
+// are left out.
 func (store *Store) GetPlayers(ctx context.Context, ids []int64) ([]player.Player, error) {
 	result := []player.Player{}
 	if len(ids) == 0 {
 		return result, nil
 	}
-	err := store.db.NewSelect().Model(&result).Where("id IN (?)", bun.In(ids)).Scan(ctx)
-	return result, err
+	var found []player.Player
+	if err := store.db.NewSelect().Model(&found).Where("id IN (?)", bun.In(ids)).Scan(ctx); err != nil {
+		return nil, err
+	}
+	for _, id := range ids {
+		if i := slices.IndexFunc(found, func(p player.Player) bool { return p.ID == id }); i >= 0 {
+			result = append(result, found[i])
+		}
+	}
+	return result, nil
 }

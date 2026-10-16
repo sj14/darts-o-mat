@@ -17,8 +17,8 @@ func thumbnail(img image.Image) []float64 {
 	w, h := rgba.Bounds().Dx(), rgba.Bounds().Dy()
 	thumb := make([]float64, thumbW*thumbH)
 	counts := make([]int, thumbW*thumbH)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			i := rgba.PixOffset(x, y)
 			gray := 0.299*float64(rgba.Pix[i]) + 0.587*float64(rgba.Pix[i+1]) + 0.114*float64(rgba.Pix[i+2])
 			t := (y*thumbH/h)*thumbW + x*thumbW/w

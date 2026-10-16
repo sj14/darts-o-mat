@@ -3,20 +3,17 @@ package controller
 import (
 	"bytes"
 	"errors"
-	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"slices"
 	"strconv"
-	"strings"
-	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/auth"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/frontend/view"
 	"github.com/sj14/darts-o-mat/pkg/service"
+	"github.com/sj14/darts-o-mat/pkg/sse"
 )
 
 func (c *Controller) showGame(w http.ResponseWriter, r *http.Request) {
@@ -53,53 +50,20 @@ func (c *Controller) gameEvents(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		serverError(w, errors.New("streaming not supported"))
-		return
-	}
-
 	changes, stop := c.svc.Subscribe(id)
 	defer stop()
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("X-Accel-Buffering", "no") // don't let a reverse proxy hold events back
-	w.WriteHeader(http.StatusOK)
-	flusher.Flush()
-
-	// Comments keep idle connections from being closed by proxies.
-	keepalive := time.NewTicker(25 * time.Second)
-	defer keepalive.Stop()
-	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case <-keepalive.C:
-			fmt.Fprint(w, ": keepalive\n\n")
-		case <-changes:
-			v, err := c.svc.Game(r.Context(), acc, id)
-			if err != nil {
-				return // e.g. the game was deleted because everyone declined
-			}
-			var buf bytes.Buffer
-			if err := view.Board(v, "").Render(r.Context(), &buf); err != nil {
-				log.Printf("render board: %v", err)
-				return
-			}
-			writeEvent(w, "board", buf.String())
+	sse.Stream(w, r, "board", changes, func() (string, error) {
+		v, err := c.svc.Game(r.Context(), acc, id)
+		if err != nil {
+			return "", err // e.g. the game was deleted because everyone declined
 		}
-		flusher.Flush()
-	}
-}
-
-// writeEvent writes one Server-Sent Event; every line of the data needs its own "data:" field.
-func writeEvent(w io.Writer, event, data string) {
-	fmt.Fprintf(w, "event: %s\n", event)
-	for _, line := range strings.Split(data, "\n") {
-		fmt.Fprintf(w, "data: %s\n", line)
-	}
-	fmt.Fprint(w, "\n")
+		var buf bytes.Buffer
+		if err := view.Board(v, "").Render(r.Context(), &buf); err != nil {
+			log.Printf("render board: %v", err)
+			return "", err
+		}
+		return buf.String(), nil
+	})
 }
 
 // addDart is called by htmx and responds with the updated board.

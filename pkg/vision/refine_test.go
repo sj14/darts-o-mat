@@ -21,8 +21,8 @@ func renderBoard(toImage Homography, w, h int) *image.RGBA {
 		wire  = color.RGBA{190, 190, 190, 255}
 	)
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			p := toBoard.Apply(dartboard.Point{X: float64(x), Y: float64(y)}) // pixel centers at whole numbers, like vision samples them
 			r := p.Radius()
 			i := dartboard.SegmentIndex(p.Number())

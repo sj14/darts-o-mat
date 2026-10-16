@@ -134,12 +134,8 @@ func currentTarget(v service.GameView) uint8 {
 	if !ok || st.CurrentPlayerID == nil {
 		return 0
 	}
-	for _, p := range st.Players {
-		if p.PlayerID == *st.CurrentPlayerID {
-			return p.Target
-		}
-	}
-	return 0
+	p, _ := st.Player(*st.CurrentPlayerID)
+	return p.Target
 }
 
 func gameURL(id int64, suffix string) string {
@@ -384,12 +380,8 @@ func checkoutSuggestion(v service.GameView, p progress) []throw.Dart {
 	if !ok || !p.running() || p.WaitingForTakeout || p.BullingOff || p.CurrentPlayerID == nil {
 		return nil
 	}
-	for _, ps := range st.Players {
-		if ps.PlayerID == *p.CurrentPlayerID {
-			return v.Game.X01.OutMode.Checkout(ps.Remaining, turn.DartsPerTurn-p.DartsInTurn)
-		}
-	}
-	return nil
+	ps, _ := st.Player(*p.CurrentPlayerID)
+	return v.Game.X01.OutMode.Checkout(ps.Remaining, turn.DartsPerTurn-p.DartsInTurn)
 }
 
 // bullOffDecided returns who won the bull-off, if the dart just thrown decided it.

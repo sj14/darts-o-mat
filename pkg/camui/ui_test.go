@@ -2,7 +2,6 @@ package camui
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"image"
 	_ "image/jpeg"
@@ -246,8 +245,7 @@ func TestNewCreatesDir(t *testing.T) {
 // every detection.
 func TestEventStream(t *testing.T) {
 	app, srv := newUI(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/events/stream", nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

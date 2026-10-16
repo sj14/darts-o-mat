@@ -62,6 +62,16 @@ func Play(s Settings, playerIDs []int64, darts []throw.Dart) (State, error) {
 	return PlayLog(s, playerIDs, turn.Log{Entries: darts})
 }
 
+// Player returns the state of a player of the game.
+func (s State) Player(id int64) (PlayerState, bool) {
+	for _, p := range s.Players {
+		if p.PlayerID == id {
+			return p, true
+		}
+	}
+	return PlayerState{}, false
+}
+
 // PlayLog replays a game's log of darts and takeouts, see Play.
 func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 	st := State{Turns: []Turn{}}
