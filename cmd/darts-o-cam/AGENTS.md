@@ -86,7 +86,7 @@ Convert each camera's tip onto the board, discard results more than 225 mm from 
 - Also works for darts that were already stuck before the start (without this, pulling old darts counted as a throw, happened in a real game).
 - Without empty images fallback: change predominantly where darts detected since the last takeout are stuck (then start with an empty board).
 
-**Locking the exposure:** `vision.OpenCameras` and `vision.OpenCamera` wait 1 s after opening (measured: settled after ~0.5 s) and then locks exposure and white balance (`camera.Camera.LockExposure`). Only works on macOS; why the camera resets it on open/close and why Linux and Windows can't: [`pkg/camera` → exposure](../../pkg/camera/AGENTS.md#exposure). Whether the lock really holds during the takeout hasn't been checked with a real throw yet.
+**Locking the exposure:** `vision.OpenCameras` and `vision.OpenCamera` wait after opening until the exposure has settled – at least 1 s (the board cameras: settled after ~0.5 s), then until the mean brightness changes by less than 1/255 between two frames 250 ms apart, at most 6 s (2026-10-16: a webcam's image when adding it was much too dark after the fixed 1 s; also what the snapshot when adding a camera shows) – and then lock exposure and white balance (`camera.Camera.LockExposure`). Only works on macOS; why the camera resets it on open/close and why Linux and Windows can't: [`pkg/camera` → exposure](../../pkg/camera/AGENTS.md#exposure). Whether the lock really holds during the takeout hasn't been checked with a real throw yet.
 
 ## Finding cameras
 

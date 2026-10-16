@@ -4,15 +4,24 @@ import (
 	"cmp"
 	"errors"
 	"image"
+	"math"
 	"sync"
 	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/camera"
 )
 
-// settleTime lets the cameras adjust their exposure after opening, before their
-// views are compared and the exposure is locked.
-const settleTime = time.Second
+// The cameras adjust their exposure after opening, before their views are compared and
+// the exposure is locked (settle): for settleTime at least, then until the brightness
+// changes by less than settledChange (of 255) between two frames settleStep apart, for
+// maxSettleTime at most. Some cameras need several seconds, e.g. a webcam in a dim room;
+// a frame taken before is too dark, and locked so dark it would stay.
+const (
+	settleTime    = time.Second
+	maxSettleTime = 6 * time.Second
+	settleStep    = 250 * time.Millisecond
+	settledChange = 1.0
+)
 
 // ErrNotConnected means that no device was found for a camera of a calibration.
 var ErrNotConnected = errors.New("not connected")
@@ -157,10 +166,11 @@ func closeAll(cams []*camera.Camera) {
 // hand in front of a camera doesn't change its whole image (seen when pulling darts
 // out). It returns a frame of each camera. Cameras that can't lock keep adjusting.
 func settle(cams []*camera.Camera) ([]*image.RGBA, error) {
+	deadline := time.Now().Add(maxSettleTime) // for all cameras: they adjust at the same time
 	time.Sleep(settleTime)
 	frames := make([]*image.RGBA, len(cams))
 	for i, c := range cams {
-		img, err := c.Read()
+		img, err := settled(c, deadline)
 		if err != nil {
 			return nil, err
 		}
@@ -168,6 +178,39 @@ func settle(cams []*camera.Camera) ([]*image.RGBA, error) {
 		_ = c.LockExposure() // without the lock, detection works as before
 	}
 	return frames, nil
+}
+
+// settled reads frames until the camera's brightness stops changing or the deadline
+// passed, and returns the last one.
+func settled(c *camera.Camera, deadline time.Time) (*image.RGBA, error) {
+	img, err := c.Read()
+	for err == nil && time.Now().Before(deadline) {
+		time.Sleep(settleStep)
+		var next *image.RGBA
+		if next, err = c.Read(); err != nil {
+			break
+		}
+		still := math.Abs(brightness(next)-brightness(img)) < settledChange
+		img = next
+		if still {
+			break
+		}
+	}
+	return img, err
+}
+
+// brightness returns the mean brightness of an image (0–255), from a sample of its pixels.
+func brightness(img *image.RGBA) float64 {
+	const step = 4 * 31 // every 31st pixel
+	var sum, n int
+	for i := 0; i+2 < len(img.Pix); i += step {
+		sum += int(img.Pix[i]) + int(img.Pix[i+1]) + int(img.Pix[i+2])
+		n += 3
+	}
+	if n == 0 {
+		return 0
+	}
+	return float64(sum) / float64(n)
 }
 
 // Live reads a camera in the background and keeps its newest frame, so several users
