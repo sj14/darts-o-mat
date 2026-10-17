@@ -44,7 +44,7 @@ func (store *Store) GetGame(ctx context.Context, id int64) (game.Game, error) {
 
 // ListGames returns the most recent games an account created or was invited to, newest first.
 // A limit of 0 returns all of them.
-func (store *Store) ListGames(ctx context.Context, accountID, playerID int64, limit int) ([]game.Game, error) {
+func (store *Store) ListGames(ctx context.Context, accountID, playerID int64, limit int64) ([]game.Game, error) {
 	invited := store.db.NewSelect().Model((*game.Invitation)(nil)).Column("game_id").Where("player_id = ?", playerID)
 
 	games := []game.Game{}
@@ -60,7 +60,7 @@ func (store *Store) ListGames(ctx context.Context, accountID, playerID int64, li
 }
 
 // ListGamesByBoard returns the most recent games played on a board, newest first.
-func (store *Store) ListGamesByBoard(ctx context.Context, boardID int64, limit int) ([]game.Game, error) {
+func (store *Store) ListGamesByBoard(ctx context.Context, boardID int64, limit int64) ([]game.Game, error) {
 	games := []game.Game{}
 	err := store.db.NewSelect().Model(&games).Where("board_id = ?", boardID).Order("id DESC").Limit(limit).Scan(ctx)
 	return games, err

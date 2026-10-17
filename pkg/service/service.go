@@ -219,7 +219,7 @@ func (s *Service) Game(ctx context.Context, acc account.Account, id int64) (Game
 }
 
 // ListGames returns the most recent games the account created or was invited to, newest first.
-func (s *Service) ListGames(ctx context.Context, acc account.Account, limit int) ([]GameView, error) {
+func (s *Service) ListGames(ctx context.Context, acc account.Account, limit int64) ([]GameView, error) {
 	games, err := s.store.ListGames(ctx, acc.ID, acc.PlayerID, limit)
 	if err != nil {
 		return nil, err

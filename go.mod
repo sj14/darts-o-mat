@@ -10,7 +10,7 @@ require (
 	github.com/ebitengine/purego v0.11.1
 	github.com/go-chi/chi v1.5.5
 	github.com/go-chi/chi/v5 v5.2.3
-	github.com/uptrace/bun v1.2.15
+	github.com/uptrace/bun v1.3.0
 	github.com/uptrace/bun/dialect/pgdialect v1.2.15
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.15
 	github.com/uptrace/bun/driver/pgdriver v1.2.15

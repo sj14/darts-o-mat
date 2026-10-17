@@ -92,7 +92,7 @@ func (s *Service) Tournament(ctx context.Context, acc account.Account, id int64)
 
 // ListTournaments returns the most recent tournaments the account created or was
 // invited to, newest first.
-func (s *Service) ListTournaments(ctx context.Context, acc account.Account, limit int) ([]TournamentView, error) {
+func (s *Service) ListTournaments(ctx context.Context, acc account.Account, limit int64) ([]TournamentView, error) {
 	ts, err := s.store.ListTournaments(ctx, acc.ID, acc.PlayerID, limit)
 	if err != nil {
 		return nil, err

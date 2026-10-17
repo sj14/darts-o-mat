@@ -34,7 +34,7 @@ func (store *Store) GetTournament(ctx context.Context, id int64) (tournament.Tou
 
 // ListTournaments returns the tournaments an account created or was invited to, newest
 // first. A limit of 0 returns all of them.
-func (store *Store) ListTournaments(ctx context.Context, accountID, playerID int64, limit int) ([]tournament.Tournament, error) {
+func (store *Store) ListTournaments(ctx context.Context, accountID, playerID int64, limit int64) ([]tournament.Tournament, error) {
 	invited := store.db.NewSelect().Model((*tournament.Invitation)(nil)).Column("tournament_id").Where("player_id = ?", playerID)
 	ts := []tournament.Tournament{}
 	q := store.db.NewSelect().Model(&ts).
