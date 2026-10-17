@@ -8,5 +8,6 @@ Open tasks of the whole project. Tasks of a single part are in its own file:
 
 ## Whole project
 
+- Show the version and a link to the github code or page
 - Add a landing page instead of just the login screen.
 - Add a github project page
