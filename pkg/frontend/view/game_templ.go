@@ -80,7 +80,7 @@ func Game(user string, v service.GameView) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout(modeLabel(T(ctx), v.Game), user).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout(modeLabel(T(ctx), v.Game.Settings), user).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -183,9 +183,9 @@ func gameTitle(v service.GameView, p *progress) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(T(ctx), v.Game))
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(T(ctx), v.Game.Settings))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/game.templ`, Line: 43, Col: 131}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/game.templ`, Line: 43, Col: 140}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {

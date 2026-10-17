@@ -16,7 +16,7 @@ func quickTournament(format tournament.Format, playerIDs ...int64) tournament.To
 	return tournament.Tournament{
 		Format:    format,
 		PlayerIDs: playerIDs,
-		Settings:  game.Game{Mode: game.ModeX01, X01: &x01.Settings{StartScore: 40, OutMode: x01.OutModeSingle}},
+		Settings:  game.Settings{Mode: game.ModeX01, X01: &x01.Settings{StartScore: 40, OutMode: x01.OutModeSingle}},
 	}
 }
 

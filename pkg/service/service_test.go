@@ -46,9 +46,8 @@ func befriend(t *testing.T, s *Service, a, b account.Account) {
 
 func x01Game(playerIDs ...int64) game.Game {
 	return game.Game{
-		Mode:      game.ModeX01,
+		Settings:  game.Settings{Mode: game.ModeX01, X01: &x01.Settings{StartScore: 501, OutMode: x01.OutModeDouble}},
 		PlayerIDs: playerIDs,
-		X01:       &x01.Settings{StartScore: 501, OutMode: x01.OutModeDouble},
 	}
 }
 

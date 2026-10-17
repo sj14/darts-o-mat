@@ -90,8 +90,7 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err != nil:
 	case format != "":
-		t := tournament.Tournament{Format: format, Settings: g, PlayerIDs: g.PlayerIDs}
-		t.Settings.PlayerIDs = nil
+		t := tournament.Tournament{Format: format, Settings: g.Settings, PlayerIDs: g.PlayerIDs}
 		var v service.TournamentView
 		if v, err = c.svc.CreateTournament(r.Context(), auth.Account(r.Context()), t, invite); err == nil {
 			http.Redirect(w, r, tournamentURL(v.Tournament.ID), http.StatusSeeOther)
@@ -134,7 +133,7 @@ func gameFromForm(r *http.Request) (game.Game, []string, error) {
 		return game.Game{}, nil, fmt.Errorf("%w: %w", service.ErrInvalid, err)
 	}
 
-	g := game.Game{Mode: game.Mode(r.FormValue("mode"))}
+	g := game.Game{Settings: game.Settings{Mode: game.Mode(r.FormValue("mode"))}}
 	for _, s := range r.Form["player_ids"] {
 		id, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {

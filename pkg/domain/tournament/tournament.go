@@ -39,9 +39,8 @@ type Tournament struct {
 	ID             int64  `bun:",pk,autoincrement" json:"id"`
 	OwnerAccountID int64  `bun:",notnull" json:"owner_account_id"`
 	Format         Format `bun:",notnull" json:"format"`
-	// Settings are the settings of its games: mode, legs, sets, bull-off, board and the
-	// mode's settings. ID, owner and players are set per game.
-	Settings  game.Game  `bun:",notnull" json:"settings"`
+	// Settings are the settings of all its games.
+	game.Settings
 	PlayerIDs []int64    `bun:"player_ids,notnull" json:"player_ids"`
 	CreatedAt time.Time  `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 	AbortedAt *time.Time `bun:",nullzero" json:"aborted_at,omitempty"`
@@ -59,19 +58,20 @@ func (t Tournament) Validate() error {
 	if len(t.PlayerIDs) < MinPlayers || len(t.PlayerIDs) > MaxPlayers {
 		return fmt.Errorf("%w: %d to %d", ErrPlayerCount, MinPlayers, MaxPlayers)
 	}
-	// The settings must make a valid game, with the players of the tournament.
-	g := t.Settings
-	g.PlayerIDs = t.PlayerIDs
-	return g.Validate()
+	if err := game.CheckPlayers(t.PlayerIDs); err != nil {
+		return err
+	}
+	return t.Settings.Validate()
 }
 
 // Game returns a new game of the match between the players a and b.
 func (t Tournament) Game(match int, a, b int64) game.Game {
-	g := t.Settings
-	g.ID, g.OwnerAccountID, g.PlayerIDs = 0, t.OwnerAccountID, []int64{a, b}
-	g.CreatedAt, g.AbortedAt, g.BullOffCloser = time.Time{}, nil, nil
-	g.TournamentID, g.TournamentMatch = &t.ID, match
-	return g
+	return game.Game{
+		OwnerAccountID: t.OwnerAccountID,
+		Settings:       t.Settings,
+		PlayerIDs:      []int64{a, b},
+		TournamentID:   &t.ID, TournamentMatch: match,
+	}
 }
 
 // Invitation invites the player of another account to a tournament. Its games start

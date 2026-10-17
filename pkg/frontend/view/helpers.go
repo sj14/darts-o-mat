@@ -94,7 +94,7 @@ func outModeLabel(m x01.OutMode) string {
 	return ""
 }
 
-func modeLabel(t Texts, g game.Game) string {
+func modeLabel(t Texts, g game.Settings) string {
 	switch {
 	case g.Sets > 1:
 		return modeName(t, g) + " · " + t.FirstToSets(g.Sets, g.Legs)
@@ -111,7 +111,7 @@ func plural(n int, one, many string) string {
 	return many
 }
 
-func modeName(t Texts, g game.Game) string {
+func modeName(t Texts, g game.Settings) string {
 	switch g.Mode {
 	case game.ModeX01:
 		return fmt.Sprintf("%d %s", g.X01.StartScore, outModeLabel(g.X01.OutMode))

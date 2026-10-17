@@ -275,9 +275,9 @@ func invitations(views []service.GameView) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var11 string
-				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(T(ctx), v.Game))
+				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(T(ctx), v.Game.Settings))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/home.templ`, Line: 69, Col: 154}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/home.templ`, Line: 69, Col: 163}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -809,9 +809,9 @@ func recentGames(views []service.GameView) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var42 string
-				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(T(ctx), v.Game))
+				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(T(ctx), v.Game.Settings))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/home.templ`, Line: 133, Col: 93}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/home.templ`, Line: 133, Col: 102}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 				if templ_7745c5c3_Err != nil {

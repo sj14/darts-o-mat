@@ -45,7 +45,7 @@ func tournamentPending(v service.TournamentView) string {
 }
 
 // scoreUnit is what the score of a match counts: sets, or legs in games without sets.
-func scoreUnit(t Texts, g game.Game) string {
+func scoreUnit(t Texts, g game.Settings) string {
 	if g.Sets > 1 {
 		return t.Sets()
 	}
