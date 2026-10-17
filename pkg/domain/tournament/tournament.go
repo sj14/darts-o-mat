@@ -36,6 +36,8 @@ const (
 // Tournament holds what is needed to compute its state: the format, the settings of
 // its games and the players in the order of the draw (the seeds of the bracket).
 type Tournament struct {
+	bun.BaseModel `bun:"table:tournaments"`
+
 	ID             int64  `bun:",pk,autoincrement" json:"id"`
 	OwnerAccountID int64  `bun:",notnull" json:"owner_account_id"`
 	Format         Format `bun:",notnull" json:"format"`

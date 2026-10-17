@@ -10,6 +10,8 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
+
+	"github.com/uptrace/bun"
 )
 
 // MaxLegs is the most legs a game (or a set) can need to win, MaxSets the most sets.
@@ -67,6 +69,8 @@ func (s Settings) Validate() error {
 // Game holds what is needed to replay a game: its settings and the players in throwing
 // order. The darts are stored separately and the current state is computed with Play.
 type Game struct {
+	bun.BaseModel `bun:"table:games"`
+
 	ID             int64 `bun:",pk,autoincrement" json:"id"`
 	OwnerAccountID int64 `bun:",notnull" json:"owner_account_id"` // the account that created the game
 	Settings
@@ -151,6 +155,8 @@ const (
 // The game accepts darts once no invitation is pending anymore;
 // a declined or withdrawn invitation is deleted and the player removed from the game.
 type Invitation struct {
+	bun.BaseModel `bun:"table:game_invitations"`
+
 	GameID    int64            `bun:",pk" json:"game_id"`
 	PlayerID  int64            `bun:",pk" json:"player_id"`
 	Status    InvitationStatus `bun:",notnull" json:"status"`

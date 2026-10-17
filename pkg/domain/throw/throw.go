@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/uptrace/bun"
 )
 
 // BullNumber is the number of the bull and the bullseye: the bull scores 25, the
@@ -17,6 +19,8 @@ var ErrInvalid = errors.New("invalid dart")
 // darts being pulled out of the board (Takeout), which ends a turn in games played on
 // a board.
 type Dart struct {
+	bun.BaseModel `bun:"table:darts"`
+
 	ID     int64 `bun:",pk,autoincrement" json:"id"`
 	GameID int64 `bun:",notnull" json:"-"`
 	// Number is the field's number, 25 for the bull and the bullseye; for a miss the

@@ -19,6 +19,8 @@ var usernamePattern = regexp.MustCompile(`^[a-z0-9._-]{3,32}$`)
 
 // Account is fixed to one player, which represents the account in games.
 type Account struct {
+	bun.BaseModel `bun:"table:accounts"`
+
 	ID           int64  `bun:",pk,autoincrement" json:"id"`
 	Username     string `bun:",notnull,unique" json:"username"`
 	PasswordHash string `bun:",notnull" json:"-"`
@@ -68,6 +70,8 @@ const (
 // Friendship between two accounts. It starts as a request from the requester
 // and counts once the addressee accepted. There is at most one per pair, in either direction.
 type Friendship struct {
+	bun.BaseModel `bun:"table:friendships"`
+
 	RequesterID int64            `bun:",pk"`
 	AddresseeID int64            `bun:",pk"`
 	Status      FriendshipStatus `bun:",notnull"`
