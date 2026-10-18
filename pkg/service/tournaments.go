@@ -234,7 +234,7 @@ func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tou
 		return TournamentView{}, err
 	}
 	v := TournamentView{Tournament: t, Invitations: invitations, IsOwner: t.OwnerAccountID == acc.ID, viewer: acc.PlayerID}
-	v.Ready = !slices.ContainsFunc(invitations, func(inv tournament.Invitation) bool { return inv.Status == game.InvitationPending })
+	v.Ready = t.Full(len(t.PlayerIDs)) && !slices.ContainsFunc(invitations, func(inv tournament.Invitation) bool { return inv.Status == game.InvitationPending })
 	var mine *game.InvitationStatus
 	if inv := v.InvitationOf(acc.PlayerID); inv != nil {
 		mine = &inv.Status
@@ -281,6 +281,8 @@ func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tou
 		}
 		results[g.TournamentMatch] = r
 	}
-	v.State = tournament.Plan(t.Format, t.PlayerIDs, results)
+	if t.Full(len(t.PlayerIDs)) { // the schedule needs all players
+		v.State = tournament.Plan(t.Format, t.PlayerIDs, results)
+	}
 	return v, nil
 }

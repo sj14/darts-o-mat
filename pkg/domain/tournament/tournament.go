@@ -43,6 +43,8 @@ type Tournament struct {
 	Format         Format `bun:",notnull" json:"format"`
 	// Settings are the settings of all its games.
 	game.Settings
+	// Lobby opens the tournament for strangers, who take the seats that are left.
+	game.Lobby
 	PlayerIDs []int64    `bun:"player_ids,notnull" json:"player_ids"`
 	CreatedAt time.Time  `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 	AbortedAt *time.Time `bun:",nullzero" json:"aborted_at,omitempty"`
@@ -57,10 +59,14 @@ func (t Tournament) Validate() error {
 	if t.Format != Knockout && t.Format != RoundRobin {
 		return fmt.Errorf("unknown format %q, use knockout or round_robin", t.Format)
 	}
-	if len(t.PlayerIDs) < MinPlayers || len(t.PlayerIDs) > MaxPlayers {
+	// An open tournament may have fewer players than it needs until strangers joined.
+	if len(t.PlayerIDs) > MaxPlayers || (!t.Open && len(t.PlayerIDs) < MinPlayers) {
 		return fmt.Errorf("%w: %d to %d", ErrPlayerCount, MinPlayers, MaxPlayers)
 	}
 	if err := game.CheckPlayers(t.PlayerIDs); err != nil {
+		return err
+	}
+	if err := t.Lobby.Validate(len(t.PlayerIDs), MinPlayers, MaxPlayers); err != nil {
 		return err
 	}
 	return t.Settings.Validate()

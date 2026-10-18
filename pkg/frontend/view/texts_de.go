@@ -73,6 +73,26 @@ func (textsDE) LandingFeatureText(i int) string {
 	}[i%4]
 }
 
+func (textsDE) OpenGames() string           { return "Offene Spiele" }
+func (textsDE) NoOpenGames() string         { return "Zurzeit sucht kein Spiel Mitspieler." }
+func (textsDE) HostedBy(host string) string { return "von " + host }
+func (textsDE) PlayersOfSeats(players, seats int) string {
+	return strconv.Itoa(players) + " von " + strconv.Itoa(seats) + " Spielern"
+}
+func (textsDE) JoinLobby() string      { return "Beitreten" }
+func (textsDE) Strangers() string      { return "Fremde" }
+func (textsDE) AllowStrangers() string { return "Fremde mitspielen lassen" }
+func (textsDE) StrangerSeats() string  { return "Spieler insgesamt" }
+func (textsDE) StrangersHint() string {
+	return "Das Spiel steht 30 Minuten in der Liste der offenen Spiele und startet, sobald alle Plätze besetzt sind. Ein Turnier braucht mindestens 3 Spieler."
+}
+func (textsDE) WaitingForSeats(n int) string {
+	if n == 1 {
+		return "Es fehlt noch 1 Spieler."
+	}
+	return "Es fehlen noch " + strconv.Itoa(n) + " Spieler."
+}
+func (textsDE) ErrNoSeat() string   { return "Es ist kein Platz mehr frei." }
 func (textsDE) PlayOnBoard() string { return "Auf diesem Board spielen" }
 func (textsDE) BoardInUseConfirm() string {
 	return "Auf diesem Board läuft ein anderes Spiel. Das Board in dieses Spiel holen? Das andere Spiel läuft dann ohne Board weiter."

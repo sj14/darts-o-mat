@@ -66,6 +66,40 @@ func (s Settings) Validate() error {
 	}
 }
 
+// MaxSeats is the most players of a game that is open for strangers.
+const MaxSeats = 8
+
+// Lobby makes a game or tournament open for players without an invitation: Seats is the
+// number of players it wants in total, the owner's and invited ones included. It starts
+// once all seats are taken and the invited players accepted. Strangers see it in the
+// list of open games until then, see service.OpenLobbies.
+type Lobby struct {
+	Open  bool `bun:",notnull,default:false" json:"open,omitempty"`
+	Seats int  `bun:",notnull,default:0" json:"seats,omitempty"`
+}
+
+// Full reports whether no seat is free with that many players; a game that isn't open
+// always is.
+func (l Lobby) Full(players int) bool {
+	return !l.Open || players >= l.Seats
+}
+
+// Validate checks the lobby of a game or tournament that has players players so far and
+// may have min to max in total.
+func (l Lobby) Validate(players, min, max int) error {
+	switch {
+	case !l.Open && l.Seats != 0:
+		return errors.New("seats only apply to games open for strangers")
+	case !l.Open:
+		return nil
+	case l.Seats < min || l.Seats > max:
+		return fmt.Errorf("a game open for strangers needs %d to %d players", min, max)
+	case players >= l.Seats:
+		return errors.New("a game open for strangers needs a free seat")
+	}
+	return nil
+}
+
 // Game holds what is needed to replay a game: its settings and the players in throwing
 // order. The darts are stored separately and the current state is computed with Play.
 type Game struct {
@@ -74,6 +108,7 @@ type Game struct {
 	ID             int64 `bun:",pk,autoincrement" json:"id"`
 	OwnerAccountID int64 `bun:",notnull" json:"owner_account_id"` // the account that created the game
 	Settings
+	Lobby
 	PlayerIDs []int64 `bun:"player_ids,notnull" json:"player_ids"`
 	// BullOffCloser is the player the players found closer when bulling off ended in a
 	// tie, see turn.Log.BullOffCloser.
@@ -97,6 +132,9 @@ func (g Game) Validate() error {
 		return errors.New("a game needs at least one player")
 	}
 	if err := CheckPlayers(g.PlayerIDs); err != nil {
+		return err
+	}
+	if err := g.Lobby.Validate(len(g.PlayerIDs), 2, MaxSeats); err != nil {
 		return err
 	}
 	return g.Settings.Validate()

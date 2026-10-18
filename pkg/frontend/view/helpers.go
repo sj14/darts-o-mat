@@ -426,6 +426,14 @@ func boardChoiceLabel(t Texts, b service.BoardView) string {
 	return "📷 " + b.Name
 }
 
+// joinURL is where the button to join an open game or tournament posts to.
+func joinURL(l service.OpenLobby) string {
+	if l.Tournament {
+		return "/tournaments/" + strconv.FormatInt(l.ID, 10) + "/join"
+	}
+	return "/games/" + strconv.FormatInt(l.ID, 10) + "/join"
+}
+
 // boardVals are the form values of the button that puts a game on a board.
 func boardVals(id int64) string {
 	return `{"board_id": "` + strconv.FormatInt(id, 10) + `"}`

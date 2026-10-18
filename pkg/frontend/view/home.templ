@@ -17,6 +17,7 @@ type HomeModel struct {
 	Games       []service.GameView
 	Invitations []service.GameView
 	Friends     service.FriendList
+	OpenLobbies []service.OpenLobby // games and tournaments of others to join
 
 	Tournaments           []service.TournamentView
 	TournamentInvitations []service.TournamentView
@@ -44,6 +45,7 @@ templ Home(m HomeModel) {
 		<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
 			@newGame(m)
 			<div class="flex flex-col gap-6">
+				@openLobbies(m.OpenLobbies)
 				if len(m.Tournaments) > 0 {
 					@panel("") {
 						@sectionTitle(T(ctx).Tournaments())
@@ -87,6 +89,40 @@ templ tournamentInvitations(views []service.TournamentView) {
 						<div class="text-sm text-white/50">{ modeLabel(T(ctx), v.Tournament.Settings) } · { T(ctx).PlayerCount(len(v.Players)) }</div>
 					</div>
 					@answerTournament(v.Tournament.ID)
+				</li>
+			}
+		</ul>
+	}
+}
+
+// openLobbies lists the games and tournaments of others that have a free seat.
+templ openLobbies(lobbies []service.OpenLobby) {
+	@panel("") {
+		@sectionTitle(T(ctx).OpenGames())
+		if len(lobbies) == 0 {
+			<p class="text-white/50">{ T(ctx).NoOpenGames() }</p>
+		}
+		<ul class="divide-y divide-white/10">
+			for _, l := range lobbies {
+				<li class="flex flex-wrap items-center justify-between gap-3 py-3">
+					<div>
+						<div class="font-display text-2xl font-semibold uppercase">
+							if l.Tournament {
+								🏆 { formatName(T(ctx), l.Format) }
+							} else {
+								{ modeLabel(T(ctx), l.Settings) }
+							}
+						</div>
+						<div class="text-sm text-white/50">
+							if l.Tournament {
+								{ modeLabel(T(ctx), l.Settings) } ·
+							}
+							{ T(ctx).HostedBy(l.Host) } · { T(ctx).PlayersOfSeats(l.Players, l.Seats) }
+						</div>
+					</div>
+					<form method="post" action={ templ.URL(joinURL(l)) }>
+						<button type="submit" class={ btnPrimary }>{ T(ctx).JoinLobby() }</button>
+					</form>
 				</li>
 			}
 		</ul>
@@ -227,6 +263,16 @@ templ participants(m HomeModel) {
 		if len(m.Friends.Friends) > 0 {
 			<p class={ hintClass }>{ T(ctx).GameStartsWhenAccepted() }</p>
 		}
+	}
+	@fieldset(T(ctx).Strangers()) {
+		@checkbox("open", "open", "on", false) {
+			{ T(ctx).AllowStrangers() }
+		}
+		<label class="mt-2 flex flex-wrap items-center gap-3 px-2 text-sm text-white/70">
+			{ T(ctx).StrangerSeats() }
+			<input type="number" name="seats" min="2" max="32" value="2" class={ inputClass, "w-24!" }/>
+		</label>
+		<p class={ hintClass }>{ T(ctx).StrangersHint() }</p>
 	}
 	if len(m.Boards) > 0 {
 		@fieldset(T(ctx).Board()) {

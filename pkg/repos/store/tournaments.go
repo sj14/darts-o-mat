@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"math/rand"
 	"slices"
+	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/tournament"
@@ -120,4 +122,39 @@ func (store *Store) ListTournamentGames(ctx context.Context, tournamentID int64)
 	games := []game.Game{}
 	err := store.db.NewSelect().Model(&games).Where("tournament_id = ?", tournamentID).Order("id").Scan(ctx)
 	return games, err
+}
+
+// JoinTournament adds a player to a tournament with an accepted invitation. The player
+// that takes the last seat completes the draw: the players are shuffled, as when a
+// tournament that isn't open is created.
+func (store *Store) JoinTournament(ctx context.Context, tournamentID, playerID int64) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		var t tournament.Tournament
+		if err := tx.NewSelect().Model(&t).Where("id = ?", tournamentID).Scan(ctx); err != nil {
+			return notFound(err)
+		}
+		t.PlayerIDs = append(t.PlayerIDs, playerID)
+		if t.Full(len(t.PlayerIDs)) {
+			rand.Shuffle(len(t.PlayerIDs), func(i, j int) { t.PlayerIDs[i], t.PlayerIDs[j] = t.PlayerIDs[j], t.PlayerIDs[i] })
+		}
+		if _, err := tx.NewUpdate().Model(&t).Column("player_ids").WherePK().Exec(ctx); err != nil {
+			return err
+		}
+		inv := tournament.Invitation{TournamentID: tournamentID, PlayerID: playerID, Status: game.InvitationAccepted}
+		_, err := tx.NewInsert().Model(&inv).Exec(ctx)
+		return err
+	})
+}
+
+// ListOpenTournaments returns the tournaments open for strangers that were created
+// since the time, newest first, including full and aborted ones, which the caller sorts out.
+func (store *Store) ListOpenTournaments(ctx context.Context, since time.Time) ([]tournament.Tournament, error) {
+	ts := []tournament.Tournament{}
+	err := store.db.NewSelect().Model(&ts).
+		Where(`"open" = ?`, true).
+		Where("created_at > ?", since).
+		Where("aborted_at IS NULL").
+		Order("id DESC").
+		Scan(ctx)
+	return ts, err
 }

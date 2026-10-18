@@ -208,3 +208,33 @@ func (store *Store) UpdateDart(ctx context.Context, d *throw.Dart) error {
 	}
 	return nil
 }
+
+// JoinGame adds a player to a game with an accepted invitation, as the last to throw.
+func (store *Store) JoinGame(ctx context.Context, gameID, playerID int64) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		var g game.Game
+		if err := tx.NewSelect().Model(&g).Where("id = ?", gameID).Scan(ctx); err != nil {
+			return notFound(err)
+		}
+		g.PlayerIDs = append(g.PlayerIDs, playerID)
+		if _, err := tx.NewUpdate().Model(&g).Column("player_ids").WherePK().Exec(ctx); err != nil {
+			return err
+		}
+		inv := game.Invitation{GameID: gameID, PlayerID: playerID, Status: game.InvitationAccepted}
+		_, err := tx.NewInsert().Model(&inv).Exec(ctx)
+		return err
+	})
+}
+
+// ListOpenGames returns the games open for strangers that were created since the time,
+// newest first, including full and aborted ones, which the caller sorts out.
+func (store *Store) ListOpenGames(ctx context.Context, since time.Time) ([]game.Game, error) {
+	games := []game.Game{}
+	err := store.db.NewSelect().Model(&games).
+		Where(`"open" = ?`, true).
+		Where("created_at > ?", since).
+		Where("aborted_at IS NULL").
+		Order("id DESC").
+		Scan(ctx)
+	return games, err
+}

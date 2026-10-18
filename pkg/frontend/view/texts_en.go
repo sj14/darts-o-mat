@@ -75,6 +75,26 @@ func (textsEN) LandingFeatureText(i int) string {
 	}[i%4]
 }
 
+func (textsEN) OpenGames() string           { return "Open games" }
+func (textsEN) NoOpenGames() string         { return "No game is looking for players right now." }
+func (textsEN) HostedBy(host string) string { return "by " + host }
+func (textsEN) PlayersOfSeats(players, seats int) string {
+	return strconv.Itoa(players) + " of " + strconv.Itoa(seats) + " players"
+}
+func (textsEN) JoinLobby() string      { return "Join" }
+func (textsEN) Strangers() string      { return "Strangers" }
+func (textsEN) AllowStrangers() string { return "Let strangers join" }
+func (textsEN) StrangerSeats() string  { return "Players in total" }
+func (textsEN) StrangersHint() string {
+	return "The game shows up in the list of open games for 30 minutes and starts once all seats are taken. A tournament needs at least 3 players."
+}
+func (textsEN) WaitingForSeats(n int) string {
+	if n == 1 {
+		return "Waiting for 1 more player."
+	}
+	return "Waiting for " + strconv.Itoa(n) + " more players."
+}
+func (textsEN) ErrNoSeat() string   { return "There is no free seat anymore." }
 func (textsEN) PlayOnBoard() string { return "Play on this board" }
 func (textsEN) BoardInUseConfirm() string {
 	return "Another game is on this board. Move the board to this game? The other game continues without a board."

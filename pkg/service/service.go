@@ -97,7 +97,8 @@ type GameView struct {
 	Invitations []game.Invitation `json:"invitations"`
 	Darts       []throw.Dart      `json:"darts"` // the log: darts and takeouts
 	State       game.State        `json:"state"` // x01.State or aroundtheclock.State, depending on the mode
-	// Ready is true once no invitation is pending anymore; only then darts can be thrown.
+	// Ready is true once no invitation is pending anymore and no seat is free; only then
+	// darts can be thrown.
 	Ready bool `json:"ready"`
 
 	// The following fields depend on the account the view was created for.
@@ -495,7 +496,7 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	}
 
 	v := GameView{Game: g, Invitations: invitations, IsOwner: g.OwnerAccountID == acc.ID}
-	v.Ready = !slices.ContainsFunc(invitations, func(inv game.Invitation) bool { return inv.Status == game.InvitationPending })
+	v.Ready = g.Full(len(g.PlayerIDs)) && !slices.ContainsFunc(invitations, func(inv game.Invitation) bool { return inv.Status == game.InvitationPending })
 	var mine *game.InvitationStatus
 	if inv := v.InvitationOf(acc.PlayerID); inv != nil {
 		mine = &inv.Status

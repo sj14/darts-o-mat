@@ -39,7 +39,12 @@ templ TournamentBody(v service.TournamentView, errMsg string) {
 			</div>
 		} else if !v.Ready && !v.Tournament.Aborted() {
 			<div class="mb-6 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3">
-				{ T(ctx).WaitingFor(tournamentPending(v)) }
+				if !v.Tournament.Full(len(v.Tournament.PlayerIDs)) {
+					<p>{ T(ctx).WaitingForSeats(v.Tournament.Seats - len(v.Tournament.PlayerIDs)) }</p>
+				}
+				if tournamentPending(v) != "" {
+					<p>{ T(ctx).WaitingFor(tournamentPending(v)) }</p>
+				}
 			</div>
 		}
 		if v.State.Over {

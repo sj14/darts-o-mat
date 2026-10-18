@@ -37,6 +37,10 @@ func (c *Controller) renderHome(w http.ResponseWriter, r *http.Request, status i
 		serverError(w, err)
 		return
 	}
+	if m.OpenLobbies, err = c.svc.OpenLobbies(ctx, m.Account); err != nil {
+		serverError(w, err)
+		return
+	}
 	if m.Games, err = c.svc.ListGames(ctx, m.Account, 10); err != nil {
 		serverError(w, err)
 		return
@@ -94,7 +98,7 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err != nil:
 	case format != "":
-		t := tournament.Tournament{Format: format, Settings: g.Settings, PlayerIDs: g.PlayerIDs}
+		t := tournament.Tournament{Format: format, Settings: g.Settings, Lobby: g.Lobby, PlayerIDs: g.PlayerIDs}
 		var v service.TournamentView
 		if v, err = c.svc.CreateTournament(r.Context(), auth.Account(r.Context()), t, invite); err == nil {
 			http.Redirect(w, r, tournamentURL(v.Tournament.ID), http.StatusSeeOther)
@@ -148,6 +152,13 @@ func gameFromForm(r *http.Request) (game.Game, []string, error) {
 
 	invite := r.Form["invite"]
 	g.BullOff = r.FormValue("bull_off") != ""
+	if g.Open = r.FormValue("open") != ""; g.Open {
+		seats, err := strconv.Atoi(r.FormValue("seats"))
+		if err != nil {
+			return g, nil, fmt.Errorf("%w: invalid number of players", service.ErrInvalid)
+		}
+		g.Seats = seats
+	}
 
 	if s := r.FormValue("legs"); s != "" {
 		legs, err := strconv.Atoi(s)

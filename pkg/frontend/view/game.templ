@@ -97,6 +97,9 @@ templ lobby(v service.GameView, errMsg string) {
 		}
 		@panel("") {
 			<p class="mb-4 text-white/70">{ T(ctx).GameStartsWhenAccepted() }</p>
+			if !v.Game.Full(len(v.Game.PlayerIDs)) {
+				<p class="mb-4 font-semibold text-amber-300">{ T(ctx).WaitingForSeats(v.Game.Seats - len(v.Game.PlayerIDs)) }</p>
+			}
 			<ul class="divide-y divide-white/10">
 				for _, pl := range v.Players {
 					<li class="flex flex-wrap items-center justify-between gap-2 py-3">

@@ -53,6 +53,17 @@ type Texts interface {
 	AbortGame() string
 	AbortGameConfirm() string
 	PlayOnBoard() string
+	OpenGames() string
+	NoOpenGames() string
+	HostedBy(host string) string
+	PlayersOfSeats(players, seats int) string
+	JoinLobby() string
+	Strangers() string
+	AllowStrangers() string
+	StrangerSeats() string
+	StrangersHint() string
+	WaitingForSeats(n int) string
+	ErrNoSeat() string
 	LandingLead() string
 	LandingFeatureTitle(i int) string
 	LandingFeatureText(i int) string
