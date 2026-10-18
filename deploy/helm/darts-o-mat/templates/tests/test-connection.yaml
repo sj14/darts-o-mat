@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "darts-o-mat.fullname" . }}-test-connection"
+  labels:
+    {{- include "darts-o-mat.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "darts-o-mat.fullname" . }}:{{ .Values.service.port }}']
+  restartPolicy: Never
