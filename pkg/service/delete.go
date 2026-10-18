@@ -52,7 +52,7 @@ func (s *Service) inRunningGame(ctx context.Context, acc account.Account, player
 		return false, err
 	}
 	for _, g := range games {
-		if g.Aborted() || !slices.Contains(g.PlayerIDs, playerID) {
+		if g.Aborted() || !slices.Contains(g.PlayerIDs(), playerID) {
 			continue
 		}
 		v, err := s.view(ctx, acc, g)
@@ -68,7 +68,7 @@ func (s *Service) inRunningGame(ctx context.Context, acc account.Account, player
 		return false, err
 	}
 	for _, t := range tournaments {
-		if t.Aborted() || !slices.Contains(t.PlayerIDs, playerID) {
+		if t.Aborted() || !slices.Contains(t.PlayerIDs(), playerID) {
 			continue
 		}
 		v, err := s.tournamentView(ctx, acc, t)
@@ -85,9 +85,9 @@ func (s *Service) inRunningGame(ctx context.Context, acc account.Account, player
 // DeleteAccount deletes the account after checking its password: its login, sessions,
 // friendships, boards and guests are gone, and the player of the account and its guests
 // are shown as "deleted player" in the games that stay as they were. Running games and
-// tournaments are dealt with first: the account's own are aborted, in those of others it
-// leaves (they play on, or the game is aborted if fewer than two players would be left),
-// a tournament it takes part in is aborted, and open invitations are declined.
+// tournaments are dealt with first: the account leaves them with all its players (the
+// others play on, or the game is aborted if fewer than two players would be left; a
+// tournament ends), and open invitations are declined.
 func (s *Service) DeleteAccount(ctx context.Context, acc account.Account, password string) error {
 	a, err := s.store.GetAccount(ctx, acc.ID)
 	if err != nil {
@@ -119,10 +119,8 @@ func (s *Service) leaveEverything(ctx context.Context, a account.Account) error 
 		}
 		switch {
 		case v.Common().GameOver:
-		case v.IsOwner:
-			err = s.abortGame(ctx, &g)
-		case v.Invited || !v.Ready:
-			if err = s.store.RemoveInvitedPlayer(ctx, g.ID, a.PlayerID); err == nil {
+		case v.Invited:
+			if err = s.store.RemoveParticipant(ctx, g.ID, a.PlayerID); err == nil {
 				s.notifyGame(g)
 			}
 		default:
@@ -149,12 +147,12 @@ func (s *Service) leaveEverything(ctx context.Context, a account.Account) error 
 		}
 		switch {
 		case v.State.Over:
-		case !v.IsOwner && (v.Invited || !v.Ready):
-			if err = s.store.RemoveTournamentPlayer(ctx, t.ID, a.PlayerID); err == nil {
+		case v.Invited:
+			if err = s.store.RemoveTournamentParticipant(ctx, t.ID, a.PlayerID); err == nil {
 				s.tournaments.Notify(t.ID)
 			}
 		default:
-			err = s.abortTournament(ctx, &t, a)
+			err = s.leaveTournament(ctx, a, t)
 		}
 		if err != nil {
 			return err

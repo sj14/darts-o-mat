@@ -62,7 +62,6 @@ func (a *API) Routes() http.Handler {
 		r.Delete("/games/{id}/darts/last", a.undoDart)
 		r.Put("/games/{id}/darts/{dartID}", a.editDart)
 		r.Post("/games/{id}/takeout", a.takeout)
-		r.Post("/games/{id}/abort", a.abortGame)
 		r.Post("/games/{id}/leave", a.leaveGame)
 		r.Post("/games/{id}/board", a.useBoard)
 		r.Post("/games/{id}/bull-off", a.decideBullOff)
@@ -217,14 +216,23 @@ func (a *API) listGames(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) createGame(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		game.Game
+		game.Settings
+		game.Lobby
+		// PlayerIDs are the account's own player and its guests, in throwing order.
+		PlayerIDs []int64 `json:"player_ids"`
+		// BoardID is the board these players throw on, one of the account's.
+		BoardID *int64 `json:"board_id"`
 		// Invite lists usernames of other accounts to invite; they are added after PlayerIDs.
 		Invite []string `json:"invite"`
 	}
 	if !decode(w, r, &req) {
 		return
 	}
-	v, err := a.svc.CreateGame(r.Context(), auth.Account(r.Context()), req.Game, req.Invite)
+	g := game.Game{Settings: req.Settings, Lobby: req.Lobby}
+	for _, id := range req.PlayerIDs {
+		g.Participants = append(g.Participants, game.Participant{PlayerID: id, BoardID: req.BoardID})
+	}
+	v, err := a.svc.CreateGame(r.Context(), auth.Account(r.Context()), g, req.Invite)
 	respond(w, http.StatusCreated, v, err)
 }
 
@@ -354,19 +362,9 @@ func (a *API) decideBullOff(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, v, err)
 }
 
-// abortGame ends a running game without a winner (owner only).
-func (a *API) abortGame(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	v, err := a.svc.AbortGame(r.Context(), auth.Account(r.Context()), id)
-	respond(w, http.StatusOK, v, err)
-}
-
-// leaveGame lets a player who isn't the host leave the game: in the lobby they are
+// leaveGame lets the account leave the game with all its players: in the lobby they are
 // removed, in a running game the others play on without them, or it is aborted if fewer
-// than two players would be left.
+// than two players would be left (which is all that "abort" is in a game of one account).
 func (a *API) leaveGame(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
@@ -380,7 +378,7 @@ func (a *API) leaveGame(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, v, err)
 }
 
-// useBoard puts a running game without a board on a board (owner only); a game that
+// useBoard puts the account's players of a running game on a board; a game that
 // was on the board continues without it.
 func (a *API) useBoard(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")

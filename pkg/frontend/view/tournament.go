@@ -37,9 +37,9 @@ func tournamentPlayerName(ctx context.Context, v service.TournamentView, id int6
 // tournamentPending names the invited players who haven't accepted yet.
 func tournamentPending(ctx context.Context, v service.TournamentView) string {
 	var names []string
-	for _, inv := range v.Invitations {
-		if inv.Status == game.InvitationPending {
-			names = append(names, tournamentPlayerName(ctx, v, inv.PlayerID))
+	for _, p := range v.Tournament.Participants {
+		if p.Status == game.InvitationPending {
+			names = append(names, tournamentPlayerName(ctx, v, p.PlayerID))
 		}
 	}
 	return strings.Join(names, ", ")

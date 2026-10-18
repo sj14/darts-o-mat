@@ -354,9 +354,11 @@ func (textsDE) WaitingFor(names string) string {
 	return "Wartet auf die Zusage von " + names + ". Danach können die Spiele beginnen."
 }
 func (textsDE) WinsTournament(name string) string { return "🏆 " + name + " gewinnt das Turnier!" }
-func (textsDE) AbortTournament() string           { return "Turnier abbrechen" }
-func (textsDE) AbortTournamentConfirm() string    { return "Turnier wirklich abbrechen?" }
-func (textsDE) Bracket() string                   { return "Turnierbaum" }
+func (textsDE) LeaveTournament() string           { return "Turnier verlassen" }
+func (textsDE) LeaveTournamentConfirm() string {
+	return "Das Turnier wirklich verlassen? Es endet dann für alle, beendete Spiele bleiben erhalten."
+}
+func (textsDE) Bracket() string { return "Turnierbaum" }
 func (t textsDE) RoundName(rounds, round int) string {
 	switch rounds - round {
 	case 0:
@@ -417,7 +419,4 @@ func (textsDE) ErrAlreadyFriends() string {
 func (textsDE) ErrFriendSelf() string { return "Du kannst dich nicht selbst als Freund hinzufügen." }
 func (textsDE) ErrMatchNotStartable() string {
 	return "Dieses Spiel kann gerade nicht gestartet werden."
-}
-func (textsDE) ErrAbortTournament() string {
-	return "Nur wer das Turnier angelegt hat, kann es abbrechen, und nur solange es läuft."
 }

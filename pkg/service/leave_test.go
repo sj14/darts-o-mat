@@ -43,9 +43,6 @@ func TestLeaveGame(t *testing.T) {
 		t.Errorf("thrown by %d and %d, want anna %d and ben %d", v.Darts[0].PlayerID, v.Darts[3].PlayerID, anna.PlayerID, ben.PlayerID)
 	}
 
-	if _, err := s.LeaveGame(ctx, anna, id); !errors.Is(err, ErrForbidden) {
-		t.Errorf("the host leaves: got %v, want ErrForbidden (aborting is theirs)", err)
-	}
 	// Ben leaves while up: carla throws next, and ben can look at the game only.
 	v, err = s.LeaveGame(ctx, ben, id)
 	if err != nil {
@@ -128,5 +125,33 @@ func TestCantLeaveWhileBullingOff(t *testing.T) {
 
 	if _, err := s.LeaveGame(ctx, ben, v.Game.ID); !errors.Is(err, turn.ErrCantLeave) {
 		t.Errorf("leave while bulling off: got %v, want ErrCantLeave", err)
+	}
+}
+
+// Nobody is the host: whoever created the game can leave it like the others.
+func TestTheCreatorCanLeaveToo(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
+	befriend(t, s, anna, ben)
+	befriend(t, s, anna, carla)
+	papa, _ := s.CreateGuest(ctx, anna, "Papa")
+	v, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID, papa.ID), []string{"ben", "carla"})
+	_, _ = s.AcceptInvitation(ctx, ben, v.Game.ID, nil)
+	_, _ = s.AcceptInvitation(ctx, carla, v.Game.ID, nil)
+
+	// Anna leaves with her guest: ben and carla play on.
+	v, err := s.LeaveGame(ctx, anna, v.Game.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Game.Aborted() || !v.HasLeft || !v.Common().Records[papa.ID].Left || !v.Common().Records[anna.PlayerID].Left {
+		t.Fatalf("after anna left: aborted %v, left %v, papa left %v; want both gone and the game on", v.Game.Aborted(), v.HasLeft, v.Common().Records[papa.ID].Left)
+	}
+	if cur := v.Common().CurrentPlayerID; cur == nil || *cur != ben.PlayerID {
+		t.Errorf("current player %v, want ben", cur)
+	}
+	if _, err := s.AddDart(ctx, ben, v.Game.ID, t20); err != nil {
+		t.Errorf("ben throws: %v", err)
 	}
 }

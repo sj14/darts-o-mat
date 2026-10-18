@@ -116,7 +116,10 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err != nil:
 	case format != "":
-		t := tournament.Tournament{Format: format, Settings: g.Settings, Lobby: g.Lobby, PlayerIDs: g.PlayerIDs}
+		t := tournament.Tournament{Format: format, Settings: g.Settings, Lobby: g.Lobby}
+		for _, p := range g.Participants {
+			t.Participants = append(t.Participants, tournament.Participant{PlayerID: p.PlayerID, BoardID: p.BoardID})
+		}
 		var v service.TournamentView
 		if v, err = c.svc.CreateTournament(r.Context(), auth.Account(r.Context()), t, invite); err == nil {
 			http.Redirect(w, r, tournamentURL(v.Tournament.ID), http.StatusSeeOther)
@@ -139,7 +142,7 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 	var unknown service.UnknownUserError
 	var notFriend service.NotFriendError
 	switch {
-	case len(g.PlayerIDs) == 0 && len(invite) == 0:
+	case len(g.Participants) == 0:
 		msg = texts.ErrChoosePlayer()
 	case errors.Is(err, tournament.ErrPlayerCount):
 		msg = texts.ErrTournamentPlayers(tournament.MinPlayers, tournament.MaxPlayers)
@@ -165,7 +168,7 @@ func gameFromForm(r *http.Request) (game.Game, []string, error) {
 		if err != nil {
 			return g, nil, fmt.Errorf("%w: invalid player id", service.ErrInvalid)
 		}
-		g.PlayerIDs = append(g.PlayerIDs, id)
+		g.Participants = append(g.Participants, game.Participant{PlayerID: id})
 	}
 
 	invite := r.Form["invite"]
@@ -198,7 +201,9 @@ func gameFromForm(r *http.Request) (game.Game, []string, error) {
 		if err != nil {
 			return g, nil, fmt.Errorf("%w: invalid board id", service.ErrInvalid)
 		}
-		g.BoardID = &id
+		for i := range g.Participants {
+			g.Participants[i].BoardID = &id
+		}
 	}
 
 	switch g.Mode {

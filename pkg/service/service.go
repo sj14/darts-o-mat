@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
-	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
@@ -91,31 +90,28 @@ func (s *Service) RegistrationOpen() bool {
 
 // GameView is a game together with everything needed to show it to an account.
 type GameView struct {
-	Game        game.Game         `json:"game"`
-	Board       *board.Board      `json:"board,omitempty"` // the board it's played on, if any
-	Players     []player.Player   `json:"players"`         // in throwing order
-	Invitations []game.Invitation `json:"invitations"`
-	Darts       []throw.Dart      `json:"darts"` // the log: darts and takeouts
-	State       game.State        `json:"state"` // x01.State or aroundtheclock.State, depending on the mode
+	Game    game.Game       `json:"game"`
+	Players []player.Player `json:"players"` // in throwing order
+	Darts   []throw.Dart    `json:"darts"`   // the log: darts, takeouts and players leaving
+	State   game.State      `json:"state"`   // x01.State or aroundtheclock.State, depending on the mode
 	// Ready is true once no invitation is pending anymore and no seat is free; only then
 	// darts can be thrown.
 	Ready bool `json:"ready"`
+	// BoardNames are the names of the boards the players throw on, by player.
+	BoardNames map[int64]string `json:"board_names,omitempty"`
 
 	// The following fields depend on the account the view was created for.
-	IsOwner  bool `json:"is_owner"`
 	CanThrow bool `json:"can_throw"` // may enter and undo darts (once the game is ready, never after it was aborted)
 	Invited  bool `json:"invited"`   // has a pending invitation to answer
-	// HasLeft is set if the account's player left the game (LeaveGame); it can look at it
+	// HasLeft is set if the account's players left the game (LeaveGame); it can look at it
 	// but not throw anymore.
 	HasLeft bool `json:"has_left,omitempty"`
-	// Mine are the players of the account the view was created for: its own player and,
-	// for the owner, their guests (those that take part).
+	// Mine are the players of the account the view was created for that take part: its
+	// own player and its guests.
 	Mine []int64 `json:"-"`
-	// BoardNames are the names of the boards the players chose to throw on, by player;
-	// only in games with such boards (Game.PlayerBoards).
-	BoardNames map[int64]string `json:"board_names,omitempty"`
-	// Boards are the viewer's boards: those a running game without a board can move to
-	// (UseBoard) for the owner, those to accept an invitation on for an invited player.
+	// Boards are the boards the viewer can pick: its own and those the other players of
+	// the game throw on (friends at one board share it). Only for an invited player, to
+	// accept on one, and for a viewer with players without a board (UseBoard).
 	Boards []BoardChoice `json:"boards,omitempty"`
 }
 
@@ -145,23 +141,22 @@ func (v GameView) IsMine(playerID int64) bool {
 	return slices.Contains(v.Mine, playerID)
 }
 
-// HasCamera reports whether a player of the viewer throws on a board with cameras: one
-// the player chose, or the owner's for the owner's players (a joined player without a
-// board of their own enters their darts by hand).
-func (v GameView) HasCamera(playerID int64) bool {
-	if inv := v.InvitationOf(playerID); inv != nil && inv.BoardID != nil {
-		return true
+// BoardOf returns the board a player throws on, nil if they enter their darts by hand.
+func (v GameView) BoardOf(playerID int64) *int64 {
+	if p, ok := v.Game.Participant(playerID); ok {
+		return p.BoardID
 	}
-	return v.IsOwner && v.Game.BoardID != nil
+	return nil
 }
 
-// BoardOf returns the board a player throws on: their own if they chose one, else the
-// owner's, nil without a board.
-func (v GameView) BoardOf(playerID int64) *int64 {
-	if inv := v.InvitationOf(playerID); inv != nil && inv.BoardID != nil {
-		return inv.BoardID
-	}
-	return v.Game.BoardID
+// HasCamera reports whether a player throws on a board with cameras.
+func (v GameView) HasCamera(playerID int64) bool {
+	return v.BoardOf(playerID) != nil
+}
+
+// HasBoard reports whether any player of the game throws on a board.
+func (v GameView) HasBoard() bool {
+	return v.Game.WaitsForTakeout()
 }
 
 // PlaysOn reports whether the player who is up throws on the board.
@@ -174,6 +169,12 @@ func (v GameView) PlaysOn(boardID int64) bool {
 	return b != nil && *b == boardID
 }
 
+// OnlyMine reports whether all players of the game are the viewer's: a game of one account
+// alone, with guests.
+func (v GameView) OnlyMine() bool {
+	return len(v.Mine) == len(v.Game.Participants)
+}
+
 // Common returns the part of the game's state that is the same for all modes.
 func (v GameView) Common() turn.State {
 	if v.State == nil {
@@ -182,22 +183,18 @@ func (v GameView) Common() turn.State {
 	return v.State.Common()
 }
 
-// InvitationOf returns the invitation of a player, nil if the player wasn't invited (owner or guest).
-func (v GameView) InvitationOf(playerID int64) *game.Invitation {
-	for _, inv := range v.Invitations {
-		if inv.PlayerID == playerID {
-			return &inv
-		}
-	}
-	return nil
+// Pending reports whether the player hasn't answered the invitation to the game yet.
+func (v GameView) Pending(playerID int64) bool {
+	p, ok := v.Game.Participant(playerID)
+	return ok && p.Status == game.InvitationPending
 }
 
-// CreateGame creates a game owned by the account. PlayerIDs may only contain the
-// account's own player and its guests; friends are invited by username
-// and added to the end of the throwing order.
+// CreateGame creates a game for the account. Its Participants hold the account's own
+// player and its guests, in throwing order, each with the board they throw on (the same
+// for all, or none); friends are invited by username and added to the end of the
+// throwing order. The account has no more rights in the game than the others.
 func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Game, inviteUsernames []string) (GameView, error) {
-	g.ID = 0
-	g.OwnerAccountID = acc.ID
+	g.ID, g.CreatedBy = 0, acc.ID
 	if g.Legs == 0 {
 		g.Legs = 1 // a single leg unless asked otherwise
 	}
@@ -205,16 +202,24 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 		g.Sets = 1 // no sets unless asked otherwise
 	}
 
-	if err := s.checkOwnPlayers(ctx, acc, g.PlayerIDs); err != nil {
+	if len(g.Participants) == 0 {
+		return GameView{}, fmt.Errorf("%w: choose at least one of your players", ErrInvalid)
+	}
+	if err := s.checkOwnPlayers(ctx, acc, g.PlayerIDs()); err != nil {
 		return GameView{}, err
+	}
+	for i := range g.Participants {
+		g.Participants[i].Status = game.InvitationAccepted
+		if err := s.checkBoard(ctx, acc, g.Participants[i].BoardID); err != nil {
+			return GameView{}, err
+		}
 	}
 	invited, err := s.invitedPlayers(ctx, acc, inviteUsernames)
 	if err != nil {
 		return GameView{}, err
 	}
-	g.PlayerIDs = append(g.PlayerIDs, invited...)
-	if err := s.checkBoard(ctx, acc, g.BoardID); err != nil {
-		return GameView{}, err
+	for _, id := range invited {
+		g.Participants = append(g.Participants, game.Participant{PlayerID: id, Status: game.InvitationPending})
 	}
 
 	if err := g.Validate(); err != nil {
@@ -222,17 +227,11 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	invitations := make([]game.Invitation, len(invited))
-	for i, id := range invited {
-		invitations[i] = game.Invitation{PlayerID: id, Status: game.InvitationPending}
-	}
-	if err := s.store.CreateGame(ctx, &g, invitations); err != nil {
+	if err := s.store.CreateGame(ctx, &g); err != nil {
 		return GameView{}, err
 	}
-	if g.BoardID != nil {
-		if err := s.freeBoard(ctx, *g.BoardID, g.ID); err != nil {
-			return GameView{}, err
-		}
+	if err := s.takeBoards(ctx, g); err != nil {
+		return GameView{}, err
 	}
 	return s.view(ctx, acc, g)
 }
@@ -294,6 +293,20 @@ func (s *Service) checkBoard(ctx context.Context, acc account.Account, boardID *
 	return err
 }
 
+// checkGameBoard is checkBoard for a player of a game: also a board the other players of
+// the game throw on will do, so friends at one board can share it.
+func (s *Service) checkGameBoard(ctx context.Context, acc account.Account, g game.Game, boardID *int64) error {
+	if boardID == nil {
+		return nil
+	}
+	for _, p := range g.Participants {
+		if p.BoardID != nil && *p.BoardID == *boardID {
+			return nil
+		}
+	}
+	return s.checkBoard(ctx, acc, boardID)
+}
+
 func (s *Service) Game(ctx context.Context, acc account.Account, id int64) (GameView, error) {
 	g, err := s.store.GetGame(ctx, id)
 	if err != nil {
@@ -302,7 +315,7 @@ func (s *Service) Game(ctx context.Context, acc account.Account, id int64) (Game
 	return s.view(ctx, acc, g)
 }
 
-// ListGames returns the most recent games the account created or was invited to, newest first.
+// ListGames returns the most recent games with a player of the account, newest first.
 func (s *Service) ListGames(ctx context.Context, acc account.Account, limit int64) ([]GameView, error) {
 	games, err := s.store.ListGames(ctx, acc.ID, acc.PlayerID, limit)
 	if err != nil {
@@ -313,27 +326,28 @@ func (s *Service) ListGames(ctx context.Context, acc account.Account, limit int6
 
 // Invitations returns the games the account was invited to and hasn't answered yet.
 func (s *Service) Invitations(ctx context.Context, acc account.Account) ([]GameView, error) {
-	invitations, err := s.store.ListPendingInvitations(ctx, acc.PlayerID)
+	games, err := s.store.ListInvitedGames(ctx, acc.PlayerID)
 	if err != nil {
 		return nil, err
 	}
-	var games []game.Game
-	for _, inv := range invitations {
-		g, err := s.store.GetGame(ctx, inv.GameID)
-		if err != nil {
-			return nil, err
-		}
+	open := games[:0]
+	for _, g := range games {
 		if !g.Aborted() {
-			games = append(games, g)
+			open = append(open, g)
 		}
 	}
-	return s.views(ctx, acc, games)
+	return s.views(ctx, acc, open)
 }
 
 // AcceptInvitation accepts the invitation to a game. The player throws on the board if
-// one of the account's is given; its cameras then report their darts.
+// one is given, one of the account's or one the others throw on; its cameras then report
+// their darts.
 func (s *Service) AcceptInvitation(ctx context.Context, acc account.Account, gameID int64, boardID *int64) (GameView, error) {
-	if err := s.checkBoard(ctx, acc, boardID); err != nil {
+	g, err := s.store.GetGame(ctx, gameID)
+	if err != nil {
+		return GameView{}, err
+	}
+	if err := s.checkGameBoard(ctx, acc, g, boardID); err != nil {
 		return GameView{}, err
 	}
 	s.mu.Lock()
@@ -360,61 +374,35 @@ func (s *Service) DeclineInvitation(ctx context.Context, acc account.Account, ga
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := s.store.RemoveInvitedPlayer(ctx, gameID, acc.PlayerID); err != nil {
+	if err := s.store.RemoveParticipant(ctx, gameID, acc.PlayerID); err != nil {
 		return err
 	}
 	s.notify(gameID)
 	return nil
 }
 
-// WithdrawInvitation lets the owner remove an invited player who hasn't accepted yet.
-// Returns ErrNotFound if the game was deleted because no player is left.
+// WithdrawInvitation lets a player of the game remove an invited player who hasn't
+// accepted yet. Returns ErrNotFound if the game was deleted because no player is left.
 func (s *Service) WithdrawInvitation(ctx context.Context, acc account.Account, gameID, playerID int64) (GameView, error) {
 	v, err := s.Game(ctx, acc, gameID)
 	if err != nil {
 		return GameView{}, err
 	}
-	if !v.IsOwner {
+	if v.Invited || v.Game.Aborted() {
 		return GameView{}, ErrForbidden
 	}
-	inv := v.InvitationOf(playerID)
-	if inv == nil || inv.Status != game.InvitationPending {
+	if !v.Pending(playerID) {
 		return GameView{}, fmt.Errorf("%w: player %d has no pending invitation", ErrInvalid, playerID)
 	}
 
 	s.mu.Lock()
-	err = s.store.RemoveInvitedPlayer(ctx, gameID, playerID)
+	err = s.store.RemoveParticipant(ctx, gameID, playerID)
 	s.mu.Unlock()
 	if err != nil {
 		return GameView{}, err
 	}
 	s.notify(gameID)
 	return s.Game(ctx, acc, gameID)
-}
-
-// AbortGame ends a running game without a winner. Only the owner may abort it; the
-// game stays with its darts, but takes no more and doesn't count in the statistics.
-func (s *Service) AbortGame(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
-	v, err := s.Game(ctx, acc, gameID)
-	if err != nil {
-		return GameView{}, err
-	}
-	if !v.IsOwner {
-		return GameView{}, ErrForbidden
-	}
-	if v.Game.Aborted() {
-		return GameView{}, ErrAborted
-	}
-	if v.Common().GameOver {
-		return GameView{}, turn.ErrGameOver
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.abortGame(ctx, &v.Game); err != nil {
-		return GameView{}, err
-	}
-	return s.view(ctx, acc, v.Game)
 }
 
 // abortGame marks the game as aborted and tells its subscribers. The caller holds s.mu.
@@ -535,15 +523,19 @@ func normalizeDart(d *throw.Dart) {
 }
 
 // Takeout records that the darts were pulled out, so the next player throws. It only
-// matters for games on a board (see game.Game.WaitsForTakeout) and only after darts
+// matters for games with a board (see game.Game.WaitsForTakeout) and only after darts
 // were thrown in the current turn; otherwise nothing happens.
 func (s *Service) Takeout(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
 	return s.changeGame(ctx, acc, gameID, func(g *game.Game, v GameView) error {
-		if c := v.Common(); c.GameOver || (!c.WaitingForTakeout && c.DartsInTurn == 0) {
-			return nil
-		}
-		return s.store.AddDart(ctx, &throw.Dart{GameID: g.ID, Takeout: true})
+		return s.storeTakeout(ctx, g, v)
 	})
+}
+
+func (s *Service) storeTakeout(ctx context.Context, g *game.Game, v GameView) error {
+	if c := v.Common(); c.GameOver || (!c.WaitingForTakeout && c.DartsInTurn == 0) {
+		return nil
+	}
+	return s.store.AddDart(ctx, &throw.Dart{GameID: g.ID, Takeout: true})
 }
 
 // changeGame applies change to a game the account may throw in and tells the game's
@@ -567,6 +559,26 @@ func (s *Service) changeGame(ctx context.Context, acc account.Account, gameID in
 	}
 	s.notifyGame(g)
 	return s.view(ctx, acc, g)
+}
+
+// changeByCameras is changeGame for what a board's cameras report: it isn't done by an
+// account, so there are no rights to check and the view has nothing of a viewer.
+func (s *Service) changeByCameras(ctx context.Context, gameID int64, change func(g *game.Game, v GameView) error) (GameView, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	g, err := s.store.GetGame(ctx, gameID)
+	if err != nil {
+		return GameView{}, err
+	}
+	v, err := s.build(ctx, g)
+	if err != nil {
+		return GameView{}, err
+	}
+	if err := change(&g, v); err != nil {
+		return GameView{}, err
+	}
+	s.notifyGame(g)
+	return s.build(ctx, g)
 }
 
 // throwableGame returns the game if the account may enter darts right now.
@@ -600,92 +612,63 @@ func (s *Service) views(ctx context.Context, acc account.Account, games []game.G
 	return views, nil
 }
 
-// view builds the view of a game for an account, ErrNotFound if the account takes no part in it.
-func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (GameView, error) {
-	invitations, err := s.store.ListInvitations(ctx, g.ID)
-	if err != nil {
-		return GameView{}, err
-	}
+// build computes everything of a game's view that doesn't depend on who looks at it.
+func (s *Service) build(ctx context.Context, g game.Game) (GameView, error) {
+	v := GameView{Game: g}
+	v.Ready = g.Full(len(g.Participants)) && !slices.ContainsFunc(g.Participants, func(p game.Participant) bool { return p.Status == game.InvitationPending })
 
-	v := GameView{Game: g, Invitations: invitations, IsOwner: g.OwnerAccountID == acc.ID}
-	v.Ready = g.Full(len(g.PlayerIDs)) && !slices.ContainsFunc(invitations, func(inv game.Invitation) bool { return inv.Status == game.InvitationPending })
-	var mine *game.InvitationStatus
-	if inv := v.InvitationOf(acc.PlayerID); inv != nil {
-		mine = &inv.Status
-	}
-	if v.CanThrow, v.Invited, err = access(v.IsOwner, mine, g.Aborted()); err != nil {
+	var err error
+	if v.Darts, err = s.store.ListDarts(ctx, g.ID); err != nil {
 		return GameView{}, err
 	}
-
-	if g.BoardID != nil {
-		b, err := s.store.GetBoard(ctx, *g.BoardID)
-		if err != nil && !errors.Is(err, store.ErrNotFound) {
-			return GameView{}, err
-		}
-		if err == nil {
-			v.Board = &b
-		}
-	}
-
-	v.Darts, err = s.store.ListDarts(ctx, g.ID)
-	if err != nil {
+	if v.State, err = g.Play(v.Darts); err != nil {
 		return GameView{}, err
 	}
-	v.State, err = g.Play(v.Darts)
-	if err != nil {
+	if v.Players, err = s.store.GetPlayers(ctx, g.PlayerIDs()); err != nil {
 		return GameView{}, err
 	}
-
-	v.Players, err = s.store.GetPlayers(ctx, g.PlayerIDs)
-	if err != nil {
-		return GameView{}, err
-	}
-	if v.Common().Records[acc.PlayerID].Left {
-		v.HasLeft, v.CanThrow = true, false
-	}
-	for _, p := range v.Players {
-		if p.ID == acc.PlayerID || (p.GuestOf != nil && *p.GuestOf == acc.ID) {
-			v.Mine = append(v.Mine, p.ID)
+	for _, p := range g.Participants {
+		if p.BoardID == nil {
+			continue
 		}
-	}
-	if g.PlayerBoards {
-		v.BoardNames = map[int64]string{}
-		for _, inv := range invitations {
-			if inv.BoardID == nil {
-				continue
-			}
-			if b, err := s.store.GetBoard(ctx, *inv.BoardID); err == nil {
-				v.BoardNames[inv.PlayerID] = b.Name
-			} else if !errors.Is(err, store.ErrNotFound) {
-				return GameView{}, err
-			}
+		if v.BoardNames == nil {
+			v.BoardNames = map[int64]string{}
 		}
-	}
-	if (v.IsOwner && g.BoardID == nil && !g.Aborted() && !v.Common().GameOver) || v.Invited {
-		if v.Boards, err = s.boardChoices(ctx, acc.ID); err != nil {
+		if b, err := s.store.GetBoard(ctx, *p.BoardID); err == nil {
+			v.BoardNames[p.PlayerID] = b.Name
+		} else if !errors.Is(err, store.ErrNotFound) {
 			return GameView{}, err
 		}
 	}
 	return v, nil
 }
 
-// access returns what an account may do in a game or tournament, from its part in it:
-// the owner and the players who accepted their invitation (mine) may play, those
-// with a pending one have to answer it first; it is hidden from everyone else
-// (ErrNotFound). Once it was aborted, nobody plays or answers anymore.
-func access(owner bool, mine *game.InvitationStatus, aborted bool) (canPlay, invited bool, err error) {
-	switch {
-	case owner:
-		canPlay = true
-	case mine == nil:
-		return false, false, ErrNotFound
-	case *mine == game.InvitationAccepted:
-		canPlay = true
-	default:
-		invited = true
+// view builds the view of a game for an account, ErrNotFound if the account takes no part
+// in it: no player of the account (its own or a guest) is a participant.
+func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (GameView, error) {
+	v, err := s.build(ctx, g)
+	if err != nil {
+		return GameView{}, err
 	}
-	if aborted {
-		return false, false, nil
+	accepted := false
+	for _, p := range v.Players {
+		if p.ID == acc.PlayerID || (p.GuestOf != nil && *p.GuestOf == acc.ID) {
+			v.Mine = append(v.Mine, p.ID)
+			accepted = accepted || !v.Pending(p.ID)
+		}
 	}
-	return canPlay, invited, nil
+	if len(v.Mine) == 0 {
+		return GameView{}, ErrNotFound
+	}
+	v.Invited = v.Pending(acc.PlayerID) && !g.Aborted()
+	v.CanThrow = accepted && !g.Aborted()
+	if !slices.ContainsFunc(v.Mine, func(id int64) bool { return !v.Common().Records[id].Left }) {
+		v.HasLeft, v.CanThrow = true, false
+	}
+	if v.Invited || (v.CanThrow && !v.Common().GameOver && slices.ContainsFunc(v.Mine, func(id int64) bool { return v.BoardOf(id) == nil })) {
+		if v.Boards, err = s.boardChoices(ctx, acc, g); err != nil {
+			return GameView{}, err
+		}
+	}
+	return v, nil
 }

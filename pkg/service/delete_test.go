@@ -140,8 +140,8 @@ func TestDeleteAccount(t *testing.T) {
 	if v, _ := s.Game(ctx, anna, bens.Game.ID); !v.Game.Aborted() {
 		t.Error("ben's own running game wasn't aborted")
 	}
-	if v, _ := s.Game(ctx, cara, invited.Game.ID); len(v.Invitations) != 0 || len(v.Game.PlayerIDs) != 1 {
-		t.Errorf("the open invitation: %d invitations, players %v; want it withdrawn", len(v.Invitations), v.Game.PlayerIDs)
+	if v, _ := s.Game(ctx, cara, invited.Game.ID); len(v.Game.Participants) != 1 {
+		t.Errorf("the open invitation: players %v; want it withdrawn", v.Game.PlayerIDs())
 	}
 	if v, _ := s.Tournament(ctx, cara, tv.Tournament.ID); !v.Tournament.Aborted() {
 		t.Error("the tournament ben took part in wasn't aborted")

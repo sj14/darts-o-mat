@@ -40,8 +40,8 @@ templ TournamentBody(v service.TournamentView, errMsg string) {
 			</div>
 		} else if !v.Ready && !v.Tournament.Aborted() {
 			<div class="mb-6 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3">
-				if !v.Tournament.Full(len(v.Tournament.PlayerIDs)) {
-					<p>{ T(ctx).WaitingForSeats(v.Tournament.Seats - len(v.Tournament.PlayerIDs)) }</p>
+				if !v.Tournament.Full(len(v.Tournament.Participants)) {
+					<p>{ T(ctx).WaitingForSeats(v.Tournament.Seats - len(v.Tournament.Participants)) }</p>
 				}
 				if tournamentPending(ctx, v) != "" {
 					<p>{ T(ctx).WaitingFor(tournamentPending(ctx, v)) }</p>
@@ -64,9 +64,9 @@ templ TournamentBody(v service.TournamentView, errMsg string) {
 				@roundRobinMatches(v)
 			}
 			@tournamentStats(v)
-			if v.IsOwner && !v.State.Over && !v.Tournament.Aborted() {
-				<form method="post" action={ templ.URL(tournamentURL(v.Tournament.ID, "/abort")) } data-confirm={ T(ctx).AbortTournamentConfirm() } onsubmit="return confirm(this.dataset.confirm)">
-					<button type="submit" class={ btnDanger, btnSmall }>{ T(ctx).AbortTournament() }</button>
+			if !v.Invited && !v.State.Over && !v.Tournament.Aborted() {
+				<form method="post" action={ templ.URL(tournamentURL(v.Tournament.ID, "/leave")) } data-confirm={ T(ctx).LeaveTournamentConfirm() } onsubmit="return confirm(this.dataset.confirm)">
+					<button type="submit" class={ btnDanger, btnSmall }>{ T(ctx).LeaveTournament() }</button>
 				</form>
 			}
 		</div>

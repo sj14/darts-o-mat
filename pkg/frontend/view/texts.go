@@ -274,8 +274,8 @@ type Texts interface {
 	InvitedToTournament() string
 	WaitingFor(names string) string
 	WinsTournament(name string) string
-	AbortTournament() string
-	AbortTournamentConfirm() string
+	LeaveTournament() string
+	LeaveTournamentConfirm() string
 	Bracket() string
 	RoundName(rounds, round int) string
 	Bye() string
@@ -305,7 +305,6 @@ type Texts interface {
 	ErrAlreadyFriends() string
 	ErrFriendSelf() string
 	ErrMatchNotStartable() string
-	ErrAbortTournament() string
 }
 
 // T returns the texts in the language of the request (see i18n.From).

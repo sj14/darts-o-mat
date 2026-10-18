@@ -111,7 +111,7 @@ func (c *Controller) showBoard(w http.ResponseWriter, r *http.Request) {
 	c.renderBoard(w, r, id, "")
 }
 
-// leaveGame is called when a player who isn't the host leaves: back to the start page
+// leaveGame is called when an account leaves a game: back to the start page
 // from the lobby, else to the game, which they can still look at.
 func (c *Controller) leaveGame(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
@@ -233,17 +233,7 @@ func (c *Controller) decideBullOff(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// abortGame is called by htmx when the owner aborts the game.
-func (c *Controller) abortGame(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	v, err := c.svc.AbortGame(r.Context(), auth.Account(r.Context()), id)
-	c.respondBoard(w, r, id, v, err)
-}
-
-// useBoard is called by htmx when the owner puts a game without a board on a board.
+// useBoard is called by htmx when a player puts their players of the game on a board.
 func (c *Controller) useBoard(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {

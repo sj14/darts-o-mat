@@ -47,13 +47,13 @@ func newStore(ctx context.Context, db *bun.DB) (*Store, error) {
 		(*account.Session)(nil),
 		(*account.Friendship)(nil),
 		(*game.Game)(nil),
-		(*game.Invitation)(nil),
+		(*game.Participant)(nil),
 		(*player.Player)(nil),
 		(*board.Board)(nil),
 		(*board.Token)(nil),
 		(*throw.Dart)(nil),
 		(*tournament.Tournament)(nil),
-		(*tournament.Invitation)(nil),
+		(*tournament.Participant)(nil),
 	}
 
 	for _, model := range models {

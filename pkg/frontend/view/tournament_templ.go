@@ -196,15 +196,15 @@ func TournamentBody(v service.TournamentView, errMsg string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if !v.Tournament.Full(len(v.Tournament.PlayerIDs)) {
+			if !v.Tournament.Full(len(v.Tournament.Participants)) {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var9 string
-				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).WaitingForSeats(v.Tournament.Seats - len(v.Tournament.PlayerIDs)))
+				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).WaitingForSeats(v.Tournament.Seats - len(v.Tournament.Participants)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 44, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 44, Col: 85}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -304,13 +304,13 @@ func TournamentBody(v service.TournamentView, errMsg string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if v.IsOwner && !v.State.Over && !v.Tournament.Aborted() {
+		if !v.Invited && !v.State.Over && !v.Tournament.Aborted() {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<form method=\"post\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var13 templ.SafeURL
-			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(tournamentURL(v.Tournament.ID, "/abort")))
+			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(tournamentURL(v.Tournament.ID, "/leave")))
 			if templ_7745c5c3_Err != nil {
 				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 68, Col: 84}
 			}
@@ -323,7 +323,7 @@ func TournamentBody(v service.TournamentView, errMsg string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var14 string
-			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(T(ctx).AbortTournamentConfirm())
+			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(T(ctx).LeaveTournamentConfirm())
 			if templ_7745c5c3_Err != nil {
 				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 68, Col: 133}
 			}
@@ -358,7 +358,7 @@ func TournamentBody(v service.TournamentView, errMsg string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var17 string
-			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).AbortTournament())
+			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).LeaveTournament())
 			if templ_7745c5c3_Err != nil {
 				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 69, Col: 83}
 			}

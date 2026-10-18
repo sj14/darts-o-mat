@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"math/rand"
-	"slices"
 	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
@@ -11,16 +10,19 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// CreateTournament stores the tournament and a pending invitation for each of the
-// invited players.
-func (store *Store) CreateTournament(ctx context.Context, t *tournament.Tournament, invitedPlayerIDs []int64) error {
+// CreateTournament stores the tournament with its participants, in the order given.
+func (store *Store) CreateTournament(ctx context.Context, t *tournament.Tournament) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewInsert().Model(t).Returning("*").Exec(ctx); err != nil {
 			return err
 		}
-		for _, id := range invitedPlayerIDs {
-			inv := tournament.Invitation{TournamentID: t.ID, PlayerID: id, Status: game.InvitationPending}
-			if _, err := tx.NewInsert().Model(&inv).Exec(ctx); err != nil {
+		for i := range t.Participants {
+			p := &t.Participants[i]
+			p.TournamentID, p.Position = t.ID, i
+			if _, err := tx.NewInsert().Model(p).Exec(ctx); err != nil {
+				return err
+			}
+			if err := markBoardUsed(ctx, tx, p.BoardID, t.CreatedAt); err != nil {
 				return err
 			}
 		}
@@ -28,54 +30,91 @@ func (store *Store) CreateTournament(ctx context.Context, t *tournament.Tourname
 	})
 }
 
-func (store *Store) GetTournament(ctx context.Context, id int64) (tournament.Tournament, error) {
-	var t tournament.Tournament
-	err := store.db.NewSelect().Model(&t).Where("id = ?", id).Scan(ctx)
-	return t, notFound(err)
+// scanTournaments runs the query and loads the participants of the tournaments it found.
+func (store *Store) scanTournaments(ctx context.Context, q *bun.SelectQuery) ([]tournament.Tournament, error) {
+	ts := []tournament.Tournament{}
+	if err := q.Model(&ts).Scan(ctx); err != nil {
+		return nil, err
+	}
+	if len(ts) == 0 {
+		return ts, nil
+	}
+	index := make(map[int64]int, len(ts))
+	ids := make([]int64, len(ts))
+	for i, t := range ts {
+		index[t.ID], ids[i] = i, t.ID
+	}
+	var rows []tournament.Participant
+	if err := store.db.NewSelect().Model(&rows).Where("tournament_id IN (?)", bun.In(ids)).OrderExpr("tournament_id, place").Scan(ctx); err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		ts[index[r.TournamentID]].Participants = append(ts[index[r.TournamentID]].Participants, r)
+	}
+	return ts, nil
 }
 
-// ListTournaments returns the tournaments an account created or was invited to, newest
-// first. A limit of 0 returns all of them.
+func (store *Store) GetTournament(ctx context.Context, id int64) (tournament.Tournament, error) {
+	ts, err := store.scanTournaments(ctx, store.db.NewSelect().Where("id = ?", id))
+	if err != nil {
+		return tournament.Tournament{}, err
+	}
+	if len(ts) == 0 {
+		return tournament.Tournament{}, ErrNotFound
+	}
+	return ts[0], nil
+}
+
+// ListTournaments returns the tournaments with a player of the account (its own player
+// or one of its guests), newest first. A limit of 0 returns all of them.
 func (store *Store) ListTournaments(ctx context.Context, accountID, playerID int64, limit int64) ([]tournament.Tournament, error) {
-	invited := store.db.NewSelect().Model((*tournament.Invitation)(nil)).Column("tournament_id").Where("player_id = ?", playerID)
-	ts := []tournament.Tournament{}
-	q := store.db.NewSelect().Model(&ts).
-		Where("owner_account_id = ?", accountID).
-		WhereOr("id IN (?)", invited).
-		Order("id DESC")
+	mine := store.db.NewSelect().Model((*tournament.Participant)(nil)).ColumnExpr("participant.tournament_id").
+		Join("JOIN players AS p ON p.id = participant.player_id").
+		Where("p.id = ? OR p.guest_of = ?", playerID, accountID)
+	q := store.db.NewSelect().Where("id IN (?)", mine).Order("id DESC")
 	if limit > 0 {
 		q = q.Limit(limit)
 	}
-	return ts, q.Scan(ctx)
+	return store.scanTournaments(ctx, q)
 }
 
-func (store *Store) ListTournamentInvitations(ctx context.Context, tournamentID int64) ([]tournament.Invitation, error) {
-	invitations := []tournament.Invitation{}
-	err := store.db.NewSelect().Model(&invitations).Where("tournament_id = ?", tournamentID).Scan(ctx)
-	return invitations, err
-}
-
-// ListPendingTournamentInvitations returns the tournament invitations a player has not
+// ListInvitedTournaments returns the tournaments a player was invited to and hasn't
 // answered yet, newest first.
-func (store *Store) ListPendingTournamentInvitations(ctx context.Context, playerID int64) ([]tournament.Invitation, error) {
-	invitations := []tournament.Invitation{}
-	err := store.db.NewSelect().Model(&invitations).
-		Where("player_id = ?", playerID).
-		Where("status = ?", game.InvitationPending).
-		Order("tournament_id DESC").
-		Scan(ctx)
-	return invitations, err
+func (store *Store) ListInvitedTournaments(ctx context.Context, playerID int64) ([]tournament.Tournament, error) {
+	pending := store.db.NewSelect().Model((*tournament.Participant)(nil)).Column("tournament_id").
+		Where("player_id = ?", playerID).Where("status = ?", game.InvitationPending)
+	return store.scanTournaments(ctx, store.db.NewSelect().Where("id IN (?)", pending).Order("id DESC"))
 }
 
 // AcceptTournamentInvitation accepts the invitation of a player, who throws on the board
 // if one is given.
 func (store *Store) AcceptTournamentInvitation(ctx context.Context, tournamentID, playerID int64, boardID *int64) error {
-	res, err := store.db.NewUpdate().Model((*tournament.Invitation)(nil)).
-		Set("status = ?", game.InvitationAccepted).
-		Set("board_id = ?", boardID).
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		res, err := tx.NewUpdate().Model((*tournament.Participant)(nil)).
+			Set("status = ?", game.InvitationAccepted).
+			Set("board_id = ?", boardID).
+			Where("tournament_id = ?", tournamentID).
+			Where("player_id = ?", playerID).
+			Where("status = ?", game.InvitationPending).
+			Exec(ctx)
+		if err != nil {
+			return err
+		}
+		if n, err := res.RowsAffected(); err != nil {
+			return err
+		} else if n == 0 {
+			return ErrNotFound
+		}
+		return markBoardUsed(ctx, tx, boardID, time.Now())
+	})
+}
+
+// RemoveTournamentParticipant removes a player from a tournament that hasn't started
+// (declined or left in the lobby).
+func (store *Store) RemoveTournamentParticipant(ctx context.Context, tournamentID, playerID int64) error {
+	res, err := store.db.NewDelete().Model((*tournament.Participant)(nil)).
 		Where("tournament_id = ?", tournamentID).
 		Where("player_id = ?", playerID).
-		Where("status = ?", game.InvitationPending).
 		Exec(ctx)
 	if err != nil {
 		return err
@@ -88,32 +127,6 @@ func (store *Store) AcceptTournamentInvitation(ctx context.Context, tournamentID
 	return nil
 }
 
-// RemoveTournamentPlayer deletes the invitation of a player and removes the player
-// from the tournament.
-func (store *Store) RemoveTournamentPlayer(ctx context.Context, tournamentID, playerID int64) error {
-	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		res, err := tx.NewDelete().Model((*tournament.Invitation)(nil)).
-			Where("tournament_id = ?", tournamentID).
-			Where("player_id = ?", playerID).
-			Exec(ctx)
-		if err != nil {
-			return err
-		}
-		if n, err := res.RowsAffected(); err != nil {
-			return err
-		} else if n == 0 {
-			return ErrNotFound
-		}
-		var t tournament.Tournament
-		if err := tx.NewSelect().Model(&t).Where("id = ?", tournamentID).Scan(ctx); err != nil {
-			return notFound(err)
-		}
-		t.PlayerIDs = slices.DeleteFunc(t.PlayerIDs, func(id int64) bool { return id == playerID })
-		_, err = tx.NewUpdate().Model(&t).Column("player_ids").WherePK().Exec(ctx)
-		return err
-	})
-}
-
 // AbortTournament marks a tournament as aborted.
 func (store *Store) AbortTournament(ctx context.Context, t *tournament.Tournament) error {
 	_, err := store.db.NewUpdate().Model(t).Column("aborted_at").WherePK().Exec(ctx)
@@ -122,9 +135,7 @@ func (store *Store) AbortTournament(ctx context.Context, t *tournament.Tournamen
 
 // ListTournamentGames returns the games of a tournament, oldest first.
 func (store *Store) ListTournamentGames(ctx context.Context, tournamentID int64) ([]game.Game, error) {
-	games := []game.Game{}
-	err := store.db.NewSelect().Model(&games).Where("tournament_id = ?", tournamentID).Order("id").Scan(ctx)
-	return games, err
+	return store.scanGames(ctx, store.db.NewSelect().Where("tournament_id = ?", tournamentID).Order("id"))
 }
 
 // JoinTournament adds a player to a tournament with an accepted invitation. The player
@@ -136,28 +147,34 @@ func (store *Store) JoinTournament(ctx context.Context, tournamentID, playerID i
 		if err := tx.NewSelect().Model(&t).Where("id = ?", tournamentID).Scan(ctx); err != nil {
 			return notFound(err)
 		}
-		t.PlayerIDs = append(t.PlayerIDs, playerID)
-		if t.Full(len(t.PlayerIDs)) {
-			rand.Shuffle(len(t.PlayerIDs), func(i, j int) { t.PlayerIDs[i], t.PlayerIDs[j] = t.PlayerIDs[j], t.PlayerIDs[i] })
-		}
-		if _, err := tx.NewUpdate().Model(&t).Column("player_ids").WherePK().Exec(ctx); err != nil {
+		var rows []tournament.Participant
+		if err := tx.NewSelect().Model(&rows).Where("tournament_id = ?", tournamentID).OrderExpr("place").Scan(ctx); err != nil {
 			return err
 		}
-		inv := tournament.Invitation{TournamentID: tournamentID, PlayerID: playerID, Status: game.InvitationAccepted, BoardID: boardID}
-		_, err := tx.NewInsert().Model(&inv).Exec(ctx)
-		return err
+		joined := tournament.Participant{TournamentID: tournamentID, PlayerID: playerID, Position: len(rows), Status: game.InvitationAccepted, BoardID: boardID}
+		if _, err := tx.NewInsert().Model(&joined).Exec(ctx); err != nil {
+			return err
+		}
+		rows = append(rows, joined)
+		if t.Full(len(rows)) {
+			rand.Shuffle(len(rows), func(i, j int) { rows[i], rows[j] = rows[j], rows[i] })
+			for i := range rows {
+				rows[i].Position = i
+				if _, err := tx.NewUpdate().Model(&rows[i]).Column("place").WherePK().Exec(ctx); err != nil {
+					return err
+				}
+			}
+		}
+		return markBoardUsed(ctx, tx, boardID, time.Now())
 	})
 }
 
 // ListOpenTournaments returns the tournaments open for strangers that were created
 // since the time, newest first, including full and aborted ones, which the caller sorts out.
 func (store *Store) ListOpenTournaments(ctx context.Context, since time.Time) ([]tournament.Tournament, error) {
-	ts := []tournament.Tournament{}
-	err := store.db.NewSelect().Model(&ts).
+	return store.scanTournaments(ctx, store.db.NewSelect().
 		Where(`"open" = ?`, true).
 		Where("created_at > ?", since).
 		Where("aborted_at IS NULL").
-		Order("id DESC").
-		Scan(ctx)
-	return ts, err
+		Order("id DESC"))
 }

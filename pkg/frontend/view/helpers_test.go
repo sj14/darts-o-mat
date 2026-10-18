@@ -39,13 +39,22 @@ func TestDefaultBoard(t *testing.T) {
 }
 
 func TestHandEntry(t *testing.T) {
-	hostBoard, benBoard := int64(1), int64(2)
+	board1, board2 := int64(1), int64(2)
 	const anna, ben, guest = int64(10), int64(20), int64(30)
 	progress := func(current int64) progress {
 		return progress{State: turn.State{CurrentPlayerID: &current}}
 	}
-	invitation := func(player int64, board *int64) game.Invitation {
-		return game.Invitation{PlayerID: player, Status: game.InvitationAccepted, BoardID: board}
+	players := func(boards ...*int64) service.GameView {
+		ids := []int64{anna, guest, ben}
+		v := service.GameView{}
+		for i, b := range boards {
+			v.Game.Participants = append(v.Game.Participants, game.Participant{PlayerID: ids[i], Status: game.InvitationAccepted, BoardID: b})
+		}
+		return v
+	}
+	with := func(v service.GameView, mine ...int64) service.GameView {
+		v.Mine = mine
+		return v
 	}
 
 	tests := []struct {
@@ -54,12 +63,12 @@ func TestHandEntry(t *testing.T) {
 		current   int64
 		hand, add bool
 	}{
-		{"no board, my turn", service.GameView{IsOwner: true, Mine: []int64{anna, guest}}, guest, true, false},
-		{"no board, a friend's turn", service.GameView{IsOwner: true, Mine: []int64{anna, guest}}, ben, false, false},
-		{"host's board, my turn", service.GameView{IsOwner: true, Game: game.Game{Settings: game.Settings{BoardID: &hostBoard}}, Mine: []int64{anna, guest}}, guest, false, true},
-		{"on my own board", service.GameView{Invitations: []game.Invitation{invitation(ben, &benBoard)}, Mine: []int64{ben}, CanThrow: true}, ben, false, true},
-		{"joined without a board next to a host with one", service.GameView{Game: game.Game{Settings: game.Settings{BoardID: &hostBoard}}, Invitations: []game.Invitation{invitation(ben, nil)}, Mine: []int64{ben}}, ben, true, false},
-		{"watching a friend who has a board", service.GameView{Invitations: []game.Invitation{invitation(ben, &benBoard)}, Mine: []int64{anna}, IsOwner: true}, ben, false, false},
+		{"no board, my turn", with(players(nil, nil, nil), anna, guest), guest, true, false},
+		{"no board, a friend's turn", with(players(nil, nil, nil), anna, guest), ben, false, false},
+		{"at a board, my turn", with(players(&board1, &board1, nil), anna, guest), guest, false, true},
+		{"on my own board", with(players(nil, nil, &board2), ben), ben, false, true},
+		{"joined without a board next to a host with one", with(players(&board1, &board1, nil), ben), ben, true, false},
+		{"watching a friend who has a board", with(players(nil, nil, &board2), anna, guest), ben, false, false},
 	}
 	for _, tt := range tests {
 		tt.v.CanThrow = true

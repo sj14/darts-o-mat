@@ -45,10 +45,19 @@ func befriend(t *testing.T, s *Service, a, b account.Account) {
 }
 
 func x01Game(playerIDs ...int64) game.Game {
-	return game.Game{
-		Settings:  game.Settings{Mode: game.ModeX01, X01: &x01.Settings{StartScore: 501, OutMode: x01.OutModeDouble}},
-		PlayerIDs: playerIDs,
+	g := game.Game{Settings: game.Settings{Mode: game.ModeX01, X01: &x01.Settings{StartScore: 501, OutMode: x01.OutModeDouble}}}
+	for _, id := range playerIDs {
+		g.Participants = append(g.Participants, game.Participant{PlayerID: id})
 	}
+	return g
+}
+
+// withBoard puts all players of the game on the board.
+func withBoard(g game.Game, boardID int64) game.Game {
+	for i := range g.Participants {
+		g.Participants[i].BoardID = &boardID
+	}
+	return g
 }
 
 var t20 = throw.Dart{Number: 20, Segment: throw.Triple}
@@ -127,7 +136,7 @@ func TestGuestsBelongToTheirAccount(t *testing.T) {
 	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), []string{"nobody"}); !errors.As(err, &unknown) || !errors.Is(err, ErrInvalid) {
 		t.Errorf("invite unknown user: got %v, want UnknownUserError wrapping ErrInvalid", err)
 	}
-	if _, err := s.CreateGame(ctx, ben, x01Game(), []string{"Ben"}); !errors.Is(err, ErrInviteSelf) {
+	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), []string{"Ben"}); !errors.Is(err, ErrInviteSelf) {
 		t.Errorf("invite yourself: got %v, want ErrInviteSelf", err)
 	}
 }
@@ -144,8 +153,8 @@ func TestInvitationFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := v.Game.ID
-	if want := []int64{anna.PlayerID, guest.ID, ben.PlayerID}; !slices.Equal(v.Game.PlayerIDs, want) {
-		t.Errorf("player order = %v, want %v", v.Game.PlayerIDs, want)
+	if want := []int64{anna.PlayerID, guest.ID, ben.PlayerID}; !slices.Equal(v.Game.PlayerIDs(), want) {
+		t.Errorf("player order = %v, want %v", v.Game.PlayerIDs(), want)
 	}
 	if v.Ready {
 		t.Error("game is ready although ben hasn't accepted")
@@ -224,7 +233,7 @@ func TestDeclineAndWithdraw(t *testing.T) {
 	id := v.Game.ID
 
 	if _, err := s.WithdrawInvitation(ctx, ben, id, cara.PlayerID); !errors.Is(err, ErrForbidden) {
-		t.Errorf("withdraw by non-owner: got %v, want ErrForbidden", err)
+		t.Errorf("withdraw by a player who didn't answer yet: got %v, want ErrForbidden", err)
 	}
 
 	if err := s.DeclineInvitation(ctx, ben, id); err != nil {
@@ -238,8 +247,8 @@ func TestDeclineAndWithdraw(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(v.Game.PlayerIDs, []int64{anna.PlayerID}) || !v.Ready {
-		t.Errorf("after withdrawing: players=%v ready=%v, want only anna and ready", v.Game.PlayerIDs, v.Ready)
+	if !slices.Equal(v.Game.PlayerIDs(), []int64{anna.PlayerID}) || !v.Ready {
+		t.Errorf("after withdrawing: players=%v ready=%v, want only anna and ready", v.Game.PlayerIDs(), v.Ready)
 	}
 }
 
@@ -249,16 +258,21 @@ func TestGameWithoutPlayersLeftIsDeleted(t *testing.T) {
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
 	befriend(t, s, anna, ben)
 
-	// Anna only hosts, she doesn't play herself.
-	v, err := s.CreateGame(ctx, anna, x01Game(), []string{"ben"})
+	// Everybody who creates a game takes part in it.
+	if _, err := s.CreateGame(ctx, anna, x01Game(), []string{"ben"}); !errors.Is(err, ErrInvalid) {
+		t.Errorf("a game without a player of the creator: got %v, want ErrInvalid", err)
+	}
+
+	// A game that nobody accepted is gone when the last player leaves it.
+	v, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.DeclineInvitation(ctx, ben, v.Game.ID); err != nil {
+	if _, err := s.LeaveGame(ctx, anna, v.Game.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Game(ctx, anna, v.Game.ID); !errors.Is(err, ErrNotFound) {
-		t.Errorf("empty game: got %v, want ErrNotFound", err)
+	if err := s.DeclineInvitation(ctx, ben, v.Game.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("declining a game that is gone: got %v, want ErrNotFound", err)
 	}
 }
 
@@ -273,7 +287,7 @@ func TestBoards(t *testing.T) {
 	}
 
 	g := x01Game(ben.PlayerID)
-	g.BoardID = &b.ID
+	g = withBoard(g, b.ID)
 	if _, err := s.CreateGame(ctx, ben, g, nil); !errors.Is(err, ErrInvalid) {
 		t.Errorf("ben uses anna's board: got %v, want ErrInvalid", err)
 	}
@@ -284,7 +298,8 @@ func TestBoards(t *testing.T) {
 	if boards, _ := s.Boards(ctx, anna); boards[0].LastUsedAt != nil {
 		t.Errorf("unused board has LastUsedAt %v", boards[0].LastUsedAt)
 	}
-	g.PlayerIDs = []int64{anna.PlayerID}
+	g = x01Game(anna.PlayerID)
+	g = withBoard(g, b.ID)
 	created, err := s.CreateGame(ctx, anna, g, nil)
 	if err != nil {
 		t.Fatalf("anna uses her board: %v", err)
@@ -440,7 +455,7 @@ func TestBoardCamera(t *testing.T) {
 	onBoard := func(boardID int64, invite ...string) GameView {
 		t.Helper()
 		g := x01Game(anna.PlayerID)
-		g.BoardID = &boardID
+		g = withBoard(g, boardID)
 		v, err := s.CreateGame(ctx, anna, g, invite)
 		if err != nil {
 			t.Fatal(err)
@@ -467,7 +482,7 @@ func TestBoardCamera(t *testing.T) {
 	if _, err := s.AddBoardDart(ctx, keller, t20); !errors.Is(err, ErrNoActiveGame) {
 		t.Errorf("dart while the new game waits: got %v, want ErrNoActiveGame", err)
 	}
-	if g, _ := s.Game(ctx, anna, game.Game.ID); g.Board != nil {
+	if g, _ := s.Game(ctx, anna, game.Game.ID); g.HasBoard() {
 		t.Error("the first game kept the board")
 	}
 	if _, err := s.AcceptInvitation(ctx, ben, waiting.Game.ID, nil); err != nil {
@@ -489,8 +504,8 @@ func TestBoardCamera(t *testing.T) {
 	if v, _ = s.BoardTakeout(ctx, keller); len(v.Darts) != 4 {
 		t.Errorf("second takeout changed the log: %d entries", len(v.Darts))
 	}
-	if v.Board == nil || v.Board.Name != "Keller" {
-		t.Errorf("game view board = %+v, want Keller", v.Board)
+	if v.BoardNames[anna.PlayerID] != "Keller" {
+		t.Errorf("board names = %v, want Keller", v.BoardNames)
 	}
 }
 
@@ -543,7 +558,7 @@ func TestTakeout(t *testing.T) {
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 
 	g := x01Game(anna.PlayerID, guest.ID)
-	g.BoardID = &keller.ID
+	g = withBoard(g, keller.ID)
 	v, err := s.CreateGame(ctx, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -604,7 +619,7 @@ func TestBoardDartAfterMissedTakeout(t *testing.T) {
 	guest, _ := s.CreateGuest(ctx, anna, "Papa")
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 	g := x01Game(anna.PlayerID, guest.ID)
-	g.BoardID = &keller.ID
+	g = withBoard(g, keller.ID)
 	v, err := s.CreateGame(ctx, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -635,7 +650,7 @@ func TestBoardTakeoutAfterBust(t *testing.T) {
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 	g := x01Game(anna.PlayerID, guest.ID)
 	g.X01.StartScore = 40
-	g.BoardID = &keller.ID
+	g = withBoard(g, keller.ID)
 	v, err := s.CreateGame(ctx, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -709,22 +724,20 @@ func TestEditDart(t *testing.T) {
 	}
 }
 
-func TestAbortGame(t *testing.T) {
+// There is no "abort": leaving a game with all your players ends it if fewer than two are
+// left, which is all there is to aborting a game of one account.
+func TestLeavingEndsAGameOfOneAccount(t *testing.T) {
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
 	befriend(t, s, anna, ben)
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 
-	older := x01Game(anna.PlayerID)
-	older.BoardID = &keller.ID
-	olderView, err := s.CreateGame(ctx, anna, older, nil)
+	older, err := s.CreateGame(ctx, anna, withBoard(x01Game(anna.PlayerID), keller.ID), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g := x01Game(anna.PlayerID)
-	g.BoardID = &keller.ID
-	v, err := s.CreateGame(ctx, anna, g, []string{"ben"})
+	v, err := s.CreateGame(ctx, anna, withBoard(x01Game(anna.PlayerID), keller.ID), []string{"ben"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -735,20 +748,18 @@ func TestAbortGame(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := s.AbortGame(ctx, ben, v.Game.ID); !errors.Is(err, ErrForbidden) {
-		t.Errorf("abort by invited player: got %v, want ErrForbidden", err)
-	}
-	v, err = s.AbortGame(ctx, anna, v.Game.ID)
+	// Ben alone with anna: either leaving ends the game.
+	v, err = s.LeaveGame(ctx, ben, v.Game.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !v.Game.Aborted() || v.CanThrow || len(v.Darts) != 1 {
 		t.Errorf("aborted game: aborted=%v can_throw=%v darts=%d, want aborted, no throwing, dart kept", v.Game.Aborted(), v.CanThrow, len(v.Darts))
 	}
-	if _, err := s.AbortGame(ctx, anna, v.Game.ID); !errors.Is(err, ErrAborted) {
-		t.Errorf("abort twice: got %v, want ErrAborted", err)
+	if _, err := s.LeaveGame(ctx, anna, v.Game.ID); !errors.Is(err, ErrAborted) {
+		t.Errorf("leave twice: got %v, want ErrAborted", err)
 	}
-	if _, err := s.AddDart(ctx, ben, v.Game.ID, t20); !errors.Is(err, ErrAborted) {
+	if _, err := s.AddDart(ctx, anna, v.Game.ID, t20); !errors.Is(err, ErrAborted) {
 		t.Errorf("dart after abort: got %v, want ErrAborted", err)
 	}
 	if _, err := s.UndoDart(ctx, anna, v.Game.ID); !errors.Is(err, ErrAborted) {
@@ -759,28 +770,28 @@ func TestAbortGame(t *testing.T) {
 	if _, err := s.AddBoardDart(ctx, keller, t20); !errors.Is(err, ErrNoActiveGame) {
 		t.Errorf("board dart after the abort: got %v, want ErrNoActiveGame", err)
 	}
-	if older, _ := s.Game(ctx, anna, olderView.Game.ID); older.Board != nil {
-		t.Errorf("the older game still has the board %+v", older.Board)
+	if o, _ := s.Game(ctx, anna, older.Game.ID); o.HasBoard() {
+		t.Error("the older game still has the board")
 	}
 
-	// A finished game can't be aborted.
+	// A finished game can't be left.
 	short := x01Game(anna.PlayerID)
 	short.X01.StartScore = 40
 	sv, _ := s.CreateGame(ctx, anna, short, nil)
 	if _, err := s.AddDart(ctx, anna, sv.Game.ID, throw.Dart{Number: 20, Segment: throw.Double}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AbortGame(ctx, anna, sv.Game.ID); !errors.Is(err, turn.ErrGameOver) {
-		t.Errorf("abort finished game: got %v, want turn.ErrGameOver", err)
+	if _, err := s.LeaveGame(ctx, anna, sv.Game.ID); !errors.Is(err, turn.ErrGameOver) {
+		t.Errorf("leave a finished game: got %v, want turn.ErrGameOver", err)
 	}
 
-	// Pending invitations to an aborted game disappear.
+	// Leaving the lobby removes the game, and the invitation to it with it.
 	lobby, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"})
-	if _, err := s.AbortGame(ctx, anna, lobby.Game.ID); err != nil {
-		t.Fatal(err)
+	if gv, err := s.LeaveGame(ctx, anna, lobby.Game.ID); err != nil || gv.Game.ID != 0 {
+		t.Fatalf("leave the lobby: %v, %v", gv.Game.ID, err)
 	}
 	if invs, err := s.Invitations(ctx, ben); err != nil || len(invs) != 0 {
-		t.Errorf("invitations after abort: got %d, %v, want none", len(invs), err)
+		t.Errorf("invitations after the creator left: got %d, %v, want none", len(invs), err)
 	}
 }
 
@@ -790,7 +801,7 @@ func TestDartPosition(t *testing.T) {
 	anna := register(t, s, "anna")
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 	g := x01Game(anna.PlayerID)
-	g.BoardID = &keller.ID
+	g = withBoard(g, keller.ID)
 	v, err := s.CreateGame(ctx, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)

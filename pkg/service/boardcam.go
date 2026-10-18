@@ -7,6 +7,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
+	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/repos/store"
@@ -49,92 +50,98 @@ func (s *Service) AuthenticateBoard(ctx context.Context, token string) (board.Bo
 }
 
 // AddBoardDart enters a dart detected by the board's cameras into the running game on
-// the board, on behalf of the board's owner, with the position the cameras saw it at.
-// While the game waits for the takeout, a new dart means the cameras missed it: the
-// takeout is entered first, and the dart is the next player's (user's wish 2026-10-15;
-// darts entered by hand still need the takeout). When the players throw on boards of
-// their own, a board only counts the darts of its player's turns: a dart of another
-// board is refused (ErrNotOnBoard).
+// the board, with the position the cameras saw it at. While the game waits for the
+// takeout, a new dart means the cameras missed it: the takeout is entered first, and the
+// dart is the next player's (user's wish 2026-10-15; darts entered by hand still need
+// the takeout). A board only counts the darts of the turns of players who throw on it: a
+// dart of another board is refused (ErrNotOnBoard).
 func (s *Service) AddBoardDart(ctx context.Context, b board.Board, d throw.Dart) (GameView, error) {
-	owner, v, err := s.activeGame(ctx, b)
+	v, err := s.activeGame(ctx, b)
 	if err != nil {
 		return GameView{}, err
 	}
 	if (d.X == nil) != (d.Y == nil) {
 		return GameView{}, fmt.Errorf("%w: give both x and y of the position, or neither", ErrInvalid)
 	}
-	if v.Common().WaitingForTakeout {
-		var err error
-		if v, err = s.Takeout(ctx, owner, v.Game.ID); err != nil {
-			return GameView{}, err
+	return s.changeByCameras(ctx, v.Game.ID, func(g *game.Game, v GameView) error {
+		if v.Common().WaitingForTakeout {
+			if err := s.storeTakeout(ctx, g, v); err != nil {
+				return err
+			}
+			var err error
+			if v, err = s.build(ctx, *g); err != nil {
+				return err
+			}
 		}
-	}
-	if !v.PlaysOn(b.ID) {
-		return GameView{}, ErrNotOnBoard
-	}
-	return s.addDart(ctx, owner, v.Game.ID, d)
+		if !v.PlaysOn(b.ID) {
+			return ErrNotOnBoard
+		}
+		return s.storeDart(ctx, g, v, d)
+	})
 }
 
 // BoardTakeout handles darts being pulled out of the board. If the current turn isn't
 // complete then, the missing darts didn't stick (bounced off or missed the board):
 // they are entered as misses, so the next player can throw.
 func (s *Service) BoardTakeout(ctx context.Context, b board.Board) (GameView, error) {
-	owner, v, err := s.activeGame(ctx, b)
+	v, err := s.activeGame(ctx, b)
 	if err != nil {
 		return GameView{}, err
 	}
-	c := v.Common()
-	if c.DartsInTurn == 0 || !v.PlaysOn(b.ID) {
-		return v, nil
-	}
-	// A turn that is over (third dart, bust, checkout) needs no misses.
-	missing := turn.DartsPerTurn - c.DartsInTurn
-	if c.WaitingForTakeout {
-		missing = 0
-	}
-	for range missing {
-		if v, err = s.addDart(ctx, owner, v.Game.ID, throw.Dart{Segment: throw.Miss}); err != nil {
-			return GameView{}, err
+	return s.changeByCameras(ctx, v.Game.ID, func(g *game.Game, v GameView) error {
+		c := v.Common()
+		if c.DartsInTurn == 0 || !v.PlaysOn(b.ID) {
+			return nil
 		}
-	}
-	return s.Takeout(ctx, owner, v.Game.ID)
+		// A turn that is over (third dart, bust, checkout) needs no misses.
+		missing := turn.DartsPerTurn - c.DartsInTurn
+		if c.WaitingForTakeout {
+			missing = 0
+		}
+		for range missing {
+			if err := s.storeDart(ctx, g, v, throw.Dart{Segment: throw.Miss}); err != nil {
+				return err
+			}
+			var err error
+			if v, err = s.build(ctx, *g); err != nil {
+				return err
+			}
+		}
+		return s.storeTakeout(ctx, g, v)
+	})
 }
 
-// activeGame returns the newest game on the board that accepts darts, seen by the board's owner.
-func (s *Service) activeGame(ctx context.Context, b board.Board) (account.Account, GameView, error) {
-	owner, games, err := s.activeGames(ctx, b)
+// activeGame returns the newest game with a player on the board that accepts darts.
+func (s *Service) activeGame(ctx context.Context, b board.Board) (GameView, error) {
+	games, err := s.activeGames(ctx, b)
 	if err != nil {
-		return account.Account{}, GameView{}, err
+		return GameView{}, err
 	}
 	if len(games) == 0 {
-		return account.Account{}, GameView{}, ErrNoActiveGame
+		return GameView{}, ErrNoActiveGame
 	}
-	return owner, games[0], nil
+	return games[0], nil
 }
 
-// activeGames returns the games on the board that accept darts, newest first, seen by
-// the board's owner.
-func (s *Service) activeGames(ctx context.Context, b board.Board) (account.Account, []GameView, error) {
-	owner, err := s.store.GetAccount(ctx, b.AccountID)
-	if err != nil {
-		return account.Account{}, nil, err
-	}
+// activeGames returns the games with a player on the board that accept darts, newest
+// first.
+func (s *Service) activeGames(ctx context.Context, b board.Board) ([]GameView, error) {
 	games, err := s.store.ListGamesByBoard(ctx, b.ID, 10)
 	if err != nil {
-		return account.Account{}, nil, err
+		return nil, err
 	}
 	var active []GameView
 	for _, g := range games {
 		if g.Aborted() {
 			continue
 		}
-		v, err := s.view(ctx, owner, g)
+		v, err := s.build(ctx, g)
 		if err != nil {
-			return account.Account{}, nil, err
+			return nil, err
 		}
 		if v.Ready && !v.Common().GameOver {
 			active = append(active, v)
 		}
 	}
-	return owner, active, nil
+	return active, nil
 }

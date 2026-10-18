@@ -212,7 +212,7 @@ func nextPlayerName(ctx context.Context, v service.GameView, p progress) string 
 	if p.CurrentPlayerID == nil {
 		return ""
 	}
-	ids := v.Game.PlayerIDs
+	ids := v.Game.PlayerIDs()
 	for i, id := range ids {
 		if id == *p.CurrentPlayerID {
 			for j := 1; j < len(ids); j++ {
@@ -469,19 +469,51 @@ func boardVals(id int64) string {
 	return `{"board_id": "` + strconv.FormatInt(id, 10) + `"}`
 }
 
-// playerBoardName returns the name of the board a player throws on, if the game has
-// players with boards of their own: theirs, else the host's. Empty otherwise.
-func playerBoardName(v service.GameView, id int64) string {
-	if !v.Game.PlayerBoards {
+// sharedBoardName returns the name of the board if all players of the game throw on the
+// same one (a game at one board), shown once at the top; empty otherwise.
+func sharedBoardName(v service.GameView) string {
+	var shared *int64
+	for _, p := range v.Game.Participants {
+		if p.BoardID == nil || (shared != nil && *shared != *p.BoardID) {
+			return ""
+		}
+		shared = p.BoardID
+	}
+	if shared == nil {
 		return ""
 	}
-	if name, ok := v.BoardNames[id]; ok {
-		return name
+	return v.BoardNames[v.Game.Participants[0].PlayerID]
+}
+
+// playerBoardName returns the name of the board a player throws on, if the players don't
+// all throw on the same one (see sharedBoardName): then it is shown with each player.
+func playerBoardName(v service.GameView, id int64) string {
+	if sharedBoardName(v) != "" {
+		return ""
 	}
-	if v.Board != nil {
-		return v.Board.Name
+	return v.BoardNames[id]
+}
+
+// leaveLabel is the text of the button to leave a game: in a game of one account alone it
+// ends the game, so it says "abort"; in a tournament it ends the tournament.
+func leaveLabel(t Texts, v service.GameView) string {
+	switch {
+	case v.Game.TournamentID != nil:
+		return t.LeaveTournament()
+	case v.OnlyMine():
+		return t.AbortGame()
 	}
-	return ""
+	return t.LeaveGame()
+}
+
+func leaveConfirm(t Texts, v service.GameView) string {
+	switch {
+	case v.Game.TournamentID != nil:
+		return t.LeaveTournamentConfirm()
+	case v.OnlyMine():
+		return t.AbortGameConfirm()
+	}
+	return t.LeaveGameConfirm()
 }
 
 // mayEditDart reports whether the viewer may correct the dart: it is one of their

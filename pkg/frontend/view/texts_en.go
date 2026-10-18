@@ -367,9 +367,11 @@ func (textsEN) WaitingFor(names string) string {
 	return "Waiting for " + names + " to accept. Then the games can start."
 }
 func (textsEN) WinsTournament(name string) string { return "🏆 " + name + " wins the tournament!" }
-func (textsEN) AbortTournament() string           { return "Abort tournament" }
-func (textsEN) AbortTournamentConfirm() string    { return "Really abort the tournament?" }
-func (textsEN) Bracket() string                   { return "Bracket" }
+func (textsEN) LeaveTournament() string           { return "Leave tournament" }
+func (textsEN) LeaveTournamentConfirm() string {
+	return "Really leave the tournament? It ends for everyone; finished games stay."
+}
+func (textsEN) Bracket() string { return "Bracket" }
 func (t textsEN) RoundName(rounds, round int) string {
 	switch rounds - round {
 	case 0:
@@ -429,6 +431,3 @@ func (textsEN) ErrAlreadyFriends() string {
 }
 func (textsEN) ErrFriendSelf() string        { return "You can't add yourself as a friend." }
 func (textsEN) ErrMatchNotStartable() string { return "This game can't be started right now." }
-func (textsEN) ErrAbortTournament() string {
-	return "Only whoever created the tournament can abort it, and only while it's running."
-}

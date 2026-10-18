@@ -53,8 +53,8 @@ func TestOpenGame(t *testing.T) {
 		t.Errorf("ben still sees the game he is in: %+v", l)
 	}
 
-	if v, err = s.JoinGame(ctx, carla, v.Game.ID, nil); err != nil || !v.Ready || len(v.Game.PlayerIDs) != 3 {
-		t.Fatalf("carla takes the last seat: ready %v, players %v, %v; want ready with 3", v.Ready, v.Game.PlayerIDs, err)
+	if v, err = s.JoinGame(ctx, carla, v.Game.ID, nil); err != nil || !v.Ready || len(v.Game.PlayerIDs()) != 3 {
+		t.Fatalf("carla takes the last seat: ready %v, players %v, %v; want ready with 3", v.Ready, v.Game.PlayerIDs(), err)
 	}
 	if _, err := s.JoinGame(ctx, dora, v.Game.ID, nil); !errors.Is(err, ErrNoSeat) {
 		t.Errorf("join a full game: got %v, want ErrNoSeat", err)
@@ -119,13 +119,19 @@ func TestOpenTournament(t *testing.T) {
 	if v, err = s.JoinTournament(ctx, ben, v.Tournament.ID, nil); err != nil || v.Ready {
 		t.Fatalf("ben joins: ready %v, %v", v.Ready, err)
 	}
-	if v, err = s.JoinTournament(ctx, carla, v.Tournament.ID, nil); err != nil || !v.Ready || len(v.State.Matches) != 3 || len(v.Tournament.PlayerIDs) != 3 {
-		t.Fatalf("carla takes the last seat: ready %v, %d matches, players %v, %v; want ready with 3 matches", v.Ready, len(v.State.Matches), v.Tournament.PlayerIDs, err)
+	if v, err = s.JoinTournament(ctx, carla, v.Tournament.ID, nil); err != nil || !v.Ready || len(v.State.Matches) != 3 || len(v.Tournament.PlayerIDs()) != 3 {
+		t.Fatalf("carla takes the last seat: ready %v, %d matches, players %v, %v; want ready with 3 matches", v.Ready, len(v.State.Matches), v.Tournament.PlayerIDs(), err)
 	}
 	if _, err := s.JoinTournament(ctx, ben, v.Tournament.ID, nil); !errors.Is(err, ErrInvalid) {
 		t.Errorf("join twice: got %v, want ErrInvalid", err)
 	}
-	if _, err := s.StartMatch(ctx, anna, v.Tournament.ID, 0); err != nil {
-		t.Errorf("start the first match: %v", err)
+	// Whoever has a player in a match may start it: the first match anna plays.
+	for _, m := range v.State.Matches {
+		if m.PlayerIDs[0] == anna.PlayerID || m.PlayerIDs[1] == anna.PlayerID {
+			if _, err := s.StartMatch(ctx, anna, v.Tournament.ID, m.Index); err != nil {
+				t.Errorf("start match %d: %v", m.Index, err)
+			}
+			break
+		}
 	}
 }

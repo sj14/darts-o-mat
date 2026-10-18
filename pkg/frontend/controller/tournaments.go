@@ -123,19 +123,21 @@ func (c *Controller) declineTournament(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (c *Controller) abortTournament(w http.ResponseWriter, r *http.Request) {
+// leaveTournament lets the account leave the tournament with all its players: in the
+// lobby they are removed, once it is running it ends for everyone.
+func (c *Controller) leaveTournament(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
 	}
-	_, err := c.svc.AbortTournament(r.Context(), auth.Account(r.Context()), id)
+	_, err := c.svc.LeaveTournament(r.Context(), auth.Account(r.Context()), id)
 	switch {
 	case err == nil, errors.Is(err, service.ErrAborted):
 		http.Redirect(w, r, tournamentURL(id), http.StatusSeeOther)
 	case isNotFound(err):
 		http.NotFound(w, r)
 	case errors.Is(err, service.ErrForbidden), errors.Is(err, service.ErrInvalid):
-		c.renderTournament(w, r, http.StatusConflict, view.T(r.Context()).ErrAbortTournament())
+		c.renderTournament(w, r, http.StatusConflict, view.T(r.Context()).ErrInput())
 	default:
 		serverError(w, err)
 	}

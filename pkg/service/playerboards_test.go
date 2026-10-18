@@ -16,21 +16,23 @@ func TestPlayersOnTheirOwnBoards(t *testing.T) {
 	boardB, _ := s.CreateBoard(ctx, ben, "B")
 
 	g := x01Game(anna.PlayerID)
-	g.BoardID = &boardA.ID
+	g = withBoard(g, boardA.ID)
 	g.Open, g.Seats = true, 2
 	v, err := s.CreateGame(ctx, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.JoinGame(ctx, ben, v.Game.ID, &boardA.ID); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("ben joins on anna's board: got %v, want ErrInvalid", err)
+	carla := register(t, s, "carla")
+	boardC, _ := s.CreateBoard(ctx, carla, "C")
+	if _, err := s.JoinGame(ctx, ben, v.Game.ID, &boardC.ID); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("ben joins on carla's board: got %v, want ErrInvalid", err)
 	}
-	if v, err = s.JoinGame(ctx, ben, v.Game.ID, &boardB.ID); err != nil || !v.Ready || !v.Game.PlayerBoards {
-		t.Fatalf("ben joins on his board: ready %v, player boards %v, %v", v.Ready, v.Game.PlayerBoards, err)
+	if v, err = s.JoinGame(ctx, ben, v.Game.ID, &boardB.ID); err != nil || !v.Ready || !v.HasBoard() {
+		t.Fatalf("ben joins on his board: ready %v, has a board %v, %v", v.Ready, v.HasBoard(), err)
 	}
 	id := v.Game.ID
-	if len(v.BoardNames) != 1 || v.BoardNames[ben.PlayerID] != "B" {
-		t.Errorf("board names = %v, want only ben's B (anna's board is the game's)", v.BoardNames)
+	if len(v.BoardNames) != 2 || v.BoardNames[ben.PlayerID] != "B" || v.BoardNames[anna.PlayerID] != "A" {
+		t.Errorf("board names = %v, want anna's A and ben's B", v.BoardNames)
 	}
 
 	// Each board only counts the darts of its player's turns.
@@ -59,7 +61,7 @@ func TestPlayersOnTheirOwnBoards(t *testing.T) {
 
 	// A board belongs to one game: ben starts another on his board.
 	other := x01Game(ben.PlayerID)
-	other.BoardID = &boardB.ID
+	other = withBoard(other, boardB.ID)
 	if _, err := s.CreateGame(ctx, ben, other, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -96,11 +98,11 @@ func TestOpenTournamentOnTheirOwnBoards(t *testing.T) {
 			match = m.Index
 		}
 	}
-	gv, err := s.StartMatch(ctx, anna, id, match)
+	gv, err := s.StartMatch(ctx, ben, id, match)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !gv.Game.PlayerBoards || gv.BoardOf(ben.PlayerID) == nil || *gv.BoardOf(ben.PlayerID) != boardB.ID || *gv.BoardOf(carla.PlayerID) != boardC.ID {
+	if !gv.HasBoard() || gv.BoardOf(ben.PlayerID) == nil || *gv.BoardOf(ben.PlayerID) != boardB.ID || *gv.BoardOf(carla.PlayerID) != boardC.ID {
 		t.Fatalf("boards of the match: ben %v, carla %v, want B and C", gv.BoardOf(ben.PlayerID), gv.BoardOf(carla.PlayerID))
 	}
 	first, second := boardB, boardC

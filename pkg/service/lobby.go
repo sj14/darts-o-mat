@@ -60,36 +60,33 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 	}
 	var lobbies []OpenLobby
 	for _, g := range games {
-		if !offered(g.Lobby, len(g.PlayerIDs), g.CreatedAt, g.Aborted()) || slices.Contains(g.PlayerIDs, acc.PlayerID) || g.TournamentID != nil {
+		if !offered(g.Lobby, len(g.Participants), g.CreatedAt, g.Aborted()) || slices.Contains(g.PlayerIDs(), acc.PlayerID) || g.CreatedBy == acc.ID || g.TournamentID != nil {
 			continue
 		}
-		h, err := host(g.OwnerAccountID)
+		h, err := host(g.CreatedBy)
 		if err != nil {
 			return nil, err
 		}
-		lobbies = append(lobbies, OpenLobby{ID: g.ID, Host: h, Settings: g.Settings, Players: len(g.PlayerIDs), Seats: g.Seats, CreatedAt: g.CreatedAt})
+		lobbies = append(lobbies, OpenLobby{ID: g.ID, Host: h, Settings: g.Settings, Players: len(g.Participants), Seats: g.Seats, CreatedAt: g.CreatedAt})
 	}
 	for _, t := range tournaments {
-		if !offered(t.Lobby, len(t.PlayerIDs), t.CreatedAt, t.Aborted()) || slices.Contains(t.PlayerIDs, acc.PlayerID) {
+		if !offered(t.Lobby, len(t.Participants), t.CreatedAt, t.Aborted()) || slices.Contains(t.PlayerIDs(), acc.PlayerID) || t.CreatedBy == acc.ID {
 			continue
 		}
-		h, err := host(t.OwnerAccountID)
+		h, err := host(t.CreatedBy)
 		if err != nil {
 			return nil, err
 		}
-		lobbies = append(lobbies, OpenLobby{Tournament: true, ID: t.ID, Host: h, Settings: t.Settings, Format: t.Format, Players: len(t.PlayerIDs), Seats: t.Seats, CreatedAt: t.CreatedAt})
+		lobbies = append(lobbies, OpenLobby{Tournament: true, ID: t.ID, Host: h, Settings: t.Settings, Format: t.Format, Players: len(t.Participants), Seats: t.Seats, CreatedAt: t.CreatedAt})
 	}
 	slices.SortStableFunc(lobbies, func(a, b OpenLobby) int { return b.CreatedAt.Compare(a.CreatedAt) })
 	return lobbies, nil
 }
 
 // JoinGame takes a free seat in a game open for strangers with the account's own player,
-// who throws on the board if one of the account's is given. Games that aren't open stay
-// hidden (ErrNotFound).
+// who throws on the board if one is given (one of the account's, or one other players
+// throw on). Games that aren't open stay hidden (ErrNotFound).
 func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int64, boardID *int64) (GameView, error) {
-	if err := s.checkBoard(ctx, acc, boardID); err != nil {
-		return GameView{}, err
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	g, err := s.store.GetGame(ctx, gameID)
@@ -99,10 +96,13 @@ func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int6
 	switch {
 	case !g.Open:
 		return GameView{}, ErrNotFound
-	case slices.Contains(g.PlayerIDs, acc.PlayerID):
+	case slices.Contains(g.PlayerIDs(), acc.PlayerID):
 		return GameView{}, fmt.Errorf("%w: you are in this game already", ErrInvalid)
-	case !offered(g.Lobby, len(g.PlayerIDs), g.CreatedAt, g.Aborted()):
+	case !offered(g.Lobby, len(g.Participants), g.CreatedAt, g.Aborted()):
 		return GameView{}, ErrNoSeat
+	}
+	if err := s.checkGameBoard(ctx, acc, g, boardID); err != nil {
+		return GameView{}, err
 	}
 	if err := s.store.JoinGame(ctx, gameID, acc.PlayerID, boardID); err != nil {
 		return GameView{}, err
@@ -120,9 +120,6 @@ func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int6
 // JoinTournament is JoinGame for a tournament; whoever takes the last seat completes
 // the draw.
 func (s *Service) JoinTournament(ctx context.Context, acc account.Account, id int64, boardID *int64) (TournamentView, error) {
-	if err := s.checkBoard(ctx, acc, boardID); err != nil {
-		return TournamentView{}, err
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	t, err := s.store.GetTournament(ctx, id)
@@ -132,10 +129,13 @@ func (s *Service) JoinTournament(ctx context.Context, acc account.Account, id in
 	switch {
 	case !t.Open:
 		return TournamentView{}, ErrNotFound
-	case slices.Contains(t.PlayerIDs, acc.PlayerID):
+	case slices.Contains(t.PlayerIDs(), acc.PlayerID):
 		return TournamentView{}, fmt.Errorf("%w: you are in this tournament already", ErrInvalid)
-	case !offered(t.Lobby, len(t.PlayerIDs), t.CreatedAt, t.Aborted()):
+	case !offered(t.Lobby, len(t.Participants), t.CreatedAt, t.Aborted()):
 		return TournamentView{}, ErrNoSeat
+	}
+	if err := s.checkTournamentBoard(ctx, acc, t, boardID); err != nil {
+		return TournamentView{}, err
 	}
 	if err := s.store.JoinTournament(ctx, id, acc.PlayerID, boardID); err != nil {
 		return TournamentView{}, err

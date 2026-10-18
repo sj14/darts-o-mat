@@ -17,7 +17,7 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
   - Confirm automatically when one of the players starts a new game, maybe also after some time, so a forgotten confirmation doesn't leave games hanging.
   - Adds a state (running → over → completed) that undo, corrections, the camera and the "one running game per account" option have to respect (an unconfirmed game still counts as running).
   - Natural place for buttons like "Revanche" or "Neues Spiel".
-- Option, undecided: allow only one running game per account (games it hosts or has accepted, including one waiting in the lobby).
+- Option, undecided: allow only one running game per account (games with a player of it, including one waiting in the lobby).
   - For: matches reality (one person plays one game at a time), no forgotten games, and the board warning/moving (see [boards and cameras](#boards-and-cameras)) becomes unnecessary, because a board could then only be in its owner's single game.
   - Against: club or pub use – one account couldn't run guest-only games on two boards at the same time.
   - If done: starting a new game while one runs offers "continue it" or "abort it and start the new one" instead of just refusing; invitations stay open until the current game is finished or aborted.
@@ -44,7 +44,6 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
 ## Accounts and guests
 
 - Add admin area
-- Invite friends to game and allow playing locally on the same board (why do that: they keep their statistic when playing at a friends house)
 
 ## Technical
 

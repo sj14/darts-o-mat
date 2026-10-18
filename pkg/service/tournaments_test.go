@@ -13,11 +13,14 @@ import (
 
 // quickTournament has games that the first dart, a D20, wins.
 func quickTournament(format tournament.Format, playerIDs ...int64) tournament.Tournament {
-	return tournament.Tournament{
-		Format:    format,
-		PlayerIDs: playerIDs,
-		Settings:  game.Settings{Mode: game.ModeX01, X01: &x01.Settings{StartScore: 40, OutMode: x01.OutModeSingle}},
+	t := tournament.Tournament{
+		Format:   format,
+		Settings: game.Settings{Mode: game.ModeX01, X01: &x01.Settings{StartScore: 40, OutMode: x01.OutModeSingle}},
 	}
+	for _, id := range playerIDs {
+		t.Participants = append(t.Participants, tournament.Participant{PlayerID: id})
+	}
+	return t
 }
 
 var d20 = throw.Dart{Number: 20, Segment: throw.Double}
@@ -148,13 +151,6 @@ func TestKnockoutTournament(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// An aborted game doesn't decide the match; it can be started again.
-	if _, err := s.AbortGame(ctx, anna, semi.Game.ID); err != nil {
-		t.Fatal(err)
-	}
-	if semi, err = s.StartMatch(ctx, anna, id, 1); err != nil {
-		t.Fatalf("restart after abort: %v", err)
-	}
 	if _, err := s.AddDart(ctx, anna, semi.Game.ID, d20); err != nil {
 		t.Fatal(err)
 	}
@@ -162,8 +158,8 @@ func TestKnockoutTournament(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if final.Game.PlayerIDs[0] != v.Tournament.PlayerIDs[0] || final.Game.PlayerIDs[1] != semi.Game.PlayerIDs[0] {
-		t.Errorf("final between %v, want seed 1 and the winner of the semi-final", final.Game.PlayerIDs)
+	if final.Game.PlayerIDs()[0] != v.Tournament.PlayerIDs()[0] || final.Game.PlayerIDs()[1] != semi.Game.PlayerIDs()[0] {
+		t.Errorf("final between %v, want seed 1 and the winner of the semi-final", final.Game.PlayerIDs())
 	}
 	if _, err := s.AddDart(ctx, anna, final.Game.ID, d20); err != nil {
 		t.Fatal(err)
@@ -172,7 +168,7 @@ func TestKnockoutTournament(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !v.State.Over || *v.State.WinnerID != v.Tournament.PlayerIDs[0] {
+	if !v.State.Over || *v.State.WinnerID != v.Tournament.PlayerIDs()[0] {
 		t.Errorf("over %v winner %v, want seed 1", v.State.Over, v.State.WinnerID)
 	}
 	// The database records when each dart was thrown; the tournament lasts from the
@@ -180,8 +176,8 @@ func TestKnockoutTournament(t *testing.T) {
 	if tm := v.Time; tm.Start.IsZero() || tm.End.Before(tm.Start) {
 		t.Errorf("tournament played %v, want the times of its darts", tm)
 	}
-	if _, err := s.AbortTournament(ctx, anna, id); !errors.Is(err, ErrInvalid) {
-		t.Errorf("aborting a finished tournament: %v, want ErrInvalid", err)
+	if _, err := s.LeaveTournament(ctx, anna, id); !errors.Is(err, ErrInvalid) {
+		t.Errorf("leaving a finished tournament: %v, want ErrInvalid", err)
 	}
 }
 

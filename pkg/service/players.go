@@ -70,7 +70,7 @@ func (s *Service) Boards(ctx context.Context, acc account.Account) ([]BoardView,
 		if err != nil {
 			return nil, err
 		}
-		_, active, err := s.activeGames(ctx, b)
+		active, err := s.activeGames(ctx, b)
 		if err != nil {
 			return nil, err
 		}

@@ -70,7 +70,7 @@ templ invitations(views []service.GameView) {
 				<li class="flex flex-wrap items-center justify-between gap-3 py-3">
 					<div>
 						<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">{ modeLabel(T(ctx), v.Game.Settings) }</a>
-						<div class="text-sm text-white/50">{ T(ctx).WithPlayers(playerNames(ctx, v, v.Game.PlayerIDs)) }</div>
+						<div class="text-sm text-white/50">{ T(ctx).WithPlayers(playerNames(ctx, v, v.Game.PlayerIDs())) }</div>
 					</div>
 					@answerInvitation(v.Game.ID, boardsOfChoices(v.Boards))
 				</li>
@@ -186,7 +186,7 @@ templ recentGames(views []service.GameView) {
 									@statusBadge(T(ctx).StatusRunning(), "bg-board-green/25 text-emerald-300")
 							}
 						</div>
-						<div class="text-sm text-white/50">{ playerNames(ctx, v, v.Game.PlayerIDs) }</div>
+						<div class="text-sm text-white/50">{ playerNames(ctx, v, v.Game.PlayerIDs()) }</div>
 					</a>
 				</li>
 			}

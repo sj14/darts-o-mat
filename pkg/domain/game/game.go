@@ -28,7 +28,7 @@ const (
 )
 
 // Settings are how a game is played: the mode with its settings, legs, sets, bulling
-// off and the board. A tournament has them once for all its games. Both store them as
+// off. A tournament has them once for all its games. Both store them as
 // columns of their own table, except the mode's settings (JSON).
 type Settings struct {
 	Mode Mode `bun:",notnull" json:"mode"`
@@ -38,7 +38,6 @@ type Settings struct {
 	Sets int `bun:",notnull,default:1" json:"sets"`
 	// BullOff lets the players bull off for who starts the first leg.
 	BullOff        bool                     `bun:",notnull,default:false" json:"bull_off"`
-	BoardID        *int64                   `json:"board_id,omitempty"`
 	X01            *x01.Settings            `json:"x01,omitempty"`
 	AroundTheClock *aroundtheclock.Settings `json:"around_the_clock,omitempty"`
 }
@@ -70,7 +69,7 @@ func (s Settings) Validate() error {
 const MaxSeats = 8
 
 // Lobby makes a game or tournament open for players without an invitation: Seats is the
-// number of players it wants in total, the owner's and invited ones included. It starts
+// number of players it wants in total, the creator's and invited ones included. It starts
 // once all seats are taken and the invited players accepted. Strangers see it in the
 // list of open games until then, see service.OpenLobbies.
 type Lobby struct {
@@ -100,29 +99,69 @@ func (l Lobby) Validate(players, min, max int) error {
 	return nil
 }
 
+// Participant is a player of a game: its place in the throwing order, whether the player
+// accepted the invitation (the players of the account that creates a game always have),
+// and the board they throw on. All players of a game are equal; whoever controls a player
+// (their account, or for a guest the account they are a guest of) enters their darts.
+type Participant struct {
+	bun.BaseModel `bun:"table:game_players"`
+
+	GameID   int64 `bun:",pk" json:"-"`
+	PlayerID int64 `bun:",pk" json:"player_id"`
+	// Position is the place in the throwing order, counting up from 0 (not necessarily
+	// without gaps after a player left the lobby).
+	Position int              `bun:"place,notnull" json:"position"`
+	Status   InvitationStatus `bun:",notnull" json:"status"`
+	// BoardID is the board the player throws on: its cameras report their darts. Nil: they
+	// enter their darts by hand.
+	BoardID   *int64    `json:"board_id,omitempty"`
+	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"-"`
+}
+
 // Game holds what is needed to replay a game: its settings and the players in throwing
 // order. The darts are stored separately and the current state is computed with Play.
 type Game struct {
 	bun.BaseModel `bun:"table:games"`
 
-	ID             int64 `bun:",pk,autoincrement" json:"id"`
-	OwnerAccountID int64 `bun:",notnull" json:"owner_account_id"` // the account that created the game
+	ID int64 `bun:",pk,autoincrement" json:"id"`
+	// CreatedBy is the account that created the game. It has no rights the other
+	// participants don't have; the open games list says whose it is.
+	CreatedBy int64 `bun:",notnull" json:"created_by"`
 	Settings
 	Lobby
-	PlayerIDs []int64 `bun:"player_ids,notnull" json:"player_ids"`
-	// PlayerBoards is set once a player plays on a board of their own (Invitation.BoardID);
-	// the game then waits for takeouts like one on the owner's board.
-	PlayerBoards bool `bun:",notnull,default:false" json:"player_boards,omitempty"`
+	// Participants are the players in throwing order (see PlayerIDs). They are stored in a
+	// table of their own and filled in when the game is loaded.
+	Participants []Participant `bun:"-" json:"participants"`
 	// BullOffCloser is the player the players found closer when bulling off ended in a
 	// tie, see turn.Log.BullOffCloser.
 	BullOffCloser *int64    `json:"bull_off_closer,omitempty"`
 	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-	// AbortedAt is set when the owner aborted the game: it takes no more darts and has no winner.
+	// AbortedAt is set when the game ended without a winner, because too many players left
+	// it: it takes no more darts.
 	AbortedAt *time.Time `bun:",nullzero" json:"aborted_at,omitempty"`
 	// TournamentID is the tournament the game is a match of (TournamentMatch, the index
 	// in its schedule), nil for a single game.
 	TournamentID    *int64 `json:"tournament_id,omitempty"`
 	TournamentMatch int    `bun:",notnull,default:0" json:"tournament_match,omitempty"`
+}
+
+// PlayerIDs returns the players in throwing order.
+func (g Game) PlayerIDs() []int64 {
+	ids := make([]int64, len(g.Participants))
+	for i, p := range g.Participants {
+		ids[i] = p.PlayerID
+	}
+	return ids
+}
+
+// Participant returns the participant with the player ID.
+func (g Game) Participant(playerID int64) (Participant, bool) {
+	for _, p := range g.Participants {
+		if p.PlayerID == playerID {
+			return p, true
+		}
+	}
+	return Participant{}, false
 }
 
 // Aborted reports whether the game was aborted.
@@ -131,13 +170,13 @@ func (g Game) Aborted() bool {
 }
 
 func (g Game) Validate() error {
-	if len(g.PlayerIDs) == 0 {
+	if len(g.Participants) == 0 {
 		return errors.New("a game needs at least one player")
 	}
-	if err := CheckPlayers(g.PlayerIDs); err != nil {
+	if err := CheckPlayers(g.PlayerIDs()); err != nil {
 		return err
 	}
-	if err := g.Lobby.Validate(len(g.PlayerIDs), 2, MaxSeats); err != nil {
+	if err := g.Lobby.Validate(len(g.Participants), 2, MaxSeats); err != nil {
 		return err
 	}
 	return g.Settings.Validate()
@@ -156,9 +195,9 @@ func CheckPlayers(playerIDs []int64) error {
 }
 
 // WaitsForTakeout reports whether a finished turn waits until the darts were pulled out.
-// Games on a board do: its cameras report the takeout, players without them confirm it.
+// Games with a board do: its cameras report the takeout, players without them confirm it.
 func (g Game) WaitsForTakeout() bool {
-	return g.BoardID != nil || g.PlayerBoards
+	return slices.ContainsFunc(g.Participants, func(p Participant) bool { return p.BoardID != nil })
 }
 
 // State is a replayed game's state, of its mode's type: x01.State or
@@ -169,17 +208,17 @@ type State interface {
 
 // Play replays the game's log (darts and takeouts, as stored) and returns its state.
 func (g Game) Play(entries []throw.Dart) (State, error) {
-	log := turn.Log{Entries: entries, PlayerIDs: g.PlayerIDs, WaitForTakeout: g.WaitsForTakeout(), Legs: g.Legs, Sets: g.Sets, BullOff: g.BullOff}
+	log := turn.Log{Entries: entries, PlayerIDs: g.PlayerIDs(), WaitForTakeout: g.WaitsForTakeout(), Legs: g.Legs, Sets: g.Sets, BullOff: g.BullOff}
 	if g.BullOffCloser != nil {
-		if i := slices.Index(g.PlayerIDs, *g.BullOffCloser); i >= 0 {
+		if i := slices.Index(g.PlayerIDs(), *g.BullOffCloser); i >= 0 {
 			log.BullOffCloser = &i
 		}
 	}
 	switch g.Mode {
 	case ModeX01:
-		return x01.PlayLog(*g.X01, g.PlayerIDs, log)
+		return x01.PlayLog(*g.X01, g.PlayerIDs(), log)
 	case ModeAroundTheClock:
-		return aroundtheclock.PlayLog(*g.AroundTheClock, g.PlayerIDs, log)
+		return aroundtheclock.PlayLog(*g.AroundTheClock, g.PlayerIDs(), log)
 	default:
 		return nil, fmt.Errorf("unknown mode %q", g.Mode)
 	}
@@ -191,21 +230,6 @@ const (
 	InvitationPending  InvitationStatus = "pending"
 	InvitationAccepted InvitationStatus = "accepted"
 )
-
-// Invitation invites the player of another account to a game.
-// The game accepts darts once no invitation is pending anymore;
-// a declined or withdrawn invitation is deleted and the player removed from the game.
-type Invitation struct {
-	bun.BaseModel `bun:"table:game_invitations"`
-
-	GameID   int64            `bun:",pk" json:"game_id"`
-	PlayerID int64            `bun:",pk" json:"player_id"`
-	Status   InvitationStatus `bun:",notnull" json:"status"`
-	// BoardID is the board the invited player throws on, one of their own: its cameras
-	// report their darts. Nil: they play on the owner's board, or without one.
-	BoardID   *int64    `json:"board_id,omitempty"`
-	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-}
 
 // Score returns what each player has won in the game's state (see Play): sets in a
 // game with sets, legs otherwise.

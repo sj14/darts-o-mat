@@ -55,7 +55,7 @@ func (s *Service) Stats(ctx context.Context, acc account.Account) ([]stats.Summa
 			continue
 		}
 		for i := range summaries {
-			if id := summaries[i].Player.ID; slices.Contains(t.PlayerIDs, id) {
+			if id := summaries[i].Player.ID; slices.Contains(t.PlayerIDs(), id) {
 				summaries[i].AddTournament(t.Settings.Mode, *v.State.WinnerID == id)
 			}
 		}

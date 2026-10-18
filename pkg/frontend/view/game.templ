@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
@@ -50,10 +49,11 @@ templ gameTitle(v service.GameView, p *progress) {
 			if v.Game.TournamentID != nil {
 				<a href={ templ.URL(tournamentURL(*v.Game.TournamentID, "")) } class="rounded-full bg-amber-400/20 px-3 py-1 font-semibold text-amber-300 hover:bg-amber-400/30">{ T(ctx).ToTournament() }</a>
 			}
-			if v.Board != nil {
-				<span class="rounded-full bg-white/10 px-3 py-1">📷 { v.Board.Name }</span>
+			if name := sharedBoardName(v); name != "" {
+				<span class="rounded-full bg-white/10 px-3 py-1">📷 { name }</span>
 			}
 			for _, b := range v.Boards {
+				if !v.Invited {
 				<button
 					type="button"
 					class="rounded-full border border-white/20 px-3 py-1 hover:bg-white/10"
@@ -66,10 +66,9 @@ templ gameTitle(v service.GameView, p *progress) {
 						hx-confirm={ T(ctx).BoardInUseConfirm() }
 					}
 				>📷 { b.Name }</button>
+				}
 			}
-			if p != nil && v.IsOwner && p.running() {
-				@abortButton(v)
-			} else if p != nil && !v.IsOwner && v.CanThrow && p.running() && !p.BullingOff && v.Game.TournamentID == nil {
+			if p != nil && v.CanThrow && p.running() && !p.BullingOff {
 				@leaveButton(v)
 			}
 			if p != nil && p.BullingOff && p.running() {
@@ -108,8 +107,8 @@ templ lobby(v service.GameView, errMsg string) {
 		}
 		@panel("") {
 			<p class="mb-4 text-white/70">{ T(ctx).GameStartsWhenAccepted() }</p>
-			if !v.Game.Full(len(v.Game.PlayerIDs)) {
-				<p class="mb-4 font-semibold text-amber-300">{ T(ctx).WaitingForSeats(v.Game.Seats - len(v.Game.PlayerIDs)) }</p>
+			if !v.Game.Full(len(v.Game.Participants)) {
+				<p class="mb-4 font-semibold text-amber-300">{ T(ctx).WaitingForSeats(v.Game.Seats - len(v.Game.Participants)) }</p>
 			}
 			<ul class="divide-y divide-white/10">
 				for _, pl := range v.Players {
@@ -123,16 +122,12 @@ templ lobby(v service.GameView, errMsg string) {
 								<span class="ml-1 font-sans text-sm font-normal text-white/50">📷 { name }</span>
 							}
 						</span>
-						{{ inv := v.InvitationOf(pl.ID) }}
-						switch  {
-							case inv == nil:
-								<span class="rounded-full bg-board-green/20 px-3 py-1 text-sm text-emerald-300">{ T(ctx).Joined() }</span>
-							case inv.Status == game.InvitationAccepted:
-								<span class="rounded-full bg-board-green/20 px-3 py-1 text-sm text-emerald-300">{ T(ctx).Accepted() }</span>
-							default:
+						if !v.Pending(pl.ID) {
+							<span class="rounded-full bg-board-green/20 px-3 py-1 text-sm text-emerald-300">{ T(ctx).Joined() }</span>
+						} else {
 								<span class="flex items-center gap-2">
 									<span class="animate-pulse rounded-full bg-amber-400/20 px-3 py-1 text-sm text-amber-300">{ T(ctx).Invited() }</span>
-									if v.IsOwner {
+									if !v.Invited {
 										<button
 											type="button"
 											class="rounded-lg border border-board-red/60 px-3 py-1 text-sm text-red-300 hover:bg-board-red/20"
@@ -147,11 +142,7 @@ templ lobby(v service.GameView, errMsg string) {
 				}
 			</ul>
 		}
-		if v.IsOwner {
-			<div class="mt-4">
-				@abortButton(v)
-			</div>
-		} else if !v.Invited && v.Game.TournamentID == nil {
+		if !v.Invited {
 			<div class="mt-4">
 				@leaveButton(v)
 			</div>
@@ -159,24 +150,13 @@ templ lobby(v service.GameView, errMsg string) {
 	</div>
 }
 
-// leaveButton lets a player who isn't the host leave the game, after asking. It is a form
-// of its own: afterwards the page shows the game, or the start page from the lobby.
+// leaveButton lets the viewer leave the game with all their players, after asking. In a
+// game of one account alone that is what ending it means, and it says so. It is a form of
+// its own: afterwards the page shows the game, or the start page from the lobby.
 templ leaveButton(v service.GameView) {
-	<form method="post" action={ templ.URL(gameURL(v.Game.ID, "/leave")) } data-confirm={ T(ctx).LeaveGameConfirm() } onsubmit="return confirm(this.dataset.confirm)">
-		<button type="submit" class="rounded-full border border-board-red/50 px-3 py-1 text-sm font-semibold text-red-300 transition hover:bg-board-red/20">{ T(ctx).LeaveGame() }</button>
+	<form method="post" action={ templ.URL(gameURL(v.Game.ID, "/leave")) } data-confirm={ leaveConfirm(T(ctx), v) } onsubmit="return confirm(this.dataset.confirm)">
+		<button type="submit" class="rounded-full border border-board-red/50 px-3 py-1 text-sm font-semibold text-red-300 transition hover:bg-board-red/20">{ leaveLabel(T(ctx), v) }</button>
 	</form>
-}
-
-// abortButton lets the owner end the game without a winner, after asking.
-templ abortButton(v service.GameView) {
-	<button
-		type="button"
-		class="rounded-full border border-board-red/50 px-3 py-1 text-sm font-semibold text-red-300 transition hover:bg-board-red/20"
-		hx-post={ gameURL(v.Game.ID, "/abort") }
-		hx-target="#board"
-		hx-swap="outerHTML"
-		hx-confirm={ T(ctx).AbortGameConfirm() }
-	>{ T(ctx).AbortGame() }</button>
 }
 
 // afterGame links on from a finished game: back to its tournament, else to a new game.
@@ -312,7 +292,7 @@ templ turnControls(v service.GameView, p progress) {
 				} else {
 					<span class="block text-white/70">{ T(ctx).ThenPlayer(nextPlayerName(ctx, v, p)) }</span>
 				}
-				if v.Board != nil {
+				if v.HasBoard() {
 					<span class="block text-sm text-white/50">{ T(ctx).CameraSeesTakeout() }</span>
 				}
 			</span>

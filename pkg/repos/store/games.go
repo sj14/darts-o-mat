@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"slices"
 	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
@@ -14,25 +13,20 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
-// CreateGame stores the game and the invitations of its invited players (pending; accepted
-// for the games of a tournament, whose players accepted the tournament, with the board
-// each of them plays on), and marks its board as used.
-func (store *Store) CreateGame(ctx context.Context, g *game.Game, invitations []game.Invitation) error {
-	for _, inv := range invitations {
-		g.PlayerBoards = g.PlayerBoards || inv.BoardID != nil
-	}
+// CreateGame stores the game with its participants (in the order given, each with the
+// board it throws on) and marks their boards as used.
+func (store *Store) CreateGame(ctx context.Context, g *game.Game) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewInsert().Model(g).Returning("*").Exec(ctx); err != nil {
 			return err
 		}
-		if g.BoardID != nil {
-			if _, err := tx.NewUpdate().Model((*board.Board)(nil)).Set("last_used_at = ?", g.CreatedAt).Where("id = ?", *g.BoardID).Exec(ctx); err != nil {
+		for i := range g.Participants {
+			p := &g.Participants[i]
+			p.GameID, p.Position = g.ID, i
+			if _, err := tx.NewInsert().Model(p).Exec(ctx); err != nil {
 				return err
 			}
-		}
-		for _, inv := range invitations {
-			inv.GameID = g.ID
-			if _, err := tx.NewInsert().Model(&inv).Exec(ctx); err != nil {
+			if err := markBoardUsed(ctx, tx, p.BoardID, g.CreatedAt); err != nil {
 				return err
 			}
 		}
@@ -40,74 +34,87 @@ func (store *Store) CreateGame(ctx context.Context, g *game.Game, invitations []
 	})
 }
 
-func (store *Store) GetGame(ctx context.Context, id int64) (game.Game, error) {
-	var g game.Game
-	err := store.db.NewSelect().Model(&g).Where("id = ?", id).Scan(ctx)
-	return g, notFound(err)
+// markBoardUsed sets the time a board was last used, if there is one.
+func markBoardUsed(ctx context.Context, tx bun.Tx, boardID *int64, at time.Time) error {
+	if boardID == nil {
+		return nil
+	}
+	_, err := tx.NewUpdate().Model((*board.Board)(nil)).Set("last_used_at = ?", at).Where("id = ?", *boardID).Exec(ctx)
+	return err
 }
 
-// ListGames returns the most recent games an account created or was invited to, newest first.
-// A limit of 0 returns all of them.
-func (store *Store) ListGames(ctx context.Context, accountID, playerID int64, limit int64) ([]game.Game, error) {
-	invited := store.db.NewSelect().Model((*game.Invitation)(nil)).Column("game_id").Where("player_id = ?", playerID)
+// loadParticipants fills in the participants of games, in throwing order.
+func (store *Store) loadParticipants(ctx context.Context, games []game.Game) error {
+	if len(games) == 0 {
+		return nil
+	}
+	index := make(map[int64]int, len(games))
+	ids := make([]int64, len(games))
+	for i, g := range games {
+		index[g.ID], ids[i] = i, g.ID
+	}
+	var rows []game.Participant
+	if err := store.db.NewSelect().Model(&rows).Where("game_id IN (?)", bun.In(ids)).OrderExpr("game_id, place").Scan(ctx); err != nil {
+		return err
+	}
+	for _, r := range rows {
+		games[index[r.GameID]].Participants = append(games[index[r.GameID]].Participants, r)
+	}
+	return nil
+}
 
+// scanGames runs the query and loads the participants of the games it found.
+func (store *Store) scanGames(ctx context.Context, q *bun.SelectQuery) ([]game.Game, error) {
 	games := []game.Game{}
-	q := store.db.NewSelect().Model(&games).
-		Where("owner_account_id = ?", accountID).
-		WhereOr("id IN (?)", invited).
-		Order("id DESC")
+	if err := q.Model(&games).Scan(ctx); err != nil {
+		return nil, err
+	}
+	return games, store.loadParticipants(ctx, games)
+}
+
+func (store *Store) GetGame(ctx context.Context, id int64) (game.Game, error) {
+	games, err := store.scanGames(ctx, store.db.NewSelect().Where("id = ?", id))
+	if err != nil {
+		return game.Game{}, err
+	}
+	if len(games) == 0 {
+		return game.Game{}, ErrNotFound
+	}
+	return games[0], nil
+}
+
+// ListGames returns the most recent games with a player of the account (its own player
+// or one of its guests), newest first. A limit of 0 returns all of them.
+func (store *Store) ListGames(ctx context.Context, accountID, playerID int64, limit int64) ([]game.Game, error) {
+	mine := store.db.NewSelect().Model((*game.Participant)(nil)).ColumnExpr("participant.game_id").
+		Join("JOIN players AS p ON p.id = participant.player_id").
+		Where("p.id = ? OR p.guest_of = ?", playerID, accountID)
+	q := store.db.NewSelect().Where("id IN (?)", mine).Order("id DESC")
 	if limit > 0 {
 		q = q.Limit(limit)
 	}
-	err := q.Scan(ctx)
-	return games, err
+	return store.scanGames(ctx, q)
 }
 
-// SetGameBoard puts the game on a board, or takes it off one with a nil board, and marks
-// the board as used at that time.
-func (store *Store) SetGameBoard(ctx context.Context, gameID int64, boardID *int64, at time.Time) error {
-	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewUpdate().Model((*game.Game)(nil)).Set("board_id = ?", boardID).Where("id = ?", gameID).Exec(ctx); err != nil {
-			return err
-		}
-		if boardID == nil {
-			return nil
-		}
-		_, err := tx.NewUpdate().Model((*board.Board)(nil)).Set("last_used_at = ?", at).Where("id = ?", *boardID).Exec(ctx)
-		return err
-	})
-}
-
-// ListGamesByBoard returns the most recent games played on a board, as the owner's or a
-// player's, newest first.
+// ListGamesByBoard returns the most recent games a player throws on the board in, newest
+// first.
 func (store *Store) ListGamesByBoard(ctx context.Context, boardID int64, limit int64) ([]game.Game, error) {
-	games := []game.Game{}
-	players := store.db.NewSelect().Model((*game.Invitation)(nil)).Column("game_id").Where("board_id = ?", boardID)
-	err := store.db.NewSelect().Model(&games).Where("board_id = ?", boardID).WhereOr("id IN (?)", players).Order("id DESC").Limit(limit).Scan(ctx)
-	return games, err
+	on := store.db.NewSelect().Model((*game.Participant)(nil)).Column("game_id").Where("board_id = ?", boardID)
+	return store.scanGames(ctx, store.db.NewSelect().Where("id IN (?)", on).Order("id DESC").Limit(limit))
 }
 
-func (store *Store) ListInvitations(ctx context.Context, gameID int64) ([]game.Invitation, error) {
-	invitations := []game.Invitation{}
-	err := store.db.NewSelect().Model(&invitations).Where("game_id = ?", gameID).Scan(ctx)
-	return invitations, err
-}
-
-// ListPendingInvitations returns the invitations a player has not answered yet, newest first.
-func (store *Store) ListPendingInvitations(ctx context.Context, playerID int64) ([]game.Invitation, error) {
-	invitations := []game.Invitation{}
-	err := store.db.NewSelect().Model(&invitations).
-		Where("player_id = ?", playerID).
-		Where("status = ?", game.InvitationPending).
-		Order("game_id DESC").
-		Scan(ctx)
-	return invitations, err
+// ListInvitedGames returns the games a player was invited to and hasn't answered yet,
+// newest first.
+func (store *Store) ListInvitedGames(ctx context.Context, playerID int64) ([]game.Game, error) {
+	pending := store.db.NewSelect().Model((*game.Participant)(nil)).Column("game_id").
+		Where("player_id = ?", playerID).Where("status = ?", game.InvitationPending)
+	return store.scanGames(ctx, store.db.NewSelect().Where("id IN (?)", pending).Order("id DESC"))
 }
 
 // AcceptInvitation accepts the invitation of a player, who throws on the board if one is given.
 func (store *Store) AcceptInvitation(ctx context.Context, gameID, playerID int64, boardID *int64) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		res, err := tx.NewUpdate().Model((*game.Invitation)(nil)).
+		res, err := tx.NewUpdate().Model((*game.Participant)(nil)).
 			Set("status = ?", game.InvitationAccepted).
 			Set("board_id = ?", boardID).
 			Where("game_id = ?", gameID).
@@ -122,35 +129,34 @@ func (store *Store) AcceptInvitation(ctx context.Context, gameID, playerID int64
 		} else if n == 0 {
 			return ErrNotFound
 		}
-		return markPlayerBoard(ctx, tx, gameID, boardID)
+		return markBoardUsed(ctx, tx, boardID, time.Now())
 	})
 }
 
-// markPlayerBoard makes a game wait for takeouts once a player plays on a board of their own.
-func markPlayerBoard(ctx context.Context, tx bun.Tx, gameID int64, boardID *int64) error {
-	if boardID == nil {
-		return nil
-	}
-	_, err := tx.NewUpdate().Model((*game.Game)(nil)).Set("player_boards = ?", true).Where("id = ?", gameID).Exec(ctx)
+// SetParticipantBoard puts a player of a game on a board, or takes them off one with a
+// nil board, and marks the board as used at that time.
+func (store *Store) SetParticipantBoard(ctx context.Context, gameID, playerID int64, boardID *int64, at time.Time) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewUpdate().Model((*game.Participant)(nil)).Set("board_id = ?", boardID).
+			Where("game_id = ?", gameID).Where("player_id = ?", playerID).Exec(ctx); err != nil {
+			return err
+		}
+		return markBoardUsed(ctx, tx, boardID, at)
+	})
+}
+
+// ReleaseBoard takes a board from the players of a game.
+func (store *Store) ReleaseBoard(ctx context.Context, gameID, boardID int64) error {
+	_, err := store.db.NewUpdate().Model((*game.Participant)(nil)).Set("board_id = NULL").
+		Where("game_id = ?", gameID).Where("board_id = ?", boardID).Exec(ctx)
 	return err
 }
 
-// ReleaseBoard takes a board from a game: the owner's board and the boards of players.
-func (store *Store) ReleaseBoard(ctx context.Context, gameID, boardID int64) error {
+// RemoveParticipant removes a player from a game that hasn't started (declined, withdrawn
+// or left in the lobby). A game that nobody accepted is deleted with its invitations.
+func (store *Store) RemoveParticipant(ctx context.Context, gameID, playerID int64) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewUpdate().Model((*game.Game)(nil)).Set("board_id = NULL").Where("id = ?", gameID).Where("board_id = ?", boardID).Exec(ctx); err != nil {
-			return err
-		}
-		_, err := tx.NewUpdate().Model((*game.Invitation)(nil)).Set("board_id = NULL").Where("game_id = ?", gameID).Where("board_id = ?", boardID).Exec(ctx)
-		return err
-	})
-}
-
-// RemoveInvitedPlayer deletes the invitation of a player and removes the player from the game.
-// A game without players left is deleted.
-func (store *Store) RemoveInvitedPlayer(ctx context.Context, gameID, playerID int64) error {
-	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		res, err := tx.NewDelete().Model((*game.Invitation)(nil)).
+		res, err := tx.NewDelete().Model((*game.Participant)(nil)).
 			Where("game_id = ?", gameID).
 			Where("player_id = ?", playerID).
 			Exec(ctx)
@@ -162,18 +168,15 @@ func (store *Store) RemoveInvitedPlayer(ctx context.Context, gameID, playerID in
 		} else if n == 0 {
 			return ErrNotFound
 		}
-
-		var g game.Game
-		if err := tx.NewSelect().Model(&g).Where("id = ?", gameID).Scan(ctx); err != nil {
-			return notFound(err)
-		}
-		g.PlayerIDs = slices.DeleteFunc(g.PlayerIDs, func(id int64) bool { return id == playerID })
-
-		if len(g.PlayerIDs) == 0 {
-			_, err = tx.NewDelete().Model(&g).WherePK().Exec(ctx)
+		// Invitations to a game that nobody accepted (anymore) are worth nothing.
+		accepted, err := tx.NewSelect().Model((*game.Participant)(nil)).Where("game_id = ?", gameID).Where("status = ?", game.InvitationAccepted).Count(ctx)
+		if err != nil || accepted > 0 {
 			return err
 		}
-		_, err = tx.NewUpdate().Model(&g).Column("player_ids").WherePK().Exec(ctx)
+		if _, err := tx.NewDelete().Model((*game.Participant)(nil)).Where("game_id = ?", gameID).Exec(ctx); err != nil {
+			return err
+		}
+		_, err = tx.NewDelete().Model((*game.Game)(nil)).Where("id = ?", gameID).Exec(ctx)
 		return err
 	})
 }
@@ -240,31 +243,24 @@ func (store *Store) UpdateDart(ctx context.Context, d *throw.Dart) error {
 // on the board if one is given.
 func (store *Store) JoinGame(ctx context.Context, gameID, playerID int64, boardID *int64) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		var g game.Game
-		if err := tx.NewSelect().Model(&g).Where("id = ?", gameID).Scan(ctx); err != nil {
-			return notFound(err)
-		}
-		g.PlayerIDs = append(g.PlayerIDs, playerID)
-		if _, err := tx.NewUpdate().Model(&g).Column("player_ids").WherePK().Exec(ctx); err != nil {
+		var last int
+		if err := tx.NewSelect().Model((*game.Participant)(nil)).ColumnExpr("COALESCE(MAX(place), -1)").Where("game_id = ?", gameID).Scan(ctx, &last); err != nil {
 			return err
 		}
-		inv := game.Invitation{GameID: gameID, PlayerID: playerID, Status: game.InvitationAccepted, BoardID: boardID}
-		if _, err := tx.NewInsert().Model(&inv).Exec(ctx); err != nil {
+		p := game.Participant{GameID: gameID, PlayerID: playerID, Position: last + 1, Status: game.InvitationAccepted, BoardID: boardID}
+		if _, err := tx.NewInsert().Model(&p).Exec(ctx); err != nil {
 			return err
 		}
-		return markPlayerBoard(ctx, tx, gameID, boardID)
+		return markBoardUsed(ctx, tx, boardID, time.Now())
 	})
 }
 
 // ListOpenGames returns the games open for strangers that were created since the time,
 // newest first, including full and aborted ones, which the caller sorts out.
 func (store *Store) ListOpenGames(ctx context.Context, since time.Time) ([]game.Game, error) {
-	games := []game.Game{}
-	err := store.db.NewSelect().Model(&games).
+	return store.scanGames(ctx, store.db.NewSelect().
 		Where(`"open" = ?`, true).
 		Where("created_at > ?", since).
 		Where("aborted_at IS NULL").
-		Order("id DESC").
-		Scan(ctx)
-	return games, err
+		Order("id DESC"))
 }
