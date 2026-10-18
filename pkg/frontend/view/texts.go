@@ -156,6 +156,12 @@ type Texts interface {
 	ErrNoBullOffTie() string
 	ErrNoInvitation() string
 	ErrGameOver() string
+	ErrCompleted() string
+	ErrNotOver() string
+	CompleteGame() string
+	CompleteHint() string
+	ResultConfirmed() string
+	AwaitingConfirmation() string
 	ErrPullDartsFirst() string
 	ErrNotReady() string
 	ErrAborted() string

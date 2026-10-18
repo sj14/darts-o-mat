@@ -185,6 +185,18 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart, adding bool
 				if d := p.Times.Game.Duration(); d > 0 {
 					<div class="mt-1 font-semibold tabular-nums">{ T(ctx).Duration(clock(d)) }</div>
 				}
+				if v.Completed {
+					<div class="mt-1 font-semibold">{ T(ctx).ResultConfirmed() }</div>
+				} else if !v.Invited && !v.HasLeft {
+					<div class="mt-1 text-sm">{ T(ctx).CompleteHint() }</div>
+					<button
+						type="button"
+						class="mr-2 mt-4 rounded-xl bg-pub-950 px-5 py-2.5 font-semibold text-amber-300 hover:bg-pub-800"
+						hx-post={ gameURL(v.Game.ID, "/complete") }
+						hx-target="#board"
+						hx-swap="outerHTML"
+					>{ T(ctx).CompleteGame() }</button>
+				}
 				@afterGame(v, "bg-pub-950 text-amber-300 hover:bg-pub-800")
 			</div>
 		}

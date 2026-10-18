@@ -187,6 +187,27 @@ func (store *Store) AbortGame(ctx context.Context, g *game.Game) error {
 	return err
 }
 
+// CompleteGame stores when a game was completed.
+func (store *Store) CompleteGame(ctx context.Context, g *game.Game) error {
+	_, err := store.db.NewUpdate().Model(g).Column("completed_at").WherePK().Exec(ctx)
+	return err
+}
+
+// ListGamesWithDartsSince returns the games of the account (a player of it, or a guest)
+// that aren't completed or aborted and had a dart since the time; those are the ones that
+// can have just finished.
+func (store *Store) ListGamesWithDartsSince(ctx context.Context, accountID, playerID int64, since time.Time) ([]game.Game, error) {
+	mine := store.db.NewSelect().Model((*game.Participant)(nil)).ColumnExpr("participant.game_id").
+		Join("JOIN players AS p ON p.id = participant.player_id").
+		Where("p.id = ? OR p.guest_of = ?", playerID, accountID)
+	recent := store.db.NewSelect().Model((*throw.Dart)(nil)).Column("game_id").Where("created_at > ?", since)
+	return store.scanGames(ctx, store.db.NewSelect().
+		Where("completed_at IS NULL").
+		Where("aborted_at IS NULL").
+		Where("id IN (?)", mine).
+		Where("id IN (?)", recent))
+}
+
 // StartGame stores when a game became ready.
 func (store *Store) StartGame(ctx context.Context, g *game.Game) error {
 	_, err := store.db.NewUpdate().Model(g).Column("started_at").WherePK().Exec(ctx)

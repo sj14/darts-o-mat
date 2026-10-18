@@ -110,6 +110,9 @@ func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int6
 	if err := s.checkGameBoard(ctx, acc, g, boardID); err != nil {
 		return GameView{}, err
 	}
+	if err := s.completeFinished(ctx, acc); err != nil {
+		return GameView{}, err
+	}
 	if err := s.store.JoinGame(ctx, gameID, acc.PlayerID, boardID); err != nil {
 		return GameView{}, err
 	}

@@ -63,6 +63,7 @@ func (a *API) Routes() http.Handler {
 		r.Delete("/games/{id}/darts/last", a.undoDart)
 		r.Put("/games/{id}/darts/{dartID}", a.editDart)
 		r.Post("/games/{id}/takeout", a.takeout)
+		r.Post("/games/{id}/complete", a.completeGame)
 		r.Post("/games/{id}/leave", a.leaveGame)
 		r.Post("/games/{id}/board", a.useBoard)
 		r.Post("/games/{id}/bull-off", a.decideBullOff)
@@ -367,6 +368,17 @@ func (a *API) takeout(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, v, err)
 }
 
+// completeGame confirms the result of the finished game: it can't be undone or corrected
+// anymore afterwards.
+func (a *API) completeGame(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	v, err := a.svc.CompleteGame(r.Context(), auth.Account(r.Context()), id)
+	respond(w, http.StatusOK, v, err)
+}
+
 // decideBullOff settles a tie when bulling off: {"player_id": 2} was closer.
 func (a *API) decideBullOff(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
@@ -520,7 +532,7 @@ func writeError(w http.ResponseWriter, err error) {
 	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound
 	case errors.Is(err, turn.ErrGameOver), errors.Is(err, turn.ErrWaitingForTakeout), errors.Is(err, service.ErrNothingToUndo), errors.Is(err, service.ErrNoActiveGame), errors.Is(err, service.ErrNotOnBoard), errors.Is(err, service.ErrCantLeave),
-		errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrAborted), errors.Is(err, service.ErrUsernameTaken), errors.Is(err, service.ErrEmailTaken):
+		errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrAborted), errors.Is(err, service.ErrCompleted), errors.Is(err, service.ErrUsernameTaken), errors.Is(err, service.ErrEmailTaken):
 		status = http.StatusConflict
 	}
 

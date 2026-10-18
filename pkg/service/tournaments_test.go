@@ -91,6 +91,21 @@ func TestRoundRobinTournament(t *testing.T) {
 			t.Fatalf("match %d: %v", m.Index, err)
 		}
 	}
+	// The results count once the players confirmed them; until then they can be corrected.
+	if v, err = s.Tournament(ctx, anna, id); err != nil || v.State.Over || !v.State.Matches[0].Result.Unconfirmed || v.State.Matches[0].Result.Over {
+		t.Fatalf("before the results are confirmed: over %v, %+v, %v; want running and unconfirmed", v.State.Over, v.State.Matches[0].Result, err)
+	}
+	for _, m := range v.State.Matches {
+		// Anna or ben, whoever has a player in the match.
+		if _, err := s.CompleteGame(ctx, anna, m.Result.GameID); errors.Is(err, ErrNotFound) {
+			_, err = s.CompleteGame(ctx, ben, m.Result.GameID)
+			if err != nil {
+				t.Fatalf("ben confirms match %d: %v", m.Index, err)
+			}
+		} else if err != nil {
+			t.Fatalf("anna confirms match %d: %v", m.Index, err)
+		}
+	}
 	v, err = s.Tournament(ctx, anna, id)
 	if err != nil {
 		t.Fatal(err)
@@ -154,6 +169,13 @@ func TestKnockoutTournament(t *testing.T) {
 	if _, err := s.AddDart(ctx, anna, semi.Game.ID, d20); err != nil {
 		t.Fatal(err)
 	}
+	// The winner goes on once the semi-final is confirmed, not before.
+	if _, err := s.StartMatch(ctx, anna, id, 2); !errors.Is(err, ErrInvalid) {
+		t.Errorf("starting the final before the semi-final is confirmed: %v, want ErrInvalid", err)
+	}
+	if _, err := s.CompleteGame(ctx, anna, semi.Game.ID); err != nil {
+		t.Fatal(err)
+	}
 	final, err := s.StartMatch(ctx, anna, id, 2)
 	if err != nil {
 		t.Fatal(err)
@@ -162,6 +184,12 @@ func TestKnockoutTournament(t *testing.T) {
 		t.Errorf("final between %v, want seed 1 and the winner of the semi-final", final.Game.PlayerIDs())
 	}
 	if _, err := s.AddDart(ctx, anna, final.Game.ID, d20); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ = s.Tournament(ctx, anna, id); v.State.Over {
+		t.Error("the tournament is over before its final is confirmed")
+	}
+	if _, err := s.CompleteGame(ctx, anna, final.Game.ID); err != nil {
 		t.Fatal(err)
 	}
 	v, err = s.Tournament(ctx, anna, id)

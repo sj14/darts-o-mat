@@ -9,9 +9,12 @@ import (
 // Result is what became of a match's game.
 type Result struct {
 	GameID int64 `json:"game_id"`
-	// Over is set once the game has a winner; until then it is running.
-	Over     bool  `json:"over"`
-	WinnerID int64 `json:"winner_id,omitempty"`
+	// Over is set once the game has a winner and its result is final (the game is
+	// completed); only then the winner goes on. Until then it is running or Unconfirmed.
+	Over bool `json:"over"`
+	// Unconfirmed is set when the game has a winner but the players can still correct it.
+	Unconfirmed bool  `json:"unconfirmed,omitempty"`
+	WinnerID    int64 `json:"winner_id,omitempty"`
 	// Score is what each player of the match won: sets, or legs in a game without sets.
 	Score [2]int `json:"score"`
 }

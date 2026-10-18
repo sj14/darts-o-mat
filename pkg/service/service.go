@@ -29,6 +29,10 @@ var (
 	ErrNotReady      = errors.New("waiting for invited players to accept")
 	ErrNothingToUndo = errors.New("no dart to undo")
 	ErrAborted       = errors.New("the game was aborted")
+	// ErrCompleted means the result of the game is final, see game.Game.Completed.
+	ErrCompleted = errors.New("the game is completed, its result can't be changed anymore")
+	// ErrNotOver means the game can't be completed, it isn't over.
+	ErrNotOver = fmt.Errorf("%w: the game isn't over", ErrInvalid)
 	// ErrChangesThrowers means a correction would change who threw later darts,
 	// e.g. a bust that ends a turn early: the later darts have to be taken back instead.
 	ErrChangesThrowers = fmt.Errorf("%w: the correction would change who threw the later darts", ErrInvalid)
@@ -116,6 +120,9 @@ type GameView struct {
 	Players []player.Player `json:"players"` // in throwing order
 	Darts   []throw.Dart    `json:"darts"`   // the log: darts, takeouts and players leaving
 	State   game.State      `json:"state"`   // x01.State or aroundtheclock.State, depending on the mode
+	// Completed is set once the result is final, see game.Game.Completed. Darts can't be
+	// undone or corrected anymore then.
+	Completed bool `json:"completed"`
 	// Ready is true once no invitation is pending anymore and no seat is free; only then
 	// darts can be thrown.
 	Ready bool `json:"ready"`
@@ -140,13 +147,16 @@ type GameView struct {
 // MayEdit reports whether the viewer may correct the entry of the log at index i: it is a
 // dart of one of their players.
 func (v GameView) MayEdit(i int) bool {
-	return i >= 0 && i < len(v.Darts) && v.Darts[i].IsDart() && v.IsMine(v.Darts[i].PlayerID)
+	return !v.Completed && i >= 0 && i < len(v.Darts) && v.Darts[i].IsDart() && v.IsMine(v.Darts[i].PlayerID)
 }
 
 // MayUndo reports whether the viewer may take back the last entry of the log: the last
 // dart, or the takeout after it, is one of their players'. A player leaving can't be
 // taken back.
 func (v GameView) MayUndo() bool {
+	if v.Completed {
+		return false
+	}
 	for i := len(v.Darts) - 1; i >= 0; i-- {
 		if v.Darts[i].Leave || v.Darts[i].Skip {
 			return false
@@ -250,6 +260,9 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.completeFinished(ctx, acc); err != nil {
+		return GameView{}, err
+	}
 	if err := s.store.CreateGame(ctx, &g); err != nil {
 		return GameView{}, err
 	}
@@ -529,6 +542,9 @@ func (s *Service) storeDart(ctx context.Context, g *game.Game, v GameView, d thr
 // waits for it again.
 func (s *Service) UndoDart(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
 	return s.changeGame(ctx, acc, gameID, func(g *game.Game, v GameView) error {
+		if v.Completed {
+			return ErrCompleted
+		}
 		if !v.MayUndo() {
 			if len(v.Darts) == 0 {
 				return ErrNothingToUndo
@@ -550,6 +566,9 @@ func (s *Service) UndoDart(ctx context.Context, acc account.Account, gameID int6
 // so that later darts would count for another player (ErrChangesThrowers).
 func (s *Service) EditDart(ctx context.Context, acc account.Account, gameID, dartID int64, d throw.Dart) (GameView, error) {
 	return s.changeGame(ctx, acc, gameID, func(g *game.Game, v GameView) error {
+		if v.Completed {
+			return ErrCompleted
+		}
 		darts := slices.Clone(v.Darts)
 		i := slices.IndexFunc(darts, func(e throw.Dart) bool { return e.ID == dartID && e.IsDart() })
 		if i < 0 {
@@ -681,6 +700,7 @@ func (s *Service) build(ctx context.Context, g game.Game) (GameView, error) {
 	if v.State, err = g.Play(v.Darts); err != nil {
 		return GameView{}, err
 	}
+	v.Completed = g.Completed(v.Darts, v.Common(), s.now())
 	if v.Players, err = s.store.GetPlayers(ctx, g.PlayerIDs()); err != nil {
 		return GameView{}, err
 	}

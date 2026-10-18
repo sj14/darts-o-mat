@@ -213,7 +213,17 @@ func (textsEN) ErrEndsEarlier() string {
 }
 func (textsEN) ErrNoBullOffTie() string { return "Nobody is tied in the bull-off right now." }
 func (textsEN) ErrNoInvitation() string { return "This invitation doesn't exist anymore." }
-func (textsEN) ErrGameOver() string     { return "The game is already over." }
+func (textsEN) ErrCompleted() string {
+	return "The result is confirmed, the game can't be changed anymore."
+}
+func (textsEN) ErrNotOver() string   { return "The game isn't over yet." }
+func (textsEN) CompleteGame() string { return "Confirm result" }
+func (textsEN) CompleteHint() string {
+	return "Until then the last dart can still be corrected. It confirms itself after a minute without a change."
+}
+func (textsEN) ResultConfirmed() string      { return "✓ Result confirmed" }
+func (textsEN) AwaitingConfirmation() string { return "Waiting for confirmation → game" }
+func (textsEN) ErrGameOver() string          { return "The game is already over." }
 func (textsEN) ErrPullDartsFirst() string {
 	return "Pull out the darts first, then it's the next player's turn."
 }

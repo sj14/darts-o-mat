@@ -213,6 +213,9 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 	if err := g.Validate(); err != nil {
 		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
+	if err := s.completeFinished(ctx, acc); err != nil {
+		return GameView{}, err
+	}
 	if err := s.store.CreateGame(ctx, &g); err != nil {
 		return GameView{}, err
 	}
@@ -280,7 +283,8 @@ func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tou
 		v.Time = v.Time.Join(c.Times.Game)
 		if c.GameOver {
 			score := g.Score(state)
-			r.Over, r.WinnerID = true, *c.WinnerID
+			r.Over, r.WinnerID = g.Completed(darts, c, s.now()), *c.WinnerID
+			r.Unconfirmed = !r.Over
 			r.Score = [2]int{score[g.PlayerIDs()[0]], score[g.PlayerIDs()[1]]}
 			for i := range v.Stats {
 				v.Stats[i].Add(state)

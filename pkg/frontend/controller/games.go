@@ -212,6 +212,16 @@ func (c *Controller) takeout(w http.ResponseWriter, r *http.Request) {
 	c.respondBoard(w, r, id, v, err)
 }
 
+// complete is called by htmx when a player confirms the result of the finished game.
+func (c *Controller) complete(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	v, err := c.svc.CompleteGame(r.Context(), auth.Account(r.Context()), id)
+	c.respondBoard(w, r, id, v, err)
+}
+
 // decideBullOff is called by htmx when the players decide who was closer in a bull-off tie.
 func (c *Controller) decideBullOff(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
@@ -322,6 +332,10 @@ func (c *Controller) handleGameError(w http.ResponseWriter, r *http.Request, id 
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrNotReady())
 	case errors.Is(err, service.ErrAborted):
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrAborted())
+	case errors.Is(err, service.ErrCompleted):
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrCompleted())
+	case errors.Is(err, service.ErrNotOver):
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrNotOver())
 	case errors.Is(err, service.ErrNothingToUndo):
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrNothingToUndo())
 	case errors.Is(err, service.ErrCantLeave):
