@@ -205,14 +205,25 @@ func (s *AroundTheClock) add(p Result) {
 	}
 }
 
-// AddTournament adds a finished tournament of the mode the player took part in.
-func (s *Summary) AddTournament(mode game.Mode, won bool) {
+// TournamentResult is what one player got out of a tournament that is over: stored like
+// Result (table tournament_stats), once the last match is completed.
+type TournamentResult struct {
+	bun.BaseModel `bun:"table:tournament_stats"`
+
+	TournamentID int64     `bun:",pk"`
+	PlayerID     int64     `bun:",pk"`
+	Mode         game.Mode `bun:",notnull"`
+	Won          bool      `bun:",notnull"`
+}
+
+// AddTournamentResult adds a finished tournament of the player to the summary.
+func (s *Summary) AddTournamentResult(t TournamentResult) {
 	r := &s.X01.Record
-	if mode == game.ModeAroundTheClock {
+	if t.Mode == game.ModeAroundTheClock {
 		r = &s.AroundTheClock.Record
 	}
 	r.Tournaments++
-	if won {
+	if t.Won {
 		r.TournamentWins++
 	}
 }

@@ -33,7 +33,7 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
 
 - Heatmap: choose game mode or period, a finer drawing (smooth instead of squares), and the hits per field as numbers; maybe also show which fields were corrected (position and field differ, see [statistics](AGENTS.md#statistics)).
 - Show a statistics summary at the end: after a leg the statistics of that leg, after the game the statistics of the whole game (per player, e.g. average, highest visit, checkout, darts). Open: show the game summary as soon as the game is over (together with the confirmation, see [games](#games)) or only once it is completed.
-- `service.Stats` still replays each tournament's games a second time (`tournamentView`) only to learn the tournament's winner; storing the winner (e.g. on the tournament once it is over) would make the page independent of the number of tournaments. Also: it loads every game's participants (`ListGames`) on each visit; a query only for games without stored results would do.
+- `service.Stats` loads every game's and tournament's participants (`ListGames`, `ListTournaments`) on each visit; a query only for those without stored results would do.
 - Statistics from the table (`game_stats`) allow trends over time (average per week, last 30 days): not built, needs a date per result (`games.completed_at` or the game's start).
 
 ## Boards and cameras

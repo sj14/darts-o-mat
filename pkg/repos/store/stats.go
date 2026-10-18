@@ -42,3 +42,22 @@ func (store *Store) ListPositions(ctx context.Context, playerID int64, limit int
 	}
 	return points, err
 }
+
+// AddTournamentResults stores the results of a tournament that is over; stored ones stay.
+func (store *Store) AddTournamentResults(ctx context.Context, results []stats.TournamentResult) error {
+	if len(results) == 0 {
+		return nil
+	}
+	_, err := store.db.NewInsert().Model(&results).On("CONFLICT (tournament_id, player_id) DO NOTHING").Exec(ctx)
+	return err
+}
+
+// ListTournamentResults returns the stored tournament results of the players.
+func (store *Store) ListTournamentResults(ctx context.Context, playerIDs []int64) ([]stats.TournamentResult, error) {
+	results := []stats.TournamentResult{}
+	if len(playerIDs) == 0 {
+		return results, nil
+	}
+	err := store.db.NewSelect().Model(&results).Where("player_id IN (?)", bun.In(playerIDs)).Scan(ctx)
+	return results, err
+}

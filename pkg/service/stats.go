@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"slices"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/stats"
@@ -76,13 +75,21 @@ func (s *Service) Stats(ctx context.Context, acc account.Account) ([]stats.Summa
 		}
 	}
 
-	// Finished tournaments; their games counted above already.
+	// Finished tournaments: stored like the games, once their last match is completed.
+	tournamentResults, err := s.store.ListTournamentResults(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	storedTournaments := map[int64]bool{}
+	for _, r := range tournamentResults {
+		storedTournaments[r.TournamentID] = true
+	}
 	tournaments, err := s.store.ListTournaments(ctx, acc.ID, acc.PlayerID, 0)
 	if err != nil {
 		return nil, err
 	}
 	for _, t := range tournaments {
-		if t.Aborted() {
+		if t.Aborted() || storedTournaments[t.ID] {
 			continue
 		}
 		v, err := s.tournamentView(ctx, acc, t)
@@ -92,9 +99,19 @@ func (s *Service) Stats(ctx context.Context, acc account.Account) ([]stats.Summa
 		if !v.State.Over {
 			continue
 		}
+		var added []stats.TournamentResult
+		for _, id := range t.PlayerIDs() {
+			added = append(added, stats.TournamentResult{TournamentID: t.ID, PlayerID: id, Mode: t.Settings.Mode, Won: *v.State.WinnerID == id})
+		}
+		if err := s.store.AddTournamentResults(ctx, added); err != nil {
+			return nil, err
+		}
+		tournamentResults = append(tournamentResults, added...)
+	}
+	for _, r := range tournamentResults {
 		for i := range summaries {
-			if id := summaries[i].Player.ID; slices.Contains(t.PlayerIDs(), id) {
-				summaries[i].AddTournament(t.Settings.Mode, *v.State.WinnerID == id)
+			if summaries[i].Player.ID == r.PlayerID {
+				summaries[i].AddTournamentResult(r)
 			}
 		}
 	}

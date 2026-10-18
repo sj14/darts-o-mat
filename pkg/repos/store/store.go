@@ -54,6 +54,7 @@ func newStore(ctx context.Context, db *bun.DB) (*Store, error) {
 		(*board.Token)(nil),
 		(*throw.Dart)(nil),
 		(*stats.Result)(nil),
+		(*stats.TournamentResult)(nil),
 		(*tournament.Tournament)(nil),
 		(*tournament.Participant)(nil),
 	}

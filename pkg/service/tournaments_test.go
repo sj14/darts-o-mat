@@ -136,6 +136,14 @@ func TestRoundRobinTournament(t *testing.T) {
 	if winnerIsBen := *v.State.WinnerID == ben.PlayerID; wins != 1 && !winnerIsBen || wins != 0 && winnerIsBen {
 		t.Errorf("anna's players won %d tournaments, winner %d", wins, *v.State.WinnerID)
 	}
+	// The result is stored now: reading it back gives the same.
+	if rs, _ := s.store.ListTournamentResults(ctx, []int64{anna.PlayerID, ben.PlayerID}); len(rs) != 2 {
+		t.Errorf("stored tournament results = %+v, want one per player", rs)
+	}
+	again, _ := s.Stats(ctx, anna)
+	if again[0].X01.Tournaments != 1 || again[0].X01.TournamentWins != summaries[0].X01.TournamentWins {
+		t.Errorf("second read: %+v, first %+v", again[0].X01.Record, summaries[0].X01.Record)
+	}
 }
 
 func TestKnockoutTournament(t *testing.T) {
