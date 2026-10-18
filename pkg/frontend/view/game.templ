@@ -136,6 +136,15 @@ templ abortButton(v service.GameView) {
 	>{ T(ctx).AbortGame() }</button>
 }
 
+// afterGame links on from a finished game: back to its tournament, else to a new game.
+templ afterGame(v service.GameView, colors string) {
+	if v.Game.TournamentID != nil {
+		<a href={ templ.URL(tournamentURL(*v.Game.TournamentID, "")) } class={ "mt-4 inline-block rounded-xl px-5 py-2.5 font-semibold", colors }>{ T(ctx).ToTournament() }</a>
+	} else {
+		<a href="/" class={ "mt-4 inline-block rounded-xl px-5 py-2.5 font-semibold", colors }>{ T(ctx).NewGame() }</a>
+	}
+}
+
 templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 	{{ p := progressOf(v) }}
 	<div id="board" sse-swap="board" hx-swap="outerHTML" data-sound={ soundKind(v) } data-sound-id={ soundID(v) }>
@@ -147,13 +156,13 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 				if d := p.Times.Game.Duration(); d > 0 {
 					<div class="mt-1 font-semibold tabular-nums">{ T(ctx).Duration(clock(d)) }</div>
 				}
-				<a href="/" class="mt-4 inline-block rounded-xl bg-pub-950 px-5 py-2.5 font-semibold text-amber-300 hover:bg-pub-800">{ T(ctx).NewGame() }</a>
+				@afterGame(v, "bg-pub-950 text-amber-300 hover:bg-pub-800")
 			</div>
 		}
 		if p.Aborted {
 			<div class="mb-6 rounded-3xl border border-white/10 bg-pub-800 p-6" role="status">
 				<div class="font-display text-4xl font-extrabold uppercase text-white/80">{ T(ctx).GameAborted() }</div>
-				<a href="/" class="mt-4 inline-block rounded-xl bg-white/10 px-5 py-2.5 font-semibold hover:bg-white/20">{ T(ctx).NewGame() }</a>
+				@afterGame(v, "bg-white/10 hover:bg-white/20")
 			</div>
 		}
 		// Desktop: players, darts and input, board side by side, so a turn needs no

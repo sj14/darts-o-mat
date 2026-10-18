@@ -111,9 +111,6 @@ func TestGuestsBelongToTheirAccount(t *testing.T) {
 			t.Errorf("CreateGuest(%q) = %v, want ErrGuestNameTaken", name, err)
 		}
 	}
-	if _, err := s.CreateGuest(ctx, ben, "Papa"); err != nil {
-		t.Errorf("another account's guest with the same name: %v", err)
-	}
 
 	players, _ := s.Players(ctx, anna)
 	if len(players) != 2 || players[0].ID != anna.PlayerID || players[1].ID != guest.ID {

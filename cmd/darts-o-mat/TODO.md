@@ -13,7 +13,6 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
 
 ## Games
 
-- Instead of showing "New Game" after a match, show the "Back to tournament" if the game was part of a tournament.
 - Confirm the end of a game: after the last dart the game is over but not yet completed; the players check it (e.g. correct a misdetected final dart from the camera) and confirm. Afterwards it can't be undone or corrected anymore.
   - Confirm automatically when one of the players starts a new game, maybe also after some time, so a forgotten confirmation doesn't leave games hanging.
   - Adds a state (running → over → completed) that undo, corrections, the camera and the "one running game per account" option have to respect (an unconfirmed game still counts as running).
