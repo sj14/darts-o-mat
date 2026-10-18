@@ -1,0 +1,33 @@
+package view
+
+import "github.com/sj14/darts-o-mat/pkg/domain/player"
+
+// Settings lets an account change how it appears: for now the accent color of its player.
+templ Settings(user string, p player.Player) {
+	@layout(T(ctx).NavSettings(), user) {
+		<div class="mx-auto max-w-3xl">
+			@pageTitle(T(ctx).NavSettings(), "")
+			@panel("") {
+				<h2 class={ labelClass }>{ T(ctx).AccentColor() }</h2>
+				<p class={ hintClass }>{ T(ctx).AccentColorHint() }</p>
+				// Choosing submits at once; without JavaScript the button does.
+				<form method="post" action="/settings/color" onchange="this.submit()" class="mt-4 flex flex-wrap items-center gap-3">
+					<label class="cursor-pointer">
+						<input type="radio" name="color" value="" class="peer sr-only" checked?={ p.Color == "" }/>
+						<span class="flex h-10 items-center gap-2 rounded-full border border-white/20 px-4 text-sm font-semibold text-white/80 peer-checked:border-white peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-white/70">
+							<span class={ "size-4 rounded-full", accents[p.Accent()].Swatch }></span>
+							{ T(ctx).ColorAuto() }
+						</span>
+					</label>
+					for _, c := range player.Colors {
+						<label class="cursor-pointer" title={ T(ctx).ColorName(c) }>
+							<input type="radio" name="color" value={ c } class="peer sr-only" checked?={ p.Color == c } aria-label={ T(ctx).ColorName(c) }/>
+							<span class={ "block size-10 rounded-full ring-2 ring-transparent ring-offset-2 ring-offset-pub-900 peer-checked:ring-white peer-focus-visible:ring-white/70", accents[c].Swatch }></span>
+						</label>
+					}
+					<noscript><button type="submit" class={ btnSecondary }>OK</button></noscript>
+				</form>
+			}
+		</div>
+	}
+}

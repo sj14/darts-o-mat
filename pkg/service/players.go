@@ -33,6 +33,24 @@ func (s *Service) CreateGuest(ctx context.Context, acc account.Account, name str
 	return p, err
 }
 
+// Player returns the account's own player.
+func (s *Service) Player(ctx context.Context, acc account.Account) (player.Player, error) {
+	players, err := s.store.GetPlayers(ctx, []int64{acc.PlayerID})
+	if err != nil || len(players) == 0 {
+		return player.Player{}, err
+	}
+	return players[0], nil
+}
+
+// SetColor sets the accent color of the account's own player; empty means the default
+// from its name. Guests can't have their own.
+func (s *Service) SetColor(ctx context.Context, acc account.Account, color string) error {
+	if color != "" && !slices.Contains(player.Colors, color) {
+		return fmt.Errorf("%w: unknown color %q", ErrInvalid, color)
+	}
+	return s.store.SetPlayerColor(ctx, acc.PlayerID, color)
+}
+
 // BoardView is a board with whether its cameras can report darts.
 type BoardView struct {
 	board.Board

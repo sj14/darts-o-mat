@@ -18,6 +18,11 @@ type Texts interface {
 	NavStats() string
 	NavFriends() string
 	NavBoards() string
+	NavSettings() string
+	AccentColor() string
+	AccentColorHint() string
+	ColorAuto() string
+	ColorName(color string) string
 	Logout() string
 	Language() string
 	SoundOn() string

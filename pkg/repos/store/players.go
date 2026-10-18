@@ -13,6 +13,12 @@ func (store *Store) StorePlayer(ctx context.Context, p *player.Player) error {
 	return err
 }
 
+// SetPlayerColor stores a player's accent color, empty for the default.
+func (store *Store) SetPlayerColor(ctx context.Context, playerID int64, color string) error {
+	_, err := store.db.NewUpdate().Model((*player.Player)(nil)).Set("color = ?", color).Where("id = ?", playerID).Exec(ctx)
+	return err
+}
+
 // ListPlayers returns the player of an account followed by its guests.
 func (store *Store) ListPlayers(ctx context.Context, accountID, playerID int64) ([]player.Player, error) {
 	result := []player.Player{}

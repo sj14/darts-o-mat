@@ -844,3 +844,29 @@ func TestDecideBullOff(t *testing.T) {
 		t.Errorf("bulling off=%v current=%d, want Papa to start", st.BullingOff, *st.CurrentPlayerID)
 	}
 }
+
+func TestSetColor(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+
+	p, err := s.Player(ctx, anna)
+	if err != nil || p.Color != "" {
+		t.Fatalf("new player: color %q, %v; want none", p.Color, err)
+	}
+	if err := s.SetColor(ctx, anna, "pink"); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ = s.Player(ctx, anna); p.Color != "pink" || p.Accent() != "pink" {
+		t.Errorf("color = %q, accent %q, want pink", p.Color, p.Accent())
+	}
+	if err := s.SetColor(ctx, anna, "plaid"); !errors.Is(err, ErrInvalid) {
+		t.Errorf("unknown color: got %v, want ErrInvalid", err)
+	}
+	if err := s.SetColor(ctx, anna, ""); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ = s.Player(ctx, anna); p.Color != "" {
+		t.Errorf("after reset: color %q, want none", p.Color)
+	}
+}

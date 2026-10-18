@@ -14,7 +14,19 @@ func (textsDE) Decimal(f float64) string {
 }
 func (textsDE) Percent(ratio float64) string { return strconv.Itoa(int(math.Round(ratio*100))) + " %" }
 
-func (textsDE) NavStats() string     { return "Statistik" }
+func (textsDE) NavStats() string    { return "Statistik" }
+func (textsDE) NavSettings() string { return "Einstellungen" }
+func (textsDE) AccentColor() string { return "Akzentfarbe" }
+func (textsDE) AccentColorHint() string {
+	return "Deine Farbe auf der Spielseite, z. B. als Rahmen der Karte, wenn du dran bist. Ohne Auswahl richtet sie sich nach deinem Namen."
+}
+func (textsDE) ColorAuto() string { return "Nach meinem Namen" }
+func (textsDE) ColorName(color string) string {
+	if name, ok := map[string]string{"green": "Grün", "red": "Rot", "sky": "Himmelblau", "violet": "Violett", "pink": "Pink", "orange": "Orange", "teal": "Petrol", "indigo": "Indigo", "fuchsia": "Fuchsia", "cyan": "Cyan"}[color]; ok {
+		return name
+	}
+	return color
+}
 func (textsDE) NavFriends() string   { return "Freunde" }
 func (textsDE) Logout() string       { return "Abmelden" }
 func (textsDE) Language() string     { return "Sprache" }

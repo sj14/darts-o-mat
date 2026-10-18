@@ -12,9 +12,21 @@ type textsEN struct{}
 func (textsEN) Decimal(f float64) string     { return strconv.FormatFloat(f, 'f', 1, 64) }
 func (textsEN) Percent(ratio float64) string { return strconv.Itoa(int(math.Round(ratio*100))) + "%" }
 
-func (textsEN) NavStats() string     { return "Statistics" }
-func (textsEN) NavFriends() string   { return "Friends" }
-func (textsEN) NavBoards() string    { return "Boards" }
+func (textsEN) NavStats() string    { return "Statistics" }
+func (textsEN) NavFriends() string  { return "Friends" }
+func (textsEN) NavBoards() string   { return "Boards" }
+func (textsEN) NavSettings() string { return "Settings" }
+func (textsEN) AccentColor() string { return "Accent color" }
+func (textsEN) AccentColorHint() string {
+	return "Your color on the game page, e.g. as the frame of the card when it is your turn. Without a choice it comes from your name."
+}
+func (textsEN) ColorAuto() string { return "From my name" }
+func (textsEN) ColorName(color string) string {
+	if name, ok := map[string]string{"green": "Green", "red": "Red", "sky": "Sky blue", "violet": "Violet", "pink": "Pink", "orange": "Orange", "teal": "Teal", "indigo": "Indigo", "fuchsia": "Fuchsia", "cyan": "Cyan"}[color]; ok {
+		return name
+	}
+	return color
+}
 func (textsEN) Logout() string       { return "Log out" }
 func (textsEN) Language() string     { return "Language" }
 func (textsEN) SoundOn() string      { return "🔊 Sound on" }

@@ -417,9 +417,10 @@ templ gameStats(v service.GameView) {
 // win, it shows those won as dots.
 templ playerCard(v service.GameView, p progress, l playerLine) {
 	{{ winner := p.isWinner(l.ID) }}
+	{{ accent := playerAccent(v, l.ID) }}
 	<div
 		class={ "relative rounded-3xl border p-5 transition-colors duration-300",
-			templ.KV("border-board-green/70 bg-gradient-to-br from-board-green/25 to-pub-900 [--glow-color:var(--color-board-green)] animate-glow", !winner),
+			templ.KV("bg-gradient-to-br to-pub-900 animate-glow "+accent.Card, !winner),
 			templ.KV("border-amber-400/80 bg-gradient-to-br from-amber-400/25 to-pub-900 [--glow-color:var(--color-amber-400)] animate-glow", winner) }
 	>
 		<div class="flex items-center justify-between gap-2">
@@ -428,7 +429,7 @@ templ playerCard(v service.GameView, p progress, l playerLine) {
 			if winner {
 				<span class="rounded-full bg-amber-400 px-3 py-0.5 font-display text-lg font-extrabold uppercase text-pub-950">{ T(ctx).Win() }</span>
 			} else {
-				<span class="rounded-full bg-board-green px-3 py-0.5 font-display text-lg font-extrabold uppercase text-board-cream">{ T(ctx).ToThrow() }</span>
+				<span class={ "rounded-full px-3 py-0.5 font-display text-lg font-extrabold uppercase text-board-cream", accent.Badge }>{ T(ctx).ToThrow() }</span>
 			}
 		</div>
 		<div class="mt-2 flex items-end justify-between gap-3">

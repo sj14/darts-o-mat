@@ -463,3 +463,34 @@ func setDuration(st turn.State, set, leg int) time.Duration {
 	}
 	return st.Times.Set(set).Duration()
 }
+
+// accent is how a player's accent color looks on the card of the player who is up.
+// Tailwind only finds whole class names, so every color is written out.
+type accent struct {
+	Card   string // border, background and glow
+	Badge  string // the "to throw" badge
+	Swatch string // a color to choose in the settings
+}
+
+var accents = map[string]accent{
+	"green":   {"border-board-green/70 from-board-green/25 [--glow-color:var(--color-board-green)]", "bg-board-green", "bg-board-green"},
+	"red":     {"border-board-red/70 from-board-red/25 [--glow-color:var(--color-board-red)]", "bg-board-red", "bg-board-red"},
+	"sky":     {"border-sky-400/70 from-sky-400/25 [--glow-color:var(--color-sky-400)]", "bg-sky-500", "bg-sky-400"},
+	"violet":  {"border-violet-400/70 from-violet-400/25 [--glow-color:var(--color-violet-400)]", "bg-violet-500", "bg-violet-400"},
+	"pink":    {"border-pink-400/70 from-pink-400/25 [--glow-color:var(--color-pink-400)]", "bg-pink-500", "bg-pink-400"},
+	"orange":  {"border-orange-400/70 from-orange-400/25 [--glow-color:var(--color-orange-400)]", "bg-orange-500", "bg-orange-400"},
+	"teal":    {"border-teal-400/70 from-teal-400/25 [--glow-color:var(--color-teal-400)]", "bg-teal-500", "bg-teal-400"},
+	"indigo":  {"border-indigo-400/70 from-indigo-400/25 [--glow-color:var(--color-indigo-400)]", "bg-indigo-500", "bg-indigo-400"},
+	"fuchsia": {"border-fuchsia-400/70 from-fuchsia-400/25 [--glow-color:var(--color-fuchsia-400)]", "bg-fuchsia-500", "bg-fuchsia-400"},
+	"cyan":    {"border-cyan-400/70 from-cyan-400/25 [--glow-color:var(--color-cyan-400)]", "bg-cyan-500", "bg-cyan-400"},
+}
+
+// playerAccent returns the accent of a player of the game.
+func playerAccent(v service.GameView, id int64) accent {
+	for _, p := range v.Players {
+		if p.ID == id {
+			return accents[p.Accent()]
+		}
+	}
+	return accents["green"]
+}
