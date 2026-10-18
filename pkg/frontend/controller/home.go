@@ -196,6 +196,14 @@ func gameFromForm(r *http.Request) (game.Game, []string, error) {
 		g.Sets = sets
 	}
 
+	if s := r.FormValue("turn_seconds"); s != "" {
+		seconds, err := strconv.Atoi(s)
+		if err != nil {
+			return g, nil, fmt.Errorf("%w: invalid time per turn", service.ErrInvalid)
+		}
+		g.TurnSeconds = seconds
+	}
+
 	if s := r.FormValue("board_id"); s != "" {
 		id, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {

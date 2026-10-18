@@ -116,6 +116,9 @@ func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int6
 	if err := s.takeBoard(ctx, boardID, gameID); err != nil {
 		return GameView{}, err
 	}
+	if err := s.startGame(ctx, gameID); err != nil {
+		return GameView{}, err
+	}
 	if g, err = s.store.GetGame(ctx, gameID); err != nil {
 		return GameView{}, err
 	}

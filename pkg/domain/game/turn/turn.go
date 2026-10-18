@@ -42,8 +42,8 @@ var (
 
 // Log is what happened in a game, the input to replay it.
 type Log struct {
-	// Entries are the darts, takeouts (throw.Dart.Takeout) and players leaving
-	// (throw.Dart.Leave) in the order they happened.
+	// Entries are the darts, takeouts (throw.Dart.Takeout), skipped turns
+	// (throw.Dart.Skip) and players leaving (throw.Dart.Leave) in the order they happened.
 	Entries []throw.Dart
 	// PlayerIDs are the players in throwing order, to tell who a dart or a leaving
 	// belongs to (throw.Dart.PlayerID); darts without a PlayerID aren't checked.
@@ -98,6 +98,13 @@ func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
 			if err := t.Leave(slices.Index(l.PlayerIDs, d.PlayerID)); err != nil {
 				return fmt.Errorf("entry %d: %w", i+1, err)
 			}
+			continue
+		case d.Skip:
+			t.Throwers[i] = -1
+			if len(l.PlayerIDs) > 0 && d.PlayerID != l.PlayerIDs[t.Player] {
+				return fmt.Errorf("entry %d: %w", i+1, ErrWrongThrower)
+			}
+			t.Skip()
 			continue
 		case d.Takeout:
 			// Bull-off darts are pulled out whenever the players like.
@@ -166,7 +173,7 @@ type Turn struct {
 	Records []Record
 	// OnLegStart is called when the next leg starts, so the game mode resets the scores.
 	OnLegStart func()
-	// Throwers is the index of the player who threw each log entry, -1 for takeouts.
+	// Throwers is the index of the player who threw each log entry, -1 for the others.
 	Throwers []int
 	// Times is when the game and its finished legs and sets were played (see Replay).
 	Times Times
@@ -317,6 +324,16 @@ func (t *Turn) Leave(i int) error {
 		t.do(nextPlayer)
 	}
 	return nil
+}
+
+// Skip ends the turn of the player who is up, who took too long: the darts they threw
+// count and the next player is up. Nothing happens while bulling off, while the turn
+// waits for the takeout (the darts are pulled out whenever the players like) and after
+// the game is over.
+func (t *Turn) Skip() {
+	if !t.over && !t.BullingOff() && !t.Waiting() {
+		t.do(nextPlayer)
+	}
 }
 
 // startLeg starts a leg with t.starter.

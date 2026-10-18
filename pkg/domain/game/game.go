@@ -20,6 +20,15 @@ const (
 	MaxSets = 7
 )
 
+// The shortest and the longest time limit for a turn, in seconds.
+const (
+	MinTurnSeconds = 10
+	MaxTurnSeconds = 600
+)
+
+// MaxSkips is how many turns in a row a player may skip before they leave the game.
+const MaxSkips = 3
+
 type Mode string
 
 const (
@@ -37,7 +46,10 @@ type Settings struct {
 	// Sets is how many sets win the game; 1 is a game without sets.
 	Sets int `bun:",notnull,default:1" json:"sets"`
 	// BullOff lets the players bull off for who starts the first leg.
-	BullOff        bool                     `bun:",notnull,default:false" json:"bull_off"`
+	BullOff bool `bun:",notnull,default:false" json:"bull_off"`
+	// TurnSeconds is how long a player has for their turn; if they take longer, the turn is
+	// skipped, and after MaxSkips skipped turns in a row they leave the game. 0 is no limit.
+	TurnSeconds    int                      `bun:",notnull,default:0" json:"turn_seconds,omitempty"`
 	X01            *x01.Settings            `json:"x01,omitempty"`
 	AroundTheClock *aroundtheclock.Settings `json:"around_the_clock,omitempty"`
 }
@@ -48,6 +60,9 @@ func (s Settings) Validate() error {
 	}
 	if s.Sets < 1 || s.Sets > MaxSets {
 		return fmt.Errorf("sets must be between 1 and %d", MaxSets)
+	}
+	if s.TurnSeconds != 0 && (s.TurnSeconds < MinTurnSeconds || s.TurnSeconds > MaxTurnSeconds) {
+		return fmt.Errorf("the time for a turn must be between %d and %d seconds, or 0 for no limit", MinTurnSeconds, MaxTurnSeconds)
 	}
 	switch s.Mode {
 	case ModeX01:
@@ -137,6 +152,9 @@ type Game struct {
 	// tie, see turn.Log.BullOffCloser.
 	BullOffCloser *int64    `json:"bull_off_closer,omitempty"`
 	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	// StartedAt is when the game became ready: everyone accepted and no seat is free. The
+	// first turn's time begins then. Nil while it waits in the lobby.
+	StartedAt *time.Time `bun:",nullzero" json:"started_at,omitempty"`
 	// AbortedAt is set when the game ended without a winner, because too many players left
 	// it: it takes no more darts.
 	AbortedAt *time.Time `bun:",nullzero" json:"aborted_at,omitempty"`
@@ -163,6 +181,11 @@ func (g Game) Participant(playerID int64) (Participant, bool) {
 		}
 	}
 	return Participant{}, false
+}
+
+// Ready reports whether the game can start: no invitation is pending and no seat is free.
+func (g Game) Ready() bool {
+	return g.Full(len(g.Participants)) && !slices.ContainsFunc(g.Participants, func(p Participant) bool { return p.Status == InvitationPending })
 }
 
 // Aborted reports whether the game was aborted.
@@ -193,6 +216,26 @@ func CheckPlayers(playerIDs []int64) error {
 		seen[id] = true
 	}
 	return nil
+}
+
+// TurnDeadline returns when the turn of the player who is up ends (see
+// Settings.TurnSeconds), for the log entries and the state they lead to: the turn began
+// with the entry before its darts, the first turn with the start of the game. There is
+// none without a limit, before the game started, while bulling off, while the turn waits
+// for the takeout and after the game is over.
+func (g Game) TurnDeadline(entries []throw.Dart, c turn.State) (time.Time, bool) {
+	if g.TurnSeconds == 0 || c.GameOver || c.BullingOff || c.WaitingForTakeout {
+		return time.Time{}, false
+	}
+	began := time.Time{}
+	if i := len(entries) - c.DartsInTurn - 1; i >= 0 {
+		began = entries[i].CreatedAt
+	} else if g.StartedAt != nil {
+		began = *g.StartedAt
+	} else {
+		return time.Time{}, false
+	}
+	return began.Add(time.Duration(g.TurnSeconds) * time.Second), true
 }
 
 // WaitsForTakeout reports whether a finished turn waits until the darts were pulled out.

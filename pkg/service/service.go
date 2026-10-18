@@ -78,10 +78,15 @@ type Service struct {
 	// tournaments notifies about changed tournaments, by ID: their own changes and those
 	// of their games.
 	tournaments notify.Hub[int64]
+	// timers end the turn of a game with a time limit, by game ID (see watchTurn).
+	timers   map[int64]*time.Timer
+	timersMu sync.Mutex
+	// now is the time, replaced in tests.
+	now func() time.Time
 }
 
 func New(store *store.Store, opts Options) *Service {
-	return &Service{store: store, opts: opts}
+	return &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, now: time.Now}
 }
 
 func (s *Service) RegistrationOpen() bool {
@@ -126,7 +131,7 @@ func (v GameView) MayEdit(i int) bool {
 // taken back.
 func (v GameView) MayUndo() bool {
 	for i := len(v.Darts) - 1; i >= 0; i-- {
-		if v.Darts[i].Leave {
+		if v.Darts[i].Leave || v.Darts[i].Skip {
 			return false
 		}
 		if v.Darts[i].IsDart() {
@@ -234,7 +239,10 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 	if err := s.takeBoards(ctx, g); err != nil {
 		return GameView{}, err
 	}
-	return s.view(ctx, acc, g)
+	if err := s.startGame(ctx, g.ID); err != nil {
+		return GameView{}, err
+	}
+	return s.Game(ctx, acc, g.ID)
 }
 
 // checkOwnPlayers checks that the players are the account's own player or its guests.
@@ -359,6 +367,9 @@ func (s *Service) AcceptInvitation(ctx context.Context, acc account.Account, gam
 	if err := s.takeBoard(ctx, boardID, gameID); err != nil {
 		return GameView{}, err
 	}
+	if err := s.startGame(ctx, gameID); err != nil {
+		return GameView{}, err
+	}
 	s.notify(gameID)
 	return s.Game(ctx, acc, gameID)
 }
@@ -376,6 +387,9 @@ func (s *Service) DeclineInvitation(ctx context.Context, acc account.Account, ga
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.store.RemoveParticipant(ctx, gameID, acc.PlayerID); err != nil {
+		return err
+	}
+	if err := s.startGame(ctx, gameID); err != nil {
 		return err
 	}
 	s.notify(gameID)
@@ -398,12 +412,37 @@ func (s *Service) WithdrawInvitation(ctx context.Context, acc account.Account, g
 
 	s.mu.Lock()
 	err = s.store.RemoveParticipant(ctx, gameID, playerID)
+	if err == nil {
+		err = s.startGame(ctx, gameID)
+	}
 	s.mu.Unlock()
 	if err != nil {
 		return GameView{}, err
 	}
 	s.notify(gameID)
 	return s.Game(ctx, acc, gameID)
+}
+
+// startGame records when the game became ready, the start of its first turn, and sets
+// the timer of that turn. Call it after every change that can complete the lobby:
+// creating the game, accepting, declining or withdrawing an invitation, joining, starting
+// a match. It does nothing for a game that isn't ready or started already. The caller
+// holds s.mu.
+func (s *Service) startGame(ctx context.Context, gameID int64) error {
+	g, err := s.store.GetGame(ctx, gameID)
+	if errors.Is(err, store.ErrNotFound) { // nobody is left in it
+		return nil
+	}
+	if err != nil || g.StartedAt != nil || !g.Ready() {
+		return err
+	}
+	now := time.Now()
+	g.StartedAt = &now
+	if err := s.store.StartGame(ctx, &g); err != nil {
+		return err
+	}
+	s.watchTurn(g)
+	return nil
 }
 
 // abortGame marks the game as aborted and tells its subscribers. The caller holds s.mu.
@@ -517,7 +556,7 @@ func (s *Service) EditDart(ctx context.Context, acc account.Account, gameID, dar
 // normalizeDart completes a dart: a dart without a segment counts as a single (side
 // unknown). Takeouts go through Takeout.
 func normalizeDart(d *throw.Dart) {
-	d.Takeout, d.Leave = false, false
+	d.Takeout, d.Leave, d.Skip = false, false, false
 	if d.Segment == throw.NoSegment {
 		d.Segment = throw.Single
 	}
@@ -616,7 +655,7 @@ func (s *Service) views(ctx context.Context, acc account.Account, games []game.G
 // build computes everything of a game's view that doesn't depend on who looks at it.
 func (s *Service) build(ctx context.Context, g game.Game) (GameView, error) {
 	v := GameView{Game: g}
-	v.Ready = g.Full(len(g.Participants)) && !slices.ContainsFunc(g.Participants, func(p game.Participant) bool { return p.Status == game.InvitationPending })
+	v.Ready = g.Ready()
 
 	var err error
 	if v.Darts, err = s.store.ListDarts(ctx, g.ID); err != nil {

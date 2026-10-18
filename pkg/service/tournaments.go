@@ -219,8 +219,11 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 	if err := s.takeBoards(ctx, g); err != nil {
 		return GameView{}, err
 	}
+	if err := s.startGame(ctx, g.ID); err != nil {
+		return GameView{}, err
+	}
 	s.tournaments.Notify(id)
-	return s.view(ctx, acc, g)
+	return s.Game(ctx, acc, g.ID)
 }
 
 // tournamentView builds the view of a tournament for an account, ErrNotFound if the

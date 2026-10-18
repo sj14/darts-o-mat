@@ -151,5 +151,5 @@ func (s *Service) leaveTournament(ctx context.Context, acc account.Account, t to
 		s.tournaments.Notify(t.ID)
 		return nil
 	}
-	return s.abortTournament(ctx, &t, acc)
+	return s.abortTournament(ctx, &t)
 }

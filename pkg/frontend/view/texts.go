@@ -194,6 +194,11 @@ type Texts interface {
 	SetsHint() string
 	WhoStarts() string
 	BullOffOptionHint() string
+	TurnLimit() string
+	NoTurnLimit() string
+	TurnTime(seconds int) string
+	TurnLimitHint(skips int) string
+	TurnTimeLeft() string
 	Players() string
 	Me(name string) string
 	InviteFriends() string

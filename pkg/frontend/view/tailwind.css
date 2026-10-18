@@ -53,6 +53,15 @@
   --animate-celebrate: celebrate 2.4s ease-out both;
   /* The target on the board lights up and fades again (opacity only, see Performance). */
   --animate-target: target 1.6s ease-in-out infinite;
+  /* The bar of the time for a turn runs down; the duration and where it starts come from
+     the page (style attribute), transform only. */
+  --animate-turn: turn linear both;
+
+  @keyframes turn {
+    to {
+      transform: scaleX(0);
+    }
+  }
 
   @keyframes target {
     0%,

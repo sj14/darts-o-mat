@@ -187,6 +187,12 @@ func (store *Store) AbortGame(ctx context.Context, g *game.Game) error {
 	return err
 }
 
+// StartGame stores when a game became ready.
+func (store *Store) StartGame(ctx context.Context, g *game.Game) error {
+	_, err := store.db.NewUpdate().Model(g).Column("started_at").WherePK().Exec(ctx)
+	return err
+}
+
 // SetBullOffCloser stores who the players found closer when bulling off ended in a tie.
 func (store *Store) SetBullOffCloser(ctx context.Context, g *game.Game) error {
 	_, err := store.db.NewUpdate().Model(g).Column("bull_off_closer").WherePK().Exec(ctx)
@@ -263,4 +269,14 @@ func (store *Store) ListOpenGames(ctx context.Context, since time.Time) ([]game.
 		Where("created_at > ?", since).
 		Where("aborted_at IS NULL").
 		Order("id DESC"))
+}
+
+// ListTimedGames returns the games with a time limit for turns that aren't aborted and
+// started or had a dart since the time.
+func (store *Store) ListTimedGames(ctx context.Context, since time.Time) ([]game.Game, error) {
+	recent := store.db.NewSelect().Model((*throw.Dart)(nil)).Column("game_id").Where("created_at > ?", since)
+	return store.scanGames(ctx, store.db.NewSelect().
+		Where("turn_seconds > 0").
+		Where("aborted_at IS NULL").
+		Where("started_at > ? OR id IN (?)", since, recent))
 }

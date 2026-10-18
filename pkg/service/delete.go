@@ -162,7 +162,7 @@ func (s *Service) leaveEverything(ctx context.Context, a account.Account) error 
 }
 
 // abortTournament aborts a tournament and the games of it that are still running.
-func (s *Service) abortTournament(ctx context.Context, t *tournament.Tournament, acc account.Account) error {
+func (s *Service) abortTournament(ctx context.Context, t *tournament.Tournament) error {
 	now := time.Now()
 	t.AbortedAt = &now
 	if err := s.store.AbortTournament(ctx, t); err != nil {
@@ -176,7 +176,7 @@ func (s *Service) abortTournament(ctx context.Context, t *tournament.Tournament,
 		if g.Aborted() {
 			continue
 		}
-		v, err := s.view(ctx, acc, g)
+		v, err := s.build(ctx, g)
 		if err != nil {
 			return err
 		}

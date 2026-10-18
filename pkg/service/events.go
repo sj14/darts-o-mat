@@ -20,10 +20,12 @@ func (s *Service) notify(gameID int64) {
 	s.games.Notify(gameID)
 }
 
-// notifyGame tells the subscribers of the game, and of its tournament, that it changed.
+// notifyGame tells the subscribers of the game, and of its tournament, that it changed, and sets the timer
+// for its turn.
 func (s *Service) notifyGame(g game.Game) {
 	s.games.Notify(g.ID)
 	if g.TournamentID != nil {
 		s.tournaments.Notify(*g.TournamentID)
 	}
+	s.watchTurn(g)
 }

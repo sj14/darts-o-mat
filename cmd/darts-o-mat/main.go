@@ -47,6 +47,9 @@ func main() {
 	}
 
 	svc := service.New(repo, service.Options{Registration: *reg})
+	if err := svc.ResumeTurnLimits(ctx); err != nil {
+		log.Fatalf("failed to set the turn timers: %v", err)
+	}
 	r.Mount("/api", api.New(svc).Routes())
 	r.Mount("/", controller.New(svc).Routes())
 

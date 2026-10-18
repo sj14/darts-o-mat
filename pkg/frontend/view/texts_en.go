@@ -270,6 +270,21 @@ func (textsEN) WhoStarts() string { return "Who starts" }
 func (textsEN) BullOffOptionHint() string {
 	return "– closest to the bull; with cameras to the millimetre"
 }
+func (textsEN) TurnLimit() string   { return "Time per turn" }
+func (textsEN) NoTurnLimit() string { return "No limit" }
+func (textsEN) TurnTime(seconds int) string {
+	switch {
+	case seconds == 60:
+		return "1 minute"
+	case seconds%60 == 0:
+		return strconv.Itoa(seconds/60) + " minutes"
+	}
+	return strconv.Itoa(seconds) + " seconds"
+}
+func (textsEN) TurnLimitHint(skips int) string {
+	return "Whoever takes longer misses the turn, and after " + strconv.Itoa(skips) + " missed turns in a row they leave the game."
+}
+func (textsEN) TurnTimeLeft() string    { return "Time left for the turn" }
 func (textsEN) Players() string         { return "Players" }
 func (textsEN) Me(name string) string   { return "Me (" + name + ")" }
 func (textsEN) InviteFriends() string   { return "Invite friends" }

@@ -354,3 +354,45 @@ func TestReplayLeaveAndThrowers(t *testing.T) {
 		t.Errorf("a stranger leaves: got %v, want ErrCantLeave", err)
 	}
 }
+
+func TestSkip(t *testing.T) {
+	// A player who took too long is passed over, with the darts they threw.
+	tr := Log{}.Turn(3)
+	tr.Advance()
+	tr.Skip()
+	if tr.Player != 1 || tr.Dart != 0 {
+		t.Errorf("after a skipped turn: player %d dart %d, want player 1 without darts", tr.Player, tr.Dart)
+	}
+	// Nothing to skip while the turn waits for the takeout, or while bulling off.
+	tr = Log{WaitForTakeout: true}.Turn(2)
+	for range DartsPerTurn {
+		tr.Advance()
+	}
+	tr.Skip()
+	if !tr.Waiting() || tr.Player != 0 {
+		t.Errorf("skipped while waiting for the takeout: player %d, waiting %v", tr.Player, tr.Waiting())
+	}
+	tr = Log{BullOff: true}.Turn(2)
+	tr.Skip()
+	if tr.Player != 0 {
+		t.Errorf("skipped while bulling off: player %d, want 0", tr.Player)
+	}
+}
+
+func TestReplaySkip(t *testing.T) {
+	ids := []int64{10, 20, 30}
+	dart := func(id int64) throw.Dart { return throw.Dart{PlayerID: id, Number: 1, Segment: throw.Single} }
+	log := Log{PlayerIDs: ids, Entries: []throw.Dart{dart(10), {PlayerID: 10, Skip: true}, {PlayerID: 20, Skip: true}, dart(30)}}
+	tr := log.Turn(3)
+	if err := log.Replay(tr, func(int, throw.Dart) error { tr.Advance(); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if tr.Player != 2 || tr.Dart != 1 || !slices.Equal(tr.Throwers, []int{0, -1, -1, 2}) {
+		t.Errorf("player %d dart %d throwers %v, want player 2 with 1 dart", tr.Player, tr.Dart, tr.Throwers)
+	}
+	// A skip for another player than the one who is up is refused.
+	log = Log{PlayerIDs: ids, Entries: []throw.Dart{{PlayerID: 20, Skip: true}}}
+	if err := log.Replay(log.Turn(3), nil); !errors.Is(err, ErrWrongThrower) {
+		t.Errorf("a skip of 20 in the turn of 10: got %v, want ErrWrongThrower", err)
+	}
+}

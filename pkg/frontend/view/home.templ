@@ -239,6 +239,15 @@ templ legsChoice() {
 			{ T(ctx).BullOff() } <span class="text-white/40">{ T(ctx).BullOffOptionHint() }</span>
 		}
 	}
+	@fieldset(T(ctx).TurnLimit()) {
+		<div class="flex flex-wrap gap-2">
+			@choice("turn_seconds", "0", T(ctx).NoTurnLimit(), true)
+			for _, n := range []int{30, 60, 120, 300} {
+				@choice("turn_seconds", strconv.Itoa(n), T(ctx).TurnTime(n), false)
+			}
+		</div>
+		<p class={ hintClass }>{ T(ctx).TurnLimitHint(game.MaxSkips) }</p>
+	}
 }
 
 // participants lets the user pick who plays and on which board.

@@ -362,6 +362,23 @@ func targetResult(v service.GameView, d throw.Dart) (hit, counted bool) {
 	return false, false
 }
 
+// turnClock returns how many seconds of the time for the turn are gone and how many it
+// has in total, if the turn is timed.
+func turnClock(v service.GameView, p progress) (elapsed, total float64, ok bool) {
+	deadline, ok := v.Game.TurnDeadline(v.Darts, v.Common())
+	if !ok || !p.running() {
+		return 0, 0, false
+	}
+	total = float64(v.Game.TurnSeconds)
+	return min(max(total-time.Until(deadline).Seconds(), 0), total), total, true
+}
+
+// turnClockStyle makes the bar of the turn clock start where the clock is: its animation
+// lasts the whole time and has run for the elapsed part already.
+func turnClockStyle(elapsed, total float64) templ.SafeCSS {
+	return templ.SafeCSS(fmt.Sprintf("animation-duration:%.1fs;animation-delay:-%.1fs", total, elapsed))
+}
+
 // soundKind returns which sound the last entry of the game's log makes (see
 // static/sounds.js); soundID tells the page whether that entry is new.
 func soundKind(v service.GameView) string {
@@ -369,7 +386,7 @@ func soundKind(v service.GameView) string {
 		return ""
 	}
 	last, c := v.Darts[len(v.Darts)-1], v.Common()
-	if last.Leave {
+	if last.Leave || last.Skip {
 		return ""
 	}
 	if event := latestTurnEvent(v); event != "" && !c.GameOver {

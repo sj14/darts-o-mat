@@ -257,6 +257,21 @@ func (textsDE) WhoStarts() string { return "Wer beginnt" }
 func (textsDE) BullOffOptionHint() string {
 	return "– wer am nächsten am Bull ist; mit Kamera auf den Millimeter"
 }
+func (textsDE) TurnLimit() string   { return "Zeit pro Zug" }
+func (textsDE) NoTurnLimit() string { return "Unbegrenzt" }
+func (textsDE) TurnTime(seconds int) string {
+	switch {
+	case seconds == 60:
+		return "1 Minute"
+	case seconds%60 == 0:
+		return strconv.Itoa(seconds/60) + " Minuten"
+	}
+	return strconv.Itoa(seconds) + " Sekunden"
+}
+func (textsDE) TurnLimitHint(skips int) string {
+	return "Wer länger braucht, setzt aus; nach " + strconv.Itoa(skips) + " ausgesetzten Zügen in Folge ist man raus."
+}
+func (textsDE) TurnTimeLeft() string    { return "Verbleibende Zeit für den Zug" }
 func (textsDE) Players() string         { return "Mitspieler" }
 func (textsDE) Me(name string) string   { return "Ich (" + name + ")" }
 func (textsDE) InviteFriends() string   { return "Freunde einladen" }
