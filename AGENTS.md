@@ -91,6 +91,8 @@ New features build on the existing stack; don't introduce additional frameworks 
 - `tools/winpkg`: builds darts-o-cam's Windows .zip (.exe with icon), same place; a Go module of its own
 - `site`: the project page for GitHub Pages (static HTML and a CSS file in the look of the app, English and German in `site/de`; no generator, user's decision 2026-10-18); `make site` puts it with the app's fonts and icons into `dist/site`, `.github/workflows/pages.yml` publishes it. Texts in both languages by hand, keep them in line with the [README](README.md)
 - `Makefile`: `make macapp`, `make linux`, `make windows`, `make apps` (all), `make site`, `make clean`; only for these builds and the project page, everything else is the go command
+- `deploy/helm/darts-o-mat`: Helm chart of the server, see [server → deployment](cmd/darts-o-mat/AGENTS.md#deployment)
+- `.github/workflows`: `ci.yml` (tests, chart lint), `release.yml` (a tag `vX.Y.Z` builds binaries, image, chart and the camera's packages, see [server → deployment](cmd/darts-o-mat/AGENTS.md#deployment)), `pages.yml` (project page)
 - `Containerfile`: image of the server, see [server → structure](cmd/darts-o-mat/AGENTS.md#structure)
 - `tools/internal/appicon`: the app icon for all of them, rendered from `favicon.svg`; `tools/internal/version`: the packages' version from git
 

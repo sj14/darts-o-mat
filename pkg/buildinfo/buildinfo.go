@@ -7,10 +7,18 @@ import "runtime/debug"
 // ProjectURL is the project's page.
 const ProjectURL = "https://github.com/sj14/darts-o-mat"
 
-// Version returns the version the binary was built from: the short git revision,
-// marked "-dirty" with uncommitted changes; for a binary from go install the module
-// version (v1.2.3). Empty if the binary carries no build information.
+// stamped is the version a release build sets: -ldflags "-X
+// github.com/sj14/darts-o-mat/pkg/buildinfo.stamped=1.2.3". The container image is built
+// without git, so it needs it.
+var stamped string
+
+// Version returns the version the binary was built from: the one stamped in at build time,
+// else the short git revision, marked "-dirty" with uncommitted changes; for a binary from
+// go install the module version (v1.2.3). Empty if the binary carries no build information.
 func Version() string {
+	if stamped != "" {
+		return stamped
+	}
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
 		return ""

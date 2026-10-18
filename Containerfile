@@ -10,11 +10,13 @@
 
 FROM --platform=$BUILDPLATFORM golang:1 AS build
 ARG TARGETOS TARGETARCH
+# Shown in the page footer; the build has no git to take it from.
+ARG VERSION=""
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /darts-o-mat ./cmd/darts-o-mat
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X github.com/sj14/darts-o-mat/pkg/buildinfo.stamped=${VERSION}" -o /darts-o-mat ./cmd/darts-o-mat
 # The SQLite database's folder, owned by nonroot so a new volume is writable.
 RUN mkdir /data
 

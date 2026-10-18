@@ -60,3 +60,10 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+The Secret that holds the PostgreSQL data source name.
+*/}}
+{{- define "darts-o-mat.dsnSecret" -}}
+{{- default (printf "%s-dsn" (include "darts-o-mat.fullname" .)) .Values.config.postgres.existingSecret }}
+{{- end }}

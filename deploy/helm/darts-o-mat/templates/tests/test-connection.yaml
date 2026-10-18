@@ -9,7 +9,7 @@ metadata:
 spec:
   containers:
     - name: wget
-      image: busybox
+      image: busybox:1.37
       command: ['wget']
-      args: ['{{ include "darts-o-mat.fullname" . }}:{{ .Values.service.port }}']
+      args: ['-q', '-O', '/dev/null', 'http://{{ include "darts-o-mat.fullname" . }}:{{ .Values.service.port }}/login']
   restartPolicy: Never

@@ -3,6 +3,9 @@
 A darts scorer for home: enter your throws, the score is counted automatically.
 In the long run darts-o-mat aims to be a free alternative to Autodarts and Scolia, with cameras that detect the throws by themselves.
 
+> [!NOTE]
+> This project was build with AI.
+
 > **Status:** early development. Darts are entered by hand or detected by cameras at the board; the camera detection already works for normal throws but is still in progress. The user interface is in English and German, following the browser.
 
 ## What's in it

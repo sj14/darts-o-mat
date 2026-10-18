@@ -42,6 +42,18 @@ docker run -d -p 3000:3000 -v darts-o-mat:/data darts-o-mat
 
 The data is kept in the volume `darts-o-mat`. Options go after the image name, e.g. `docker run … darts-o-mat -registration=false`.
 
+Released images are on `ghcr.io/sj14/darts-o-mat` (amd64 and arm64), e.g. `docker run -d -p 3000:3000 -v darts-o-mat:/data ghcr.io/sj14/darts-o-mat`; binaries for Linux, macOS and Windows are attached to each [release](https://github.com/sj14/darts-o-mat/releases).
+
+### On Kubernetes
+
+With the [Helm](https://helm.sh) chart (one pod, the games in a volume):
+
+```sh
+helm install darts oci://ghcr.io/sj14/charts/darts-o-mat
+```
+
+Common settings, e.g. `helm install darts … --set ingress.enabled=true --set ingress.hosts[0].host=darts.example.com --set ingress.hosts[0].paths[0].path=/ --set config.registration=false`. For PostgreSQL instead of the volume: `--set config.database=postgres --set config.postgres.dsn='postgres://…'` (or `config.postgres.existingSecret`). All options with their comments: [`deploy/helm/darts-o-mat/values.yaml`](../../deploy/helm/darts-o-mat/values.yaml).
+
 ### With PostgreSQL instead of a file
 
 ```sh

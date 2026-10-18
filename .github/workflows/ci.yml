@@ -1,0 +1,35 @@
+# Tests on every push to main and every pull request; the release workflow runs them
+# again before it builds anything.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
+      # The packaging tools are modules of their own, not covered by the commands above.
+      - run: go -C tools/linuxpkg vet .
+      - run: go -C tools/winpkg vet .
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - run: helm lint deploy/helm/darts-o-mat
+      - run: helm template t deploy/helm/darts-o-mat > /dev/null
+      - run: helm template t deploy/helm/darts-o-mat --set config.database=postgres --set config.postgres.dsn=postgres://u:p@h/db > /dev/null

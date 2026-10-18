@@ -25,3 +25,12 @@ func TestVersion(t *testing.T) {
 		}
 	}
 }
+
+func TestStampedVersionWins(t *testing.T) {
+	old := stamped
+	defer func() { stamped = old }()
+	stamped = "1.2.3"
+	if got := Version(); got != "1.2.3" {
+		t.Errorf("Version = %q, want the stamped 1.2.3", got)
+	}
+}

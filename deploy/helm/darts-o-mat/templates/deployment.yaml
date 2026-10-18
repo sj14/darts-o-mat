@@ -1,3 +1,7 @@
+{{- $postgres := eq .Values.config.database "postgres" }}
+{{- if not (has .Values.config.database (list "sqlite" "postgres")) }}
+{{- fail "config.database must be sqlite or postgres" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,18 +9,25 @@ metadata:
   labels:
     {{- include "darts-o-mat.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
-  {{- end }}
+  # One replica: live updates and the order of darts are kept in the process.
+  replicas: 1
+  # The SQLite volume can only be used by one pod at a time.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "darts-o-mat.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        {{- if $postgres }}
+        {{- if .Values.config.postgres.dsn }}
+        checksum/dsn: {{ .Values.config.postgres.dsn | sha256sum }}
+        {{- end }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       labels:
         {{- include "darts-o-mat.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
@@ -28,6 +39,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "darts-o-mat.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -40,9 +52,32 @@ spec:
           {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - -addr=:3000
+            - -registration={{ .Values.config.registration }}
+            - -db={{ .Values.config.database }}
+            {{- if $postgres }}
+            - -dsn=$(DARTS_O_MAT_DSN)
+            {{- end }}
+            {{- with .Values.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if or $postgres .Values.extraEnv }}
+          env:
+            {{- if $postgres }}
+            - name: DARTS_O_MAT_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "darts-o-mat.dsnSecret" . }}
+                  key: {{ .Values.config.postgres.existingSecretKey }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: 3000
               protocol: TCP
           {{- with .Values.livenessProbe }}
           livenessProbe:
@@ -56,13 +91,30 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.volumeMounts }}
+          {{- if or (not $postgres) .Values.volumeMounts }}
           volumeMounts:
+            {{- if not $postgres }}
+            - name: data
+              mountPath: /data
+            {{- end }}
+            {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
-      {{- with .Values.volumes }}
+      {{- if or (not $postgres) .Values.volumes }}
       volumes:
+        {{- if not $postgres }}
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (include "darts-o-mat.fullname" .) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+        {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
