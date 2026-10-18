@@ -69,27 +69,31 @@ func (s Settings) Validate() error {
 const MaxSeats = 8
 
 // Lobby makes a game or tournament open for players without an invitation: Seats is the
-// number of players it wants in total, the creator's and invited ones included. It starts
-// once all seats are taken and the invited players accepted. Strangers see it in the
-// list of open games until then, see service.OpenLobbies.
+// number of players it wants in total, the creator's and invited ones included; 0 means
+// it isn't open. It starts once all seats are taken and the invited players accepted.
+// Strangers see it in the list of open games until then, see service.OpenLobbies.
 type Lobby struct {
-	Open  bool `bun:",notnull,default:false" json:"open,omitempty"`
-	Seats int  `bun:",notnull,default:0" json:"seats,omitempty"`
+	Seats int `bun:",notnull,default:0" json:"seats,omitempty"`
+}
+
+// Open reports whether strangers can join.
+func (l Lobby) Open() bool {
+	return l.Seats > 0
 }
 
 // Full reports whether no seat is free with that many players; a game that isn't open
 // always is.
 func (l Lobby) Full(players int) bool {
-	return !l.Open || players >= l.Seats
+	return !l.Open() || players >= l.Seats
 }
 
 // Validate checks the lobby of a game or tournament that has players players so far and
 // may have min to max in total.
 func (l Lobby) Validate(players, min, max int) error {
 	switch {
-	case !l.Open && l.Seats != 0:
-		return errors.New("seats only apply to games open for strangers")
-	case !l.Open:
+	case l.Seats < 0:
+		return errors.New("seats must not be negative")
+	case !l.Open():
 		return nil
 	case l.Seats < min || l.Seats > max:
 		return fmt.Errorf("a game open for strangers needs %d to %d players", min, max)
@@ -124,9 +128,6 @@ type Game struct {
 	bun.BaseModel `bun:"table:games"`
 
 	ID int64 `bun:",pk,autoincrement" json:"id"`
-	// CreatedBy is the account that created the game. It has no rights the other
-	// participants don't have; the open games list says whose it is.
-	CreatedBy int64 `bun:",notnull" json:"created_by"`
 	Settings
 	Lobby
 	// Participants are the players in throwing order (see PlayerIDs). They are stored in a

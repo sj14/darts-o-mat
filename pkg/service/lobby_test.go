@@ -16,7 +16,7 @@ func TestOpenGame(t *testing.T) {
 	anna, ben, carla, dora := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla"), register(t, s, "dora")
 
 	g := x01Game(anna.PlayerID)
-	g.Open, g.Seats = true, 3
+	g.Seats = 3
 	v, err := s.CreateGame(ctx, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -28,9 +28,9 @@ func TestOpenGame(t *testing.T) {
 		t.Errorf("dart while seats are free: got %v, want ErrNotReady", err)
 	}
 
-	// Strangers see it, its host doesn't, and a game that isn't open stays hidden.
+	// Strangers see it with the players who are in, those in it don't, and a game that isn't open stays hidden.
 	closed, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
-	if l, err := s.OpenLobbies(ctx, ben); err != nil || len(l) != 1 || l[0].ID != v.Game.ID || l[0].Host != "anna" || l[0].Players != 1 || l[0].Seats != 3 {
+	if l, err := s.OpenLobbies(ctx, ben); err != nil || len(l) != 1 || l[0].ID != v.Game.ID || len(l[0].Joined) != 1 || l[0].Joined[0].Name != "anna" || l[0].Seats != 3 {
 		t.Fatalf("ben's open games = %+v, %v; want anna's game with 1 of 3", l, err)
 	}
 	if l, _ := s.OpenLobbies(ctx, anna); len(l) != 0 {
@@ -73,10 +73,9 @@ func TestOpenGameValidation(t *testing.T) {
 	anna := register(t, s, "anna")
 
 	for name, tt := range map[string]game.Lobby{
-		"open without seats":    {Open: true},
-		"no seat is free":       {Open: true, Seats: 1},
-		"too many seats":        {Open: true, Seats: game.MaxSeats + 1},
-		"seats without opening": {Seats: 3},
+		"no seat is free": {Seats: 1},
+		"too many seats":  {Seats: game.MaxSeats + 1},
+		"negative seats":  {Seats: -1},
 	} {
 		g := x01Game(anna.PlayerID)
 		g.Lobby = tt
@@ -87,7 +86,7 @@ func TestOpenGameValidation(t *testing.T) {
 }
 
 func TestOfferedOnlyForAWhile(t *testing.T) {
-	open := game.Lobby{Open: true, Seats: 2}
+	open := game.Lobby{Seats: 2}
 	if !offered(open, 1, time.Now(), false) {
 		t.Error("a new open game isn't offered")
 	}
@@ -105,7 +104,7 @@ func TestOpenTournament(t *testing.T) {
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
 
 	tr := quickTournament(tournament.RoundRobin, anna.PlayerID)
-	tr.Open, tr.Seats = true, 3
+	tr.Seats = 3
 	v, err := s.CreateTournament(ctx, anna, tr, nil)
 	if err != nil {
 		t.Fatal(err)

@@ -75,9 +75,8 @@ func (textsEN) LandingFeatureText(i int) string {
 	}[i%4]
 }
 
-func (textsEN) OpenGames() string           { return "Open games" }
-func (textsEN) NoOpenGames() string         { return "No game is looking for players right now." }
-func (textsEN) HostedBy(host string) string { return "by " + host }
+func (textsEN) OpenGames() string   { return "Open games" }
+func (textsEN) NoOpenGames() string { return "No game is looking for players right now." }
 func (textsEN) PlayersOfSeats(players, seats int) string {
 	return strconv.Itoa(players) + " of " + strconv.Itoa(seats) + " players"
 }

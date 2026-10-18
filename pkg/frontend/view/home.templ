@@ -118,7 +118,7 @@ templ openLobbies(lobbies []service.OpenLobby, boards []board.Board) {
 							if l.Tournament {
 								{ modeLabel(T(ctx), l.Settings) } ·
 							}
-							{ T(ctx).HostedBy(l.Host) } · { T(ctx).PlayersOfSeats(l.Players, l.Seats) }
+							{ lobbyPlayers(ctx, l) } · { T(ctx).PlayersOfSeats(len(l.Joined), l.Seats) }
 						</div>
 					</div>
 					<form method="post" action={ templ.URL(joinURL(l)) } class="flex items-center gap-2">

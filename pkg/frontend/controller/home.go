@@ -173,7 +173,7 @@ func gameFromForm(r *http.Request) (game.Game, []string, error) {
 
 	invite := r.Form["invite"]
 	g.BullOff = r.FormValue("bull_off") != ""
-	if g.Open = r.FormValue("open") != ""; g.Open {
+	if r.FormValue("open") != "" {
 		seats, err := strconv.Atoi(r.FormValue("seats"))
 		if err != nil {
 			return g, nil, fmt.Errorf("%w: invalid number of players", service.ErrInvalid)

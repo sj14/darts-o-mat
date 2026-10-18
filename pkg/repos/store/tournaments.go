@@ -173,7 +173,7 @@ func (store *Store) JoinTournament(ctx context.Context, tournamentID, playerID i
 // since the time, newest first, including full and aborted ones, which the caller sorts out.
 func (store *Store) ListOpenTournaments(ctx context.Context, since time.Time) ([]tournament.Tournament, error) {
 	return store.scanTournaments(ctx, store.db.NewSelect().
-		Where(`"open" = ?`, true).
+		Where("seats > 0").
 		Where("created_at > ?", since).
 		Where("aborted_at IS NULL").
 		Order("id DESC"))

@@ -55,7 +55,6 @@ type Texts interface {
 	PlayOnBoard() string
 	OpenGames() string
 	NoOpenGames() string
-	HostedBy(host string) string
 	PlayersOfSeats(players, seats int) string
 	JoinLobby() string
 	Strangers() string

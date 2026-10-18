@@ -650,3 +650,12 @@ func lastTurnOf(t Texts, v service.GameView, playerID int64) (lastTurn, bool) {
 	}
 	return lastTurn{}, false
 }
+
+// lobbyPlayers names the players that are in an open game or tournament already.
+func lobbyPlayers(ctx context.Context, l service.OpenLobby) string {
+	names := make([]string, len(l.Joined))
+	for i, p := range l.Joined {
+		names[i] = displayName(ctx, p)
+	}
+	return strings.Join(names, ", ")
+}

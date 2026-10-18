@@ -105,7 +105,7 @@ func TestDeleteAccount(t *testing.T) {
 	invited, _ := s.CreateGame(ctx, cara, x01Game(cara.PlayerID), []string{"ben"})
 	// A tournament of cara with ben in it: aborted.
 	tr := quickTournament(tournament.RoundRobin, cara.PlayerID)
-	tr.Open, tr.Seats = true, 3
+	tr.Seats = 3
 	tv, _ := s.CreateTournament(ctx, cara, tr, nil)
 	_, _ = s.JoinTournament(ctx, ben, tv.Tournament.ID, nil)
 	_, _ = s.JoinTournament(ctx, anna, tv.Tournament.ID, nil)

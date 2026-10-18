@@ -259,7 +259,7 @@ func (store *Store) JoinGame(ctx context.Context, gameID, playerID int64, boardI
 // newest first, including full and aborted ones, which the caller sorts out.
 func (store *Store) ListOpenGames(ctx context.Context, since time.Time) ([]game.Game, error) {
 	return store.scanGames(ctx, store.db.NewSelect().
-		Where(`"open" = ?`, true).
+		Where("seats > 0").
 		Where("created_at > ?", since).
 		Where("aborted_at IS NULL").
 		Order("id DESC"))

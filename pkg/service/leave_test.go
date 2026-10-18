@@ -88,7 +88,7 @@ func TestLeaveTheLobby(t *testing.T) {
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
 
 	g := x01Game(anna.PlayerID)
-	g.Open, g.Seats = true, 2
+	g.Seats = 2
 	v, _ := s.CreateGame(ctx, anna, g, nil)
 	if _, err := s.JoinGame(ctx, ben, v.Game.ID, nil); err != nil {
 		t.Fatal(err)
@@ -103,7 +103,7 @@ func TestLeaveTheLobby(t *testing.T) {
 	if err != nil || gv.Game.ID != 0 {
 		t.Fatalf("leave the lobby: %+v, %v; want an empty view", gv.Game.ID, err)
 	}
-	if l, _ := s.OpenLobbies(ctx, ben); len(l) != 1 || l[0].Players != 1 {
+	if l, _ := s.OpenLobbies(ctx, ben); len(l) != 1 || len(l[0].Joined) != 1 {
 		t.Errorf("open games for ben = %+v, want the game with its seat free again", l)
 	}
 	if _, err := s.Game(ctx, ben, v.Game.ID); !errors.Is(err, ErrNotFound) {

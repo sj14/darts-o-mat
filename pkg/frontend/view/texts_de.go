@@ -73,9 +73,8 @@ func (textsDE) LandingFeatureText(i int) string {
 	}[i%4]
 }
 
-func (textsDE) OpenGames() string           { return "Offene Spiele" }
-func (textsDE) NoOpenGames() string         { return "Zurzeit sucht kein Spiel Mitspieler." }
-func (textsDE) HostedBy(host string) string { return "von " + host }
+func (textsDE) OpenGames() string   { return "Offene Spiele" }
+func (textsDE) NoOpenGames() string { return "Zurzeit sucht kein Spiel Mitspieler." }
 func (textsDE) PlayersOfSeats(players, seats int) string {
 	return strconv.Itoa(players) + " von " + strconv.Itoa(seats) + " Spielern"
 }

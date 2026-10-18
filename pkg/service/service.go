@@ -192,9 +192,10 @@ func (v GameView) Pending(playerID int64) bool {
 // CreateGame creates a game for the account. Its Participants hold the account's own
 // player and its guests, in throwing order, each with the board they throw on (the same
 // for all, or none); friends are invited by username and added to the end of the
-// throwing order. The account has no more rights in the game than the others.
+// throwing order. Nobody owns the game: the account has no more rights in it than the
+// others.
 func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Game, inviteUsernames []string) (GameView, error) {
-	g.ID, g.CreatedBy = 0, acc.ID
+	g.ID = 0
 	if g.Legs == 0 {
 		g.Legs = 1 // a single leg unless asked otherwise
 	}

@@ -52,11 +52,8 @@ type Participant struct {
 type Tournament struct {
 	bun.BaseModel `bun:"table:tournaments"`
 
-	ID int64 `bun:",pk,autoincrement" json:"id"`
-	// CreatedBy is the account that created the tournament; it has no rights the other
-	// participants don't have.
-	CreatedBy int64  `bun:",notnull" json:"created_by"`
-	Format    Format `bun:",notnull" json:"format"`
+	ID     int64  `bun:",pk,autoincrement" json:"id"`
+	Format Format `bun:",notnull" json:"format"`
 	// Settings are the settings of all its games.
 	game.Settings
 	// Lobby opens the tournament for strangers, who take the seats that are left.
@@ -98,7 +95,7 @@ func (t Tournament) Validate() error {
 		return fmt.Errorf("unknown format %q, use knockout or round_robin", t.Format)
 	}
 	// An open tournament may have fewer players than it needs until strangers joined.
-	if len(t.Participants) > MaxPlayers || (!t.Open && len(t.Participants) < MinPlayers) {
+	if len(t.Participants) > MaxPlayers || (!t.Open() && len(t.Participants) < MinPlayers) {
 		return fmt.Errorf("%w: %d to %d", ErrPlayerCount, MinPlayers, MaxPlayers)
 	}
 	if err := game.CheckPlayers(t.PlayerIDs()); err != nil {
@@ -114,7 +111,6 @@ func (t Tournament) Validate() error {
 // throw on. Its players accepted the tournament, so they don't have to accept the game.
 func (t Tournament) Game(match int, a, b int64) game.Game {
 	g := game.Game{
-		CreatedBy:    t.CreatedBy,
 		Settings:     t.Settings,
 		TournamentID: &t.ID, TournamentMatch: match,
 	}
