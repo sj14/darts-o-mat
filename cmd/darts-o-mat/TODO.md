@@ -17,12 +17,13 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
   - Confirm automatically when one of the players starts a new game, maybe also after some time, so a forgotten confirmation doesn't leave games hanging.
   - Adds a state (running → over → completed) that undo, corrections, the camera and the "one running game per account" option have to respect (an unconfirmed game still counts as running).
   - Natural place for buttons like "Revanche" or "Neues Spiel".
-- Option, undecided: allow only one running game per account (games with a player of it, including one waiting in the lobby).
+- Option, undecided (asked 2026-10-18, advised against: it barely simplifies the code, since leaving, guests, tournaments and boards still need their cases, and it adds blocking edge cases): allow only one running game per account (games with a player of it, including one waiting in the lobby).
   - For: matches reality (one person plays one game at a time), no forgotten games, and the board warning/moving (see [boards and cameras](#boards-and-cameras)) becomes unnecessary, because a board could then only be in its owner's single game.
   - Against: club or pub use – one account couldn't run guest-only games on two boards at the same time.
   - If done: starting a new game while one runs offers "continue it" or "abort it and start the new one" instead of just refusing; invitations stay open until the current game is finished or aborted.
 - Allow others to watch games if they know the link.
-- Play with strangers, what is left (open games and a board per player are built, see [AGENTS.md → open games](AGENTS.md#open-games)): quick match (join the oldest open game with default rules or open one and wait), leaving an open game, rate limits and a captcha before the list is open to everyone.
+- Play with strangers, what is left (open games, a board per player, leaving, the optional captcha and the limit on failed logins are built, see [AGENTS.md → open games](AGENTS.md#open-games)): quick match (join the oldest open game with default rules or open one and wait), rate limits for creating open games.
+- Time per turn (built 2026-10-18, see [AGENTS.md → game state](AGENTS.md#game-state)): show skipped turns and players who left because of it in the history (today a skipped turn has no row, or a "…" after its darts); needs a `Skipped` field per turn in each mode. Maybe a warning on the player's card after the first skipped turn.
 
 ## Tournaments
 
@@ -47,9 +48,9 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
 
 ## Technical
 
-- captcha for register
-- mail sending (e.g. password reset, confirm account)
-- flag for "public" setup (enable captha and mail sending) or private setup
+- Mail sending (e.g. password reset, confirm the email): the optional email of an account is stored, unique and changeable already, but not confirmed and nothing is sent ([AGENTS.md → email](AGENTS.md#deleting-guests-and-accounts)). Like the captcha it has to stay optional (SMTP settings by flag or environment, nothing without them), see the [root document](../../AGENTS.md#from-the-home-server-to-saas). Decided 2026-10-18: no single flag for a "public" setup; every feature for the big case is switched on by itself.
+- Failed logins: a list of trusted proxies or the number of hops for `X-Forwarded-For` chains (today the last value of one header counts), and a captcha only after failures, see [AGENTS.md → failed logins](AGENTS.md#failed-logins).
+- A captcha for logging in was left out on purpose (2026-10-18): every login would pay for it and the API couldn't use it; the limit on failed logins does that job.
 - Unsure: switch the primary IDs to UUIDs.
 - Database migrations, once existing data has to be kept (until then the schema comes from the structs, `CreateTable … IfNotExists`, and breaking changes mean deleting the database). Decided 2026-10-17 (SQLite is the database of the home installation, so it needs migrations too):
   - PostgreSQL: generate them with `migrate.AutoMigrator` from `github.com/uptrace/bun/migrate` (`CreateSQLMigrations`: compares the structs with a database in the previous state and writes the difference as SQL files), review and commit them.

@@ -41,6 +41,7 @@ The documents are split by area and link to each other:
   No implementation details, architecture or instructions for agents in the READMEs; those belong in the `AGENTS.md` files.
 - **Screenshots** live in `site/screenshots` (English only, user's decision 2026-10-18) and are used by the README and the project page; redo them when the look of the pages changes noticeably. How to take them: [server → testing](cmd/darts-o-mat/AGENTS.md#testing).
 - When something changes that affects users (starting, game modes, usage), update the matching README as well.
+- **Keep the `TODO.md` files up to date** (user's wish 2026-10-18): with every change, remove what is done, reword what is only partly done, and add what was left out or decided against for now (with the date and the reason). Check them before you report a task as finished.
 - Open tasks live in a `TODO.md` per area, next to its README (split by area on 2026-10-13, before that one file in the root): a task of a single part goes into its folder, one that concerns several parts or the whole project into the root [`TODO.md`](TODO.md), which links to the others.
 
 ## Code quality

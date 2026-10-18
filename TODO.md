@@ -8,5 +8,5 @@ Open tasks of the whole project. Tasks of a single part are in its own file:
 
 ## Whole project
 
-- rate limits
+- Rate limits beyond failed logins (those are done, see [server → failed logins](cmd/darts-o-mat/AGENTS.md#failed-logins)): registering, creating games and tournaments, friend requests, the API in general.
 - restructure packages
