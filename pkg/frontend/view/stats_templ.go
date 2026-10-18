@@ -206,6 +206,14 @@ func Stats(user string, summaries []stats.Summary) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
+						templ_7745c5c3_Err = statRow(T(ctx).AvgLegTime(), orDash(s.X01.AvgLeg > 0, clock(s.X01.AvgLeg))).Render(ctx, templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = statRow(T(ctx).AvgGameTime(), orDash(s.X01.AvgGame > 0, clock(s.X01.AvgGame))).Render(ctx, templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</dl></div>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
@@ -241,7 +249,7 @@ func Stats(user string, summaries []stats.Summary) templ.Component {
 						var templ_7745c5c3_Var11 string
 						templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).AroundTheClock())
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/stats.templ`, Line: 50, Col: 58}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/stats.templ`, Line: 52, Col: 58}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 						if templ_7745c5c3_Err != nil {
@@ -288,6 +296,14 @@ func Stats(user string, summaries []stats.Summary) templ.Component {
 							return templ_7745c5c3_Err
 						}
 						templ_7745c5c3_Err = statRow(T(ctx).BestLeg(), orDash(s.AroundTheClock.BestLeg > 0, T(ctx).NDarts(s.AroundTheClock.BestLeg))).Render(ctx, templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = statRow(T(ctx).AvgLegTime(), orDash(s.AroundTheClock.AvgLeg > 0, clock(s.AroundTheClock.AvgLeg))).Render(ctx, templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = statRow(T(ctx).AvgGameTime(), orDash(s.AroundTheClock.AvgGame > 0, clock(s.AroundTheClock.AvgGame))).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -350,7 +366,7 @@ func statTile(value, label string) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/stats.templ`, Line: 79, Col: 85}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/stats.templ`, Line: 83, Col: 85}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -363,7 +379,7 @@ func statTile(value, label string) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/stats.templ`, Line: 80, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/stats.templ`, Line: 84, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -405,7 +421,7 @@ func statRow(label, value string) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/stats.templ`, Line: 86, Col: 35}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/stats.templ`, Line: 90, Col: 35}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -418,7 +434,7 @@ func statRow(label, value string) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/stats.templ`, Line: 87, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/stats.templ`, Line: 91, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {

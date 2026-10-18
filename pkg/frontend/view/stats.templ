@@ -42,6 +42,8 @@ templ Stats(user string, summaries []stats.Summary) {
 									@statRow("100+ / 140+", strconv.Itoa(s.X01.Turns100)+" / "+strconv.Itoa(s.X01.Turns140))
 									@statRow(T(ctx).HighestFinish(), orDash(s.X01.HighestCheckout > 0, strconv.FormatUint(s.X01.HighestCheckout, 10)))
 									@statRow(T(ctx).BestLeg(), orDash(s.X01.BestLeg > 0, T(ctx).NDarts(s.X01.BestLeg)))
+									@statRow(T(ctx).AvgLegTime(), orDash(s.X01.AvgLeg > 0, clock(s.X01.AvgLeg)))
+									@statRow(T(ctx).AvgGameTime(), orDash(s.X01.AvgGame > 0, clock(s.X01.AvgGame)))
 								</dl>
 							</div>
 						}
@@ -63,6 +65,8 @@ templ Stats(user string, summaries []stats.Summary) {
 									}
 									@statRow(T(ctx).DartsHits(), strconv.Itoa(s.AroundTheClock.Darts)+" / "+strconv.Itoa(s.AroundTheClock.Hits))
 									@statRow(T(ctx).BestLeg(), orDash(s.AroundTheClock.BestLeg > 0, T(ctx).NDarts(s.AroundTheClock.BestLeg)))
+									@statRow(T(ctx).AvgLegTime(), orDash(s.AroundTheClock.AvgLeg > 0, clock(s.AroundTheClock.AvgLeg)))
+									@statRow(T(ctx).AvgGameTime(), orDash(s.AroundTheClock.AvgGame > 0, clock(s.AroundTheClock.AvgGame)))
 								</dl>
 							</div>
 						}

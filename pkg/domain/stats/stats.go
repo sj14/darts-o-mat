@@ -2,6 +2,8 @@
 package stats
 
 import (
+	"time"
+
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
@@ -20,6 +22,12 @@ type Record struct {
 	// Finished tournaments of the mode the player took part in, and won.
 	Tournaments    int `json:"tournaments"`
 	TournamentWins int `json:"tournament_wins"`
+	// Averages of the games' and legs' durations (see turn.Times), zero without timed ones.
+	AvgGame time.Duration `json:"avg_game"`
+	AvgLeg  time.Duration `json:"avg_leg"`
+
+	gameTime, legTime     time.Duration
+	timedGames, timedLegs int
 }
 
 type X01 struct {
@@ -60,22 +68,36 @@ func (s *Summary) Add(state game.State) {
 	switch st := state.(type) {
 	case x01.State:
 		p, _ := st.Player(s.Player.ID)
-		s.X01.Record.add(r, won)
+		s.X01.Record.add(r, won, c.Times)
 		s.X01.add(p.Stats)
 	case aroundtheclock.State:
 		p, _ := st.Player(s.Player.ID)
-		s.AroundTheClock.Record.add(r, won)
+		s.AroundTheClock.Record.add(r, won, c.Times)
 		s.AroundTheClock.add(p.Stats)
 	}
 }
 
-func (r *Record) add(game turn.Record, won bool) {
+func (r *Record) add(game turn.Record, won bool, times turn.Times) {
 	r.Games++
 	r.Legs += game.Legs
 	r.Sets += game.Sets
 	r.BestLeg = best(r.BestLeg, game.BestLeg)
 	if won {
 		r.Wins++
+	}
+	if d := times.Game.Duration(); d > 0 {
+		r.gameTime += d
+		r.timedGames++
+		r.AvgGame = r.gameTime / time.Duration(r.timedGames)
+	}
+	for _, l := range times.Legs {
+		if d := l.Duration(); d > 0 {
+			r.legTime += d
+			r.timedLegs++
+		}
+	}
+	if r.timedLegs > 0 {
+		r.AvgLeg = r.legTime / time.Duration(r.timedLegs)
 	}
 }
 

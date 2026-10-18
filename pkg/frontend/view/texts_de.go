@@ -257,6 +257,8 @@ func (textsDE) SetsWonLabel() string    { return "Sets gewonnen" }
 func (textsDE) TournamentsWon() string  { return "Turniere / gewonnen" }
 func (textsDE) HighestFinish() string   { return "Höchstes Finish" }
 func (textsDE) BestLeg() string         { return "Bestes Leg" }
+func (textsDE) AvgLegTime() string      { return "Ø Leg-Dauer" }
+func (textsDE) AvgGameTime() string     { return "Ø Spieldauer" }
 func (textsDE) NDarts(n int) string     { return strconv.Itoa(n) + " Darts" }
 func (textsDE) Games() string           { return "Spiele" }
 func (textsDE) DartsHits() string       { return "Darts / Treffer" }

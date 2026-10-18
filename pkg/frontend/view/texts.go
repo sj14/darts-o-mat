@@ -226,6 +226,8 @@ type Texts interface {
 	TournamentsWon() string
 	HighestFinish() string
 	BestLeg() string
+	AvgLegTime() string
+	AvgGameTime() string
 	NDarts(n int) string
 	Games() string
 	DartsHits() string
