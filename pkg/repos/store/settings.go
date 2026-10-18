@@ -29,7 +29,7 @@ type modeTable struct {
 
 var modeTables = map[game.Mode]modeTable{
 	game.ModeX01: {
-		table: "x01_settings",
+		table: "game_settings_x01",
 		save: func(ctx context.Context, db bun.IDB, s *game.Settings) (int64, error) {
 			row := x01Row{Settings: *s.Rules.(*x01.Settings)}
 			_, err := db.NewInsert().Model(&row).Exec(ctx)
@@ -50,7 +50,7 @@ var modeTables = map[game.Mode]modeTable{
 		},
 	},
 	game.ModeAroundTheClock: {
-		table: "around_the_clock_settings",
+		table: "game_settings_around_the_clock",
 		save: func(ctx context.Context, db bun.IDB, s *game.Settings) (int64, error) {
 			row := aroundTheClockRow{Settings: *s.Rules.(*aroundtheclock.Settings)}
 			_, err := db.NewInsert().Model(&row).Exec(ctx)
@@ -74,14 +74,14 @@ var modeTables = map[game.Mode]modeTable{
 
 // The rows: the mode's own settings with an id.
 type x01Row struct {
-	bun.BaseModel `bun:"table:x01_settings"`
+	bun.BaseModel `bun:"table:game_settings_x01"`
 
 	ID int64 `bun:",pk,autoincrement"`
 	x01.Settings
 }
 
 type aroundTheClockRow struct {
-	bun.BaseModel `bun:"table:around_the_clock_settings"`
+	bun.BaseModel `bun:"table:game_settings_around_the_clock"`
 
 	ID int64 `bun:",pk,autoincrement"`
 	aroundtheclock.Settings
