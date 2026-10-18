@@ -13,7 +13,7 @@ templ Stats(user string, summaries []stats.Summary) {
 			for i, s := range summaries {
 				@panel("") {
 					<h2 class="mb-4 font-display text-3xl font-extrabold uppercase tracking-wide text-board-cream">
-						{ s.Player.Name }
+						{ displayName(ctx, s.Player) }
 						if i > 0 {
 							<span class="font-sans text-base font-normal normal-case text-white/40">{ T(ctx).GuestMark() }</span>
 						}

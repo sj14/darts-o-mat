@@ -21,6 +21,7 @@ package turn
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 )
@@ -31,12 +32,22 @@ var (
 	ErrGameOver = errors.New("game is already over")
 	// ErrWaitingForTakeout means the turn is over, but the darts haven't been pulled out yet.
 	ErrWaitingForTakeout = errors.New("pull out the darts first")
+	// ErrWrongThrower means a dart is recorded for another player than the one who is up,
+	// e.g. after a correction that changed whose turn it is.
+	ErrWrongThrower = errors.New("the dart was thrown by another player than the one who is up")
+	// ErrCantLeave means a player can't leave the game now: while bulling off, or when
+	// that would leave fewer than two players.
+	ErrCantLeave = errors.New("the player can't leave the game now")
 )
 
 // Log is what happened in a game, the input to replay it.
 type Log struct {
-	// Entries are the darts and takeouts (throw.Dart.Takeout) in the order they happened.
+	// Entries are the darts, takeouts (throw.Dart.Takeout) and players leaving
+	// (throw.Dart.Leave) in the order they happened.
 	Entries []throw.Dart
+	// PlayerIDs are the players in throwing order, to tell who a dart or a leaving
+	// belongs to (throw.Dart.PlayerID); darts without a PlayerID aren't checked.
+	PlayerIDs []int64
 	// WaitForTakeout keeps a finished turn until the darts were pulled out.
 	WaitForTakeout bool
 	// Legs is how many legs win the game, or a set when playing sets; 0 counts as 1.
@@ -74,7 +85,7 @@ func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
 		return Span{Start: l.Entries[from].CreatedAt, End: l.Entries[to].CreatedAt}
 	}
 	for i, d := range l.Entries {
-		if !d.Takeout {
+		if d.IsDart() {
 			if t.Times.Game.Start.IsZero() {
 				t.Times.Game.Start = d.CreatedAt
 			}
@@ -82,6 +93,12 @@ func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
 		}
 		t.Throwers[i] = t.Player
 		switch {
+		case d.Leave:
+			t.Throwers[i] = -1
+			if err := t.Leave(slices.Index(l.PlayerIDs, d.PlayerID)); err != nil {
+				return fmt.Errorf("entry %d: %w", i+1, err)
+			}
+			continue
 		case d.Takeout:
 			// Bull-off darts are pulled out whenever the players like.
 			t.Throwers[i] = -1
@@ -93,6 +110,8 @@ func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
 			return fmt.Errorf("entry %d: %w", i+1, ErrWaitingForTakeout)
 		case t.Over():
 			return fmt.Errorf("dart %d: %w", i+1, ErrGameOver)
+		case len(l.PlayerIDs) > 0 && d.PlayerID != 0 && d.PlayerID != l.PlayerIDs[t.Player]:
+			return fmt.Errorf("dart %d: %w", i+1, ErrWrongThrower)
 		case t.BullingOff():
 			if err := d.Validate(); err != nil {
 				return fmt.Errorf("dart %d: %w", i+1, err)
@@ -224,23 +243,80 @@ func (t *Turn) do(next afterTakeout) {
 	switch next {
 	case nextPlayer:
 		t.Dart = 0
-		t.Player = (t.Player + 1) % len(t.Records)
-		if t.Player == t.starter {
+		from := t.Player
+		t.Player = t.nextActive(from)
+		if t.reaches(from, t.Player, t.starter) {
 			t.Round++
 		}
 	case nextLeg:
 		t.Leg++
-		t.starter = (t.starter + 1) % len(t.Records)
+		t.starter = t.nextActive(t.starter)
 		t.startLeg()
 	case nextSet:
 		t.Set, t.Leg = t.Set+1, 1
 		for i := range t.Records {
 			t.Records[i].SetLegs = 0
 		}
-		t.setStarter = (t.setStarter + 1) % len(t.Records)
+		t.setStarter = t.nextActive(t.setStarter)
 		t.starter = t.setStarter
 		t.startLeg()
 	}
+}
+
+// reaches reports whether moving from player from to player to arrives at or passes
+// player at, going round: the round is over when the starter is reached. A starter who
+// left is passed all the same.
+func (t *Turn) reaches(from, to, at int) bool {
+	n := len(t.Records)
+	for k := (from + 1) % n; ; k = (k + 1) % n {
+		if k == at {
+			return true
+		}
+		if k == to {
+			return false
+		}
+	}
+}
+
+// nextActive returns the player who throws after player i, skipping those who left.
+func (t *Turn) nextActive(i int) int {
+	n := len(t.Records)
+	for j := 1; j < n; j++ {
+		if k := (i + j) % n; !t.Records[k].Left {
+			return k
+		}
+	}
+	return i
+}
+
+// Leave lets player i leave the game: the others play on without them, and the legs and
+// sets they won stay theirs; a starter who left still counts for the order in which the
+// legs and sets are started (the next one after them starts). If they were up, their turn is over (the darts they threw
+// count); while the turn waits for the takeout, the next step moves on from them. It is
+// refused while bulling off, after the game is over, and when fewer than two players
+// would be left (the game ends then, which is up to the caller).
+func (t *Turn) Leave(i int) error {
+	active := 0
+	for _, r := range t.Records {
+		if !r.Left {
+			active++
+		}
+	}
+	switch {
+	case i < 0 || i >= len(t.Records) || t.Records[i].Left:
+		return fmt.Errorf("%w: not a player of the game", ErrCantLeave)
+	case t.over:
+		return ErrGameOver
+	case t.BullingOff():
+		return fmt.Errorf("%w: the players are bulling off", ErrCantLeave)
+	case active <= 2:
+		return fmt.Errorf("%w: it would leave fewer than two players", ErrCantLeave)
+	}
+	t.Records[i].Left = true
+	if t.Player == i && !t.Waiting() {
+		t.do(nextPlayer)
+	}
+	return nil
 }
 
 // startLeg starts a leg with t.starter.

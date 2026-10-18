@@ -48,6 +48,8 @@ type Record struct {
 	SetLegs int `json:"set_legs"` // legs won in the current set (all legs without sets)
 	Sets    int `json:"sets"`     // sets won
 	BestLeg int `json:"best_leg"` // fewest darts in a won leg, 0 without one
+	// Left is set once the player left the game (throw.Dart.Leave).
+	Left bool `json:"left,omitempty"`
 }
 
 // Times is when a game was played: the game so far, from its first dart (bulling off

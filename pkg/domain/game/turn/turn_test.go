@@ -264,3 +264,93 @@ func TestReplayTimes(t *testing.T) {
 		t.Errorf("leg 2 of set 2 took %v, want 3m", got)
 	}
 }
+
+func TestLeave(t *testing.T) {
+	// The player who is up leaves: their turn is over, the next one throws.
+	tr := Log{}.Turn(3)
+	tr.Advance()
+	if err := tr.Leave(0); err != nil {
+		t.Fatal(err)
+	}
+	if tr.Player != 1 || tr.Dart != 0 || tr.Round != 1 || !tr.Records[0].Left {
+		t.Errorf("after the player up left: player %d dart %d round %d, want player 1 in round 1", tr.Player, tr.Dart, tr.Round)
+	}
+	// Players who left are skipped, a round is over when the new starter is up again.
+	for range DartsPerTurn {
+		tr.Advance()
+	}
+	for range DartsPerTurn {
+		tr.Advance()
+	}
+	if tr.Player != 1 || tr.Round != 2 {
+		t.Errorf("after a lap: player %d round %d, want player 1 in round 2", tr.Player, tr.Round)
+	}
+	// With two players left the game can't go on without one of them.
+	if err := tr.Leave(1); !errors.Is(err, ErrCantLeave) {
+		t.Errorf("leaving with two players: got %v, want ErrCantLeave", err)
+	}
+
+	// A player who isn't up leaves; the starter of the leg leaves and the next one starts.
+	tr = Log{Legs: 2}.Turn(4)
+	if err := tr.Leave(2); err != nil {
+		t.Fatal(err)
+	}
+	for range DartsPerTurn {
+		tr.Advance()
+	} // 0
+	for range DartsPerTurn {
+		tr.Advance()
+	} // 1
+	if tr.Player != 3 {
+		t.Errorf("after player 1: player %d, want 3 (2 left)", tr.Player)
+	}
+	if err := tr.Leave(0); err != nil {
+		t.Fatal(err)
+	}
+	tr.Finish() // player 3 wins leg 1
+	if tr.Leg != 2 || tr.Player != 1 {
+		t.Errorf("leg %d started by player %d, want leg 2 by player 1 (0 left, 1 is next)", tr.Leg, tr.Player)
+	}
+}
+
+func TestLeaveWhileWaitingForTakeout(t *testing.T) {
+	tr := Log{WaitForTakeout: true}.Turn(3)
+	for range DartsPerTurn {
+		tr.Advance()
+	}
+	if err := tr.Leave(0); err != nil {
+		t.Fatal(err)
+	}
+	if !tr.Waiting() || tr.Player != 0 {
+		t.Fatalf("waiting %v player %d, want still waiting for the takeout of the player who left", tr.Waiting(), tr.Player)
+	}
+	tr.Takeout()
+	if tr.Player != 1 || tr.Waiting() {
+		t.Errorf("after the takeout: player %d, want 1", tr.Player)
+	}
+}
+
+func TestReplayLeaveAndThrowers(t *testing.T) {
+	ids := []int64{10, 20, 30}
+	dart := func(id int64) throw.Dart { return throw.Dart{PlayerID: id, Number: 1, Segment: throw.Single} }
+	log := Log{PlayerIDs: ids, Entries: []throw.Dart{dart(10), {PlayerID: 10, Leave: true}, dart(20)}}
+	tr := log.Turn(3)
+	if err := log.Replay(tr, func(int, throw.Dart) error { tr.Advance(); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if !tr.Records[0].Left || tr.Player != 1 || tr.Dart != 1 || !slices.Equal(tr.Throwers, []int{0, -1, 1}) {
+		t.Errorf("player %d dart %d throwers %v left %v, want player 1 with 1 dart", tr.Player, tr.Dart, tr.Throwers, tr.Records[0].Left)
+	}
+
+	// A dart recorded for another player than the one who is up is refused.
+	log = Log{PlayerIDs: ids, Entries: []throw.Dart{dart(20)}}
+	tr = log.Turn(3)
+	if err := log.Replay(tr, func(int, throw.Dart) error { return nil }); !errors.Is(err, ErrWrongThrower) {
+		t.Errorf("a dart of player 20 in the turn of 10: got %v, want ErrWrongThrower", err)
+	}
+	// Leaving a game the player isn't in, or the last two players leaving, is refused.
+	log = Log{PlayerIDs: ids, Entries: []throw.Dart{{PlayerID: 99, Leave: true}}}
+	if err := log.Replay(log.Turn(3), nil); !errors.Is(err, ErrCantLeave) {
+		t.Errorf("a stranger leaves: got %v, want ErrCantLeave", err)
+	}
+}

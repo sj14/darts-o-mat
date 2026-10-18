@@ -168,10 +168,11 @@ func boardDarts(v service.GameView, p progress) []boardDart {
 	return markDarts(v, darts, slices.Repeat([]bool{faded}, len(darts)))
 }
 
-// onlyTakeoutsAfter reports whether the log has nothing but takeouts after entry.
+// onlyTakeoutsAfter reports whether the log has no dart after entry (takeouts and players
+// leaving aside).
 func onlyTakeoutsAfter(v service.GameView, entry int) bool {
 	for _, d := range v.Darts[entry+1:] {
-		if !d.Takeout {
+		if d.IsDart() {
 			return false
 		}
 	}
@@ -219,16 +220,15 @@ func markDarts(v service.GameView, darts []throw.Dart, faded []bool) []boardDart
 
 // previousTurn returns the darts of the turn before the current one.
 func previousTurn(v service.GameView) []throw.Dart {
-	throwers := v.Common().Throwers
 	end := len(v.Darts)
-	for end > 0 && v.Darts[end-1].Takeout {
+	for end > 0 && !v.Darts[end-1].IsDart() {
 		end--
 	}
-	if end == 0 || end > len(throwers) {
+	if end == 0 {
 		return nil
 	}
 	start := end - 1
-	for start > 0 && !v.Darts[start-1].Takeout && throwers[start-1] == throwers[end-1] && end-start < turn.DartsPerTurn {
+	for start > 0 && v.Darts[start-1].IsDart() && v.Darts[start-1].PlayerID == v.Darts[end-1].PlayerID && end-start < turn.DartsPerTurn {
 		start--
 	}
 	return v.Darts[start:end]

@@ -3,10 +3,11 @@ package view
 import "github.com/sj14/darts-o-mat/pkg/domain/player"
 
 // Settings lets an account change how it appears: for now the accent color of its player.
-templ Settings(user string, p player.Player) {
+templ Settings(user string, p player.Player, errMsg string) {
 	@layout(T(ctx).NavSettings(), user) {
 		<div class="mx-auto max-w-3xl">
 			@pageTitle(T(ctx).NavSettings(), "")
+			@errorAlert(errMsg)
 			@panel("") {
 				<h2 class={ labelClass }>{ T(ctx).AccentColor() }</h2>
 				<p class={ hintClass }>{ T(ctx).AccentColorHint() }</p>
@@ -26,6 +27,14 @@ templ Settings(user string, p player.Player) {
 						</label>
 					}
 					<noscript><button type="submit" class={ btnSecondary }>OK</button></noscript>
+				</form>
+			}
+			@panel("mt-6 border-board-red/40") {
+				<h2 class={ labelClass }>{ T(ctx).DeleteAccountTitle() }</h2>
+				<p class={ hintClass }>{ T(ctx).DeleteAccountHint() }</p>
+				<form method="post" action="/settings/delete" data-confirm={ T(ctx).DeleteAccountConfirm() } onsubmit="return confirm(this.dataset.confirm)" class="mt-4 flex flex-wrap items-center gap-3">
+					<input type="password" name="password" class={ inputClass, "max-w-xs" } placeholder={ T(ctx).Password() } autocomplete="current-password" required aria-label={ T(ctx).Password() }/>
+					<button type="submit" class={ btnDanger }>{ T(ctx).DeleteAccountButton() }</button>
 				</form>
 			}
 		</div>

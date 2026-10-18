@@ -169,7 +169,7 @@ type State interface {
 
 // Play replays the game's log (darts and takeouts, as stored) and returns its state.
 func (g Game) Play(entries []throw.Dart) (State, error) {
-	log := turn.Log{Entries: entries, WaitForTakeout: g.WaitsForTakeout(), Legs: g.Legs, Sets: g.Sets, BullOff: g.BullOff}
+	log := turn.Log{Entries: entries, PlayerIDs: g.PlayerIDs, WaitForTakeout: g.WaitsForTakeout(), Legs: g.Legs, Sets: g.Sets, BullOff: g.BullOff}
 	if g.BullOffCloser != nil {
 		if i := slices.Index(g.PlayerIDs, *g.BullOffCloser); i >= 0 {
 			log.BullOffCloser = &i

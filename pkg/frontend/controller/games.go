@@ -111,6 +111,24 @@ func (c *Controller) showBoard(w http.ResponseWriter, r *http.Request) {
 	c.renderBoard(w, r, id, "")
 }
 
+// leaveGame is called when a player who isn't the host leaves: back to the start page
+// from the lobby, else to the game, which they can still look at.
+func (c *Controller) leaveGame(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	v, err := c.svc.LeaveGame(r.Context(), auth.Account(r.Context()), id)
+	switch {
+	case err != nil:
+		c.handleGameError(w, r, id, err)
+	case v.Game.ID == 0:
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	default:
+		http.Redirect(w, r, gameURL(id), http.StatusSeeOther)
+	}
+}
+
 // showKeypad returns the board with the keypad to enter a dart the cameras missed.
 func (c *Controller) showKeypad(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
@@ -140,7 +158,7 @@ func (c *Controller) showEditDart(w http.ResponseWriter, r *http.Request) {
 		c.handleGameError(w, r, id, err)
 		return
 	}
-	i := slices.IndexFunc(v.Darts, func(d throw.Dart) bool { return d.ID == dartID && !d.Takeout })
+	i := slices.IndexFunc(v.Darts, func(d throw.Dart) bool { return d.ID == dartID && d.IsDart() })
 	if i < 0 {
 		http.NotFound(w, r)
 		return
@@ -316,6 +334,8 @@ func (c *Controller) handleGameError(w http.ResponseWriter, r *http.Request, id 
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrAborted())
 	case errors.Is(err, service.ErrNothingToUndo):
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrNothingToUndo())
+	case errors.Is(err, service.ErrCantLeave):
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrCantLeave())
 	case errors.Is(err, service.ErrForbidden):
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrForbidden())
 	case errors.Is(err, service.ErrInvalid):

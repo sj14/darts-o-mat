@@ -1,6 +1,7 @@
 package view
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -24,21 +25,21 @@ func tournamentLabel(texts Texts, t tournament.Tournament) string {
 	return formatName(texts, t.Format) + " · " + modeLabel(texts, t.Settings)
 }
 
-func tournamentPlayerName(v service.TournamentView, id int64) string {
+func tournamentPlayerName(ctx context.Context, v service.TournamentView, id int64) string {
 	for _, p := range v.Players {
 		if p.ID == id {
-			return p.Name
+			return displayName(ctx, p)
 		}
 	}
 	return "?"
 }
 
 // tournamentPending names the invited players who haven't accepted yet.
-func tournamentPending(v service.TournamentView) string {
+func tournamentPending(ctx context.Context, v service.TournamentView) string {
 	var names []string
 	for _, inv := range v.Invitations {
 		if inv.Status == game.InvitationPending {
-			names = append(names, tournamentPlayerName(v, inv.PlayerID))
+			names = append(names, tournamentPlayerName(ctx, v, inv.PlayerID))
 		}
 	}
 	return strings.Join(names, ", ")

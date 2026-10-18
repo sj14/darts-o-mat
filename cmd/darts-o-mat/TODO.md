@@ -17,10 +17,6 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
   - Confirm automatically when one of the players starts a new game, maybe also after some time, so a forgotten confirmation doesn't leave games hanging.
   - Adds a state (running → over → completed) that undo, corrections, the camera and the "one running game per account" option have to respect (an unconfirmed game still counts as running).
   - Natural place for buttons like "Revanche" or "Neues Spiel".
-- Option: let every player with an account leave a running game, not only the host abort it.
-  - With 2 players, leaving aborts the game (as today).
-  - With more than 2 players, the game continues without the player who left.
-  - Note: the game state is computed by replaying the darts with a fixed player list, so leaving has to become an entry in the log (like the takeout), from which on the replay skips that player. Open questions: what happens to their darts and statistics, can the host also leave (who is host then), and can the host remove guests the same way.
 - Option, undecided: allow only one running game per account (games it hosts or has accepted, including one waiting in the lobby).
   - For: matches reality (one person plays one game at a time), no forgotten games, and the board warning/moving (see [boards and cameras](#boards-and-cameras)) becomes unnecessary, because a board could then only be in its owner's single game.
   - Against: club or pub use – one account couldn't run guest-only games on two boards at the same time.
@@ -47,11 +43,6 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
 
 ## Accounts and guests
 
-- Delete guests and delete the own account (undecided how). Always deleted: name, login, sessions, friendships, boards with camera tokens, the account's guests. Open:
-  - Past games with the deleted player: keep them with the player shown as "Gelöschter Spieler" (players and their history stay intact; recommended) or delete them with all darts (fellow players, also friends, lose them and their statistics). Removing just the player from a game isn't possible: darts aren't linked to players, who threw is derived from the throwing order when replaying.
-  - Guest in a running game: refuse ("finish or abort it first"; recommended) or abort the game automatically.
-  - Account in running games (own ones and accepted ones of friends): abort them automatically and decline open invitations (recommended; refusing would block until friends finish, since only the host can abort) or refuse.
-  - Deleting the account should ask for the password again.
 - Add admin area
 - Invite friends to game and allow playing locally on the same board (why do that: they keep their statistic when playing at a friends house)
 

@@ -48,6 +48,8 @@ func (a *API) Routes() http.Handler {
 
 		r.Get("/players", a.listPlayers)
 		r.Post("/players", a.createGuest)
+		r.Delete("/players/{id}", a.deleteGuest)
+		r.Delete("/account", a.deleteAccount)
 		r.Get("/boards", a.listBoards)
 		r.Post("/boards", a.createBoard)
 		r.Delete("/boards/{id}", a.deleteBoard)
@@ -61,6 +63,7 @@ func (a *API) Routes() http.Handler {
 		r.Put("/games/{id}/darts/{dartID}", a.editDart)
 		r.Post("/games/{id}/takeout", a.takeout)
 		r.Post("/games/{id}/abort", a.abortGame)
+		r.Post("/games/{id}/leave", a.leaveGame)
 		r.Post("/games/{id}/board", a.useBoard)
 		r.Post("/games/{id}/bull-off", a.decideBullOff)
 
@@ -125,6 +128,33 @@ func (a *API) createGuest(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := a.svc.CreateGuest(r.Context(), auth.Account(r.Context()), req.Name)
 	respond(w, http.StatusCreated, p, err)
+}
+
+// deleteGuest deletes a guest player of the account, unless they are in a running game or
+// tournament; the games they played stay, with them shown as a deleted player.
+func (a *API) deleteGuest(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	err := a.svc.DeleteGuest(r.Context(), auth.Account(r.Context()), id)
+	respondEmpty(w, err)
+}
+
+// deleteAccount deletes the account after checking its password (JSON {"password": …}),
+// see service.DeleteAccount, and logs out.
+func (a *API) deleteAccount(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Password string `json:"password"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	err := a.svc.DeleteAccount(r.Context(), auth.Account(r.Context()), req.Password)
+	if err == nil {
+		err = auth.Logout(w, r, a.svc)
+	}
+	respondEmpty(w, err)
 }
 
 func (a *API) listBoards(w http.ResponseWriter, r *http.Request) {
@@ -334,6 +364,22 @@ func (a *API) abortGame(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, v, err)
 }
 
+// leaveGame lets a player who isn't the host leave the game: in the lobby they are
+// removed, in a running game the others play on without them, or it is aborted if fewer
+// than two players would be left.
+func (a *API) leaveGame(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	v, err := a.svc.LeaveGame(r.Context(), auth.Account(r.Context()), id)
+	if err == nil && v.Game.ID == 0 { // left the lobby: nothing to show anymore
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	respond(w, http.StatusOK, v, err)
+}
+
 // useBoard puts a running game without a board on a board (owner only); a game that
 // was on the board continues without it.
 func (a *API) useBoard(w http.ResponseWriter, r *http.Request) {
@@ -416,6 +462,15 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
+// respondEmpty answers with 204 and no body, or with the error.
+func respondEmpty(w http.ResponseWriter, err error) {
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func respond(w http.ResponseWriter, status int, v any, err error) {
 	if err != nil {
 		writeError(w, err)
@@ -443,7 +498,7 @@ func writeError(w http.ResponseWriter, err error) {
 		status = http.StatusForbidden
 	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound
-	case errors.Is(err, turn.ErrGameOver), errors.Is(err, turn.ErrWaitingForTakeout), errors.Is(err, service.ErrNothingToUndo), errors.Is(err, service.ErrNoActiveGame), errors.Is(err, service.ErrNotOnBoard),
+	case errors.Is(err, turn.ErrGameOver), errors.Is(err, turn.ErrWaitingForTakeout), errors.Is(err, service.ErrNothingToUndo), errors.Is(err, service.ErrNoActiveGame), errors.Is(err, service.ErrNotOnBoard), errors.Is(err, service.ErrCantLeave),
 		errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrAborted), errors.Is(err, service.ErrUsernameTaken):
 		status = http.StatusConflict
 	}

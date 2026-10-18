@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"slices"
-	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
@@ -160,8 +159,9 @@ func (s *Service) DeclineTournamentInvitation(ctx context.Context, acc account.A
 	return nil
 }
 
-// AbortTournament ends a tournament without a winner. Only the owner may abort it; it
-// doesn't count in the statistics, its finished games do.
+// AbortTournament ends a tournament without a winner, and the games of it that are still
+// running. Only the owner may abort it; it doesn't count in the statistics, its finished
+// games do.
 func (s *Service) AbortTournament(ctx context.Context, acc account.Account, id int64) (TournamentView, error) {
 	v, err := s.Tournament(ctx, acc, id)
 	if err != nil {
@@ -175,12 +175,11 @@ func (s *Service) AbortTournament(ctx context.Context, acc account.Account, id i
 	case v.State.Over:
 		return TournamentView{}, fmt.Errorf("%w: the tournament is over", ErrInvalid)
 	}
-	now := time.Now()
-	v.Tournament.AbortedAt = &now
-	if err := s.store.AbortTournament(ctx, &v.Tournament); err != nil {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.abortTournament(ctx, &v.Tournament, acc); err != nil {
 		return TournamentView{}, err
 	}
-	s.tournaments.Notify(id)
 	return s.tournamentView(ctx, acc, v.Tournament)
 }
 

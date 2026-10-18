@@ -1,6 +1,7 @@
 package view
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
+	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
@@ -48,19 +50,27 @@ func (p progress) isWinner(playerID int64) bool {
 	return p.WinnerID != nil && *p.WinnerID == playerID
 }
 
-func playerName(v service.GameView, id int64) string {
+func playerName(ctx context.Context, v service.GameView, id int64) string {
 	for _, p := range v.Players {
 		if p.ID == id {
-			return p.Name
+			return displayName(ctx, p)
 		}
 	}
 	return "?"
 }
 
-func playerNames(v service.GameView, ids []int64) string {
+// displayName is a player's name as shown: "deleted player" once they were deleted.
+func displayName(ctx context.Context, p player.Player) string {
+	if p.Deleted() {
+		return T(ctx).DeletedPlayer()
+	}
+	return p.Name
+}
+
+func playerNames(ctx context.Context, v service.GameView, ids []int64) string {
 	var names []string
 	for _, id := range ids {
-		names = append(names, playerName(v, id))
+		names = append(names, playerName(ctx, v, id))
 	}
 	return strings.Join(names, ", ")
 }
@@ -157,6 +167,7 @@ type playerLine struct {
 	ID                                int64
 	Sets, Legs                        int // won; legs in the current set
 	Value, Caption, Stat, StatCaption string
+	Left                              bool // left the game
 }
 
 // playerLines returns the players in the order they throw from now on: the current
@@ -166,11 +177,11 @@ func playerLines(t Texts, v service.GameView, p progress) []playerLine {
 	switch st := v.State.(type) {
 	case x01.State:
 		for _, ps := range st.Players {
-			lines = append(lines, playerLine{ps.PlayerID, ps.Sets, ps.SetLegs, strconv.FormatUint(ps.Remaining, 10), t.Remaining(), orDash(ps.Stats.Darts > 0, t.Decimal(ps.Stats.Average)), t.Average3()})
+			lines = append(lines, playerLine{ps.PlayerID, ps.Sets, ps.SetLegs, strconv.FormatUint(ps.Remaining, 10), t.Remaining(), orDash(ps.Stats.Darts > 0, t.Decimal(ps.Stats.Average)), t.Average3(), ps.Left})
 		}
 	case aroundtheclock.State:
 		for _, ps := range st.Players {
-			lines = append(lines, playerLine{ps.PlayerID, ps.Sets, ps.SetLegs, targetLabel(t, ps.Target), t.Target(), orDash(ps.Stats.Darts > 0, t.Percent(ps.Stats.HitRate)), t.HitRate()})
+			lines = append(lines, playerLine{ps.PlayerID, ps.Sets, ps.SetLegs, targetLabel(t, ps.Target), t.Target(), orDash(ps.Stats.Darts > 0, t.Percent(ps.Stats.HitRate)), t.HitRate(), ps.Left})
 		}
 	}
 	first := p.CurrentPlayerID
@@ -182,17 +193,33 @@ func playerLines(t Texts, v service.GameView, p progress) []playerLine {
 			lines = slices.Concat(lines[i:], lines[:i])
 		}
 	}
+	// Players who left come last (the first line is the current player or the winner).
+	if len(lines) > 1 {
+		slices.SortStableFunc(lines[1:], func(a, b playerLine) int { return boolInt(a.Left) - boolInt(b.Left) })
+	}
 	return lines
 }
 
-// nextPlayerName returns who throws after the current player.
-func nextPlayerName(v service.GameView, p progress) string {
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// nextPlayerName returns who throws after the current player, not counting those who left.
+func nextPlayerName(ctx context.Context, v service.GameView, p progress) string {
 	if p.CurrentPlayerID == nil {
 		return ""
 	}
-	for i, id := range v.Game.PlayerIDs {
+	ids := v.Game.PlayerIDs
+	for i, id := range ids {
 		if id == *p.CurrentPlayerID {
-			return playerName(v, v.Game.PlayerIDs[(i+1)%len(v.Game.PlayerIDs)])
+			for j := 1; j < len(ids); j++ {
+				if next := ids[(i+j)%len(ids)]; !v.Common().Records[next].Left {
+					return playerName(ctx, v, next)
+				}
+			}
 		}
 	}
 	return ""
@@ -204,11 +231,10 @@ func dartEditURL(v service.GameView, d throw.Dart) string {
 }
 
 // dartThrower returns the name of the player who threw a dart of the game.
-func dartThrower(v service.GameView, dartID int64) string {
-	throwers := v.Common().Throwers
-	for i, d := range v.Darts {
-		if d.ID == dartID && i < len(throwers) {
-			return playerName(v, throwers[i])
+func dartThrower(ctx context.Context, v service.GameView, dartID int64) string {
+	for _, d := range v.Darts {
+		if d.ID == dartID {
+			return playerName(ctx, v, d.PlayerID)
 		}
 	}
 	return "?"
@@ -290,14 +316,14 @@ func dartChipColors(v service.GameView, d throw.Dart) string {
 
 // isLatest reports whether d is the last entry of the game's log, i.e. just thrown.
 func isLatest(v service.GameView, d throw.Dart) bool {
-	return len(v.Darts) > 0 && v.Darts[len(v.Darts)-1].ID == d.ID && !d.Takeout
+	return len(v.Darts) > 0 && v.Darts[len(v.Darts)-1].ID == d.ID && d.IsDart()
 }
 
 // latestTurnEvent is "180" or "bust" if the dart just thrown completed such a turn in X01,
 // empty otherwise.
 func latestTurnEvent(v service.GameView) string {
 	st, ok := v.State.(x01.State)
-	if !ok || len(st.Turns) == 0 || len(v.Darts) == 0 || v.Darts[len(v.Darts)-1].Takeout {
+	if !ok || len(st.Turns) == 0 || len(v.Darts) == 0 || !v.Darts[len(v.Darts)-1].IsDart() {
 		return ""
 	}
 	t := st.Turns[len(st.Turns)-1]
@@ -343,6 +369,9 @@ func soundKind(v service.GameView) string {
 		return ""
 	}
 	last, c := v.Darts[len(v.Darts)-1], v.Common()
+	if last.Leave {
+		return ""
+	}
 	if event := latestTurnEvent(v); event != "" && !c.GameOver {
 		return event
 	}
@@ -404,14 +433,14 @@ func bullOffDistance(t Texts, d throw.Dart) string {
 
 // hasTurns reports whether the game has darts beyond the bull-off.
 func hasTurns(v service.GameView) bool {
-	return len(v.Darts) > takeouts(v)+len(v.Common().BullOff)
+	return dartCount(v) > len(v.Common().BullOff)
 }
 
-// takeouts counts the takeouts in the game's log.
-func takeouts(v service.GameView) int {
+// dartCount counts the darts in the game's log, without takeouts and players leaving.
+func dartCount(v service.GameView) int {
 	n := 0
 	for _, d := range v.Darts {
-		if d.Takeout {
+		if d.IsDart() {
 			n++
 		}
 	}

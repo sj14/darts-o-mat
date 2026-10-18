@@ -215,15 +215,15 @@ func TournamentBody(v service.TournamentView, errMsg string) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			if tournamentPending(v) != "" {
+			if tournamentPending(ctx, v) != "" {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var10 string
-				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).WaitingFor(tournamentPending(v)))
+				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).WaitingFor(tournamentPending(ctx, v)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 47, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 47, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -245,9 +245,9 @@ func TournamentBody(v service.TournamentView, errMsg string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var11 string
-			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).WinsTournament(tournamentPlayerName(v, *v.State.WinnerID)))
+			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).WinsTournament(tournamentPlayerName(ctx, v, *v.State.WinnerID)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 53, Col: 131}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 53, Col: 136}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -755,9 +755,9 @@ func matchCard(v service.TournamentView, m tournament.Match) templ.Component {
 			}
 			if id != 0 {
 				var templ_7745c5c3_Var40 string
-				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(tournamentPlayerName(v, id))
+				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(tournamentPlayerName(ctx, v, id))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 131, Col: 35}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 131, Col: 40}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 				if templ_7745c5c3_Err != nil {
@@ -1129,9 +1129,9 @@ func standings(v service.TournamentView) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var65 string
-				templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(tournamentPlayerName(v, s.PlayerID))
+				templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(tournamentPlayerName(ctx, v, s.PlayerID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 181, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 181, Col: 66}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
 				if templ_7745c5c3_Err != nil {
@@ -1639,9 +1639,9 @@ func tournamentStatsRow(v service.TournamentView, s stats.Summary) templ.Compone
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var95 string
-		templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.JoinStringErrs(s.Player.Name)
+		templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.JoinStringErrs(displayName(ctx, s.Player))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 253, Col: 34}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/frontend/view/tournament.templ`, Line: 253, Col: 47}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var95))
 		if templ_7745c5c3_Err != nil {

@@ -10,13 +10,17 @@ import (
 )
 
 func (c *Controller) showSettings(w http.ResponseWriter, r *http.Request) {
+	c.renderSettings(w, r, http.StatusOK, "")
+}
+
+func (c *Controller) renderSettings(w http.ResponseWriter, r *http.Request, status int, errMsg string) {
 	acc := auth.Account(r.Context())
 	p, err := c.svc.Player(r.Context(), acc)
 	if err != nil {
 		serverError(w, err)
 		return
 	}
-	render(w, r, http.StatusOK, view.Settings(acc.Username, p))
+	render(w, r, status, view.Settings(acc.Username, p, errMsg))
 }
 
 // setColor stores the accent color of the account's player and shows the settings again.
@@ -27,4 +31,20 @@ func (c *Controller) setColor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+}
+
+// deleteAccount deletes the account after its password was entered again, and logs out.
+func (c *Controller) deleteAccount(w http.ResponseWriter, r *http.Request) {
+	switch err := c.svc.DeleteAccount(r.Context(), auth.Account(r.Context()), r.FormValue("password")); {
+	case err == nil:
+		if err := auth.Logout(w, r, c.svc); err != nil {
+			serverError(w, err)
+			return
+		}
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	case errors.Is(err, service.ErrWrongPassword):
+		c.renderSettings(w, r, http.StatusForbidden, view.T(r.Context()).ErrWrongPassword())
+	default:
+		serverError(w, err)
+	}
 }

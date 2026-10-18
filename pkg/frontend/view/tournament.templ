@@ -43,14 +43,14 @@ templ TournamentBody(v service.TournamentView, errMsg string) {
 				if !v.Tournament.Full(len(v.Tournament.PlayerIDs)) {
 					<p>{ T(ctx).WaitingForSeats(v.Tournament.Seats - len(v.Tournament.PlayerIDs)) }</p>
 				}
-				if tournamentPending(v) != "" {
-					<p>{ T(ctx).WaitingFor(tournamentPending(v)) }</p>
+				if tournamentPending(ctx, v) != "" {
+					<p>{ T(ctx).WaitingFor(tournamentPending(ctx, v)) }</p>
 				}
 			</div>
 		}
 		if v.State.Over {
 			<div class="mb-6 rounded-3xl bg-gradient-to-r from-amber-300 to-amber-500 px-5 py-4 text-center text-pub-950 shadow-lg shadow-amber-500/30">
-				<div class="font-display text-4xl font-extrabold uppercase">{ T(ctx).WinsTournament(tournamentPlayerName(v, *v.State.WinnerID)) }</div>
+				<div class="font-display text-4xl font-extrabold uppercase">{ T(ctx).WinsTournament(tournamentPlayerName(ctx, v, *v.State.WinnerID)) }</div>
 				if d := v.Time.Duration(); d > 0 {
 					<div class="mt-1 font-semibold tabular-nums">{ T(ctx).Duration(clock(d)) }</div>
 				}
@@ -128,7 +128,7 @@ templ matchCard(v service.TournamentView, m tournament.Match) {
 			<div class={ "flex items-center justify-between gap-2 rounded-lg px-2 py-1", templ.KV("bg-amber-400/15 font-bold text-amber-200", id != 0 && m.Winner() == id) }>
 				<span class={ "truncate", templ.KV("text-white/30 italic", id == 0) }>
 					if id != 0 {
-						{ tournamentPlayerName(v, id) }
+						{ tournamentPlayerName(ctx, v, id) }
 					} else if m.Bye {
 						{ T(ctx).Bye() }
 					} else {
@@ -178,7 +178,7 @@ templ standings(v service.TournamentView) {
 					for i, s := range v.State.Standings {
 						<tr class={ templ.KV("font-bold text-amber-200", v.State.Over && i == 0) }>
 							<td class="py-2 tabular-nums text-white/50">{ strconv.Itoa(i + 1) }</td>
-							<td class="py-2">{ tournamentPlayerName(v, s.PlayerID) }</td>
+							<td class="py-2">{ tournamentPlayerName(ctx, v, s.PlayerID) }</td>
 							<td class="py-2 text-right tabular-nums">{ strconv.Itoa(s.Played) }</td>
 							<td class="py-2 text-right tabular-nums">{ strconv.Itoa(s.Won) }</td>
 							<td class="py-2 text-right tabular-nums">{ strconv.Itoa(s.For) }:{ strconv.Itoa(s.Against) }</td>
@@ -250,7 +250,7 @@ templ tournamentStats(v service.TournamentView) {
 
 templ tournamentStatsRow(v service.TournamentView, s stats.Summary) {
 	<tr>
-		<td class="py-2">{ s.Player.Name }</td>
+		<td class="py-2">{ displayName(ctx, s.Player) }</td>
 		if v.Tournament.Settings.Mode == game.ModeX01 {
 			<td class="py-2 text-right tabular-nums">{ strconv.Itoa(s.X01.Games) }</td>
 			<td class="py-2 text-right tabular-nums">{ strconv.Itoa(s.X01.Wins) }</td>

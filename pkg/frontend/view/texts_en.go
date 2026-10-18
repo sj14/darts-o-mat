@@ -94,7 +94,33 @@ func (textsEN) WaitingForSeats(n int) string {
 	}
 	return "Waiting for " + strconv.Itoa(n) + " more players."
 }
-func (textsEN) ErrNoSeat() string   { return "There is no free seat anymore." }
+func (textsEN) ErrNoSeat() string     { return "There is no free seat anymore." }
+func (textsEN) DeletedPlayer() string { return "Deleted player" }
+func (textsEN) DeleteGuest() string   { return "Delete" }
+func (textsEN) DeleteGuestConfirm(name string) string {
+	return "Delete the guest " + name + "? Their games stay, with them shown as a deleted player."
+}
+func (textsEN) ErrGuestBusy() string {
+	return "This guest takes part in a running game or tournament. Finish or abort it first."
+}
+func (textsEN) DeleteAccountTitle() string { return "Delete account" }
+func (textsEN) DeleteAccountHint() string {
+	return "Deletes your login, your friendships, your boards and your guests. Your own running games and tournaments are aborted, in those of others you leave. Finished games stay for the others, with you shown as a deleted player. This can't be undone."
+}
+func (textsEN) DeleteAccountButton() string { return "Delete my account" }
+func (textsEN) DeleteAccountConfirm() string {
+	return "Really delete your account? This can't be undone."
+}
+func (textsEN) ErrWrongPassword() string { return "The password is wrong." }
+func (textsEN) LeaveGame() string        { return "Leave game" }
+func (textsEN) LeaveGameConfirm() string {
+	return "Really leave the game? The others play on without you."
+}
+func (textsEN) PlayerLeft() string { return "left" }
+func (textsEN) YouLeft() string    { return "You left this game. You can still look at it." }
+func (textsEN) ErrCantLeave() string {
+	return "You can't leave the game now, e.g. not while bulling off."
+}
 func (textsEN) EnterDart() string   { return "Enter a dart" }
 func (textsEN) HideKeypad() string  { return "Hide keypad" }
 func (textsEN) PlayOnBoard() string { return "Play on this board" }

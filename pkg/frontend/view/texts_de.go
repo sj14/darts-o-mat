@@ -92,7 +92,35 @@ func (textsDE) WaitingForSeats(n int) string {
 	}
 	return "Es fehlen noch " + strconv.Itoa(n) + " Spieler."
 }
-func (textsDE) ErrNoSeat() string   { return "Es ist kein Platz mehr frei." }
+func (textsDE) ErrNoSeat() string     { return "Es ist kein Platz mehr frei." }
+func (textsDE) DeletedPlayer() string { return "Gelöschter Spieler" }
+func (textsDE) DeleteGuest() string   { return "Löschen" }
+func (textsDE) DeleteGuestConfirm(name string) string {
+	return "Den Gast " + name + " löschen? Seine Spiele bleiben erhalten, er wird dort als gelöschter Spieler angezeigt."
+}
+func (textsDE) ErrGuestBusy() string {
+	return "Dieser Gast nimmt an einem laufenden Spiel oder Turnier teil. Beende oder brich es zuerst ab."
+}
+func (textsDE) DeleteAccountTitle() string { return "Account löschen" }
+func (textsDE) DeleteAccountHint() string {
+	return "Löscht deinen Login, deine Freundschaften, deine Boards und deine Gäste. Deine eigenen laufenden Spiele und Turniere werden abgebrochen, bei denen anderer trittst du aus. Beendete Spiele bleiben für die anderen erhalten, du erscheinst dort als gelöschter Spieler. Das lässt sich nicht rückgängig machen."
+}
+func (textsDE) DeleteAccountButton() string { return "Meinen Account löschen" }
+func (textsDE) DeleteAccountConfirm() string {
+	return "Deinen Account wirklich löschen? Das lässt sich nicht rückgängig machen."
+}
+func (textsDE) ErrWrongPassword() string { return "Das Passwort ist falsch." }
+func (textsDE) LeaveGame() string        { return "Spiel verlassen" }
+func (textsDE) LeaveGameConfirm() string {
+	return "Das Spiel wirklich verlassen? Die anderen spielen ohne dich weiter."
+}
+func (textsDE) PlayerLeft() string { return "ausgetreten" }
+func (textsDE) YouLeft() string {
+	return "Du hast dieses Spiel verlassen. Du kannst es dir weiter ansehen."
+}
+func (textsDE) ErrCantLeave() string {
+	return "Du kannst das Spiel jetzt nicht verlassen, z. B. nicht beim Ausbullen."
+}
 func (textsDE) EnterDart() string   { return "Dart eintragen" }
 func (textsDE) HideKeypad() string  { return "Keypad ausblenden" }
 func (textsDE) PlayOnBoard() string { return "Auf diesem Board spielen" }

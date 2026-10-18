@@ -4,6 +4,7 @@ import (
 	"hash/fnv"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/uptrace/bun"
 )
@@ -23,6 +24,15 @@ type Player struct {
 	// Color is the accent color the player chose (one of Colors); empty means the default
 	// from the name, see Accent.
 	Color string `json:"color,omitempty"`
+	// DeletedAt is set when the player was deleted, as a guest or with their account: the
+	// name is gone and the player belongs to nobody, but the games and darts stay, so the
+	// statistics of the others don't change. It is shown as "deleted player".
+	DeletedAt *time.Time `bun:",nullzero" json:"deleted_at,omitempty"`
+}
+
+// Deleted reports whether the player was deleted.
+func (p Player) Deleted() bool {
+	return p.DeletedAt != nil
 }
 
 // Accent returns the player's accent color: the chosen one, else one of Colors picked by

@@ -105,6 +105,9 @@ type GameView struct {
 	IsOwner  bool `json:"is_owner"`
 	CanThrow bool `json:"can_throw"` // may enter and undo darts (once the game is ready, never after it was aborted)
 	Invited  bool `json:"invited"`   // has a pending invitation to answer
+	// HasLeft is set if the account's player left the game (LeaveGame); it can look at it
+	// but not throw anymore.
+	HasLeft bool `json:"has_left,omitempty"`
 	// Mine are the players of the account the view was created for: its own player and,
 	// for the owner, their guests (those that take part).
 	Mine []int64 `json:"-"`
@@ -119,15 +122,18 @@ type GameView struct {
 // MayEdit reports whether the viewer may correct the entry of the log at index i: it is a
 // dart of one of their players.
 func (v GameView) MayEdit(i int) bool {
-	throwers := v.Common().Throwers
-	return i >= 0 && i < len(v.Darts) && !v.Darts[i].Takeout && i < len(throwers) && v.IsMine(throwers[i])
+	return i >= 0 && i < len(v.Darts) && v.Darts[i].IsDart() && v.IsMine(v.Darts[i].PlayerID)
 }
 
 // MayUndo reports whether the viewer may take back the last entry of the log: the last
-// dart, or the takeout after it, is one of their players'.
+// dart, or the takeout after it, is one of their players'. A player leaving can't be
+// taken back.
 func (v GameView) MayUndo() bool {
 	for i := len(v.Darts) - 1; i >= 0; i-- {
-		if !v.Darts[i].Takeout {
+		if v.Darts[i].Leave {
+			return false
+		}
+		if v.Darts[i].IsDart() {
 			return v.MayEdit(i)
 		}
 	}
@@ -405,13 +411,21 @@ func (s *Service) AbortGame(ctx context.Context, acc account.Account, gameID int
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	now := time.Now()
-	v.Game.AbortedAt = &now
-	if err := s.store.AbortGame(ctx, &v.Game); err != nil {
+	if err := s.abortGame(ctx, &v.Game); err != nil {
 		return GameView{}, err
 	}
-	s.notifyGame(v.Game)
 	return s.view(ctx, acc, v.Game)
+}
+
+// abortGame marks the game as aborted and tells its subscribers. The caller holds s.mu.
+func (s *Service) abortGame(ctx context.Context, g *game.Game) error {
+	now := time.Now()
+	g.AbortedAt = &now
+	if err := s.store.AbortGame(ctx, g); err != nil {
+		return err
+	}
+	s.notifyGame(*g)
+	return nil
 }
 
 // DecideBullOff settles a tie when bulling off: the players found playerID closer, so
@@ -454,6 +468,9 @@ func (s *Service) addDart(ctx context.Context, acc account.Account, gameID int64
 func (s *Service) storeDart(ctx context.Context, g *game.Game, v GameView, d throw.Dart) error {
 	d.ID, d.GameID, d.CreatedAt = 0, g.ID, time.Time{} // the database sets the time
 	normalizeDart(&d)
+	if cur := v.Common().CurrentPlayerID; cur != nil {
+		d.PlayerID = *cur // the replay below refuses the dart if the game is over
+	}
 	// The stored darts were accepted before, so an error can only come from the new
 	// one, e.g. turn.ErrWaitingForTakeout.
 	if _, err := g.Play(append(v.Darts, d)); err != nil {
@@ -482,13 +499,14 @@ func (s *Service) UndoDart(ctx context.Context, acc account.Account, gameID int6
 }
 
 // EditDart corrects what an earlier dart hit, e.g. when the cameras or a player got it
-// wrong. Only the account of the player who threw it may (ErrForbidden otherwise). The whole game is replayed with the correction. It is refused if the game
-// doesn't add up anymore (the replay's error), or if the correction ends a turn at a
-// different dart, so that later darts would count for another player (ErrChangesThrowers).
+// wrong. Only the account of the player who threw it may (ErrForbidden otherwise). The
+// whole game is replayed with the correction. It is refused if the game doesn't add up
+// anymore (the replay's error), or if the correction ends a turn at a different dart,
+// so that later darts would count for another player (ErrChangesThrowers).
 func (s *Service) EditDart(ctx context.Context, acc account.Account, gameID, dartID int64, d throw.Dart) (GameView, error) {
 	return s.changeGame(ctx, acc, gameID, func(g *game.Game, v GameView) error {
 		darts := slices.Clone(v.Darts)
-		i := slices.IndexFunc(darts, func(e throw.Dart) bool { return e.ID == dartID && !e.Takeout })
+		i := slices.IndexFunc(darts, func(e throw.Dart) bool { return e.ID == dartID && e.IsDart() })
 		if i < 0 {
 			return ErrNotFound
 		}
@@ -496,14 +514,12 @@ func (s *Service) EditDart(ctx context.Context, acc account.Account, gameID, dar
 			return ErrForbidden
 		}
 		normalizeDart(&d)
-		d.ID, d.GameID = dartID, g.ID
+		d.ID, d.GameID, d.PlayerID = dartID, g.ID, darts[i].PlayerID
 		darts[i] = d
-		after, err := g.Play(darts)
-		if err != nil {
-			return err
-		}
-		if !slices.Equal(v.Common().Throwers, after.Common().Throwers) {
+		if _, err := g.Play(darts); errors.Is(err, turn.ErrWrongThrower) {
 			return ErrChangesThrowers
+		} else if err != nil {
+			return err
 		}
 		return s.store.UpdateDart(ctx, &d)
 	})
@@ -512,7 +528,7 @@ func (s *Service) EditDart(ctx context.Context, acc account.Account, gameID, dar
 // normalizeDart completes a dart: a dart without a segment counts as a single (side
 // unknown). Takeouts go through Takeout.
 func normalizeDart(d *throw.Dart) {
-	d.Takeout = false
+	d.Takeout, d.Leave = false, false
 	if d.Segment == throw.NoSegment {
 		d.Segment = throw.Single
 	}
@@ -623,6 +639,9 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	v.Players, err = s.store.GetPlayers(ctx, g.PlayerIDs)
 	if err != nil {
 		return GameView{}, err
+	}
+	if v.Common().Records[acc.PlayerID].Left {
+		v.HasLeft, v.CanThrow = true, false
 	}
 	for _, p := range v.Players {
 		if p.ID == acc.PlayerID || (p.GuestOf != nil && *p.GuestOf == acc.ID) {

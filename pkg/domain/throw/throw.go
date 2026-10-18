@@ -29,6 +29,13 @@ type Dart struct {
 	Number  uint8   `json:"number"`
 	Segment Segment `bun:",notnull" json:"segment,omitempty"`
 	Takeout bool    `bun:",notnull,default:false" json:"takeout,omitempty"`
+	// PlayerID is the player who threw the dart, set by the server from whose turn it was
+	// (0 for takeouts); for a Leave entry the player who left. Replaying a game checks
+	// that it is the player who is up.
+	PlayerID int64 `bun:",notnull,default:0" json:"player_id,omitempty"`
+	// Leave marks the entry of the log in which the player PlayerID left the game; the
+	// others play on without them (see turn.Turn.Leave).
+	Leave bool `bun:",notnull,default:false" json:"leave,omitempty"`
 	// X and Y are where the cameras saw the dart, in mm on the board (origin in the
 	// bull, Y towards the 20); nil for darts entered by hand. Correcting a dart changes
 	// its field, not its position, so a field that doesn't match the position at X/Y
@@ -38,6 +45,12 @@ type Dart struct {
 	// CreatedAt is when the entry was made (for the cameras: when the dart was thrown).
 	// A leg, set or game lasts from its first dart to its last (turn.Span).
 	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at,omitzero"`
+}
+
+// IsDart reports whether the entry of a game's log is a dart, and not a takeout or a
+// player leaving.
+func (d Dart) IsDart() bool {
+	return !d.Takeout && !d.Leave
 }
 
 // Validate checks that the dart hit a field that exists on the board.

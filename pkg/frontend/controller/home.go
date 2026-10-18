@@ -81,6 +81,24 @@ func (c *Controller) createGuest(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, homeURL(r), http.StatusSeeOther)
 }
 
+// deleteGuest deletes a guest player, unless they are in a running game or tournament.
+func (c *Controller) deleteGuest(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	switch err := c.svc.DeleteGuest(r.Context(), auth.Account(r.Context()), id); {
+	case err == nil:
+		http.Redirect(w, r, homeURL(r), http.StatusSeeOther)
+	case isNotFound(err):
+		http.NotFound(w, r)
+	case errors.Is(err, service.ErrGuestBusy):
+		c.renderHome(w, r, http.StatusConflict, "", view.T(r.Context()).ErrGuestBusy())
+	default:
+		serverError(w, err)
+	}
+}
+
 // homeURL returns the start page the request came from, so a selected mode
 // stays selected after adding a guest.
 func homeURL(r *http.Request) string {

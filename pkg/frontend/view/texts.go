@@ -86,6 +86,20 @@ type Texts interface {
 	DartsPulled() string
 	UndoLastDart() string
 	EnterDart() string
+	DeletedPlayer() string
+	DeleteGuest() string
+	DeleteGuestConfirm(name string) string
+	ErrGuestBusy() string
+	DeleteAccountTitle() string
+	DeleteAccountHint() string
+	DeleteAccountButton() string
+	DeleteAccountConfirm() string
+	ErrWrongPassword() string
+	LeaveGame() string
+	LeaveGameConfirm() string
+	PlayerLeft() string
+	YouLeft() string
+	ErrCantLeave() string
 	HideKeypad() string
 	Starts(name string) string
 	SetTo(name string) string
