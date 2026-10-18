@@ -13,7 +13,7 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
 
 ## Games
 
-- Confirming the end of a game is built (2026-10-18, see [AGENTS.md → completing a game](AGENTS.md#game-state)). What is left: "Revanche" next to "Neues Spiel" on the banner; the pages of a tournament and of a game that nobody has open aren't refreshed when the minute without a change passes (nothing runs then, the next look or click shows it), which a short `hx-trigger` refresh of the tournament page while a result is unconfirmed would fix; the confirmation is only by button, by starting a game and by that minute, not with a longer wait or a timer (decided: no timer, the minute is worked out when the game is looked at).
+- Confirming the end of a game is built (2026-10-18, see [AGENTS.md → completing a game](AGENTS.md#game-state)). What is left: a "Revanche" button on the banner (the "Neues Spiel" button was removed from it on 2026-10-18; the logo in the header leads home); the pages of a tournament and of a game that nobody has open aren't refreshed when the minute without a change passes (nothing runs then, the next look or click shows it), which a short `hx-trigger` refresh of the tournament page while a result is unconfirmed would fix; the confirmation is only by button, by starting a game and by that minute, not with a longer wait or a timer (decided: no timer, the minute is worked out when the game is looked at).
 - Option, undecided (asked 2026-10-18, advised against: it barely simplifies the code, since leaving, guests, tournaments and boards still need their cases, and it adds blocking edge cases): allow only one running game per account (games with a player of it, including one waiting in the lobby).
   - For: matches reality (one person plays one game at a time), no forgotten games, and the board warning/moving (see [boards and cameras](#boards-and-cameras)) becomes unnecessary, because a board could then only be in its owner's single game.
   - Against: club or pub use – one account couldn't run guest-only games on two boards at the same time.
@@ -32,7 +32,7 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
 ## Statistics
 
 - Heatmap: choose game mode or period, a finer drawing (smooth instead of squares), and the hits per field as numbers; maybe also show which fields were corrected (position and field differ, see [statistics](AGENTS.md#statistics)).
-- Show a statistics summary at the end: after a leg the statistics of that leg, after the game the statistics of the whole game (per player, e.g. average, highest visit, checkout, darts). Open: show the game summary as soon as the game is over (together with the confirmation, see [games](#games)) or only once it is completed.
+- Statistics at the end: the game page shows the statistics of the whole game below the history (table, and a heatmap per player for camera darts, since 2026-10-18; a separate statistics page was rejected as it would repeat the table). Still open: the statistics of a single leg after it, and a comparison of the players leg by leg.
 - `service.Stats` loads every game's and tournament's participants (`ListGames`, `ListTournaments`) on each visit; a query only for those without stored results would do.
 - Statistics from the table (`game_stats`) allow trends over time (average per week, last 30 days): not built, needs a date per result (`games.completed_at` or the game's start).
 

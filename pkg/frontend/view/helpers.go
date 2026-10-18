@@ -13,11 +13,13 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
+	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
+	"github.com/sj14/darts-o-mat/pkg/domain/stats"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
@@ -120,6 +122,17 @@ func plural(n int, one, many string) string {
 		return one
 	}
 	return many
+}
+
+// gameHeat is where a player's darts hit the board in this game, from the cameras.
+func gameHeat(v service.GameView, playerID int64) stats.Heat {
+	var points []dartboard.Point
+	for _, d := range v.Darts {
+		if d.PlayerID == playerID && d.IsDart() && d.X != nil && d.Y != nil {
+			points = append(points, dartboard.Point{X: *d.X, Y: *d.Y})
+		}
+	}
+	return stats.NewHeat(points)
 }
 
 func modeName(t Texts, g game.Settings) string {

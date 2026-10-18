@@ -159,12 +159,11 @@ templ leaveButton(v service.GameView) {
 	</form>
 }
 
-// afterGame links on from a finished game: back to its tournament, else to a new game.
+// afterGame links on from a finished game to its tournament (user's wish 2026-10-18: no
+// "new game" button here; the logo in the header leads home).
 templ afterGame(v service.GameView, colors string) {
 	if v.Game.TournamentID != nil {
 		<a href={ templ.URL(tournamentURL(*v.Game.TournamentID, "")) } class={ "mt-4 inline-block rounded-xl px-5 py-2.5 font-semibold", colors }>{ T(ctx).ToTournament() }</a>
-	} else {
-		<a href="/" class={ "mt-4 inline-block rounded-xl px-5 py-2.5 font-semibold", colors }>{ T(ctx).NewGame() }</a>
 	}
 }
 
@@ -189,6 +188,8 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart, adding bool
 					<div class="mt-1 font-semibold">{ T(ctx).ResultConfirmed() }</div>
 				} else if !v.Invited && !v.HasLeft {
 					<div class="mt-1 text-sm">{ T(ctx).CompleteHint() }</div>
+				}
+				if !v.Completed && !v.Invited && !v.HasLeft {
 					<button
 						type="button"
 						class="mr-2 mt-4 rounded-xl bg-pub-950 px-5 py-2.5 font-semibold text-amber-300 hover:bg-pub-800"
@@ -469,6 +470,14 @@ templ gameStats(v service.GameView) {
 				}
 			</table>
 		</div>
+		for _, id := range v.Game.PlayerIDs() {
+			if h := gameHeat(v, id); h.Darts > 0 {
+				<div class="mt-6">
+					<h3 class="font-display text-xl font-semibold uppercase tracking-wide">{ playerName(ctx, v, id) }</h3>
+					@heatmap(h)
+				</div>
+			}
+		}
 	}
 }
 
