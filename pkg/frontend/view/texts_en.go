@@ -321,6 +321,9 @@ func (textsEN) ErrRegisterInput() string {
 	return "Please check the username (3 to 32 characters: letters, digits, . - _) and the password (at least 8 characters)."
 }
 func (textsEN) ErrEnterName() string { return "Please enter a name." }
+func (textsEN) ErrGuestNameTaken() string {
+	return "You already have a player with this name."
+}
 func (textsEN) ErrGameNotStarted() string {
 	return "The game couldn't be started. Please check the settings."
 }

@@ -56,13 +56,13 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
 
 ## Accounts and guests
 
-- Do not allow the same guest name twice (`service.CreateGuest` only refuses an empty name).
 - Delete guests and delete the own account (undecided how). Always deleted: name, login, sessions, friendships, boards with camera tokens, the account's guests. Open:
   - Past games with the deleted player: keep them with the player shown as "Gelöschter Spieler" (players and their history stay intact; recommended) or delete them with all darts (fellow players, also friends, lose them and their statistics). Removing just the player from a game isn't possible: darts aren't linked to players, who threw is derived from the throwing order when replaying.
   - Guest in a running game: refuse ("finish or abort it first"; recommended) or abort the game automatically.
   - Account in running games (own ones and accepted ones of friends): abort them automatically and decline open invitations (recommended; refusing would block until friends finish, since only the host can abort) or refuse.
   - Deleting the account should ask for the password again.
 - Add admin area
+- Invite friends to game and allow playing locally on the same board (why do that: they keep their statistic when playing at a friends house)
 
 ## Technical
 

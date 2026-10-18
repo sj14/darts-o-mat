@@ -62,6 +62,10 @@ func (c *Controller) renderHome(w http.ResponseWriter, r *http.Request, status i
 
 func (c *Controller) createGuest(w http.ResponseWriter, r *http.Request) {
 	_, err := c.svc.CreateGuest(r.Context(), auth.Account(r.Context()), r.FormValue("name"))
+	if errors.Is(err, service.ErrGuestNameTaken) {
+		c.renderHome(w, r, http.StatusBadRequest, "", view.T(r.Context()).ErrGuestNameTaken())
+		return
+	}
 	if errors.Is(err, service.ErrInvalid) {
 		c.renderHome(w, r, http.StatusBadRequest, "", view.T(r.Context()).ErrEnterName())
 		return

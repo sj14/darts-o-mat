@@ -255,6 +255,7 @@ type Texts interface {
 	ErrUsernameTaken() string
 	ErrRegisterInput() string
 	ErrEnterName() string
+	ErrGuestNameTaken() string
 	ErrGameNotStarted() string
 	ErrChoosePlayer() string
 	ErrTournamentPlayers(min, max int) string

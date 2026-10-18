@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
@@ -21,7 +22,14 @@ func (s *Service) CreateGuest(ctx context.Context, acc account.Account, name str
 	if p.Name == "" {
 		return p, fmt.Errorf("%w: name must not be empty", ErrInvalid)
 	}
-	err := s.store.StorePlayer(ctx, &p)
+	existing, err := s.Players(ctx, acc)
+	if err != nil {
+		return p, err
+	}
+	if slices.ContainsFunc(existing, func(e player.Player) bool { return strings.EqualFold(e.Name, p.Name) }) {
+		return p, ErrGuestNameTaken
+	}
+	err = s.store.StorePlayer(ctx, &p)
 	return p, err
 }
 

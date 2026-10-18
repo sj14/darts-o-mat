@@ -33,6 +33,8 @@ var (
 	// e.g. a bust that ends a turn early: the later darts have to be taken back instead.
 	ErrChangesThrowers = fmt.Errorf("%w: the correction would change who threw the later darts", ErrInvalid)
 	ErrInviteSelf      = fmt.Errorf("%w: you can't invite yourself", ErrInvalid)
+	// ErrGuestNameTaken means the account already has a player (itself or a guest) with that name.
+	ErrGuestNameTaken = fmt.Errorf("%w: a player with this name already exists", ErrInvalid)
 )
 
 // NotFriendError is returned when inviting an account that isn't a friend. It wraps ErrInvalid.

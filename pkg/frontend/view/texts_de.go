@@ -304,6 +304,9 @@ func (textsDE) ErrRegisterInput() string {
 	return "Bitte Benutzername (3 bis 32 Zeichen: Buchstaben, Ziffern, . - _) und Passwort (mindestens 8 Zeichen) prüfen."
 }
 func (textsDE) ErrEnterName() string { return "Bitte einen Namen eingeben." }
+func (textsDE) ErrGuestNameTaken() string {
+	return "Du hast schon einen Spieler mit diesem Namen."
+}
 func (textsDE) ErrGameNotStarted() string {
 	return "Das Spiel konnte nicht gestartet werden. Bitte die Einstellungen prüfen."
 }
