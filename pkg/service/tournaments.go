@@ -132,6 +132,7 @@ func (s *Service) AcceptTournamentInvitation(ctx context.Context, acc account.Ac
 	if err := s.store.AcceptTournamentInvitation(ctx, id, acc.PlayerID); err != nil {
 		return TournamentView{}, err
 	}
+	s.tournaments.Notify(id)
 	return s.Tournament(ctx, acc, id)
 }
 
@@ -145,7 +146,11 @@ func (s *Service) DeclineTournamentInvitation(ctx context.Context, acc account.A
 	if !v.Invited {
 		return ErrNotFound
 	}
-	return s.store.RemoveTournamentPlayer(ctx, id, acc.PlayerID)
+	if err := s.store.RemoveTournamentPlayer(ctx, id, acc.PlayerID); err != nil {
+		return err
+	}
+	s.tournaments.Notify(id)
+	return nil
 }
 
 // AbortTournament ends a tournament without a winner. Only the owner may abort it; it
@@ -168,6 +173,7 @@ func (s *Service) AbortTournament(ctx context.Context, acc account.Account, id i
 	if err := s.store.AbortTournament(ctx, &v.Tournament); err != nil {
 		return TournamentView{}, err
 	}
+	s.tournaments.Notify(id)
 	return s.tournamentView(ctx, acc, v.Tournament)
 }
 
@@ -211,6 +217,7 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 	if err := s.store.CreateGame(ctx, &g, accounts, game.InvitationAccepted); err != nil {
 		return GameView{}, err
 	}
+	s.tournaments.Notify(id)
 	return s.view(ctx, acc, g)
 }
 

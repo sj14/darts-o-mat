@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"bytes"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -9,6 +11,7 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/auth"
 	"github.com/sj14/darts-o-mat/pkg/frontend/view"
 	"github.com/sj14/darts-o-mat/pkg/service"
+	"github.com/sj14/darts-o-mat/pkg/sse"
 )
 
 func tournamentURL(id int64) string {
@@ -35,6 +38,37 @@ func (c *Controller) renderTournament(w http.ResponseWriter, r *http.Request, st
 		return
 	}
 	render(w, r, status, view.Tournament(acc.Username, v, errMsg))
+}
+
+// tournamentEvents streams the tournament to its page whenever it or one of its games
+// changes, like gameEvents.
+func (c *Controller) tournamentEvents(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	acc := auth.Account(r.Context())
+	if _, err := c.svc.Tournament(r.Context(), acc, id); isNotFound(err) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		serverError(w, err)
+		return
+	}
+	changes, stop := c.svc.SubscribeTournament(id)
+	defer stop()
+	sse.Stream(w, r, "tournament", changes, func() (string, error) {
+		v, err := c.svc.Tournament(r.Context(), acc, id)
+		if err != nil {
+			return "", err
+		}
+		var buf bytes.Buffer
+		if err := view.TournamentBody(v, "").Render(r.Context(), &buf); err != nil {
+			log.Printf("render tournament: %v", err)
+			return "", err
+		}
+		return buf.String(), nil
+	})
 }
 
 // startMatch starts the game of a match and goes to it.

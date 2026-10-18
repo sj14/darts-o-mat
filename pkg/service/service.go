@@ -76,6 +76,9 @@ type Service struct {
 	mu sync.Mutex
 	// games notifies about changed games, by ID.
 	games notify.Hub[int64]
+	// tournaments notifies about changed tournaments, by ID: their own changes and those
+	// of their games.
+	tournaments notify.Hub[int64]
 }
 
 func New(store *store.Store, opts Options) *Service {
@@ -324,7 +327,7 @@ func (s *Service) AbortGame(ctx context.Context, acc account.Account, gameID int
 	if err := s.store.AbortGame(ctx, &v.Game); err != nil {
 		return GameView{}, err
 	}
-	s.notify(gameID)
+	s.notifyGame(v.Game)
 	return s.view(ctx, acc, v.Game)
 }
 
@@ -440,7 +443,7 @@ func (s *Service) changeGame(ctx context.Context, acc account.Account, gameID in
 	if err := change(&g, v); err != nil {
 		return GameView{}, err
 	}
-	s.notify(g.ID)
+	s.notifyGame(g)
 	return s.view(ctx, acc, g)
 }
 

@@ -13,6 +13,17 @@ import (
 // games to start next and the statistics of its finished games.
 templ Tournament(user string, v service.TournamentView, errMsg string) {
 	@layout(tournamentLabel(T(ctx), v.Tournament), user) {
+		// The server pushes the tournament whenever it or one of its games changes; the
+		// element swaps itself on "tournament".
+		<div hx-ext="sse" sse-connect={ tournamentURL(v.Tournament.ID, "/events") }>
+			@TournamentBody(v, errMsg)
+		</div>
+	}
+}
+
+// TournamentBody is the part of the tournament page that the server replaces on changes.
+templ TournamentBody(v service.TournamentView, errMsg string) {
+	<div id="tournament" sse-swap="tournament" hx-swap="outerHTML">
 		<div class="mb-5 flex flex-wrap items-end justify-between gap-2">
 			<div>
 				<h1 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl">{ formatName(T(ctx), v.Tournament.Format) }</h1>
@@ -53,11 +64,11 @@ templ Tournament(user string, v service.TournamentView, errMsg string) {
 				</form>
 			}
 		</div>
-	}
+	</div>
 }
 
 templ tournamentBadge(v service.TournamentView) {
-	switch {
+	switch  {
 		case v.Tournament.Aborted():
 			@statusBadge(T(ctx).StatusAborted(), "bg-white/10 text-white/50")
 		case !v.Ready:
@@ -128,7 +139,7 @@ templ matchCard(v service.TournamentView, m tournament.Match) {
 
 // matchAction starts the game of a match or links to it.
 templ matchAction(v service.TournamentView, m tournament.Match) {
-	switch {
+	switch  {
 		case v.CanStart(m):
 			<form method="post" action={ templ.URL(tournamentURL(v.Tournament.ID, "/matches/"+strconv.Itoa(m.Index))) } class="mt-1">
 				<button type="submit" class={ btnPrimary, btnSmall, "w-full" }>{ T(ctx).StartGame() }</button>

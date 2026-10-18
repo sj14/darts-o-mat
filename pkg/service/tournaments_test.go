@@ -179,3 +179,61 @@ func TestKnockoutTournament(t *testing.T) {
 		t.Errorf("aborting a finished tournament: %v, want ErrInvalid", err)
 	}
 }
+
+func TestSubscribeTournament(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	ids := []int64{anna.PlayerID}
+	for _, name := range []string{"B", "C"} {
+		g, err := s.CreateGuest(ctx, anna, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, g.ID)
+	}
+	v, err := s.CreateTournament(ctx, anna, quickTournament(tournament.RoundRobin, ids...), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := s.CreateTournament(ctx, anna, quickTournament(tournament.RoundRobin, ids...), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	changes, stop := s.SubscribeTournament(v.Tournament.ID)
+	defer stop()
+	pending := func() bool {
+		select {
+		case <-changes:
+			return true
+		default:
+			return false
+		}
+	}
+
+	otherGame, err := s.StartMatch(ctx, anna, other.Tournament.ID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddDart(ctx, anna, otherGame.Game.ID, d20); err != nil {
+		t.Fatal(err)
+	}
+	if pending() {
+		t.Error("notified about another tournament")
+	}
+
+	game, err := s.StartMatch(ctx, anna, v.Tournament.ID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !pending() {
+		t.Error("no notification after starting a match")
+	}
+	if _, err := s.AddDart(ctx, anna, game.Game.ID, d20); err != nil {
+		t.Fatal(err)
+	}
+	if !pending() {
+		t.Error("no notification after a dart of one of its games")
+	}
+}
