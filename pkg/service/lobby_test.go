@@ -134,3 +134,30 @@ func TestOpenTournament(t *testing.T) {
 		}
 	}
 }
+
+// Leaving a tournament that hasn't started takes the player out and shows nothing; leaving a
+// running one shows it, aborted.
+func TestLeaveTournamentViews(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
+
+	tr := quickTournament(tournament.RoundRobin, anna.PlayerID)
+	tr.Seats = 3
+	v, _ := s.CreateTournament(ctx, anna, tr, nil)
+	id := v.Tournament.ID
+	_, _ = s.JoinTournament(ctx, ben, id, nil)
+	lobby, err := s.LeaveTournament(ctx, ben, id)
+	if err != nil || lobby.Tournament.ID != 0 {
+		t.Fatalf("leave the lobby: %+v, %v; want an empty view", lobby.Tournament.ID, err)
+	}
+
+	_, _ = s.JoinTournament(ctx, ben, id, nil)
+	if _, err := s.JoinTournament(ctx, carla, id, nil); err != nil {
+		t.Fatal(err)
+	}
+	running, err := s.LeaveTournament(ctx, carla, id)
+	if err != nil || !running.Tournament.Aborted() {
+		t.Errorf("leave a running tournament: aborted %v, %v; want it aborted and shown", running.Tournament.Aborted(), err)
+	}
+}

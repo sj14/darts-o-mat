@@ -16,6 +16,7 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
+	"github.com/sj14/darts-o-mat/pkg/domain/tournament"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
 
@@ -69,6 +70,13 @@ func (a *API) Routes() http.Handler {
 		r.Post("/games/{id}/board", a.useBoard)
 		r.Post("/games/{id}/bull-off", a.decideBullOff)
 
+		r.Get("/tournaments", a.listTournaments)
+		r.Post("/tournaments", a.createTournament)
+		r.Get("/tournaments/{id}", a.getTournament)
+		r.Post("/tournaments/{id}/matches/{match}", a.startMatch)
+		r.Post("/tournaments/{id}/accept", a.acceptTournament)
+		r.Post("/tournaments/{id}/decline", a.declineTournament)
+		r.Post("/tournaments/{id}/leave", a.leaveTournament)
 		r.Get("/stats", a.stats)
 		r.Get("/friends", a.listFriends)
 		r.Post("/friends", a.requestFriend)
@@ -237,17 +245,22 @@ func (a *API) listGames(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, games, err)
 }
 
+// createRequest is the body to create a game or a tournament.
+type createRequest struct {
+	// Format is the tournament's format; a game has none.
+	Format tournament.Format `json:"format,omitempty"`
+	game.Settings
+	game.Lobby
+	// PlayerIDs are the account's own player and its guests, in throwing order.
+	PlayerIDs []int64 `json:"player_ids"`
+	// BoardID is the board these players throw on, one of the account's.
+	BoardID *int64 `json:"board_id"`
+	// Invite lists usernames of other accounts to invite; they are added after PlayerIDs.
+	Invite []string `json:"invite"`
+}
+
 func (a *API) createGame(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		game.Settings
-		game.Lobby
-		// PlayerIDs are the account's own player and its guests, in throwing order.
-		PlayerIDs []int64 `json:"player_ids"`
-		// BoardID is the board these players throw on, one of the account's.
-		BoardID *int64 `json:"board_id"`
-		// Invite lists usernames of other accounts to invite; they are added after PlayerIDs.
-		Invite []string `json:"invite"`
-	}
+	var req createRequest
 	if !decodeGame(w, r, &req, &req.Settings) {
 		return
 	}
@@ -516,6 +529,84 @@ func decodeGame(w http.ResponseWriter, r *http.Request, v any, s *game.Settings)
 		return false
 	}
 	return true
+}
+
+func (a *API) listTournaments(w http.ResponseWriter, r *http.Request) {
+	ts, err := a.svc.ListTournaments(r.Context(), auth.Account(r.Context()), 50)
+	respond(w, http.StatusOK, ts, err)
+}
+
+func (a *API) createTournament(w http.ResponseWriter, r *http.Request) {
+	var req createRequest
+	if !decodeGame(w, r, &req, &req.Settings) {
+		return
+	}
+	t := tournament.Tournament{Format: req.Format, Settings: req.Settings, Lobby: req.Lobby}
+	for _, id := range req.PlayerIDs {
+		t.Participants = append(t.Participants, tournament.Participant{PlayerID: id, BoardID: req.BoardID})
+	}
+	v, err := a.svc.CreateTournament(r.Context(), auth.Account(r.Context()), t, req.Invite)
+	respond(w, http.StatusCreated, v, err)
+}
+
+func (a *API) getTournament(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	v, err := a.svc.Tournament(r.Context(), auth.Account(r.Context()), id)
+	respond(w, http.StatusOK, v, err)
+}
+
+// startMatch starts the game of a match; the answer is that game.
+func (a *API) startMatch(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	match, ok := urlID(w, r, "match")
+	if !ok {
+		return
+	}
+	v, err := a.svc.StartMatch(r.Context(), auth.Account(r.Context()), id, int(match))
+	respond(w, http.StatusCreated, v, err)
+}
+
+func (a *API) acceptTournament(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	// The body is optional: {"board_id": 1} makes the player throw on that board.
+	var req struct {
+		BoardID *int64 `json:"board_id"`
+	}
+	if r.ContentLength != 0 && !decode(w, r, &req) {
+		return
+	}
+	v, err := a.svc.AcceptTournamentInvitation(r.Context(), auth.Account(r.Context()), id, req.BoardID)
+	respond(w, http.StatusOK, v, err)
+}
+
+func (a *API) declineTournament(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	respondEmpty(w, a.svc.DeclineTournamentInvitation(r.Context(), auth.Account(r.Context()), id))
+}
+
+func (a *API) leaveTournament(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	v, err := a.svc.LeaveTournament(r.Context(), auth.Account(r.Context()), id)
+	if err == nil && v.Tournament.ID == 0 { // left the lobby: nothing to show anymore
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	respond(w, http.StatusOK, v, err)
 }
 
 // respondEmpty answers with 204 and no body, or with the error.

@@ -130,8 +130,10 @@ func (c *Controller) leaveTournament(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_, err := c.svc.LeaveTournament(r.Context(), auth.Account(r.Context()), id)
+	v, err := c.svc.LeaveTournament(r.Context(), auth.Account(r.Context()), id)
 	switch {
+	case err == nil && v.Tournament.ID == 0: // left the lobby: nothing to show anymore
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	case err == nil, errors.Is(err, service.ErrAborted):
 		http.Redirect(w, r, tournamentURL(id), http.StatusSeeOther)
 	case isNotFound(err):

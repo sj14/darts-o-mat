@@ -109,7 +109,7 @@ func (s *Service) leave(ctx context.Context, acc account.Account, v GameView) (G
 }
 
 // LeaveTournament lets an account leave a tournament with all its players. In the lobby
-// they are removed; once it is running, it ends for everyone (user's decision
+// they are removed (the returned view is empty then); once it is running, it ends for everyone (user's decision
 // 2026-10-18): it is aborted with its running games, its finished games stay.
 func (s *Service) LeaveTournament(ctx context.Context, acc account.Account, id int64) (TournamentView, error) {
 	s.mu.Lock()
@@ -133,7 +133,13 @@ func (s *Service) LeaveTournament(ctx context.Context, acc account.Account, id i
 	if err := s.leaveTournament(ctx, acc, t); err != nil {
 		return TournamentView{}, err
 	}
-	return s.tournamentView(ctx, acc, t)
+	// Read it again: leaving may have aborted it. From the lobby the account is no longer in
+	// it and has nothing to see, so the view is empty, like LeaveGame's.
+	v, err = s.Tournament(ctx, acc, id)
+	if errors.Is(err, ErrNotFound) {
+		return TournamentView{}, nil
+	}
+	return v, err
 }
 
 // leaveTournament is the leaving of a tournament that isn't over. The caller holds s.mu.

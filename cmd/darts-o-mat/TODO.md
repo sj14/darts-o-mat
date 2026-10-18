@@ -26,7 +26,7 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
 
 - Tournaments (base built 2026-10-14, see [AGENTS.md → tournaments](AGENTS.md#tournaments)):
   - Groups + knockout: groups as round robin, the best N per group into a bracket (group winners against runners-up of other groups). Reuses table and bracket; new: group assignment, qualification, seeding from the groups, stage transition, page with several tables. Effort roughly a third of the base.
-  - JSON API for tournaments.
+  - JSON API for open games and tournaments (list `OpenLobbies`, join with a board); the rest of the tournaments' API is built (2026-10-18).
   - Final (or last round) with its own legs/sets.
 
 ## Statistics
