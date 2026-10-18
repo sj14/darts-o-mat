@@ -12,8 +12,12 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/repos/store"
 )
 
-// ErrNoActiveGame means a board's camera reported a dart, but no game on the board accepts darts.
-var ErrNoActiveGame = errors.New("no running game on this board")
+var (
+	// ErrNoActiveGame means a board's camera reported a dart, but no game on the board accepts darts.
+	ErrNoActiveGame = errors.New("no running game on this board")
+	// ErrNotOnBoard means a board reported a dart, but the player who is up throws on another one.
+	ErrNotOnBoard = errors.New("the player who is up doesn't throw on this board")
+)
 
 // CreateBoardToken creates a new token for the board's cameras, replacing an older one.
 // The token is only returned here; the server keeps just its hash.
@@ -48,7 +52,9 @@ func (s *Service) AuthenticateBoard(ctx context.Context, token string) (board.Bo
 // the board, on behalf of the board's owner, with the position the cameras saw it at.
 // While the game waits for the takeout, a new dart means the cameras missed it: the
 // takeout is entered first, and the dart is the next player's (user's wish 2026-10-15;
-// darts entered by hand still need the takeout).
+// darts entered by hand still need the takeout). When the players throw on boards of
+// their own, a board only counts the darts of its player's turns: a dart of another
+// board is refused (ErrNotOnBoard).
 func (s *Service) AddBoardDart(ctx context.Context, b board.Board, d throw.Dart) (GameView, error) {
 	owner, v, err := s.activeGame(ctx, b)
 	if err != nil {
@@ -58,9 +64,13 @@ func (s *Service) AddBoardDart(ctx context.Context, b board.Board, d throw.Dart)
 		return GameView{}, fmt.Errorf("%w: give both x and y of the position, or neither", ErrInvalid)
 	}
 	if v.Common().WaitingForTakeout {
-		if _, err := s.Takeout(ctx, owner, v.Game.ID); err != nil {
+		var err error
+		if v, err = s.Takeout(ctx, owner, v.Game.ID); err != nil {
 			return GameView{}, err
 		}
+	}
+	if !v.PlaysOn(b.ID) {
+		return GameView{}, ErrNotOnBoard
 	}
 	return s.addDart(ctx, owner, v.Game.ID, d)
 }
@@ -74,7 +84,7 @@ func (s *Service) BoardTakeout(ctx context.Context, b board.Board) (GameView, er
 		return GameView{}, err
 	}
 	c := v.Common()
-	if c.DartsInTurn == 0 {
+	if c.DartsInTurn == 0 || !v.PlaysOn(b.ID) {
 		return v, nil
 	}
 	// A turn that is over (third dart, bust, checkout) needs no misses.

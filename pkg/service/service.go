@@ -105,8 +105,28 @@ type GameView struct {
 	IsOwner  bool `json:"is_owner"`
 	CanThrow bool `json:"can_throw"` // may enter and undo darts (once the game is ready, never after it was aborted)
 	Invited  bool `json:"invited"`   // has a pending invitation to answer
-	// Boards are the owner's boards a running game without a board can move to (UseBoard).
+	// Boards are the viewer's boards: those a running game without a board can move to
+	// (UseBoard) for the owner, those to accept an invitation on for an invited player.
 	Boards []BoardChoice `json:"boards,omitempty"`
+}
+
+// BoardOf returns the board a player throws on: their own if they chose one, else the
+// owner's, nil without a board.
+func (v GameView) BoardOf(playerID int64) *int64 {
+	if inv := v.InvitationOf(playerID); inv != nil && inv.BoardID != nil {
+		return inv.BoardID
+	}
+	return v.Game.BoardID
+}
+
+// PlaysOn reports whether the player who is up throws on the board.
+func (v GameView) PlaysOn(boardID int64) bool {
+	cur := v.Common().CurrentPlayerID
+	if cur == nil {
+		return false
+	}
+	b := v.BoardOf(*cur)
+	return b != nil && *b == boardID
 }
 
 // Common returns the part of the game's state that is the same for all modes.
@@ -157,7 +177,11 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := s.store.CreateGame(ctx, &g, invited, game.InvitationPending); err != nil {
+	invitations := make([]game.Invitation, len(invited))
+	for i, id := range invited {
+		invitations[i] = game.Invitation{PlayerID: id, Status: game.InvitationPending}
+	}
+	if err := s.store.CreateGame(ctx, &g, invitations); err != nil {
 		return GameView{}, err
 	}
 	if g.BoardID != nil {
@@ -261,8 +285,18 @@ func (s *Service) Invitations(ctx context.Context, acc account.Account) ([]GameV
 	return s.views(ctx, acc, games)
 }
 
-func (s *Service) AcceptInvitation(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
-	if err := s.store.AcceptInvitation(ctx, gameID, acc.PlayerID); err != nil {
+// AcceptInvitation accepts the invitation to a game. The player throws on the board if
+// one of the account's is given; its cameras then report their darts.
+func (s *Service) AcceptInvitation(ctx context.Context, acc account.Account, gameID int64, boardID *int64) (GameView, error) {
+	if err := s.checkBoard(ctx, acc, boardID); err != nil {
+		return GameView{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.store.AcceptInvitation(ctx, gameID, acc.PlayerID, boardID); err != nil {
+		return GameView{}, err
+	}
+	if err := s.takeBoard(ctx, boardID, gameID); err != nil {
 		return GameView{}, err
 	}
 	s.notify(gameID)
@@ -528,8 +562,8 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	if err != nil {
 		return GameView{}, err
 	}
-	if v.IsOwner && g.BoardID == nil && !g.Aborted() && !v.Common().GameOver {
-		if v.Boards, err = s.boardChoices(ctx, v); err != nil {
+	if (v.IsOwner && g.BoardID == nil && !g.Aborted() && !v.Common().GameOver) || v.Invited {
+		if v.Boards, err = s.boardChoices(ctx, acc.ID); err != nil {
 			return GameView{}, err
 		}
 	}

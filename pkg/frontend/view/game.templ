@@ -86,7 +86,8 @@ templ lobby(v service.GameView, errMsg string) {
 			<div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-board-green/40 bg-board-green/15 px-4 py-3">
 				<span class="font-semibold">{ T(ctx).InvitedToGame() }</span>
 				<div class="flex gap-2">
-					<form method="post" action={ templ.URL(gameURL(v.Game.ID, "/accept")) }>
+					<form method="post" action={ templ.URL(gameURL(v.Game.ID, "/accept")) } class="flex items-center gap-2">
+						@boardSelect(boardsOfChoices(v.Boards))
 						<button type="submit" class="rounded-xl bg-board-green px-4 py-2 font-semibold text-white hover:brightness-110">{ T(ctx).Accept() }</button>
 					</form>
 					<form method="post" action={ templ.URL(gameURL(v.Game.ID, "/decline")) }>

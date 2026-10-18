@@ -35,6 +35,8 @@ type TournamentView struct {
 	IsOwner bool `json:"is_owner"`
 	CanPlay bool `json:"can_play"` // may start games: the owner all, players with an account those of their matches
 	Invited bool `json:"invited"`  // has a pending invitation to answer
+	// Boards are the viewer's boards, to accept an invitation on.
+	Boards []BoardChoice `json:"boards,omitempty"`
 
 	viewer int64 // the player of the account the view was created for
 }
@@ -128,8 +130,13 @@ func (s *Service) TournamentInvitations(ctx context.Context, acc account.Account
 	return views, nil
 }
 
-func (s *Service) AcceptTournamentInvitation(ctx context.Context, acc account.Account, id int64) (TournamentView, error) {
-	if err := s.store.AcceptTournamentInvitation(ctx, id, acc.PlayerID); err != nil {
+// AcceptTournamentInvitation accepts the invitation to a tournament. The player throws
+// on the board if one of the account's is given, in all the matches they play.
+func (s *Service) AcceptTournamentInvitation(ctx context.Context, acc account.Account, id int64, boardID *int64) (TournamentView, error) {
+	if err := s.checkBoard(ctx, acc, boardID); err != nil {
+		return TournamentView{}, err
+	}
+	if err := s.store.AcceptTournamentInvitation(ctx, id, acc.PlayerID, boardID); err != nil {
 		return TournamentView{}, err
 	}
 	s.tournaments.Notify(id)
@@ -205,20 +212,24 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 		return GameView{}, ErrForbidden
 	}
 	g := v.Tournament.Game(match, m.PlayerIDs[0], m.PlayerIDs[1])
-	var accounts []int64
+	// The players with an account accepted the tournament, and throw on the board they chose.
+	var invitations []game.Invitation
 	for _, p := range m.PlayerIDs {
-		if v.InvitationOf(p) != nil {
-			accounts = append(accounts, p)
+		if inv := v.InvitationOf(p); inv != nil {
+			invitations = append(invitations, game.Invitation{PlayerID: p, Status: game.InvitationAccepted, BoardID: inv.BoardID})
 		}
 	}
 	if err := g.Validate(); err != nil {
 		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
-	if err := s.store.CreateGame(ctx, &g, accounts, game.InvitationAccepted); err != nil {
+	if err := s.store.CreateGame(ctx, &g, invitations); err != nil {
 		return GameView{}, err
 	}
-	if g.BoardID != nil {
-		if err := s.freeBoard(ctx, *g.BoardID, g.ID); err != nil {
+	if err := s.takeBoard(ctx, g.BoardID, g.ID); err != nil {
+		return GameView{}, err
+	}
+	for _, inv := range invitations {
+		if err := s.takeBoard(ctx, inv.BoardID, g.ID); err != nil {
 			return GameView{}, err
 		}
 	}
@@ -241,6 +252,11 @@ func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tou
 	}
 	if v.CanPlay, v.Invited, err = access(v.IsOwner, mine, t.Aborted()); err != nil {
 		return TournamentView{}, err
+	}
+	if v.Invited {
+		if v.Boards, err = s.boardChoices(ctx, acc.ID); err != nil {
+			return TournamentView{}, err
+		}
 	}
 
 	if v.Players, err = s.store.GetPlayers(ctx, t.PlayerIDs); err != nil {

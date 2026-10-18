@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
+	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/domain/tournament"
@@ -45,7 +46,7 @@ templ Home(m HomeModel) {
 		<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
 			@newGame(m)
 			<div class="flex flex-col gap-6">
-				@openLobbies(m.OpenLobbies)
+				@openLobbies(m.OpenLobbies, boardsOfViews(m.Boards))
 				if len(m.Tournaments) > 0 {
 					@panel("") {
 						@sectionTitle(T(ctx).Tournaments())
@@ -71,7 +72,7 @@ templ invitations(views []service.GameView) {
 						<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">{ modeLabel(T(ctx), v.Game.Settings) }</a>
 						<div class="text-sm text-white/50">{ T(ctx).WithPlayers(playerNames(v, v.Game.PlayerIDs)) }</div>
 					</div>
-					@answerInvitation(v.Game.ID)
+					@answerInvitation(v.Game.ID, boardsOfChoices(v.Boards))
 				</li>
 			}
 		</ul>
@@ -88,7 +89,7 @@ templ tournamentInvitations(views []service.TournamentView) {
 						<a href={ templ.URL(tournamentURL(v.Tournament.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">🏆 { formatName(T(ctx), v.Tournament.Format) }</a>
 						<div class="text-sm text-white/50">{ modeLabel(T(ctx), v.Tournament.Settings) } · { T(ctx).PlayerCount(len(v.Players)) }</div>
 					</div>
-					@answerTournament(v.Tournament.ID)
+					@answerTournament(v.Tournament.ID, boardsOfChoices(v.Boards))
 				</li>
 			}
 		</ul>
@@ -96,7 +97,7 @@ templ tournamentInvitations(views []service.TournamentView) {
 }
 
 // openLobbies lists the games and tournaments of others that have a free seat.
-templ openLobbies(lobbies []service.OpenLobby) {
+templ openLobbies(lobbies []service.OpenLobby, boards []board.Board) {
 	@panel("") {
 		@sectionTitle(T(ctx).OpenGames())
 		if len(lobbies) == 0 {
@@ -120,7 +121,8 @@ templ openLobbies(lobbies []service.OpenLobby) {
 							{ T(ctx).HostedBy(l.Host) } · { T(ctx).PlayersOfSeats(l.Players, l.Seats) }
 						</div>
 					</div>
-					<form method="post" action={ templ.URL(joinURL(l)) }>
+					<form method="post" action={ templ.URL(joinURL(l)) } class="flex items-center gap-2">
+						@boardSelect(boards)
 						<button type="submit" class={ btnPrimary }>{ T(ctx).JoinLobby() }</button>
 					</form>
 				</li>
@@ -129,9 +131,10 @@ templ openLobbies(lobbies []service.OpenLobby) {
 	}
 }
 
-templ answerInvitation(gameID int64) {
-	<div class="flex gap-2">
-		<form method="post" action={ templ.URL(gameURL(gameID, "/accept")) }>
+templ answerInvitation(gameID int64, boards []board.Board) {
+	<div class="flex flex-wrap items-center gap-2">
+		<form method="post" action={ templ.URL(gameURL(gameID, "/accept")) } class="flex items-center gap-2">
+			@boardSelect(boards)
 			<button type="submit" class={ btnPrimary }>{ T(ctx).Accept() }</button>
 		</form>
 		<form method="post" action={ templ.URL(gameURL(gameID, "/decline")) }>
@@ -276,7 +279,7 @@ templ participants(m HomeModel) {
 	}
 	if len(m.Boards) > 0 {
 		@fieldset(T(ctx).Board()) {
-			{{ preselected := defaultBoard(m.Boards) }}
+			{{ preselected := defaultBoard(boardsOfViews(m.Boards)) }}
 			<div class="flex flex-wrap gap-2">
 				@choice("board_id", "", T(ctx).NoBoard(), preselected == 0)
 				for _, b := range m.Boards {

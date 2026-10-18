@@ -3,6 +3,7 @@ package view
 import (
 	"strconv"
 
+	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/stats"
 	"github.com/sj14/darts-o-mat/pkg/domain/tournament"
@@ -35,7 +36,7 @@ templ TournamentBody(v service.TournamentView, errMsg string) {
 		if v.Invited {
 			<div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3">
 				<span>{ T(ctx).InvitedToTournament() }</span>
-				@answerTournament(v.Tournament.ID)
+				@answerTournament(v.Tournament.ID, boardsOfChoices(v.Boards))
 			</div>
 		} else if !v.Ready && !v.Tournament.Aborted() {
 			<div class="mb-6 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3">
@@ -85,9 +86,10 @@ templ tournamentBadge(v service.TournamentView) {
 	}
 }
 
-templ answerTournament(id int64) {
-	<div class="flex gap-2">
-		<form method="post" action={ templ.URL(tournamentURL(id, "/accept")) }>
+templ answerTournament(id int64, boards []board.Board) {
+	<div class="flex flex-wrap items-center gap-2">
+		<form method="post" action={ templ.URL(tournamentURL(id, "/accept")) } class="flex items-center gap-2">
+			@boardSelect(boards)
 			<button type="submit" class={ btnPrimary }>{ T(ctx).Accept() }</button>
 		</form>
 		<form method="post" action={ templ.URL(tournamentURL(id, "/decline")) }>

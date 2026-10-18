@@ -83,9 +83,13 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 	return lobbies, nil
 }
 
-// JoinGame takes a free seat in a game open for strangers with the account's own player.
-// Games that aren't open stay hidden (ErrNotFound).
-func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
+// JoinGame takes a free seat in a game open for strangers with the account's own player,
+// who throws on the board if one of the account's is given. Games that aren't open stay
+// hidden (ErrNotFound).
+func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int64, boardID *int64) (GameView, error) {
+	if err := s.checkBoard(ctx, acc, boardID); err != nil {
+		return GameView{}, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	g, err := s.store.GetGame(ctx, gameID)
@@ -100,17 +104,25 @@ func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int6
 	case !offered(g.Lobby, len(g.PlayerIDs), g.CreatedAt, g.Aborted()):
 		return GameView{}, ErrNoSeat
 	}
-	if err := s.store.JoinGame(ctx, gameID, acc.PlayerID); err != nil {
+	if err := s.store.JoinGame(ctx, gameID, acc.PlayerID, boardID); err != nil {
 		return GameView{}, err
 	}
-	g.PlayerIDs = append(g.PlayerIDs, acc.PlayerID)
+	if err := s.takeBoard(ctx, boardID, gameID); err != nil {
+		return GameView{}, err
+	}
+	if g, err = s.store.GetGame(ctx, gameID); err != nil {
+		return GameView{}, err
+	}
 	s.notifyGame(g)
 	return s.view(ctx, acc, g)
 }
 
 // JoinTournament is JoinGame for a tournament; whoever takes the last seat completes
 // the draw.
-func (s *Service) JoinTournament(ctx context.Context, acc account.Account, id int64) (TournamentView, error) {
+func (s *Service) JoinTournament(ctx context.Context, acc account.Account, id int64, boardID *int64) (TournamentView, error) {
+	if err := s.checkBoard(ctx, acc, boardID); err != nil {
+		return TournamentView{}, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	t, err := s.store.GetTournament(ctx, id)
@@ -125,7 +137,7 @@ func (s *Service) JoinTournament(ctx context.Context, acc account.Account, id in
 	case !offered(t.Lobby, len(t.PlayerIDs), t.CreatedAt, t.Aborted()):
 		return TournamentView{}, ErrNoSeat
 	}
-	if err := s.store.JoinTournament(ctx, id, acc.PlayerID); err != nil {
+	if err := s.store.JoinTournament(ctx, id, acc.PlayerID, boardID); err != nil {
 		return TournamentView{}, err
 	}
 	s.tournaments.Notify(id)

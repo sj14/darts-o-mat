@@ -110,6 +110,9 @@ type Game struct {
 	Settings
 	Lobby
 	PlayerIDs []int64 `bun:"player_ids,notnull" json:"player_ids"`
+	// PlayerBoards is set once a player plays on a board of their own (Invitation.BoardID);
+	// the game then waits for takeouts like one on the owner's board.
+	PlayerBoards bool `bun:",notnull,default:false" json:"player_boards,omitempty"`
 	// BullOffCloser is the player the players found closer when bulling off ended in a
 	// tie, see turn.Log.BullOffCloser.
 	BullOffCloser *int64    `json:"bull_off_closer,omitempty"`
@@ -155,7 +158,7 @@ func CheckPlayers(playerIDs []int64) error {
 // WaitsForTakeout reports whether a finished turn waits until the darts were pulled out.
 // Games on a board do: its cameras report the takeout, players without them confirm it.
 func (g Game) WaitsForTakeout() bool {
-	return g.BoardID != nil
+	return g.BoardID != nil || g.PlayerBoards
 }
 
 // State is a replayed game's state, of its mode's type: x01.State or
@@ -195,10 +198,13 @@ const (
 type Invitation struct {
 	bun.BaseModel `bun:"table:game_invitations"`
 
-	GameID    int64            `bun:",pk" json:"game_id"`
-	PlayerID  int64            `bun:",pk" json:"player_id"`
-	Status    InvitationStatus `bun:",notnull" json:"status"`
-	CreatedAt time.Time        `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	GameID   int64            `bun:",pk" json:"game_id"`
+	PlayerID int64            `bun:",pk" json:"player_id"`
+	Status   InvitationStatus `bun:",notnull" json:"status"`
+	// BoardID is the board the invited player throws on, one of their own: its cameras
+	// report their darts. Nil: they play on the owner's board, or without one.
+	BoardID   *int64    `json:"board_id,omitempty"`
+	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
 // Score returns what each player has won in the game's state (see Play): sets in a

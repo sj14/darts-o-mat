@@ -11,6 +11,7 @@ import (
 
 	"github.com/a-h/templ"
 
+	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
@@ -439,9 +440,26 @@ func boardVals(id int64) string {
 	return `{"board_id": "` + strconv.FormatInt(id, 10) + `"}`
 }
 
+// boardsOfViews and boardsOfChoices take the boards out of the service's views.
+func boardsOfViews(views []service.BoardView) []board.Board {
+	boards := make([]board.Board, len(views))
+	for i, v := range views {
+		boards[i] = v.Board
+	}
+	return boards
+}
+
+func boardsOfChoices(choices []service.BoardChoice) []board.Board {
+	boards := make([]board.Board, len(choices))
+	for i, c := range choices {
+		boards[i] = c.Board
+	}
+	return boards
+}
+
 // defaultBoard is the ID of the board preselected for a new game: the one a game was
 // last started on, else the first one (the list is sorted by ID); 0 without boards.
-func defaultBoard(boards []service.BoardView) int64 {
+func defaultBoard(boards []board.Board) int64 {
 	if len(boards) == 0 {
 		return 0
 	}

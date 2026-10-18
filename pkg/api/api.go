@@ -361,7 +361,14 @@ func (a *API) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	v, err := a.svc.AcceptInvitation(r.Context(), auth.Account(r.Context()), id)
+	// The body is optional: {"board_id": 1} makes the player throw on that board.
+	var req struct {
+		BoardID *int64 `json:"board_id"`
+	}
+	if r.ContentLength != 0 && !decode(w, r, &req) {
+		return
+	}
+	v, err := a.svc.AcceptInvitation(r.Context(), auth.Account(r.Context()), id, req.BoardID)
 	respond(w, http.StatusOK, v, err)
 }
 
@@ -436,7 +443,7 @@ func writeError(w http.ResponseWriter, err error) {
 		status = http.StatusForbidden
 	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound
-	case errors.Is(err, turn.ErrGameOver), errors.Is(err, turn.ErrWaitingForTakeout), errors.Is(err, service.ErrNothingToUndo), errors.Is(err, service.ErrNoActiveGame),
+	case errors.Is(err, turn.ErrGameOver), errors.Is(err, turn.ErrWaitingForTakeout), errors.Is(err, service.ErrNothingToUndo), errors.Is(err, service.ErrNoActiveGame), errors.Is(err, service.ErrNotOnBoard),
 		errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrAborted), errors.Is(err, service.ErrUsernameTaken):
 		status = http.StatusConflict
 	}

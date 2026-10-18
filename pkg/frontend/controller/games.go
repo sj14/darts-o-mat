@@ -227,9 +227,12 @@ func (c *Controller) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_, err := c.svc.AcceptInvitation(r.Context(), auth.Account(r.Context()), id)
+	boardID, err := boardFromForm(r)
+	if err == nil {
+		_, err = c.svc.AcceptInvitation(r.Context(), auth.Account(r.Context()), id, boardID)
+	}
 	if err != nil && !isNotFound(err) {
-		serverError(w, err)
+		c.joinFailed(w, r, err, view.T(r.Context()).ErrInput())
 		return
 	}
 	http.Redirect(w, r, gameURL(id), http.StatusSeeOther)

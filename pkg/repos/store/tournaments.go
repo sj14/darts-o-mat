@@ -67,9 +67,12 @@ func (store *Store) ListPendingTournamentInvitations(ctx context.Context, player
 	return invitations, err
 }
 
-func (store *Store) AcceptTournamentInvitation(ctx context.Context, tournamentID, playerID int64) error {
+// AcceptTournamentInvitation accepts the invitation of a player, who throws on the board
+// if one is given.
+func (store *Store) AcceptTournamentInvitation(ctx context.Context, tournamentID, playerID int64, boardID *int64) error {
 	res, err := store.db.NewUpdate().Model((*tournament.Invitation)(nil)).
 		Set("status = ?", game.InvitationAccepted).
+		Set("board_id = ?", boardID).
 		Where("tournament_id = ?", tournamentID).
 		Where("player_id = ?", playerID).
 		Where("status = ?", game.InvitationPending).
@@ -127,7 +130,7 @@ func (store *Store) ListTournamentGames(ctx context.Context, tournamentID int64)
 // JoinTournament adds a player to a tournament with an accepted invitation. The player
 // that takes the last seat completes the draw: the players are shuffled, as when a
 // tournament that isn't open is created.
-func (store *Store) JoinTournament(ctx context.Context, tournamentID, playerID int64) error {
+func (store *Store) JoinTournament(ctx context.Context, tournamentID, playerID int64, boardID *int64) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		var t tournament.Tournament
 		if err := tx.NewSelect().Model(&t).Where("id = ?", tournamentID).Scan(ctx); err != nil {
@@ -140,7 +143,7 @@ func (store *Store) JoinTournament(ctx context.Context, tournamentID, playerID i
 		if _, err := tx.NewUpdate().Model(&t).Column("player_ids").WherePK().Exec(ctx); err != nil {
 			return err
 		}
-		inv := tournament.Invitation{TournamentID: tournamentID, PlayerID: playerID, Status: game.InvitationAccepted}
+		inv := tournament.Invitation{TournamentID: tournamentID, PlayerID: playerID, Status: game.InvitationAccepted, BoardID: boardID}
 		_, err := tx.NewInsert().Model(&inv).Exec(ctx)
 		return err
 	})

@@ -36,27 +36,27 @@ func TestOpenGame(t *testing.T) {
 	if l, _ := s.OpenLobbies(ctx, anna); len(l) != 0 {
 		t.Errorf("anna sees her own game: %+v", l)
 	}
-	if _, err := s.JoinGame(ctx, ben, closed.Game.ID); !errors.Is(err, ErrNotFound) {
+	if _, err := s.JoinGame(ctx, ben, closed.Game.ID, nil); !errors.Is(err, ErrNotFound) {
 		t.Errorf("join a game that isn't open: got %v, want ErrNotFound", err)
 	}
 
-	if _, err := s.JoinGame(ctx, anna, v.Game.ID); !errors.Is(err, ErrInvalid) {
+	if _, err := s.JoinGame(ctx, anna, v.Game.ID, nil); !errors.Is(err, ErrInvalid) {
 		t.Errorf("anna joins her own game: got %v, want ErrInvalid", err)
 	}
-	if v, err = s.JoinGame(ctx, ben, v.Game.ID); err != nil || v.Ready || !v.CanThrow {
+	if v, err = s.JoinGame(ctx, ben, v.Game.ID, nil); err != nil || v.Ready || !v.CanThrow {
 		t.Fatalf("ben joins: ready %v, can throw %v, %v; want waiting, may throw", v.Ready, v.CanThrow, err)
 	}
-	if _, err := s.JoinGame(ctx, ben, v.Game.ID); !errors.Is(err, ErrInvalid) {
+	if _, err := s.JoinGame(ctx, ben, v.Game.ID, nil); !errors.Is(err, ErrInvalid) {
 		t.Errorf("ben joins twice: got %v, want ErrInvalid", err)
 	}
 	if l, _ := s.OpenLobbies(ctx, ben); len(l) != 0 {
 		t.Errorf("ben still sees the game he is in: %+v", l)
 	}
 
-	if v, err = s.JoinGame(ctx, carla, v.Game.ID); err != nil || !v.Ready || len(v.Game.PlayerIDs) != 3 {
+	if v, err = s.JoinGame(ctx, carla, v.Game.ID, nil); err != nil || !v.Ready || len(v.Game.PlayerIDs) != 3 {
 		t.Fatalf("carla takes the last seat: ready %v, players %v, %v; want ready with 3", v.Ready, v.Game.PlayerIDs, err)
 	}
-	if _, err := s.JoinGame(ctx, dora, v.Game.ID); !errors.Is(err, ErrNoSeat) {
+	if _, err := s.JoinGame(ctx, dora, v.Game.ID, nil); !errors.Is(err, ErrNoSeat) {
 		t.Errorf("join a full game: got %v, want ErrNoSeat", err)
 	}
 	if l, _ := s.OpenLobbies(ctx, dora); len(l) != 0 {
@@ -116,13 +116,13 @@ func TestOpenTournament(t *testing.T) {
 	if l, _ := s.OpenLobbies(ctx, ben); len(l) != 1 || !l[0].Tournament || l[0].Format != tournament.RoundRobin {
 		t.Fatalf("ben's open games = %+v, want the tournament", l)
 	}
-	if v, err = s.JoinTournament(ctx, ben, v.Tournament.ID); err != nil || v.Ready {
+	if v, err = s.JoinTournament(ctx, ben, v.Tournament.ID, nil); err != nil || v.Ready {
 		t.Fatalf("ben joins: ready %v, %v", v.Ready, err)
 	}
-	if v, err = s.JoinTournament(ctx, carla, v.Tournament.ID); err != nil || !v.Ready || len(v.State.Matches) != 3 || len(v.Tournament.PlayerIDs) != 3 {
+	if v, err = s.JoinTournament(ctx, carla, v.Tournament.ID, nil); err != nil || !v.Ready || len(v.State.Matches) != 3 || len(v.Tournament.PlayerIDs) != 3 {
 		t.Fatalf("carla takes the last seat: ready %v, %d matches, players %v, %v; want ready with 3 matches", v.Ready, len(v.State.Matches), v.Tournament.PlayerIDs, err)
 	}
-	if _, err := s.JoinTournament(ctx, ben, v.Tournament.ID); !errors.Is(err, ErrInvalid) {
+	if _, err := s.JoinTournament(ctx, ben, v.Tournament.ID, nil); !errors.Is(err, ErrInvalid) {
 		t.Errorf("join twice: got %v, want ErrInvalid", err)
 	}
 	if _, err := s.StartMatch(ctx, anna, v.Tournament.ID, 0); err != nil {

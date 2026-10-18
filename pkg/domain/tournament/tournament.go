@@ -91,7 +91,9 @@ type Invitation struct {
 	TournamentID int64                 `bun:",pk" json:"tournament_id"`
 	PlayerID     int64                 `bun:",pk" json:"player_id"`
 	Status       game.InvitationStatus `bun:",notnull" json:"status"`
-	CreatedAt    time.Time             `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	// BoardID is the board the player throws on in the matches they play, see game.Invitation.
+	BoardID   *int64    `json:"board_id,omitempty"`
+	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
 var (

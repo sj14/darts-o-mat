@@ -1,5 +1,11 @@
 package view
 
+import (
+	"strconv"
+
+	"github.com/sj14/darts-o-mat/pkg/domain/board"
+)
+
 // Building blocks of the pages in the dark pub look.
 
 // panel is the dark card the pages are made of.
@@ -42,6 +48,24 @@ templ choice(name, value, label string, checked bool) {
 		<input type="radio" name={ name } value={ value } checked?={ checked } class="peer sr-only"/>
 		<span class="block rounded-xl border border-white/10 bg-pub-800 px-4 py-2 font-semibold text-white/70 transition hover:border-white/30 peer-checked:border-board-cream peer-checked:bg-board-cream peer-checked:text-pub-950 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400">{ label }</span>
 	</label>
+}
+
+// boardSelect lets a player pick the board they throw on when joining or accepting; the
+// one they used last is preselected. It is left out for players without a board.
+templ boardSelect(boards []board.Board) {
+	if len(boards) > 0 {
+		{{ preselected := defaultBoard(boards) }}
+		<label class="flex items-center gap-2 text-sm text-white/70">
+			📷
+			<span class="sr-only">{ T(ctx).Board() }</span>
+			<select name="board_id" class={ inputClass, "w-auto! py-2!" }>
+				<option value="">{ T(ctx).NoBoard() }</option>
+				for _, b := range boards {
+					<option value={ strconv.FormatInt(b.ID, 10) } selected?={ b.ID == preselected }>{ b.Name }</option>
+				}
+			</select>
+		</label>
+	}
 }
 
 // checkbox is a checkbox with its label as children.

@@ -14,10 +14,13 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
-// CreateGame stores the game and an invitation with the status for each of the invited
-// players (pending; accepted for the games of a tournament, whose players accepted
-// the tournament), and marks its board as used.
-func (store *Store) CreateGame(ctx context.Context, g *game.Game, invitedPlayerIDs []int64, status game.InvitationStatus) error {
+// CreateGame stores the game and the invitations of its invited players (pending; accepted
+// for the games of a tournament, whose players accepted the tournament, with the board
+// each of them plays on), and marks its board as used.
+func (store *Store) CreateGame(ctx context.Context, g *game.Game, invitations []game.Invitation) error {
+	for _, inv := range invitations {
+		g.PlayerBoards = g.PlayerBoards || inv.BoardID != nil
+	}
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewInsert().Model(g).Returning("*").Exec(ctx); err != nil {
 			return err
@@ -27,8 +30,8 @@ func (store *Store) CreateGame(ctx context.Context, g *game.Game, invitedPlayerI
 				return err
 			}
 		}
-		for _, id := range invitedPlayerIDs {
-			inv := game.Invitation{GameID: g.ID, PlayerID: id, Status: status}
+		for _, inv := range invitations {
+			inv.GameID = g.ID
 			if _, err := tx.NewInsert().Model(&inv).Exec(ctx); err != nil {
 				return err
 			}
@@ -75,10 +78,12 @@ func (store *Store) SetGameBoard(ctx context.Context, gameID int64, boardID *int
 	})
 }
 
-// ListGamesByBoard returns the most recent games played on a board, newest first.
+// ListGamesByBoard returns the most recent games played on a board, as the owner's or a
+// player's, newest first.
 func (store *Store) ListGamesByBoard(ctx context.Context, boardID int64, limit int64) ([]game.Game, error) {
 	games := []game.Game{}
-	err := store.db.NewSelect().Model(&games).Where("board_id = ?", boardID).Order("id DESC").Limit(limit).Scan(ctx)
+	players := store.db.NewSelect().Model((*game.Invitation)(nil)).Column("game_id").Where("board_id = ?", boardID)
+	err := store.db.NewSelect().Model(&games).Where("board_id = ?", boardID).WhereOr("id IN (?)", players).Order("id DESC").Limit(limit).Scan(ctx)
 	return games, err
 }
 
@@ -99,24 +104,46 @@ func (store *Store) ListPendingInvitations(ctx context.Context, playerID int64) 
 	return invitations, err
 }
 
-func (store *Store) AcceptInvitation(ctx context.Context, gameID, playerID int64) error {
-	res, err := store.db.NewUpdate().Model((*game.Invitation)(nil)).
-		Set("status = ?", game.InvitationAccepted).
-		Where("game_id = ?", gameID).
-		Where("player_id = ?", playerID).
-		Where("status = ?", game.InvitationPending).
-		Exec(ctx)
-	if err != nil {
+// AcceptInvitation accepts the invitation of a player, who throws on the board if one is given.
+func (store *Store) AcceptInvitation(ctx context.Context, gameID, playerID int64, boardID *int64) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		res, err := tx.NewUpdate().Model((*game.Invitation)(nil)).
+			Set("status = ?", game.InvitationAccepted).
+			Set("board_id = ?", boardID).
+			Where("game_id = ?", gameID).
+			Where("player_id = ?", playerID).
+			Where("status = ?", game.InvitationPending).
+			Exec(ctx)
+		if err != nil {
+			return err
+		}
+		if n, err := res.RowsAffected(); err != nil {
+			return err
+		} else if n == 0 {
+			return ErrNotFound
+		}
+		return markPlayerBoard(ctx, tx, gameID, boardID)
+	})
+}
+
+// markPlayerBoard makes a game wait for takeouts once a player plays on a board of their own.
+func markPlayerBoard(ctx context.Context, tx bun.Tx, gameID int64, boardID *int64) error {
+	if boardID == nil {
+		return nil
+	}
+	_, err := tx.NewUpdate().Model((*game.Game)(nil)).Set("player_boards = ?", true).Where("id = ?", gameID).Exec(ctx)
+	return err
+}
+
+// ReleaseBoard takes a board from a game: the owner's board and the boards of players.
+func (store *Store) ReleaseBoard(ctx context.Context, gameID, boardID int64) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewUpdate().Model((*game.Game)(nil)).Set("board_id = NULL").Where("id = ?", gameID).Where("board_id = ?", boardID).Exec(ctx); err != nil {
+			return err
+		}
+		_, err := tx.NewUpdate().Model((*game.Invitation)(nil)).Set("board_id = NULL").Where("game_id = ?", gameID).Where("board_id = ?", boardID).Exec(ctx)
 		return err
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return ErrNotFound
-	}
-	return nil
+	})
 }
 
 // RemoveInvitedPlayer deletes the invitation of a player and removes the player from the game.
@@ -209,8 +236,9 @@ func (store *Store) UpdateDart(ctx context.Context, d *throw.Dart) error {
 	return nil
 }
 
-// JoinGame adds a player to a game with an accepted invitation, as the last to throw.
-func (store *Store) JoinGame(ctx context.Context, gameID, playerID int64) error {
+// JoinGame adds a player to a game with an accepted invitation, as the last to throw,
+// on the board if one is given.
+func (store *Store) JoinGame(ctx context.Context, gameID, playerID int64, boardID *int64) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		var g game.Game
 		if err := tx.NewSelect().Model(&g).Where("id = ?", gameID).Scan(ctx); err != nil {
@@ -220,9 +248,11 @@ func (store *Store) JoinGame(ctx context.Context, gameID, playerID int64) error 
 		if _, err := tx.NewUpdate().Model(&g).Column("player_ids").WherePK().Exec(ctx); err != nil {
 			return err
 		}
-		inv := game.Invitation{GameID: gameID, PlayerID: playerID, Status: game.InvitationAccepted}
-		_, err := tx.NewInsert().Model(&inv).Exec(ctx)
-		return err
+		inv := game.Invitation{GameID: gameID, PlayerID: playerID, Status: game.InvitationAccepted, BoardID: boardID}
+		if _, err := tx.NewInsert().Model(&inv).Exec(ctx); err != nil {
+			return err
+		}
+		return markPlayerBoard(ctx, tx, gameID, boardID)
 	})
 }
 

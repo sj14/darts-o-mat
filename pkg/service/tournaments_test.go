@@ -50,7 +50,7 @@ func TestRoundRobinTournament(t *testing.T) {
 	if inv, err := s.TournamentInvitations(ctx, ben); err != nil || len(inv) != 1 {
 		t.Fatalf("ben's invitations: %v, %v", inv, err)
 	}
-	if v, err = s.AcceptTournamentInvitation(ctx, ben, id); err != nil || !v.Ready || !v.CanPlay {
+	if v, err = s.AcceptTournamentInvitation(ctx, ben, id, nil); err != nil || !v.Ready || !v.CanPlay {
 		t.Fatalf("accept: ready %v can play %v, %v", v.Ready, v.CanPlay, err)
 	}
 

@@ -100,8 +100,12 @@ func (c *Controller) acceptTournament(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := c.svc.AcceptTournamentInvitation(r.Context(), auth.Account(r.Context()), id); err != nil && !isNotFound(err) {
-		serverError(w, err)
+	boardID, err := boardFromForm(r)
+	if err == nil {
+		_, err = c.svc.AcceptTournamentInvitation(r.Context(), auth.Account(r.Context()), id, boardID)
+	}
+	if err != nil && !isNotFound(err) {
+		c.joinFailed(w, r, err, view.T(r.Context()).ErrInput())
 		return
 	}
 	http.Redirect(w, r, tournamentURL(id), http.StatusSeeOther)

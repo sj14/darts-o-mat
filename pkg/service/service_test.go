@@ -166,14 +166,14 @@ func TestInvitationFlow(t *testing.T) {
 		t.Errorf("dart by pending invitee: got %v, want ErrForbidden", err)
 	}
 
-	v, err = s.AcceptInvitation(ctx, ben, id)
+	v, err = s.AcceptInvitation(ctx, ben, id, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !v.Ready || !v.CanThrow {
 		t.Errorf("after accepting: ready=%v canThrow=%v, want both", v.Ready, v.CanThrow)
 	}
-	if _, err := s.AcceptInvitation(ctx, ben, id); !errors.Is(err, ErrNotFound) {
+	if _, err := s.AcceptInvitation(ctx, ben, id, nil); !errors.Is(err, ErrNotFound) {
 		t.Errorf("accepting twice: got %v, want ErrNotFound", err)
 	}
 
@@ -456,7 +456,7 @@ func TestBoardCamera(t *testing.T) {
 	if g, _ := s.Game(ctx, anna, game.Game.ID); g.Board != nil {
 		t.Error("the first game kept the board")
 	}
-	if _, err := s.AcceptInvitation(ctx, ben, waiting.Game.ID); err != nil {
+	if _, err := s.AcceptInvitation(ctx, ben, waiting.Game.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 	if v, err = s.AddBoardDart(ctx, keller, t20); err != nil || v.Game.ID != waiting.Game.ID || len(v.Darts) != 1 {
@@ -714,7 +714,7 @@ func TestAbortGame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AcceptInvitation(ctx, ben, v.Game.ID); err != nil {
+	if _, err := s.AcceptInvitation(ctx, ben, v.Game.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AddDart(ctx, anna, v.Game.ID, t20); err != nil {

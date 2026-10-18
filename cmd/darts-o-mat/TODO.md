@@ -26,7 +26,7 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
   - Against: club or pub use – one account couldn't run guest-only games on two boards at the same time.
   - If done: starting a new game while one runs offers "continue it" or "abort it and start the new one" instead of just refusing; invitations stay open until the current game is finished or aborted.
 - Allow others to watch games if they know the link.
-- Play with strangers, part 2 (part 1 built 2026-10-18, see [AGENTS.md → open games](AGENTS.md#open-games)): strangers play remotely, each on their own board. So far a game has one board whose camera reports the darts of all players. Needed: a board per participant (chosen when joining, stored with the invitation), camera darts of a board go to the game its owner plays in and only count when it's that player's turn; hand-entered darts only for the player who is up; for tournaments each match uses the boards of its two players. Also: quick match (join the oldest open game with default rules or open one and wait), leaving an open game, rate limits and a captcha before the list is open to everyone.
+- Play with strangers, what is left (open games and a board per player are built, see [AGENTS.md → open games](AGENTS.md#open-games)): quick match (join the oldest open game with default rules or open one and wait), leaving an open game, show which board each player throws on in the lobby and on the game page, rate limits and a captcha before the list is open to everyone, and every participant can still enter darts for everyone by hand (a trust problem with strangers; restrict hand-entered darts to the player who is up, or to the host).
 
 ## Tournaments
 

@@ -53,7 +53,7 @@ func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID, boa
 }
 
 // freeBoard takes the board from the running games on it, except the game keep, which
-// continue without a board. The caller holds s.mu.
+// continue without it (also where a player throws on it). The caller holds s.mu.
 func (s *Service) freeBoard(ctx context.Context, boardID, keep int64) error {
 	b, err := s.store.GetBoard(ctx, boardID)
 	if err != nil {
@@ -67,18 +67,25 @@ func (s *Service) freeBoard(ctx context.Context, boardID, keep int64) error {
 		if o.Game.ID == keep {
 			continue
 		}
-		if err := s.store.SetGameBoard(ctx, o.Game.ID, nil, time.Now()); err != nil {
+		if err := s.store.ReleaseBoard(ctx, o.Game.ID, boardID); err != nil {
 			return err
 		}
-		o.Game.BoardID = nil
 		s.notifyGame(o.Game)
 	}
 	return nil
 }
 
-// boardChoices lists the boards of the owner of a running game without a board.
-func (s *Service) boardChoices(ctx context.Context, v GameView) ([]BoardChoice, error) {
-	boards, err := s.store.ListBoards(ctx, v.Game.OwnerAccountID)
+// takeBoard is freeBoard for a board that may be nil.
+func (s *Service) takeBoard(ctx context.Context, boardID *int64, keep int64) error {
+	if boardID == nil {
+		return nil
+	}
+	return s.freeBoard(ctx, *boardID, keep)
+}
+
+// boardChoices lists the boards of an account.
+func (s *Service) boardChoices(ctx context.Context, accountID int64) ([]BoardChoice, error) {
+	boards, err := s.store.ListBoards(ctx, accountID)
 	if err != nil {
 		return nil, err
 	}
