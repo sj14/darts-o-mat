@@ -110,3 +110,43 @@ func itoa(n int64) string {
 	b, _ := json.Marshal(n)
 	return string(b)
 }
+
+func TestOpenLobbiesAPI(t *testing.T) {
+	st, err := store.NewSQLite(context.Background(), "file:"+t.Name()+"?mode=memory&cache=shared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := New(service.New(st, service.Options{Registration: true})).Routes()
+	anna, ben, carla := newClient(t, h, "anna"), newClient(t, h, "ben"), newClient(t, h, "carla")
+
+	rules := map[string]any{"start_score": 301, "out_mode": "double"}
+	game, _ := json.Marshal(map[string]any{"mode": "x01", "legs": 1, "player_ids": []int64{1}, "seats": 2, "rules": rules})
+	tour, _ := json.Marshal(map[string]any{"format": "round_robin", "mode": "x01", "legs": 1, "player_ids": []int64{1}, "seats": 3, "rules": rules})
+	g := anna.expect(http.StatusCreated, "POST", "/games", string(game))
+	gameID := itoa(int64(g["game"].(map[string]any)["id"].(float64)))
+	tr := anna.expect(http.StatusCreated, "POST", "/tournaments", string(tour))
+	tourID := itoa(int64(tr["tournament"].(map[string]any)["id"].(float64)))
+
+	var lobbies []map[string]any
+	rec := ben.do("GET", "/lobbies", "")
+	if err := json.Unmarshal(rec.Body.Bytes(), &lobbies); err != nil || len(lobbies) != 2 {
+		t.Fatalf("ben's lobbies: %v, %s", err, rec.Body)
+	}
+	if l := anna.do("GET", "/lobbies", ""); l.Body.String() != "[]\n" && l.Body.String() != "null\n" {
+		t.Errorf("anna sees her own: %s", l.Body)
+	}
+
+	// The game takes its last seat with ben and starts; then it is full.
+	if v := ben.expect(http.StatusOK, "POST", "/games/"+gameID+"/join", ``); v["ready"] != true {
+		t.Errorf("after joining: %v", v)
+	}
+	carla.expect(http.StatusBadRequest, "POST", "/games/"+gameID+"/join", ``)
+
+	// The tournament needs a third player.
+	if v := ben.expect(http.StatusOK, "POST", "/tournaments/"+tourID+"/join", ``); v["ready"] == true {
+		t.Errorf("ready with a seat free: %v", v)
+	}
+	if v := carla.expect(http.StatusOK, "POST", "/tournaments/"+tourID+"/join", `{}`); v["ready"] != true {
+		t.Errorf("not ready after the last seat: %v", v)
+	}
+}

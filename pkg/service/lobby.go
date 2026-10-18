@@ -22,13 +22,13 @@ var ErrNoSeat = fmt.Errorf("%w: no free seat", ErrInvalid)
 
 // OpenLobby is a game or tournament strangers can join, as the list shows it.
 type OpenLobby struct {
-	Tournament bool // a tournament, else a game
-	ID         int64
-	Settings   game.Settings
-	Format     tournament.Format // of a tournament
-	Joined     []player.Player   // who is in already
-	Seats      int               // how many it wants in total
-	CreatedAt  time.Time
+	Tournament bool              `json:"tournament"` // a tournament, else a game
+	ID         int64             `json:"id"`
+	Settings   game.Settings     `json:"settings"`
+	Format     tournament.Format `json:"format,omitempty"` // of a tournament
+	Joined     []player.Player   `json:"joined"`           // who is in already
+	Seats      int               `json:"seats"`            // how many it wants in total
+	CreatedAt  time.Time         `json:"created_at"`
 }
 
 // offered reports whether a lobby that was created at the time still takes players.

@@ -70,6 +70,9 @@ func (a *API) Routes() http.Handler {
 		r.Post("/games/{id}/board", a.useBoard)
 		r.Post("/games/{id}/bull-off", a.decideBullOff)
 
+		r.Get("/lobbies", a.listLobbies)
+		r.Post("/games/{id}/join", a.joinGame)
+		r.Post("/tournaments/{id}/join", a.joinTournament)
 		r.Get("/tournaments", a.listTournaments)
 		r.Post("/tournaments", a.createTournament)
 		r.Get("/tournaments/{id}", a.getTournament)
@@ -452,14 +455,11 @@ func (a *API) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// The body is optional: {"board_id": 1} makes the player throw on that board.
-	var req struct {
-		BoardID *int64 `json:"board_id"`
-	}
-	if r.ContentLength != 0 && !decode(w, r, &req) {
+	boardID, ok := optionalBoard(w, r)
+	if !ok {
 		return
 	}
-	v, err := a.svc.AcceptInvitation(r.Context(), auth.Account(r.Context()), id, req.BoardID)
+	v, err := a.svc.AcceptInvitation(r.Context(), auth.Account(r.Context()), id, boardID)
 	respond(w, http.StatusOK, v, err)
 }
 
@@ -577,14 +577,11 @@ func (a *API) acceptTournament(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// The body is optional: {"board_id": 1} makes the player throw on that board.
-	var req struct {
-		BoardID *int64 `json:"board_id"`
-	}
-	if r.ContentLength != 0 && !decode(w, r, &req) {
+	boardID, ok := optionalBoard(w, r)
+	if !ok {
 		return
 	}
-	v, err := a.svc.AcceptTournamentInvitation(r.Context(), auth.Account(r.Context()), id, req.BoardID)
+	v, err := a.svc.AcceptTournamentInvitation(r.Context(), auth.Account(r.Context()), id, boardID)
 	respond(w, http.StatusOK, v, err)
 }
 
@@ -606,6 +603,51 @@ func (a *API) leaveTournament(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
+	respond(w, http.StatusOK, v, err)
+}
+
+// optionalBoard reads the optional body {"board_id": 1}: the board the player throws on.
+func optionalBoard(w http.ResponseWriter, r *http.Request) (*int64, bool) {
+	var req struct {
+		BoardID *int64 `json:"board_id"`
+	}
+	if r.ContentLength != 0 && !decode(w, r, &req) {
+		return nil, false
+	}
+	return req.BoardID, true
+}
+
+// listLobbies lists the games and tournaments of others that are open for strangers.
+func (a *API) listLobbies(w http.ResponseWriter, r *http.Request) {
+	lobbies, err := a.svc.OpenLobbies(r.Context(), auth.Account(r.Context()))
+	respond(w, http.StatusOK, lobbies, err)
+}
+
+// joinGame takes a seat of an open game with the account's player.
+func (a *API) joinGame(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	boardID, ok := optionalBoard(w, r)
+	if !ok {
+		return
+	}
+	v, err := a.svc.JoinGame(r.Context(), auth.Account(r.Context()), id, boardID)
+	respond(w, http.StatusOK, v, err)
+}
+
+// joinTournament takes a seat of an open tournament with the account's player.
+func (a *API) joinTournament(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	boardID, ok := optionalBoard(w, r)
+	if !ok {
+		return
+	}
+	v, err := a.svc.JoinTournament(r.Context(), auth.Account(r.Context()), id, boardID)
 	respond(w, http.StatusOK, v, err)
 }
 
