@@ -555,3 +555,37 @@ func playerAccent(v service.GameView, id int64) accent {
 	}
 	return accents["green"]
 }
+
+// lastTurn is a player's last finished turn, shown in their tile.
+type lastTurn struct {
+	Darts  []throw.Dart
+	Value  string // what it scored, in X01 the points or "Bust", in Around the Clock the hits
+	Bust   bool
+	Strong bool // 100 points or more
+}
+
+// lastTurnOf returns the last finished turn of a player, if they threw one.
+func lastTurnOf(t Texts, v service.GameView, playerID int64) (lastTurn, bool) {
+	switch st := v.State.(type) {
+	case x01.State:
+		for i := len(st.Turns) - 1; i >= 0; i-- {
+			tr := st.Turns[i]
+			if tr.PlayerID != playerID || !tr.Complete {
+				continue
+			}
+			r := lastTurn{Darts: tr.Darts, Value: strconv.FormatUint(tr.Points, 10), Strong: tr.Points >= 100}
+			if tr.Bust {
+				r.Value, r.Bust = t.Busted(), true
+			}
+			return r, true
+		}
+	case aroundtheclock.State:
+		for i := len(st.Turns) - 1; i >= 0; i-- {
+			tr := st.Turns[i]
+			if tr.PlayerID == playerID && tr.Complete {
+				return lastTurn{Darts: tr.Darts, Value: strconv.Itoa(countTrue(tr.Hits))}, true
+			}
+		}
+	}
+	return lastTurn{}, false
+}

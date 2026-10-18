@@ -7,6 +7,8 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
+	"github.com/sj14/darts-o-mat/pkg/i18n"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
 
@@ -68,5 +70,26 @@ func TestHandEntry(t *testing.T) {
 		if got := mayAddDart(tt.v, p); got != tt.add {
 			t.Errorf("%s: mayAddDart = %v, want %v", tt.name, got, tt.add)
 		}
+	}
+}
+
+func TestLastTurnOf(t *testing.T) {
+	st := x01.State{Turns: []x01.Turn{
+		{PlayerID: 1, Round: 1, Points: 125, Complete: true},
+		{PlayerID: 2, Round: 1, Points: 0, Bust: true, Complete: true},
+		{PlayerID: 1, Round: 2, Points: 60, Complete: true},
+		{PlayerID: 2, Round: 2, Points: 20}, // still throwing
+	}}
+	v := service.GameView{State: st}
+	texts := textsOf(i18n.English)
+
+	if got, ok := lastTurnOf(texts, v, 1); !ok || got.Value != "60" || got.Strong || got.Bust {
+		t.Errorf("player 1 = %+v, %v; want the 60", got, ok)
+	}
+	if got, ok := lastTurnOf(texts, v, 2); !ok || !got.Bust || got.Value != texts.Busted() {
+		t.Errorf("player 2 = %+v, %v; want the bust (the unfinished turn doesn't count)", got, ok)
+	}
+	if _, ok := lastTurnOf(texts, v, 3); ok {
+		t.Error("a player who didn't throw has a last turn")
 	}
 }

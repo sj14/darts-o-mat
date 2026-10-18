@@ -282,7 +282,7 @@ templ dartTiles(v service.GameView, p progress, keypad bool) {
 }
 
 // turnControls are below the current player's card: what to do when the darts are to be
-// pulled out, and taking the last dart back.
+// pulled out.
 templ turnControls(v service.GameView, p progress) {
 	if p.WaitingForTakeout {
 		<div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 [--glow-color:var(--color-amber-400)] animate-glow" role="status">
@@ -310,18 +310,20 @@ templ turnControls(v service.GameView, p progress) {
 			}
 		</div>
 	}
-	if v.CanThrow {
-		<div>
-			<button
-				type="button"
-				class="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 disabled:opacity-30"
-				hx-post={ gameURL(v.Game.ID, "/undo") }
-				hx-target="#board"
-				hx-swap="outerHTML"
-				disabled?={ !v.MayUndo() }
-			>{ T(ctx).UndoLastDart() }</button>
-		</div>
-	}
+}
+
+// undoButton takes the last dart back, as a small button next to the darts of the visit.
+templ undoButton(v service.GameView) {
+	<button
+		type="button"
+		class="flex h-14 w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 text-2xl text-white/70 transition hover:bg-white/10 active:scale-95 disabled:opacity-30 sm:h-16"
+		title={ T(ctx).UndoLastDart() }
+		aria-label={ T(ctx).UndoLastDart() }
+		hx-post={ gameURL(v.Game.ID, "/undo") }
+		hx-target="#board"
+		hx-swap="outerHTML"
+		disabled?={ !v.MayUndo() }
+	>↶</button>
 }
 
 // celebration shows a big effect right after a special turn: 180 or busted.
@@ -486,9 +488,18 @@ templ playerCard(v service.GameView, p progress, l playerLine, keypad bool) {
 				<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ l.StatCaption }</div>
 			</div>
 		</div>
-		if p.running() && !p.BullingOff && !winner {
-			<div class="mt-4">
-				@dartTiles(v, p, keypad)
+		{{ tiles := p.running() && !p.BullingOff && !winner }}
+		if tiles || v.CanThrow {
+			// The darts of the visit, with the way to take the last dart back next to them.
+			<div class="mt-4 flex items-center gap-2">
+				<div class="min-w-0 flex-1">
+					if tiles {
+						@dartTiles(v, p, keypad)
+					}
+				</div>
+				if v.CanThrow {
+					@undoButton(v)
+				}
 			</div>
 		}
 	</div>
@@ -513,6 +524,13 @@ templ playerRow(v service.GameView, p progress, l playerLine, next bool) {
 			</div>
 			if next {
 				<div class="text-xs font-semibold uppercase tracking-widest text-emerald-300/80">{ T(ctx).Next() }</div>
+			}
+			// The player's last turn, as part of their tile.
+			if t, ok := lastTurnOf(T(ctx), v, l.ID); ok {
+				<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+					@turnDartsList(v, t.Darts, true)
+					<span class={ "text-white/60", templ.KV("rounded-full bg-board-red/25 px-2 py-0.5 text-xs font-semibold text-red-300", t.Bust), templ.KV("font-number text-lg font-extrabold text-amber-300", t.Strong) }>{ t.Value }</span>
+				</div>
 			}
 		</div>
 		<div class="text-right lg:max-xl:hidden">
