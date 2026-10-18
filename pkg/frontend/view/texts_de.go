@@ -321,6 +321,18 @@ func (textsDE) NoAccountYet() string { return "Noch kein Account?" }
 func (textsDE) UsernameHint() string {
 	return "3 bis 32 Zeichen: Buchstaben, Ziffern, Punkt, Bindestrich oder Unterstrich. Damit laden dich andere zu Spielen ein."
 }
+func (textsDE) Email() string         { return "E-Mail" }
+func (textsDE) EmailOptional() string { return "E-Mail (optional)" }
+func (textsDE) EmailHint() string {
+	return "Freiwillig. Es wird noch nichts daran verschickt; sie wird nur beim Account gespeichert. Leer lassen, um sie zu entfernen."
+}
+func (textsDE) SaveEmail() string { return "Speichern" }
+func (textsDE) ErrInvalidEmail() string {
+	return "Bitte eine gültige E-Mail-Adresse eingeben oder das Feld leer lassen."
+}
+func (textsDE) ErrEmailTaken() string {
+	return "Diese E-Mail-Adresse wird schon von einem anderen Account verwendet."
+}
 func (textsDE) DisplayName() string { return "Anzeigename" }
 func (textsDE) DisplayNameHint() string {
 	return "So heißt du im Spiel. Leer lassen, um den Benutzernamen zu verwenden."

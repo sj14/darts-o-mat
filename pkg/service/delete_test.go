@@ -121,7 +121,7 @@ func TestDeleteAccount(t *testing.T) {
 	if _, _, err := s.Login(ctx, "ben", "password"); !errors.Is(err, ErrUnauthenticated) {
 		t.Errorf("login after deleting: got %v, want ErrUnauthenticated", err)
 	}
-	if _, err := s.Register(ctx, "ben", "", "password"); err != nil {
+	if _, err := s.Register(ctx, "ben", "", "", "password"); err != nil {
 		t.Errorf("the username is free again: %v", err)
 	}
 	if fr, _ := s.Friends(ctx, anna); len(fr.Friends) != 1 || fr.Friends[0].Username != "cara" {

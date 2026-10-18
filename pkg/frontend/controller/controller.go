@@ -41,6 +41,7 @@ func (c *Controller) Routes() http.Handler {
 		r.Post("/language", c.setLanguage)
 		r.Get("/settings", c.showSettings)
 		r.Post("/settings/color", c.setColor)
+		r.Post("/settings/email", c.setEmail)
 		r.Post("/settings/delete", c.deleteAccount)
 		r.Post("/guests", c.createGuest)
 		r.Post("/guests/{id}/delete", c.deleteGuest)

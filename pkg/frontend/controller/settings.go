@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/sj14/darts-o-mat/pkg/auth"
+	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/frontend/view"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
@@ -20,7 +21,7 @@ func (c *Controller) renderSettings(w http.ResponseWriter, r *http.Request, stat
 		serverError(w, err)
 		return
 	}
-	render(w, r, status, view.Settings(acc.Username, p, errMsg))
+	render(w, r, status, view.Settings(acc.Username, acc.Email, p, errMsg))
 }
 
 // setColor stores the accent color of the account's player and shows the settings again.
@@ -31,6 +32,20 @@ func (c *Controller) setColor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+}
+
+// setEmail changes the email of the account.
+func (c *Controller) setEmail(w http.ResponseWriter, r *http.Request) {
+	switch _, err := c.svc.SetEmail(r.Context(), auth.Account(r.Context()), r.FormValue("email")); {
+	case err == nil:
+		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	case errors.Is(err, service.ErrEmailTaken):
+		c.renderSettings(w, r, http.StatusConflict, view.T(r.Context()).ErrEmailTaken())
+	case errors.Is(err, account.ErrInvalidEmail):
+		c.renderSettings(w, r, http.StatusBadRequest, view.T(r.Context()).ErrInvalidEmail())
+	default:
+		serverError(w, err)
+	}
 }
 
 // deleteAccount deletes the account after its password was entered again, and logs out.

@@ -2,6 +2,7 @@ package view
 
 type AuthModel struct {
 	Username     string // prefilled after a failed attempt
+	Email        string
 	Name         string
 	Error        string
 	Registration bool // whether new accounts may register
@@ -83,6 +84,9 @@ templ Register(m AuthModel) {
 				<form method="post" action="/register" class="flex flex-col gap-4">
 					@formField(T(ctx).Username(), "username", T(ctx).UsernameHint()) {
 						<input type="text" id="username" name="username" class={ inputClass } value={ m.Username } autocomplete="username" autocapitalize="none" pattern="[A-Za-z0-9._\-]{3,32}" required autofocus/>
+					}
+					@formField(T(ctx).EmailOptional(), "email", T(ctx).EmailHint()) {
+						<input type="email" id="email" name="email" class={ inputClass } value={ m.Email } autocomplete="email" autocapitalize="none"/>
 					}
 					@formField(T(ctx).DisplayName(), "name", T(ctx).DisplayNameHint()) {
 						<input type="text" id="name" name="name" class={ inputClass } value={ m.Name } autocomplete="nickname"/>

@@ -336,7 +336,17 @@ func (textsEN) NoAccountYet() string { return "No account yet?" }
 func (textsEN) UsernameHint() string {
 	return "3 to 32 characters: letters, digits, dot, hyphen or underscore. Others invite you to games with it."
 }
-func (textsEN) DisplayName() string { return "Display name" }
+func (textsEN) Email() string         { return "Email" }
+func (textsEN) EmailOptional() string { return "Email (optional)" }
+func (textsEN) EmailHint() string {
+	return "Optional. Nothing is sent to it yet; it is only stored for the account. Leave it empty to remove it."
+}
+func (textsEN) SaveEmail() string { return "Save" }
+func (textsEN) ErrInvalidEmail() string {
+	return "Please enter a valid email address, or leave it empty."
+}
+func (textsEN) ErrEmailTaken() string { return "Another account uses this email address already." }
+func (textsEN) DisplayName() string   { return "Display name" }
 func (textsEN) DisplayNameHint() string {
 	return "Your name in games. Leave it empty to use the username."
 }

@@ -72,14 +72,14 @@ go run ./cmd/darts-o-mat -db postgres -dsn "postgres://postgres:geheim@localhost
 
 ## Playing
 
-1. On your first visit create an account ("Register"). Every account is also your player.
+1. On your first visit create an account ("Register"). Every account is also your player. You may enter an email address; it is optional, nothing is sent to it yet, and you can change or remove it under "Settings".
 2. Add fellow players without an account on the start page as **guest players**. Players with their own account are added under **Freunde** by username. Once they accept the request, you can **invite** them when starting a game; they have to accept, until then the game waits.
 3. Choose the game mode, tick or invite your fellow players and start.
 4. Enter every throw: first choose single, double or triple, then tap the number – the keys then read e.g. "D20" or "T20". For the bull "Bull" (with "Double" it becomes "Bullseye"; there is no triple bull), for misses "Miss". Misses detected by the cameras show where they went, e.g. "M7" beside the 7. All players with an account can enter throws on their own device.
 5. Mistyped or misdetected? Tap the dart in the running visit or in the history and choose what was really hit. "Undo last dart" undoes the last dart.
 6. The game page plays sounds for hits, misses, busts and 180; toggle them at the top with "🔊 Sound on". Browsers only allow sounds once you have clicked or tapped the page. If the top says "🔈 Click for sound", click it – important when the cameras enter the throws and you don't touch anything else.
 7. Had enough? Everybody can leave with "Leave game" (you leave with your guests): the others play on without you, and the game ends if fewer than two players would be left. In a game of one account alone that is "Abort game"; it stays in the list but doesn't count in the statistics. All players of a game are equal: nobody is the host, everybody enters the darts of their own players.
-8. Under "Settings" you can delete your account (with your password), and guests with the ✕ in the guest list. Finished games stay for the others; the deleted player is shown there as "Deleted player".
+8. Under "Settings" you can change your email, delete your account (with your password), and guests with the ✕ in the guest list. Finished games stay for the others; the deleted player is shown there as "Deleted player".
 
 During the game you see the average or hit rate and a small statistic for every player. The history shows every visit with its darts and how long each leg and set took; at the end you see how long the game (or the tournament) lasted. Under "Statistics" you find your values and those of your guest players over all finished games.
 

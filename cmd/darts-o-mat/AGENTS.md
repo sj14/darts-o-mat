@@ -68,6 +68,7 @@ Logged-out visitors of `/` get a landing page (`view.Landing`: name, one sentenc
 User's decision 2026-10-18: nothing of the history is deleted, the player is anonymized (`player.Player.DeletedAt`, empty name, no longer an account's guest), so the games, darts and statistics of the others stay exactly as they were; the pages show "Deleted player" (`view.displayName`). Several deleted players in one game aren't told apart.
 
 - **Guest** (`service.DeleteGuest`, the ✕ at the guest in the guest list, `DELETE /api/players/{id}`): refused while the guest is in a running game or tournament (`ErrGuestBusy`), else anonymized.
+- **Email** (user's decision 2026-10-18: the login stays the username, the email is an optional extra; `account.Account.Email`, empty without one): entered when registering (optional) and changed or removed under Settings (`service.SetEmail`, `POST /settings/email`, `PUT /api/account/email`). Normalized to lower case and checked to be a plain address (`account.ValidateEmail`, `account.ErrInvalidEmail`). It is unique among the accounts that have one (`ErrEmailTaken`, 409 in the API; checked in the transaction, and a partial unique index `accounts_email_key … WHERE email <> ''` keeps it true when requests race), but not confirmed, and nothing is sent to it yet; it is only stored, e.g. for a later password reset. Breaking: the table `accounts` has a new column `email`.
 - **Account** (`service.DeleteAccount`, "Delete account" under Settings with the password again, `DELETE /api/account` with `{"password"}`): first running games and tournaments are dealt with – the account leaves them with all its players (`LeaveGame`: the others play on, or the game is aborted if fewer than two players would be left or if leaving isn't possible, e.g. while bulling off; `leaveTournament`: a tournament ends), unanswered invitations are declined. Then `store.DeleteAccount` removes the login, sessions, friendships, boards with camera tokens and the account (the username is free again) and anonymizes its player and its guests.
 
 ## Footer and version
@@ -171,7 +172,7 @@ Statistics are computed like the game state by replaying the darts and are not s
 
 All endpoints under `/api` except `register`/`login`/`logout` need the session cookie from `POST /api/login`.
 
-- `POST /api/register` (`{"username", "name", "password"}`), `POST /api/login` (`{"username", "password"}`), `POST /api/logout`
+- `POST /api/register` (`{"username", "email", "name", "password"}`, the email is optional), `PUT /api/account/email` (`{"email"}`, empty removes it), `POST /api/login` (`{"username", "password"}`), `POST /api/logout`
 - `GET /api/players` (own player + guests), `POST /api/players` (`{"name"}`, creates a guest)
 - `GET /api/boards` (with `last_used_at` once a game was started on the board), `POST /api/boards` (`{"name"}`), `DELETE /api/boards/{id}`
 - `GET /api/games`, `POST /api/games`, e.g. `{"mode": "x01", "legs": 3, "player_ids": [1, 2], "invite": ["ben"], "board_id": 1, "x01": {"start_score": 501, "out_mode": "double"}}`

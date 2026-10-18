@@ -49,6 +49,7 @@ func (a *API) Routes() http.Handler {
 		r.Get("/players", a.listPlayers)
 		r.Post("/players", a.createGuest)
 		r.Delete("/players/{id}", a.deleteGuest)
+		r.Put("/account/email", a.setEmail)
 		r.Delete("/account", a.deleteAccount)
 		r.Get("/boards", a.listBoards)
 		r.Post("/boards", a.createBoard)
@@ -83,13 +84,14 @@ func (a *API) Routes() http.Handler {
 func (a *API) register(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
+		Email    string `json:"email"`
 		Name     string `json:"name"`
 		Password string `json:"password"`
 	}
 	if !decode(w, r, &req) {
 		return
 	}
-	acc, err := a.svc.Register(r.Context(), req.Username, req.Name, req.Password)
+	acc, err := a.svc.Register(r.Context(), req.Username, req.Email, req.Name, req.Password)
 	respond(w, http.StatusCreated, acc, err)
 }
 
@@ -138,6 +140,19 @@ func (a *API) deleteGuest(w http.ResponseWriter, r *http.Request) {
 	}
 	err := a.svc.DeleteGuest(r.Context(), auth.Account(r.Context()), id)
 	respondEmpty(w, err)
+}
+
+// setEmail changes the email of the account ({"email": …}, empty removes it) and returns
+// the account.
+func (a *API) setEmail(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	acc, err := a.svc.SetEmail(r.Context(), auth.Account(r.Context()), req.Email)
+	respond(w, http.StatusOK, acc, err)
 }
 
 // deleteAccount deletes the account after checking its password (JSON {"password": …}),
@@ -497,7 +512,7 @@ func writeError(w http.ResponseWriter, err error) {
 	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound
 	case errors.Is(err, turn.ErrGameOver), errors.Is(err, turn.ErrWaitingForTakeout), errors.Is(err, service.ErrNothingToUndo), errors.Is(err, service.ErrNoActiveGame), errors.Is(err, service.ErrNotOnBoard), errors.Is(err, service.ErrCantLeave),
-		errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrAborted), errors.Is(err, service.ErrUsernameTaken):
+		errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrAborted), errors.Is(err, service.ErrUsernameTaken), errors.Is(err, service.ErrEmailTaken):
 		status = http.StatusConflict
 	}
 

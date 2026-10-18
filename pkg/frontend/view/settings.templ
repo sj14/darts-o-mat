@@ -2,8 +2,8 @@ package view
 
 import "github.com/sj14/darts-o-mat/pkg/domain/player"
 
-// Settings lets an account change how it appears: for now the accent color of its player.
-templ Settings(user string, p player.Player, errMsg string) {
+// Settings lets an account change how it appears (the accent color of its player) and its email.
+templ Settings(user, email string, p player.Player, errMsg string) {
 	@layout(T(ctx).NavSettings(), user) {
 		<div class="mx-auto max-w-3xl">
 			@pageTitle(T(ctx).NavSettings(), "")
@@ -27,6 +27,14 @@ templ Settings(user string, p player.Player, errMsg string) {
 						</label>
 					}
 					<noscript><button type="submit" class={ btnSecondary }>OK</button></noscript>
+				</form>
+			}
+			@panel("mt-6") {
+				<h2 class={ labelClass }>{ T(ctx).Email() }</h2>
+				<p class={ hintClass }>{ T(ctx).EmailHint() }</p>
+				<form method="post" action="/settings/email" class="mt-4 flex flex-wrap items-center gap-3">
+					<input type="email" name="email" value={ email } class={ inputClass, "max-w-xs" } autocomplete="email" autocapitalize="none" aria-label={ T(ctx).Email() }/>
+					<button type="submit" class={ btnSecondary }>{ T(ctx).SaveEmail() }</button>
 				</form>
 			}
 			@panel("mt-6 border-board-red/40") {

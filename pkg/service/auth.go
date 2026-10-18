@@ -26,20 +26,26 @@ var (
 	ErrUnauthenticated    = errors.New("not logged in")
 	ErrRegistrationClosed = errors.New("registration is disabled")
 	ErrUsernameTaken      = store.ErrUsernameTaken
+	ErrEmailTaken         = store.ErrEmailTaken
 )
 
 // dummyHash is compared against when a username doesn't exist,
 // so a failed login takes the same time whether the username exists or not.
 var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("darts-o-mat"), bcrypt.DefaultCost)
 
-// Register creates an account and its player. The player's name defaults to the username.
-func (s *Service) Register(ctx context.Context, username, name, password string) (account.Account, error) {
+// Register creates an account and its player. The player's name defaults to the username;
+// the email may be empty.
+func (s *Service) Register(ctx context.Context, username, email, name, password string) (account.Account, error) {
 	if !s.opts.Registration {
 		return account.Account{}, ErrRegistrationClosed
 	}
 
 	username = account.NormalizeUsername(username)
 	if err := account.ValidateUsername(username); err != nil {
+		return account.Account{}, fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	email = account.NormalizeEmail(email)
+	if err := account.ValidateEmail(email); err != nil {
 		return account.Account{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 	if err := account.ValidatePassword(password); err != nil {
@@ -55,9 +61,23 @@ func (s *Service) Register(ctx context.Context, username, name, password string)
 		return account.Account{}, err
 	}
 
-	a := account.Account{Username: username, PasswordHash: string(hash)}
+	a := account.Account{Username: username, Email: email, PasswordHash: string(hash)}
 	err = s.store.CreateAccount(ctx, &a, &player.Player{Name: name})
 	return a, err
+}
+
+// SetEmail changes the email of the account; empty removes it. It isn't confirmed, nothing
+// is sent to it.
+func (s *Service) SetEmail(ctx context.Context, acc account.Account, email string) (account.Account, error) {
+	email = account.NormalizeEmail(email)
+	if err := account.ValidateEmail(email); err != nil {
+		return acc, fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	if err := s.store.SetEmail(ctx, acc.ID, email); err != nil {
+		return acc, err
+	}
+	acc.Email = email
+	return acc, nil
 }
 
 // Login checks the credentials and starts a session. The returned token identifies the session.

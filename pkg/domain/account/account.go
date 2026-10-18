@@ -3,6 +3,7 @@ package account
 
 import (
 	"errors"
+	"net/mail"
 	"regexp"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 var (
 	ErrInvalidUsername = errors.New("username must be 3 to 32 characters: letters, digits, '.', '-' or '_'")
 	ErrInvalidPassword = errors.New("password must be 8 to 72 bytes long")
+	ErrInvalidEmail    = errors.New("enter a valid email address")
 )
 
 var usernamePattern = regexp.MustCompile(`^[a-z0-9._-]{3,32}$`)
@@ -21,8 +23,10 @@ var usernamePattern = regexp.MustCompile(`^[a-z0-9._-]{3,32}$`)
 type Account struct {
 	bun.BaseModel `bun:"table:accounts"`
 
-	ID           int64  `bun:",pk,autoincrement" json:"id"`
-	Username     string `bun:",notnull,unique" json:"username"`
+	ID       int64  `bun:",pk,autoincrement" json:"id"`
+	Username string `bun:",notnull,unique" json:"username"`
+	// Email is optional (empty without one) and not confirmed: nothing is sent to it yet. It is unique among the accounts that have one.
+	Email        string `bun:",notnull,default:''" json:"email,omitempty"`
 	PasswordHash string `bun:",notnull" json:"-"`
 	PlayerID     int64  `bun:",notnull,unique" json:"player_id"`
 	// Language of the web interface (see i18n.Lang); empty: the browser's.
@@ -38,6 +42,25 @@ func NormalizeUsername(username string) string {
 func ValidateUsername(username string) error {
 	if !usernamePattern.MatchString(username) {
 		return ErrInvalidUsername
+	}
+	return nil
+}
+
+// NormalizeEmail trims the email and makes it lower case; it may be empty.
+func NormalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+// ValidateEmail checks that the normalized email is empty or a plain address like
+// name@example.com.
+func ValidateEmail(email string) error {
+	if email == "" {
+		return nil
+	}
+	a, err := mail.ParseAddress(email)
+	_, domain, _ := strings.Cut(email, "@")
+	if err != nil || a.Address != email || len(email) > 254 || !strings.Contains(domain, ".") {
+		return ErrInvalidEmail
 	}
 	return nil
 }

@@ -25,7 +25,7 @@ func newService(t *testing.T) *Service {
 
 func register(t *testing.T, s *Service, username string) account.Account {
 	t.Helper()
-	a, err := s.Register(context.Background(), username, "", "password")
+	a, err := s.Register(context.Background(), username, "", "", "password")
 	if err != nil {
 		t.Fatalf("register %s: %v", username, err)
 	}
@@ -70,10 +70,10 @@ func TestAuth(t *testing.T) {
 	if a.Username != "anna" {
 		t.Errorf("username = %q, want it normalized to anna", a.Username)
 	}
-	if _, err := s.Register(ctx, "ANNA", "", "password"); !errors.Is(err, ErrUsernameTaken) {
+	if _, err := s.Register(ctx, "ANNA", "", "", "password"); !errors.Is(err, ErrUsernameTaken) {
 		t.Errorf("duplicate username: got %v, want ErrUsernameTaken", err)
 	}
-	if _, err := s.Register(ctx, "ben", "", "short"); !errors.Is(err, ErrInvalid) {
+	if _, err := s.Register(ctx, "ben", "", "", "short"); !errors.Is(err, ErrInvalid) {
 		t.Errorf("short password: got %v, want ErrInvalid", err)
 	}
 
@@ -100,8 +100,60 @@ func TestAuth(t *testing.T) {
 	}
 
 	closed := New(s.store, Options{Registration: false})
-	if _, err := closed.Register(ctx, "cara", "", "password"); !errors.Is(err, ErrRegistrationClosed) {
+	if _, err := closed.Register(ctx, "cara", "", "", "password"); !errors.Is(err, ErrRegistrationClosed) {
 		t.Errorf("closed registration: got %v, want ErrRegistrationClosed", err)
+	}
+}
+
+func TestEmail(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+
+	// The email is optional when registering, and checked if given.
+	if a, err := s.Register(ctx, "anna", "", "", "password"); err != nil || a.Email != "" {
+		t.Fatalf("register without an email: %q, %v", a.Email, err)
+	}
+	for _, bad := range []string{"ben", "ben@", "@example.com", "ben@example", "Ben <ben@example.com>", "ben @example.com"} {
+		if _, err := s.Register(ctx, "ben", bad, "", "password"); !errors.Is(err, account.ErrInvalidEmail) || !errors.Is(err, ErrInvalid) {
+			t.Errorf("register with %q: got %v, want ErrInvalid wrapping ErrInvalidEmail", bad, err)
+		}
+	}
+	ben, err := s.Register(ctx, "ben", " Ben@Example.com ", "", "password")
+	if err != nil || ben.Email != "ben@example.com" {
+		t.Fatalf("register with an email: %q, %v; want it normalized", ben.Email, err)
+	}
+
+	// An email belongs to one account; many accounts can have none.
+	if _, err := s.Register(ctx, "cara", "BEN@example.com", "", "password"); !errors.Is(err, ErrEmailTaken) {
+		t.Errorf("register with an email in use: got %v, want ErrEmailTaken", err)
+	}
+	if _, err := s.Register(ctx, "dora", "", "", "password"); err != nil {
+		t.Errorf("a second account without an email: %v", err)
+	}
+	cara, _ := s.Register(ctx, "cara", "cara@example.com", "", "password")
+	if _, err := s.SetEmail(ctx, cara, "ben@example.com"); !errors.Is(err, ErrEmailTaken) {
+		t.Errorf("change to an email in use: got %v, want ErrEmailTaken", err)
+	}
+	if a, err := s.SetEmail(ctx, ben, "ben@example.com"); err != nil || a.Email != "ben@example.com" {
+		t.Errorf("save your own email again: %q, %v", a.Email, err)
+	}
+
+	// It can be changed and removed in the settings; the account is stored with it.
+	if _, err := s.SetEmail(ctx, ben, "nope"); !errors.Is(err, account.ErrInvalidEmail) {
+		t.Errorf("change to an invalid email: got %v", err)
+	}
+	if a, err := s.SetEmail(ctx, ben, "Ben.New@example.org"); err != nil || a.Email != "ben.new@example.org" {
+		t.Fatalf("change: %q, %v", a.Email, err)
+	}
+	if _, _, err := s.Login(ctx, "ben", "password"); err != nil {
+		t.Errorf("login after changing the email: %v", err)
+	}
+	token, _, _ := s.Login(ctx, "ben", "password")
+	if a, _ := s.Authenticate(ctx, token); a.Email != "ben.new@example.org" {
+		t.Errorf("stored email = %q, want ben.new@example.org", a.Email)
+	}
+	if a, err := s.SetEmail(ctx, ben, ""); err != nil || a.Email != "" {
+		t.Errorf("remove: %q, %v", a.Email, err)
 	}
 }
 

@@ -11,7 +11,10 @@ import (
 	"github.com/uptrace/bun"
 )
 
-var ErrUsernameTaken = errors.New("username already taken")
+var (
+	ErrUsernameTaken = errors.New("username already taken")
+	ErrEmailTaken    = errors.New("email already taken")
+)
 
 // CreateAccount stores the account together with its player.
 func (store *Store) CreateAccount(ctx context.Context, a *account.Account, p *player.Player) error {
@@ -23,12 +26,39 @@ func (store *Store) CreateAccount(ctx context.Context, a *account.Account, p *pl
 		if exists {
 			return ErrUsernameTaken
 		}
+		if taken, err := emailTaken(ctx, tx, a.Email, 0); err != nil {
+			return err
+		} else if taken {
+			return ErrEmailTaken
+		}
 
 		if _, err := tx.NewInsert().Model(p).Exec(ctx); err != nil {
 			return err
 		}
 		a.PlayerID = p.ID
 		_, err = tx.NewInsert().Model(a).Returning("*").Exec(ctx)
+		return err
+	})
+}
+
+// emailTaken reports whether an account other than the one with the ID has the email; an
+// empty email is never taken.
+func emailTaken(ctx context.Context, tx bun.Tx, email string, id int64) (bool, error) {
+	if email == "" {
+		return false, nil
+	}
+	return tx.NewSelect().Model((*account.Account)(nil)).Where("email = ?", email).Where("id <> ?", id).Exists(ctx)
+}
+
+// SetEmail stores the email of an account, ErrEmailTaken if another account has it.
+func (store *Store) SetEmail(ctx context.Context, id int64, email string) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if taken, err := emailTaken(ctx, tx, email, id); err != nil {
+			return err
+		} else if taken {
+			return ErrEmailTaken
+		}
+		_, err := tx.NewUpdate().Model((*account.Account)(nil)).Set("email = ?", email).Where("id = ?", id).Exec(ctx)
 		return err
 	})
 }

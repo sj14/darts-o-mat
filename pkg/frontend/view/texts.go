@@ -240,6 +240,10 @@ type Texts interface {
 	Password() string
 	NoAccountYet() string
 	UsernameHint() string
+	Email() string
+	EmailOptional() string
+	EmailHint() string
+	SaveEmail() string
 	DisplayName() string
 	DisplayNameHint() string
 	PasswordHint() string
@@ -298,6 +302,8 @@ type Texts interface {
 	ErrLogin() string
 	ErrUsernameTaken() string
 	ErrRegisterInput() string
+	ErrInvalidEmail() string
+	ErrEmailTaken() string
 	ErrEnterName() string
 	ErrGuestNameTaken() string
 	ErrGameNotStarted() string

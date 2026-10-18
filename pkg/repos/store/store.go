@@ -63,6 +63,14 @@ func newStore(ctx context.Context, db *bun.DB) (*Store, error) {
 		}
 	}
 
+	// Accounts may have no email, but never share one. The check above gives the error; this
+	// index keeps it true when two requests race.
+	_, err := db.NewCreateIndex().Model((*account.Account)(nil)).Index("accounts_email_key").
+		Column("email").Unique().Where("email <> ''").IfNotExists().Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Store{
 		db: db,
 	}, nil

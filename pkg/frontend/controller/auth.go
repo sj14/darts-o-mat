@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/sj14/darts-o-mat/pkg/auth"
+	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/frontend/view"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
@@ -34,13 +35,17 @@ func (c *Controller) showRegister(w http.ResponseWriter, r *http.Request) {
 
 // register creates the account and logs it in right away.
 func (c *Controller) register(w http.ResponseWriter, r *http.Request) {
-	m := view.AuthModel{Username: r.FormValue("username"), Name: r.FormValue("name"), Registration: c.svc.RegistrationOpen()}
+	m := view.AuthModel{Username: r.FormValue("username"), Email: r.FormValue("email"), Name: r.FormValue("name"), Registration: c.svc.RegistrationOpen()}
 	password := r.FormValue("password")
 
-	_, err := c.svc.Register(r.Context(), m.Username, m.Name, password)
+	_, err := c.svc.Register(r.Context(), m.Username, m.Email, m.Name, password)
 	switch {
 	case errors.Is(err, service.ErrUsernameTaken):
 		m.Error = view.T(r.Context()).ErrUsernameTaken()
+	case errors.Is(err, service.ErrEmailTaken):
+		m.Error = view.T(r.Context()).ErrEmailTaken()
+	case errors.Is(err, account.ErrInvalidEmail):
+		m.Error = view.T(r.Context()).ErrInvalidEmail()
 	case errors.Is(err, service.ErrInvalid):
 		m.Error = view.T(r.Context()).ErrRegisterInput()
 	case errors.Is(err, service.ErrRegistrationClosed):
