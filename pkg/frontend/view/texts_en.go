@@ -216,8 +216,9 @@ func (textsEN) ErrNoInvitation() string { return "This invitation doesn't exist 
 func (textsEN) ErrCompleted() string {
 	return "The result is confirmed, the game can't be changed anymore."
 }
-func (textsEN) ErrNotOver() string   { return "The game isn't over yet." }
-func (textsEN) CompleteGame() string { return "Confirm result" }
+func (textsEN) ErrNotOver() string               { return "The game isn't over yet." }
+func (textsEN) CompleteGame() string             { return "Confirm result" }
+func (textsEN) NewVersion(version string) string { return "Version " + version + " available" }
 func (textsEN) CompleteHint() string {
 	return "Until then the last dart can still be corrected. It confirms itself after a minute without a change."
 }

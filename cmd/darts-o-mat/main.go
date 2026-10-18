@@ -14,6 +14,7 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/frontend/controller"
 	"github.com/sj14/darts-o-mat/pkg/repos/store"
 	"github.com/sj14/darts-o-mat/pkg/service"
+	"github.com/sj14/darts-o-mat/pkg/update"
 )
 
 func main() {
@@ -31,6 +32,7 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
+	update.Start(ctx)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)

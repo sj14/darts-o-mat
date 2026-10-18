@@ -21,6 +21,7 @@ User's decision 2026-10-18: darts-o-mat has to work both as a small self-hosted 
 - **The small installation needs nothing extra.** Whatever only a big or public installation needs (protection against bots such as a captcha, later perhaps rate limits, mail, an external database) is **optional and off by default**: it is switched on by a flag or environment variable, and a server without it behaves exactly as before, without a network call to a third party, without an extra field in a form. No feature may make the small installation depend on a service or a key.
 - **Exception: cheap protection for everybody is on by default** (the limit on failed logins: no third party, no key, no extra field); the operator can turn it off or change it with a flag.
 - **Keys and secrets** come as a flag **and** as an environment variable (`DARTS_O_MAT_…`; the flag's default is the variable), because flags show in the process list and the container and Helm chart work with variables. A half-set configuration (one of two keys) stops the server at the start instead of running unprotected.
+- **Exception, the user's decision 2026-10-18: the hint about a newer version** (`pkg/update`, in the footers of the server and of darts-o-cam) asks GitHub for the latest release when the program starts and then once a day. A failed check shows nothing, a build that isn't a release (a git revision as its version) never shows a hint.
 - **Third parties** are named in the documentation with what they get to see, and are loaded only on the pages that need them (never in the layout); the app's own files stay embedded, no CDN (see [technologies](#technologies)).
 - When a feature for the big case would make the code for the small one more complicated, say so before building it (see [code quality](#code-quality)).
 
@@ -93,6 +94,7 @@ New features build on the existing stack; don't introduce additional frameworks 
 - `pkg/auth`: session cookie and middleware (server)
 - `pkg/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock, tournaments); `pkg/domain/dartboard` (board geometry) is used by server and camera
 - `pkg/repos/store`: persistence (server)
+- `pkg/update`: finds out whether a newer release exists (GitHub, once a day) for the footers of server and camera, see [the rule above](#from-the-home-server-to-saas) (server, camera)
 - `pkg/captcha`: the optional check that a registration comes from a person (Cloudflare Turnstile), see [server → captcha](cmd/darts-o-mat/AGENTS.md#captcha) (server)
 - `pkg/i18n`: language of the web interfaces (negotiation, request context), see [languages](#languages)
 - `pkg/notify`: tells subscribers about changes (`Signal`, `Hub` by key); `pkg/sse`: streams Server-Sent Events for htmx (`Stream`, with keepalive); both used by server and camera

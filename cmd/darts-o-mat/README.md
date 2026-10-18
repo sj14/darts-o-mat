@@ -73,6 +73,10 @@ docker run -d --name darts-postgres -e POSTGRES_PASSWORD=geheim -e POSTGRES_DB=d
 go run ./cmd/darts-o-mat -db postgres -dsn "postgres://postgres:geheim@localhost:5432/darts-o-mat?sslmode=disable"
 ```
 
+## Updates
+
+The footer of every page says "Version … available" when there is a newer release. For that the server asks GitHub for the latest release when it starts and then once a day; GitHub sees the server's address and the version, nothing else. Nothing is updated by itself: download the new version from the [release page](https://github.com/sj14/darts-o-mat/releases/latest) (or pull the new container image) and start it; the database stays as it is.
+
 ## Playing
 
 1. On your first visit create an account ("Register"). Every account is also your player. You may enter an email address; it is optional, nothing is sent to it yet, and you can change or remove it under "Settings".

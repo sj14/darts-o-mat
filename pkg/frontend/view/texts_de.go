@@ -210,8 +210,9 @@ func (textsDE) ErrNoInvitation() string { return "Diese Einladung gibt es nicht 
 func (textsDE) ErrCompleted() string {
 	return "Das Ergebnis ist bestätigt, das Spiel kann nicht mehr geändert werden."
 }
-func (textsDE) ErrNotOver() string   { return "Das Spiel ist noch nicht vorbei." }
-func (textsDE) CompleteGame() string { return "Ergebnis bestätigen" }
+func (textsDE) ErrNotOver() string               { return "Das Spiel ist noch nicht vorbei." }
+func (textsDE) CompleteGame() string             { return "Ergebnis bestätigen" }
+func (textsDE) NewVersion(version string) string { return "Version " + version + " verfügbar" }
 func (textsDE) CompleteHint() string {
 	return "Bis dahin kann der letzte Dart noch korrigiert werden. Nach einer Minute ohne Änderung bestätigt es sich selbst."
 }

@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/sj14/darts-o-mat/pkg/buildinfo"
+	"github.com/sj14/darts-o-mat/pkg/update"
 	"github.com/sj14/darts-o-mat/pkg/camapp"
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 	"github.com/sj14/darts-o-mat/pkg/i18n"
@@ -178,6 +179,9 @@ templ layout(title string) {
 			</main>
 			<footer class="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-white/40">
 				<a href={ templ.URL(buildinfo.ProjectURL) } class="hover:text-white/70" target="_blank" rel="noopener">darts-o-cam { buildinfo.Version() }</a>
+				if v, ok := update.Available(); ok {
+					<a href={ templ.URL(buildinfo.ProjectURL + "/releases/latest") } class="ml-3 font-semibold text-amber-300 hover:text-amber-200" target="_blank" rel="noopener">{ T(ctx).NewVersion(v) }</a>
+				}
 			</footer>
 		</body>
 	</html>

@@ -12,10 +12,11 @@ func (textsDE) Number(f float64, digits int) string {
 	return strings.Replace(strconv.FormatFloat(f, 'f', digits, 64), ".", ",", 1)
 }
 
-func (textsDE) NavCameras() string   { return "Kameras" }
-func (textsDE) NavAddCamera() string { return "Kamera hinzufügen" }
-func (textsDE) NavSettings() string  { return "Einstellungen" }
-func (textsDE) Back() string         { return "Zurück" }
+func (textsDE) NavCameras() string               { return "Kameras" }
+func (textsDE) NavAddCamera() string             { return "Kamera hinzufügen" }
+func (textsDE) NavSettings() string              { return "Einstellungen" }
+func (textsDE) NewVersion(version string) string { return "Version " + version + " verfügbar" }
+func (textsDE) Back() string                     { return "Zurück" }
 func (textsDE) DetectionRunning(cameras int) string {
 	if cameras == 1 {
 		return "Erkennung läuft mit 1 Kamera."

@@ -8,10 +8,11 @@ type textsEN struct{}
 
 func (textsEN) Number(f float64, digits int) string { return strconv.FormatFloat(f, 'f', digits, 64) }
 
-func (textsEN) NavCameras() string   { return "Cameras" }
-func (textsEN) NavAddCamera() string { return "Add camera" }
-func (textsEN) NavSettings() string  { return "Settings" }
-func (textsEN) Back() string         { return "Back" }
+func (textsEN) NavCameras() string               { return "Cameras" }
+func (textsEN) NavAddCamera() string             { return "Add camera" }
+func (textsEN) NavSettings() string              { return "Settings" }
+func (textsEN) NewVersion(version string) string { return "Version " + version + " available" }
+func (textsEN) Back() string                     { return "Back" }
 func (textsEN) DetectionRunning(cameras int) string {
 	if cameras == 1 {
 		return "Detection is running with 1 camera."

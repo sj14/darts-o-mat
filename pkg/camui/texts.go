@@ -20,6 +20,7 @@ type Texts interface {
 	NavCameras() string
 	NavAddCamera() string
 	NavSettings() string
+	NewVersion(version string) string
 	Back() string
 	DetectionRunning(cameras int) string
 	DetectionWaiting() string

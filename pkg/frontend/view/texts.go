@@ -159,6 +159,7 @@ type Texts interface {
 	ErrCompleted() string
 	ErrNotOver() string
 	CompleteGame() string
+	NewVersion(version string) string
 	CompleteHint() string
 	ResultConfirmed() string
 	AwaitingConfirmation() string

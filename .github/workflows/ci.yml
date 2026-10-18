@@ -24,6 +24,9 @@ jobs:
       # The packaging tools are modules of their own, not covered by the commands above.
       - run: go -C tools/linuxpkg vet .
       - run: go -C tools/winpkg vet .
+      # The installer of darts-o-cam.
+      - run: shellcheck -s bash cmd/darts-o-cam/install.sh cmd/darts-o-cam/install_test.sh
+      - run: bash cmd/darts-o-cam/install_test.sh
 
   helm:
     runs-on: ubuntu-latest
