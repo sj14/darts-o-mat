@@ -1544,17 +1544,17 @@ func participants(m HomeModel) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				last := lastUsedBoard(m.Boards)
+				preselected := defaultBoard(m.Boards)
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "<div class=\"flex flex-wrap gap-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = choice("board_id", "", T(ctx).NoBoard(), last == 0).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = choice("board_id", "", T(ctx).NoBoard(), preselected == 0).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, b := range m.Boards {
-					templ_7745c5c3_Err = choice("board_id", strconv.FormatInt(b.ID, 10), "📷 "+b.Name, b.ID == last).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = choice("board_id", strconv.FormatInt(b.ID, 10), "📷 "+b.Name, b.ID == preselected).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

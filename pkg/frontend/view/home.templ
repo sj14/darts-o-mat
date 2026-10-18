@@ -230,11 +230,11 @@ templ participants(m HomeModel) {
 	}
 	if len(m.Boards) > 0 {
 		@fieldset(T(ctx).Board()) {
-			{{ last := lastUsedBoard(m.Boards) }}
+			{{ preselected := defaultBoard(m.Boards) }}
 			<div class="flex flex-wrap gap-2">
-				@choice("board_id", "", T(ctx).NoBoard(), last == 0)
+				@choice("board_id", "", T(ctx).NoBoard(), preselected == 0)
 				for _, b := range m.Boards {
-					@choice("board_id", strconv.FormatInt(b.ID, 10), "📷 "+b.Name, b.ID == last)
+					@choice("board_id", strconv.FormatInt(b.ID, 10), "📷 "+b.Name, b.ID == preselected)
 				}
 			</div>
 		}

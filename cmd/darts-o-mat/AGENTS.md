@@ -26,7 +26,7 @@ Project-wide rules, the shared stack and how server and camera work together: [r
 
 ## Database
 
-- Boards store when a game was last started on them (`board.Board.LastUsedAt`, set in the same transaction as the game in `store.CreateGame`); the start form preselects that board (`view.lastUsedBoard`).
+- Boards store when a game was last started on them (`board.Board.LastUsedAt`, set in the same transaction as the game in `store.CreateGame`); the start form preselects that board, or the first board if none was used yet (`view.defaultBoard`); "no board" stays one click away.
 
 - PostgreSQL and SQLite are both supported (chosen via `-db sqlite|postgres` and `-dsn`). Persistence code must work with both databases.
 - ORM/query builder: [Bun](https://bun.uptrace.dev) (`pgdialect`/`pgdriver` for PostgreSQL, `sqlitedialect` with the cgo-free driver `modernc.org/sqlite` for SQLite)

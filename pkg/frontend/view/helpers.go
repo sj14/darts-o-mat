@@ -417,9 +417,13 @@ func takeouts(v service.GameView) int {
 	return n
 }
 
-// lastUsedBoard is the ID of the board a game was last started on, 0 if none was used yet.
-func lastUsedBoard(boards []service.BoardView) int64 {
-	var last service.BoardView
+// defaultBoard is the ID of the board preselected for a new game: the one a game was
+// last started on, else the first one (the list is sorted by ID); 0 without boards.
+func defaultBoard(boards []service.BoardView) int64 {
+	if len(boards) == 0 {
+		return 0
+	}
+	last := boards[0]
 	for _, b := range boards {
 		if b.LastUsedAt != nil && (last.LastUsedAt == nil || b.LastUsedAt.After(*last.LastUsedAt)) {
 			last = b
