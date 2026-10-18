@@ -38,7 +38,7 @@ const (
 
 // Settings are how a game is played: the mode with its settings, legs, sets, bulling
 // off. A tournament has them once for all its games. Both store them as
-// columns of their own table, except the mode's settings (JSON).
+// columns of their own table, except the mode's settings (a table per mode).
 type Settings struct {
 	Mode Mode `bun:",notnull" json:"mode"`
 	// Legs is how many legs win the game, or a set when playing sets; at least 1.
@@ -49,9 +49,12 @@ type Settings struct {
 	BullOff bool `bun:",notnull,default:false" json:"bull_off"`
 	// TurnSeconds is how long a player has for their turn; if they take longer, the turn is
 	// skipped, and after MaxSkips skipped turns in a row they leave the game. 0 is no limit.
-	TurnSeconds    int                      `bun:",notnull,default:0" json:"turn_seconds,omitempty"`
-	X01            *x01.Settings            `json:"x01,omitempty"`
-	AroundTheClock *aroundtheclock.Settings `json:"around_the_clock,omitempty"`
+	TurnSeconds int `bun:",notnull,default:0" json:"turn_seconds,omitempty"`
+	// The settings of the mode (the one that fits Mode) are in a table of their own;
+	// SettingsID is the row, set by the store (the games of a tournament share its row).
+	SettingsID     int64                    `bun:",notnull,default:0" json:"-"`
+	X01            *x01.Settings            `bun:"-" json:"x01,omitempty"`
+	AroundTheClock *aroundtheclock.Settings `bun:"-" json:"around_the_clock,omitempty"`
 }
 
 func (s Settings) Validate() error {

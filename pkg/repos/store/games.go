@@ -17,6 +17,9 @@ var ErrNotFound = errors.New("not found")
 // board it throws on) and marks their boards as used.
 func (store *Store) CreateGame(ctx context.Context, g *game.Game) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if err := saveSettings(ctx, tx, &g.Settings); err != nil {
+			return err
+		}
 		if _, err := tx.NewInsert().Model(g).Returning("*").Exec(ctx); err != nil {
 			return err
 		}
@@ -63,13 +66,20 @@ func (store *Store) loadParticipants(ctx context.Context, games []game.Game) err
 	return nil
 }
 
-// scanGames runs the query and loads the participants of the games it found.
+// scanGames runs the query and loads the participants and the mode settings of the games it found.
 func (store *Store) scanGames(ctx context.Context, q *bun.SelectQuery) ([]game.Game, error) {
 	games := []game.Game{}
 	if err := q.Model(&games).Scan(ctx); err != nil {
 		return nil, err
 	}
-	return games, store.loadParticipants(ctx, games)
+	if err := store.loadParticipants(ctx, games); err != nil {
+		return nil, err
+	}
+	settings := make([]*game.Settings, len(games))
+	for i := range games {
+		settings[i] = &games[i].Settings
+	}
+	return games, loadSettings(ctx, store.db, settings)
 }
 
 func (store *Store) GetGame(ctx context.Context, id int64) (game.Game, error) {

@@ -13,6 +13,9 @@ import (
 // CreateTournament stores the tournament with its participants, in the order given.
 func (store *Store) CreateTournament(ctx context.Context, t *tournament.Tournament) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if err := saveSettings(ctx, tx, &t.Settings); err != nil {
+			return err
+		}
 		if _, err := tx.NewInsert().Model(t).Returning("*").Exec(ctx); err != nil {
 			return err
 		}
@@ -30,7 +33,7 @@ func (store *Store) CreateTournament(ctx context.Context, t *tournament.Tourname
 	})
 }
 
-// scanTournaments runs the query and loads the participants of the tournaments it found.
+// scanTournaments runs the query and loads the participants and the mode settings of the tournaments it found.
 func (store *Store) scanTournaments(ctx context.Context, q *bun.SelectQuery) ([]tournament.Tournament, error) {
 	ts := []tournament.Tournament{}
 	if err := q.Model(&ts).Scan(ctx); err != nil {
@@ -51,7 +54,11 @@ func (store *Store) scanTournaments(ctx context.Context, q *bun.SelectQuery) ([]
 	for _, r := range rows {
 		ts[index[r.TournamentID]].Participants = append(ts[index[r.TournamentID]].Participants, r)
 	}
-	return ts, nil
+	settings := make([]*game.Settings, len(ts))
+	for i := range ts {
+		settings[i] = &ts[i].Settings
+	}
+	return ts, loadSettings(ctx, store.db, settings)
 }
 
 func (store *Store) GetTournament(ctx context.Context, id int64) (tournament.Tournament, error) {
