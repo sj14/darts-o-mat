@@ -272,6 +272,9 @@ type Texts interface {
 	// Statistics.
 	StatsHint() string
 	NoFinishedGames() string
+	Heatmap() string
+	HeatmapDarts(n int) string
+	HeatmapNone() string
 	Count180() string
 	GamesWinsLegs() string
 	SetsWonLabel() string

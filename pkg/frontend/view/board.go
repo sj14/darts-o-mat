@@ -2,12 +2,14 @@ package view
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/dartboard"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
+	"github.com/sj14/darts-o-mat/pkg/domain/stats"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
@@ -93,6 +95,26 @@ func drawBoard() ([]boardShape, []boardNumber) {
 		numbers = append(numbers, boardNumber{X: svgX(p), Y: svgY(p), Text: strconv.Itoa(int(n))})
 	}
 	return shapes, numbers
+}
+
+// heatCell is a square of the heatmap on the drawn board.
+type heatCell struct {
+	X, Y, Opacity string
+}
+
+// heatCells draws the cells of a heatmap: the fullest is nearly opaque, the others by the
+// square root of their share so that a few darts still show next to many.
+func heatCells(h stats.Heat) []heatCell {
+	cells := make([]heatCell, len(h.Cells))
+	for i, c := range h.Cells {
+		share := math.Sqrt(float64(c.Count) / float64(h.Max))
+		cells[i] = heatCell{
+			X:       strconv.FormatFloat(boardCenter+c.X-stats.HeatCellSize/2, 'f', 1, 64),
+			Y:       strconv.FormatFloat(boardCenter-c.Y-stats.HeatCellSize/2, 'f', 1, 64),
+			Opacity: strconv.FormatFloat(0.2+0.75*share, 'f', 2, 64),
+		}
+	}
+	return cells
 }
 
 // targetPath outlines the field to hit next in around the clock: the whole segment of

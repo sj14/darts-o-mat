@@ -377,17 +377,22 @@ func (textsDE) StatsHint() string {
 	return "Über alle beendeten Spiele und Turniere von dir und deinen Gastspielern."
 }
 func (textsDE) NoFinishedGames() string { return "Noch keine beendeten Spiele." }
-func (textsDE) Count180() string        { return "180er" }
-func (textsDE) GamesWinsLegs() string   { return "Spiele / Siege / Legs" }
-func (textsDE) SetsWonLabel() string    { return "Sets gewonnen" }
-func (textsDE) TournamentsWon() string  { return "Turniere / gewonnen" }
-func (textsDE) HighestFinish() string   { return "Höchstes Finish" }
-func (textsDE) BestLeg() string         { return "Bestes Leg" }
-func (textsDE) AvgLegTime() string      { return "Ø Leg-Dauer" }
-func (textsDE) AvgGameTime() string     { return "Ø Spieldauer" }
-func (textsDE) NDarts(n int) string     { return strconv.Itoa(n) + " Darts" }
-func (textsDE) Games() string           { return "Spiele" }
-func (textsDE) DartsHits() string       { return "Darts / Treffer" }
+func (textsDE) Heatmap() string         { return "Wo deine Darts landen" }
+func (textsDE) HeatmapDarts(n int) string {
+	return strconv.Itoa(n) + " von der Kamera erkannte Darts"
+}
+func (textsDE) HeatmapNone() string    { return "Darts, die die Kamera erkennt, erscheinen hier." }
+func (textsDE) Count180() string       { return "180er" }
+func (textsDE) GamesWinsLegs() string  { return "Spiele / Siege / Legs" }
+func (textsDE) SetsWonLabel() string   { return "Sets gewonnen" }
+func (textsDE) TournamentsWon() string { return "Turniere / gewonnen" }
+func (textsDE) HighestFinish() string  { return "Höchstes Finish" }
+func (textsDE) BestLeg() string        { return "Bestes Leg" }
+func (textsDE) AvgLegTime() string     { return "Ø Leg-Dauer" }
+func (textsDE) AvgGameTime() string    { return "Ø Spieldauer" }
+func (textsDE) NDarts(n int) string    { return strconv.Itoa(n) + " Darts" }
+func (textsDE) Games() string          { return "Spiele" }
+func (textsDE) DartsHits() string      { return "Darts / Treffer" }
 
 func (textsDE) InvitedToTournament() string {
 	return "Du bist zu diesem Turnier eingeladen. Die Spiele beginnen, sobald alle zugesagt haben."

@@ -8,6 +8,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
+	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 )
 
 // quick is a game one dart ends: 40 with a double 20.
@@ -150,5 +151,47 @@ func TestThoseWhoLeftCantComplete(t *testing.T) {
 	}
 	if _, err := s.CompleteGame(ctx, ben, id); err != nil {
 		t.Errorf("ben, who stayed, completes: %v", err)
+	}
+}
+
+// A game counts in the statistics once it is completed, and is stored then: it is not
+// replayed again, and what is stored doesn't change anymore.
+func TestStatsOfCompletedGames(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	offset := time.Duration(0)
+	s.now = func() time.Time { return time.Now().Add(offset) }
+	anna := register(t, s, "anna")
+	boardA, _ := s.CreateBoard(ctx, anna, "A")
+
+	g := withBoard(quick(anna.PlayerID), boardA.ID)
+	v, _ := s.CreateGame(ctx, anna, g, nil)
+	x, y := 0.0, 100.0 // between the 20 and the inner side of the triple, at the top
+	if _, err := s.AddBoardDart(ctx, boardA, throw.Dart{Number: 20, Segment: throw.Double, X: &x, Y: &y}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.Stats(ctx, anna)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got[0].X01.Games != 0 {
+		t.Errorf("a game that can still be corrected counts: %+v", got[0].X01)
+	}
+	if got[0].Heat.Darts != 1 {
+		t.Errorf("heat = %+v, want the one camera dart", got[0].Heat)
+	}
+
+	offset = game.CompleteAfter + time.Second
+	for range 2 { // the second time it is read from the table
+		if got, err = s.Stats(ctx, anna); err != nil {
+			t.Fatal(err)
+		}
+		if got[0].X01.Games != 1 || got[0].X01.Wins != 1 || got[0].X01.Darts != 1 {
+			t.Fatalf("completed game: %+v, want it counted once", got[0].X01)
+		}
+	}
+	if rs, _ := s.store.ListResults(ctx, []int64{anna.PlayerID}); len(rs) != 1 || rs[0].GameID != v.Game.ID {
+		t.Errorf("stored results = %+v, want one for the game", rs)
 	}
 }

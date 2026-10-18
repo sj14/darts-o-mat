@@ -71,6 +71,7 @@ templ Stats(user string, summaries []stats.Summary) {
 							</div>
 						}
 					</div>
+					@heatmap(s.Heat)
 				}
 			}
 		</div>
@@ -89,5 +90,34 @@ templ statRow(label, value string) {
 	<div class="flex justify-between gap-4 py-2">
 		<dt class="text-white/60">{ label }</dt>
 		<dd class="font-semibold tabular-nums">{ value }</dd>
+	</div>
+}
+
+// heatmap shows where the cameras saw a player's darts: the board, faded, with a square
+// per place that got a dart, the more the stronger.
+templ heatmap(h stats.Heat) {
+	<div class="mt-6">
+		<h3 class={ labelClass }>{ T(ctx).Heatmap() }</h3>
+		if h.Darts == 0 {
+			<p class="text-sm text-white/50">{ T(ctx).HeatmapNone() }</p>
+		} else {
+			<div class="mx-auto aspect-square w-full max-w-md">
+				<svg viewBox={ boardViewBox } class="h-full w-full" role="img" aria-label={ T(ctx).Heatmap() }>
+					<circle cx="228" cy="228" r="226" fill="#0b0c0f" stroke="#2b2e35" stroke-width="3"></circle>
+					<g opacity="0.3">
+						for _, s := range boardShapes {
+							<path d={ s.Path } fill={ s.Fill } stroke={ boardWire } stroke-width="0.8"></path>
+						}
+					</g>
+					for _, c := range heatCells(h) {
+						<rect x={ c.X } y={ c.Y } width="8" height="8" fill={ boardTarget } fill-opacity={ c.Opacity }></rect>
+					}
+					for _, n := range boardNumbers {
+						<text x={ n.X } y={ n.Y } fill="#e9dcc0" fill-opacity="0.7" font-size="24" font-family="ui-sans-serif, system-ui, sans-serif" font-weight="800" text-anchor="middle" dominant-baseline="central">{ n.Text }</text>
+					}
+				</svg>
+			</div>
+			<p class="mt-2 text-center text-sm text-white/50">{ T(ctx).HeatmapDarts(h.Darts) }</p>
+		}
 	</div>
 }

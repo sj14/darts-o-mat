@@ -31,9 +31,10 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
 
 ## Statistics
 
-- Statistics: add a heatmap of the dart positions.
+- Heatmap: choose game mode or period, a finer drawing (smooth instead of squares), and the hits per field as numbers; maybe also show which fields were corrected (position and field differ, see [statistics](AGENTS.md#statistics)).
 - Show a statistics summary at the end: after a leg the statistics of that leg, after the game the statistics of the whole game (per player, e.g. average, highest visit, checkout, darts). Open: show the game summary as soon as the game is over (together with the confirmation, see [games](#games)) or only once it is completed.
-- Later, only once the statistics page gets measurably slow (builds on completed games, `game.Game.Completed`; count only those then): a statistics table per player and game mode with running totals, updated when a game is completed. Safe because completed games can't change anymore; sums just add up and highest/best values only need max/min. The replay stays for rebuilding the table when statistics are added or fixed. A cheaper first step: load the darts of all games in one query instead of one per game; also `service.Stats` replays each tournament's games a second time (`tournamentView`) only to learn the tournament's winner.
+- `service.Stats` still replays each tournament's games a second time (`tournamentView`) only to learn the tournament's winner; storing the winner (e.g. on the tournament once it is over) would make the page independent of the number of tournaments. Also: it loads every game's participants (`ListGames`) on each visit; a query only for games without stored results would do.
+- Statistics from the table (`game_stats`) allow trends over time (average per week, last 30 days): not built, needs a date per result (`games.completed_at` or the game's start).
 
 ## Boards and cameras
 

@@ -8,6 +8,7 @@ import (
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
+	"github.com/sj14/darts-o-mat/pkg/domain/stats"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 	"github.com/sj14/darts-o-mat/pkg/domain/tournament"
 	"github.com/uptrace/bun"
@@ -52,6 +53,7 @@ func newStore(ctx context.Context, db *bun.DB) (*Store, error) {
 		(*board.Board)(nil),
 		(*board.Token)(nil),
 		(*throw.Dart)(nil),
+		(*stats.Result)(nil),
 		(*tournament.Tournament)(nil),
 		(*tournament.Participant)(nil),
 	}

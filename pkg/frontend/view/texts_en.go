@@ -388,17 +388,22 @@ func (textsEN) StatsHint() string {
 	return "Over all finished games and tournaments of you and your guest players."
 }
 func (textsEN) NoFinishedGames() string { return "No finished games yet." }
-func (textsEN) Count180() string        { return "180s" }
-func (textsEN) GamesWinsLegs() string   { return "Games / wins / legs" }
-func (textsEN) SetsWonLabel() string    { return "Sets won" }
-func (textsEN) TournamentsWon() string  { return "Tournaments / won" }
-func (textsEN) HighestFinish() string   { return "Highest finish" }
-func (textsEN) BestLeg() string         { return "Best leg" }
-func (textsEN) AvgLegTime() string      { return "Average leg time" }
-func (textsEN) AvgGameTime() string     { return "Average game time" }
-func (textsEN) NDarts(n int) string     { return strconv.Itoa(n) + " darts" }
-func (textsEN) Games() string           { return "Games" }
-func (textsEN) DartsHits() string       { return "Darts / hits" }
+func (textsEN) Heatmap() string         { return "Where your darts land" }
+func (textsEN) HeatmapDarts(n int) string {
+	return strconv.Itoa(n) + " darts seen by the camera"
+}
+func (textsEN) HeatmapNone() string    { return "Darts the camera sees will show up here." }
+func (textsEN) Count180() string       { return "180s" }
+func (textsEN) GamesWinsLegs() string  { return "Games / wins / legs" }
+func (textsEN) SetsWonLabel() string   { return "Sets won" }
+func (textsEN) TournamentsWon() string { return "Tournaments / won" }
+func (textsEN) HighestFinish() string  { return "Highest finish" }
+func (textsEN) BestLeg() string        { return "Best leg" }
+func (textsEN) AvgLegTime() string     { return "Average leg time" }
+func (textsEN) AvgGameTime() string    { return "Average game time" }
+func (textsEN) NDarts(n int) string    { return strconv.Itoa(n) + " darts" }
+func (textsEN) Games() string          { return "Games" }
+func (textsEN) DartsHits() string      { return "Darts / hits" }
 
 func (textsEN) InvitedToTournament() string {
 	return "You're invited to this tournament. The games start as soon as everyone has accepted."
