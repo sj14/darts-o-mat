@@ -25,8 +25,8 @@ jobs:
       - run: go -C tools/linuxpkg vet .
       - run: go -C tools/winpkg vet .
       # The installer of darts-o-cam.
-      - run: shellcheck -s bash cmd/darts-o-cam/install.sh cmd/darts-o-cam/install_test.sh
-      - run: bash cmd/darts-o-cam/install_test.sh
+      - run: shellcheck -s bash install.sh install_test.sh
+      - run: bash install_test.sh
 
   helm:
     runs-on: ubuntu-latest

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tests install.sh without a network and without touching the system: the commands it
 # asks about (uname, dpkg, ...) are stand-ins, and the "release" is a folder of files.
-#   bash cmd/darts-o-cam/install_test.sh
+#   bash install_test.sh
 # The stand-in commands are written with single quotes on purpose.
 # shellcheck disable=SC2016
 set -u
@@ -71,6 +71,21 @@ plan rpm-only "sudo rpm -U"
 system "$work/tar" Linux x86_64
 plan tar "darts-o-cam_linux_amd64.tar.gz" "unpack into ~/.local" "Installing"
 
+# The server (--server): its own file names, and no .zip or menu entry.
+plan_server() { # plan_server NAME EXPECTED... DIR: what --server --dry-run says
+	run "$work/$1" --server --dry-run
+	shift
+	local want
+	for want in "$@"; do check "server: $want" "$output" "$want"; done
+}
+plan_server mac-arm "macos, arm64" "darts-o-mat_darwin_arm64.tar.gz" "unpack into ~/.local/bin"
+plan_server mac-intel "macos, amd64" "darts-o-mat_darwin_amd64.tar.gz"
+plan_server deb "darts-o-mat_linux_amd64.deb" "sudo apt-get install"
+plan_server deb-only "darts-o-mat_linux_arm64.deb" "sudo dpkg -i"
+plan_server rpm-dnf "darts-o-mat_linux_arm64.rpm" "sudo dnf install"
+plan_server rpm-zypper "darts-o-mat_linux_amd64.rpm" "sudo zypper install"
+plan_server tar "darts-o-mat_linux_amd64.tar.gz" "unpack into ~/.local/bin" "Installing"
+
 system "$work/arm32" Linux armv7l
 run "$work/arm32" --dry-run
 check arm32 "$output" "unsupported processor armv7l"
@@ -79,6 +94,9 @@ system "$work/win" MINGW64_NT-10.0 x86_64
 run "$work/win" --dry-run
 check windows "$output" "this is Windows"
 [ "$status" -ne 0 ] || fail "windows: expected an error"
+run "$work/win" --server --dry-run
+check server-windows "$output" "double click darts-o-mat.exe"
+[ "$status" -ne 0 ] || fail "server on Windows: expected an error"
 run "$work/tar" --nonsense
 check "unknown option" "$output" "unknown option"
 run "$work/tar" --version 1.2.3 --dry-run
@@ -128,6 +146,35 @@ calls=$(cat "$work/calls" 2>/dev/null)
 check deb-install "$calls" "$want"
 check deb-install "$calls" "install -y"
 check deb-install "$calls" "darts-o-cam_linux_amd64.deb"
+
+# The server, as the release has it: a .tar.gz with a folder of the program, LICENSE and
+# README, and a .deb that apt-get gets.
+rm -rf "$work/home/.local"
+srv="$work/srv/darts-o-mat_1.0.0_linux_amd64"
+mkdir -p "$srv"
+printf '#!/bin/sh\necho 1.0.0\n' >"$srv/darts-o-mat"
+chmod +x "$srv/darts-o-mat"
+echo license >"$srv/LICENSE"
+tar czf "$download/darts-o-mat_linux_amd64.tar.gz" -C "$work/srv" darts-o-mat_1.0.0_linux_amd64
+sums
+run "$work/tar" --server
+check server-tar "$output" "Installed ~/.local/bin/darts-o-mat"
+check server-tar "$output" "http://localhost:3000"
+[ -x "$work/home/.local/bin/darts-o-mat" ] || fail "server tar: the program isn't in ~/.local/bin"
+[ ! -e "$work/home/.local/bin/darts-o-cam" ] && [ ! -e "$work/home/.local/share" ] || fail "server tar: only the program is installed"
+run "$work/tar" --server
+check server-update "$output" "up to date"
+check server-update "$output" "games and accounts are kept"
+rm "$download/darts-o-mat_linux_amd64.tar.gz"
+echo deb >"$download/darts-o-mat_linux_amd64.deb"
+sums
+rm -f "$work/calls"
+run "$work/deb-real" --server
+calls=$(cat "$work/calls" 2>/dev/null)
+check server-deb "$calls" "install -y"
+check server-deb "$calls" "darts-o-mat_linux_amd64.deb"
+check server-deb "$output" "systemctl enable --now darts-o-mat"
+rm "$download/darts-o-mat_linux_amd64.deb"
 
 # macOS: the app is replaced in ~/Applications (only where ditto exists).
 if command -v ditto >/dev/null 2>&1; then

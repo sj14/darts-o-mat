@@ -1,0 +1,28 @@
+# darts-o-mat, the server, as a service:
+#   sudo systemctl enable --now darts-o-mat
+# It is then reachable on port 3000 of this computer: http://<this computer>:3000. The
+# games are kept in /var/lib/darts-o-mat.
+#
+# Other options (see darts-o-mat -h) go into a copy of the start line:
+#   sudo systemctl edit darts-o-mat
+# with, for example:
+#   [Service]
+#   ExecStart=
+#   ExecStart=/usr/bin/darts-o-mat -addr :8080 -registration=false -dsn file:/var/lib/darts-o-mat/darts-o-mat.db
+# Keys (DARTS_O_MAT_TURNSTILE_SITE_KEY, ...) can go into /etc/darts-o-mat/env instead of
+# the process list: one NAME=value per line, readable by root only.
+[Unit]
+Description=darts-o-mat: darts scorer
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/darts-o-mat -addr :3000 -dsn file:/var/lib/darts-o-mat/darts-o-mat.db
+EnvironmentFile=-/etc/darts-o-mat/env
+DynamicUser=yes
+# The games, in /var/lib/darts-o-mat.
+StateDirectory=darts-o-mat
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

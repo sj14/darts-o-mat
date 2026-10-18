@@ -10,8 +10,9 @@ apps: linux windows $(if $(filter Darwin,$(shell uname -s)),macapp)
 macapp:
 	go run ./tools/macapp
 
-# .deb, .rpm and .tar.gz for amd64 and arm64 in dist/ (see tools/linuxpkg, a module of
-# its own). The version comes from the latest vX.Y.Z tag; set one with VERSION=1.2.3.
+# The Linux packages for amd64 and arm64 in dist/: .deb, .rpm and .tar.gz of darts-o-cam,
+# .deb and .rpm of the server (see tools/linuxpkg, a module of its own). The version comes
+# from the latest vX.Y.Z tag; set one with VERSION=1.2.3.
 .PHONY: linux 
 linux:
 	go -C tools/linuxpkg run . $(if $(VERSION),-version $(VERSION))

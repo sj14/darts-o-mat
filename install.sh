@@ -1,24 +1,30 @@
 #!/usr/bin/env bash
-# Installs darts-o-cam: finds out which package fits this computer (system, processor,
-# and on Linux the package manager), downloads it from the latest release, checks it
-# against the release's checksums and installs it.
+# Installs darts-o-cam, the program for the computer the cameras are connected to, or with
+# --server the server darts-o-mat: finds out which package fits this computer (system,
+# processor, and on Linux the package manager), downloads it from the latest release,
+# checks it against the release's checksums and installs it.
 #
-#   curl -fsSL https://raw.githubusercontent.com/sj14/darts-o-mat/main/cmd/darts-o-cam/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/sj14/darts-o-mat/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/sj14/darts-o-mat/main/install.sh | bash -s -- --server
 #
 # Run it again later to update: it installs the latest release over the installed one.
 #
-# Options (after `bash -s --` when piped): --version 1.2.3 for another release than the
-# latest, --dry-run to only say what would be done, -h for this text.
+# Options (after `bash -s --` when piped): --server for the server instead of darts-o-cam,
+# --version 1.2.3 for another release than the latest, --dry-run to only say what would
+# be done, -h for this text.
 #
-# macOS: the app goes into ~/Applications. Linux: a .deb or .rpm (with sudo) if the
-# system has dpkg or rpm, else the .tar.gz into ~/.local. Windows: not with this script,
-# download the .zip from the release page.
+# darts-o-cam: on macOS the app goes into ~/Applications. On Linux a .deb or .rpm (with
+# sudo) if the system has dpkg or rpm, else the .tar.gz into ~/.local.
+# Server: on Linux a .deb or .rpm (with sudo; it comes with a systemd service), else, and
+# on macOS, the program into ~/.local/bin.
+# Windows: not with this script, download the .zip from the release page.
 set -eu
 
 repo="sj14/darts-o-mat"
 # DARTS_O_CAM_RELEASES points to another place with the same layout, e.g. a mirror (or the
 # test, install_test.sh).
 releases="${DARTS_O_CAM_RELEASES:-https://github.com/$repo/releases}"
+app=darts-o-cam
 version=latest
 dry_run=0
 
@@ -33,6 +39,7 @@ usage() {
 
 while [ $# -gt 0 ]; do
 	case $1 in
+	--server) app=darts-o-mat; shift ;;
 	--version) [ $# -ge 2 ] || die "--version needs a number, e.g. --version 1.2.3"; version=${2#v}; shift 2 ;;
 	--dry-run) dry_run=1; shift ;;
 	-h | --help) usage ;;
@@ -44,13 +51,13 @@ done
 case $(uname -s) in
 Darwin) os=macos ;;
 Linux) os=linux ;;
-MINGW* | MSYS* | CYGWIN*) die "this is Windows: download the .zip for Windows from $releases/latest, unpack it and double click darts-o-cam.exe" ;;
+MINGW* | MSYS* | CYGWIN*) die "this is Windows: download the .zip for Windows from $releases/latest, unpack it and double click $app.exe" ;;
 *) die "unsupported system $(uname -s); see $releases/latest" ;;
 esac
 case $(uname -m) in
 x86_64 | amd64) arch=amd64 ;;
 arm64 | aarch64) arch=arm64 ;;
-*) die "unsupported processor $(uname -m): darts-o-cam is built for 64-bit Intel/AMD and ARM (a 32-bit system on a Raspberry Pi needs the 64-bit version of its system)" ;;
+*) die "unsupported processor $(uname -m): $app is built for 64-bit Intel/AMD and ARM (a 32-bit system on a Raspberry Pi needs the 64-bit version of its system)" ;;
 esac
 # A terminal started under Rosetta on an Apple silicon Mac says x86_64: the Mac is ARM.
 if [ "$os" = macos ] && [ "$arch" = amd64 ] && [ "$(sysctl -n sysctl.proc_translated 2>/dev/null || true)" = 1 ]; then
@@ -60,22 +67,28 @@ fi
 # Which package?
 case $os in
 macos)
-	file="darts-o-cam_macos_$arch.zip"
-	how="unpack into ~/Applications"
+	if [ "$app" = darts-o-mat ]; then
+		# The server's archives are named after Go's system names.
+		file="darts-o-mat_darwin_$arch.tar.gz"
+		how="unpack into ~/.local/bin"
+	else
+		file="darts-o-cam_macos_$arch.zip"
+		how="unpack into ~/Applications"
+	fi
 	;;
 linux)
 	if have dpkg; then
-		file="darts-o-cam_linux_$arch.deb"
+		file="${app}_linux_$arch.deb"
 		if have apt-get; then how="sudo apt-get install"; else how="sudo dpkg -i"; fi
 	elif have rpm; then
-		file="darts-o-cam_linux_$arch.rpm"
+		file="${app}_linux_$arch.rpm"
 		if have dnf; then how="sudo dnf install"
 		elif have zypper; then how="sudo zypper install"
 		elif have yum; then how="sudo yum install"
 		else how="sudo rpm -U"; fi
 	else
-		file="darts-o-cam_linux_$arch.tar.gz"
-		how="unpack into ~/.local"
+		file="${app}_linux_$arch.tar.gz"
+		if [ "$app" = darts-o-mat ]; then how="unpack into ~/.local/bin"; else how="unpack into ~/.local"; fi
 	fi
 	;;
 esac
@@ -83,9 +96,9 @@ esac
 installed=0
 case $file in
 *.zip) { [ -d "$HOME/Applications/darts-o-cam.app" ] || [ -d /Applications/darts-o-cam.app ]; } && installed=1 ;;
-*.deb) dpkg -s darts-o-cam >/dev/null 2>&1 && installed=1 ;;
-*.rpm) rpm -q darts-o-cam >/dev/null 2>&1 && installed=1 ;;
-*.tar.gz) [ -x "$HOME/.local/bin/darts-o-cam" ] && installed=1 ;;
+*.deb) dpkg -s "$app" >/dev/null 2>&1 && installed=1 ;;
+*.rpm) rpm -q "$app" >/dev/null 2>&1 && installed=1 ;;
+*.tar.gz) [ -x "$HOME/.local/bin/$app" ] && installed=1 ;;
 esac
 if [ "$installed" = 1 ]; then action=Updating; else action=Installing; fi
 if [ "$version" = latest ]; then base="$releases/latest/download"; else base="$releases/download/v$version"; fi
@@ -142,21 +155,39 @@ case $file in
 	mkdir "$tmp/unpacked"
 	tar xzf "$tmp/$file" -C "$tmp/unpacked"
 	root=$(echo "$tmp"/unpacked/*)
-	mkdir -p "$HOME/.local/bin" "$HOME/.local/share"
-	cp -R "$root/usr/bin/." "$HOME/.local/bin/"
-	cp -R "$root/usr/share/." "$HOME/.local/share/"
-	say "Installed into ~/.local (the program in ~/.local/bin, the menu entry in ~/.local/share)."
-	case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) say "Add ~/.local/bin to your PATH to start it as darts-o-cam." ;; esac
+	mkdir -p "$HOME/.local/bin"
+	if [ "$app" = darts-o-mat ]; then
+		# The server's archive is a folder with the program, LICENSE and README.
+		cp "$root/darts-o-mat" "$HOME/.local/bin/"
+		say "Installed ~/.local/bin/darts-o-mat."
+	else
+		mkdir -p "$HOME/.local/share"
+		cp -R "$root/usr/bin/." "$HOME/.local/bin/"
+		cp -R "$root/usr/share/." "$HOME/.local/share/"
+		say "Installed into ~/.local (the program in ~/.local/bin, the menu entry in ~/.local/share)."
+	fi
+	case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) say "Add ~/.local/bin to your PATH to start it as $app." ;; esac
 	;;
 esac
 
 if [ "$os" = linux ]; then
 	# A running service keeps the old program until it is restarted.
-	if have systemctl && systemctl is-active --quiet darts-o-cam 2>/dev/null; then
-		as_root systemctl restart darts-o-cam
-		say "The darts-o-cam service was restarted."
+	if have systemctl && systemctl is-active --quiet "$app" 2>/dev/null; then
+		as_root systemctl restart "$app"
+		say "The $app service was restarted."
 	fi
-	say "Start it from the menu (darts-o-cam) or, without a desktop, with: sudo systemctl enable --now darts-o-cam"
-	say "Your user needs access to the cameras, usually through the group video: sudo usermod -aG video \$USER (then log in again)."
 fi
-if [ "$installed" = 1 ]; then say "Done: darts-o-cam is up to date. Your cameras and settings are kept."; else say "Done. Next: add and calibrate the cameras in darts-o-cam."; fi
+if [ "$app" = darts-o-mat ]; then
+	case $file in
+	*.deb | *.rpm) say "Start it as a service: sudo systemctl enable --now darts-o-mat (the games are kept in /var/lib/darts-o-mat)." ;;
+	*) say "Start it with: darts-o-mat (the games are kept in the file darts-o-mat.db in the folder you start it in)." ;;
+	esac
+	say "Then open http://localhost:3000 in the browser."
+	if [ "$installed" = 1 ]; then say "Done: darts-o-mat is up to date. Your games and accounts are kept."; else say "Done."; fi
+else
+	if [ "$os" = linux ]; then
+		say "Start it from the menu (darts-o-cam) or, without a desktop, with: sudo systemctl enable --now darts-o-cam"
+		say "Your user needs access to the cameras, usually through the group video: sudo usermod -aG video \$USER (then log in again)."
+	fi
+	if [ "$installed" = 1 ]; then say "Done: darts-o-cam is up to date. Your cameras and settings are kept."; else say "Done. Next: add and calibrate the cameras in darts-o-cam."; fi
+fi

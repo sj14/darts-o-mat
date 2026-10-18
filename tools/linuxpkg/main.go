@@ -1,15 +1,21 @@
-// Command linuxpkg builds the Linux packages of darts-o-cam, for amd64 and arm64
-// (e.g. a Raspberry Pi):
+// Command linuxpkg builds the Linux packages of darts-o-cam and of the server darts-o-mat,
+// for amd64 and arm64 (e.g. a Raspberry Pi):
 //
 //	go -C tools/linuxpkg run .                     # into dist/ of the project
 //	go -C tools/linuxpkg run . -o /tmp/pkgs -version 1.2.3
 //
 // It is a module of its own, so nFPM and its dependencies stay out of the project's go.mod.
 //
-// Per architecture a .deb, an .rpm and a .tar.gz, each with the program, a menu entry
-// (darts-o-cam.desktop), icons and a systemd service for running it without a desktop
-// (darts-o-cam.service, not enabled). darts-o-cam is built without cgo; WebKitGTK, for
+// darts-o-cam gets per architecture a .deb, an .rpm and a .tar.gz, each with the program,
+// a menu entry (darts-o-cam.desktop), icons and a systemd service for running it without
+// a desktop (darts-o-cam.service, not enabled). It is built without cgo; WebKitGTK, for
 // its window of its own, is only recommended: without it the program opens the browser.
+//
+// darts-o-mat gets a .deb and an .rpm with the program and a systemd service
+// (darts-o-mat.service, not enabled; the games are kept in /var/lib/darts-o-mat). No
+// .tar.gz: the release workflow builds that one (darts-o-mat_linux_amd64.tar.gz, with
+// LICENSE and README), and the name would be the same.
+//
 // The files have no version in their names (darts-o-cam_linux_amd64.deb, .rpm, .tar.gz),
 // so the links to the latest release's downloads stay the same; the version is in the
 // packages and in the folder inside the .tar.gz.
@@ -40,28 +46,72 @@ import (
 	"github.com/sj14/darts-o-mat/tools/internal/version"
 )
 
-const name = "darts-o-cam"
-
 var (
 	//go:embed darts-o-cam.desktop
 	desktopEntry []byte
 	//go:embed darts-o-cam.service
-	serviceUnit []byte
+	cameraUnit []byte
+	//go:embed darts-o-mat.service
+	serverUnit []byte
 )
 
 // iconSizes are the sizes of the icons in /usr/share/icons/hicolor.
 var iconSizes = []int{16, 32, 48, 64, 128, 256, 512}
 
-// The packages' dependencies. WebKitGTK only for the window: GTK4 with WebKitGTK 6.0
-// first, else GTK3 with WebKit2GTK 4.1 or 4.0 (glaze takes what's there).
-// libjpeg-turbo makes decoding the camera frames cheaper (pkg/camera).
-var recommends = map[string][]string{
-	"deb": {"libwebkitgtk-6.0-4 | libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37"},
-	"rpm": {"(webkitgtk6.0 or webkit2gtk4.1 or webkit2gtk4.0)"},
+// asset is a file of a package besides the program, the same for every architecture.
+type asset struct {
+	data []byte
+	dst  string
 }
-var suggests = map[string][]string{
-	"deb": {"libturbojpeg0"},
-	"rpm": {"turbojpeg"},
+
+// program is one of the programs that get packages.
+type program struct {
+	name        string
+	description string
+	assets      []asset
+	// icons adds the program's icon in every size of iconSizes.
+	icons bool
+	// stamp sets the version in the binary. Without it the binary tells the git revision it
+	// was built from, which for a release build is not the version.
+	stamp bool
+	// formats are the packages written: "deb", "rpm", and "tar" for a .tar.gz.
+	formats []string
+	// The packages' dependencies, per format.
+	recommends map[string][]string
+	suggests   map[string][]string
+}
+
+var programs = []program{
+	{
+		name:        "darts-o-cam",
+		description: "Detects darts with the cameras at a dartboard and reports them to darts-o-mat.",
+		assets: []asset{
+			{desktopEntry, "/usr/share/applications/darts-o-cam.desktop"},
+			{cameraUnit, "/usr/lib/systemd/system/darts-o-cam.service"},
+		},
+		icons:   true,
+		formats: []string{"deb", "rpm", "tar"},
+		// WebKitGTK only for the window: GTK4 with WebKitGTK 6.0 first, else GTK3 with
+		// WebKit2GTK 4.1 or 4.0 (glaze takes what's there).
+		recommends: map[string][]string{
+			"deb": {"libwebkitgtk-6.0-4 | libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37"},
+			"rpm": {"(webkitgtk6.0 or webkit2gtk4.1 or webkit2gtk4.0)"},
+		},
+		// libjpeg-turbo makes decoding the camera frames cheaper (pkg/camera).
+		suggests: map[string][]string{
+			"deb": {"libturbojpeg0"},
+			"rpm": {"turbojpeg"},
+		},
+	},
+	{
+		name:        "darts-o-mat",
+		description: "A free, self-hosted darts scorer: enter the throws or let cameras detect them.",
+		assets: []asset{
+			{serverUnit, "/usr/lib/systemd/system/darts-o-mat.service"},
+		},
+		stamp:   true,
+		formats: []string{"deb", "rpm"},
+	},
 }
 
 func main() {
@@ -97,70 +147,92 @@ func build(root, out, version string) error {
 	if err := os.MkdirAll(out, 0o755); err != nil {
 		return err
 	}
+	for _, p := range programs {
+		if err := p.build(root, out, work, version); err != nil {
+			return fmt.Errorf("%s: %w", p.name, err)
+		}
+	}
+	return nil
+}
 
+// build writes the packages of the program for every architecture.
+func (p program) build(root, out, work, version string) error {
 	// The files besides the program, the same for every architecture.
 	var assets files.Contents
-	for _, a := range []struct {
-		data []byte
-		dst  string
-	}{
-		{desktopEntry, "/usr/share/applications/" + name + ".desktop"},
-		{serviceUnit, "/usr/lib/systemd/system/" + name + ".service"},
-	} {
-		src := filepath.Join(work, filepath.Base(a.dst))
-		if err := os.WriteFile(src, a.data, 0o644); err != nil {
+	for _, a := range p.assets {
+		src := filepath.Join(work, p.name, filepath.Base(a.dst))
+		if err := writeFile(src, a.data); err != nil {
 			return err
 		}
 		assets = append(assets, &files.Content{Source: src, Destination: a.dst, FileInfo: &files.ContentFileInfo{Mode: 0o644}})
 	}
-	for _, size := range iconSizes {
-		src := filepath.Join(work, fmt.Sprintf("icon-%d.png", size))
-		if err := appicon.WritePNG(src, size); err != nil {
-			return err
+	if p.icons {
+		for _, size := range iconSizes {
+			src := filepath.Join(work, p.name, fmt.Sprintf("icon-%d.png", size))
+			if err := os.MkdirAll(filepath.Dir(src), 0o755); err != nil {
+				return err
+			}
+			if err := appicon.WritePNG(src, size); err != nil {
+				return err
+			}
+			dst := fmt.Sprintf("/usr/share/icons/hicolor/%dx%d/apps/%s.png", size, size, p.name)
+			assets = append(assets, &files.Content{Source: src, Destination: dst, FileInfo: &files.ContentFileInfo{Mode: 0o644}})
 		}
-		dst := fmt.Sprintf("/usr/share/icons/hicolor/%dx%d/apps/%s.png", size, size, name)
-		assets = append(assets, &files.Content{Source: src, Destination: dst, FileInfo: &files.ContentFileInfo{Mode: 0o644}})
 	}
 
+	ldflags := "-s -w"
+	if p.stamp {
+		ldflags += " -X github.com/sj14/darts-o-mat/pkg/buildinfo.stamped=" + version
+	}
 	for _, arch := range []string{"amd64", "arm64"} {
-		bin := filepath.Join(work, arch, name)
-		goBuild := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", bin, "./cmd/"+name)
+		bin := filepath.Join(work, p.name, arch, p.name)
+		goBuild := exec.Command("go", "build", "-trimpath", "-ldflags="+ldflags, "-o", bin, "./cmd/"+p.name)
 		goBuild.Dir = root
 		goBuild.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux", "GOARCH="+arch)
 		goBuild.Stdout, goBuild.Stderr = os.Stdout, os.Stderr
 		if err := goBuild.Run(); err != nil {
 			return fmt.Errorf("build for %s: %w", arch, err)
 		}
-		program := &files.Content{Source: bin, Destination: "/usr/bin/" + name, FileInfo: &files.ContentFileInfo{Mode: 0o755}}
+		program := &files.Content{Source: bin, Destination: "/usr/bin/" + p.name, FileInfo: &files.ContentFileInfo{Mode: 0o755}}
 		contents := append(files.Contents{program}, assets...)
-		for _, format := range []string{"deb", "rpm"} {
-			if err := pkg(out, format, arch, version, contents); err != nil {
+		for _, format := range p.formats {
+			var err error
+			if format == "tar" {
+				err = p.tarball(out, arch, version, contents)
+			} else {
+				err = p.pkg(out, format, arch, version, contents)
+			}
+			if err != nil {
 				return err
 			}
-		}
-		if err := tarball(out, arch, version, contents); err != nil {
-			return err
 		}
 	}
 	return nil
 }
 
+func writeFile(path string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
 // pkg writes a .deb or .rpm package.
-func pkg(out, format, arch, version string, contents files.Contents) error {
+func (p program) pkg(out, format, arch, version string, contents files.Contents) error {
 	info := nfpm.WithDefaults(&nfpm.Info{
-		Name:          name,
+		Name:          p.name,
 		Arch:          arch,
 		Version:       version,
 		VersionSchema: "none", // as given, e.g. 0.0.0+git.abc1234
 		Maintainer:    "darts-o-mat <https://github.com/sj14/darts-o-mat>",
-		Description:   "Detects darts with the cameras at a dartboard and reports them to darts-o-mat.",
+		Description:   p.description,
 		Homepage:      "https://github.com/sj14/darts-o-mat",
 		Section:       "games",
 		MTime:         time.Now(),
 		Overridables: nfpm.Overridables{
 			Contents:   contents,
-			Recommends: recommends[format],
-			Suggests:   suggests[format],
+			Recommends: p.recommends[format],
+			Suggests:   p.suggests[format],
 		},
 	})
 	if err := nfpm.PrepareForPackager(info, format); err != nil {
@@ -172,7 +244,7 @@ func pkg(out, format, arch, version string, contents files.Contents) error {
 	}
 	// No version in the name (darts-o-cam_linux_amd64.deb): a link to the latest release's
 	// download stays the same. The version is in the package.
-	path := filepath.Join(out, fmt.Sprintf("%s_linux_%s.%s", name, arch, format))
+	path := filepath.Join(out, fmt.Sprintf("%s_linux_%s.%s", p.name, arch, format))
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -188,9 +260,9 @@ func pkg(out, format, arch, version string, contents files.Contents) error {
 // tarball writes the same files as the packages into darts-o-cam_linux_<arch>.tar.gz,
 // below a folder darts-o-cam_<version>_linux_<arch> (usr/bin/…, usr/share/…), to unpack
 // anywhere.
-func tarball(out, arch, version string, contents files.Contents) error {
-	dir := fmt.Sprintf("%s_%s_linux_%s", name, version, arch)
-	path := filepath.Join(out, fmt.Sprintf("%s_linux_%s.tar.gz", name, arch))
+func (p program) tarball(out, arch, version string, contents files.Contents) error {
+	dir := fmt.Sprintf("%s_%s_linux_%s", p.name, version, arch)
+	path := filepath.Join(out, fmt.Sprintf("%s_linux_%s.tar.gz", p.name, arch))
 	f, err := os.Create(path)
 	if err != nil {
 		return err

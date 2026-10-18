@@ -5,6 +5,7 @@
 #   - the server's binaries (Linux, macOS, Windows; amd64 and arm64),
 #   - the server's container image ghcr.io/<owner>/darts-o-mat (amd64 and arm64),
 #   - the Helm chart oci://ghcr.io/<owner>/charts/darts-o-mat,
+#   - the server's Linux packages (.deb, .rpm; with a systemd service),
 #   - darts-o-cam: macOS app (amd64, arm64), Linux packages (.deb, .rpm, .tar.gz) and
 #     Windows .zip,
 #
@@ -12,8 +13,9 @@
 # archives have no version in their names (darts-o-mat_linux_amd64.tar.gz), so
 # https://github.com/<owner>/darts-o-mat/releases/latest/download/<name> is a link that
 # always points to the newest stable release (a pre-release isn't "latest"); the
-# .deb and .rpm are built with such names too (darts-o-cam_linux_amd64.deb, the version is
-# inside the package); no renaming afterwards.
+# .deb and .rpm are built with such names too (darts-o-mat_linux_amd64.deb, the version is
+# inside the package); no renaming afterwards. The server's Linux .tar.gz comes from the
+# server job, so the packages job writes no .tar.gz for the server (same name).
 name: Release
 
 on:
@@ -75,8 +77,9 @@ jobs:
           name: server-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
 
-  # darts-o-cam for Linux and Windows is built on Linux: no cgo, so it cross-compiles.
-  camera:
+  # The Linux packages of both programs and darts-o-cam for Windows are built on Linux: no
+  # cgo, so it cross-compiles.
+  packages:
     needs: [test, version]
     runs-on: ubuntu-latest
     steps:
@@ -87,7 +90,7 @@ jobs:
       - run: make linux windows VERSION=${{ needs.version.outputs.version }}
       - uses: actions/upload-artifact@v4
         with:
-          name: camera-linux-windows
+          name: packages-linux-windows
           path: dist/*
 
   # The macOS app needs macOS (iconutil, codesign) and is built for the architecture it
@@ -169,7 +172,7 @@ jobs:
           helm push "dist/darts-o-mat-${VERSION}.tgz" "oci://ghcr.io/${OWNER,,}/charts"
 
   release:
-    needs: [server, camera, camera-macos, image, chart]
+    needs: [server, packages, camera-macos, image, chart]
     runs-on: ubuntu-latest
     permissions:
       contents: write

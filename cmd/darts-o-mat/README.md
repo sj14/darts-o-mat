@@ -21,6 +21,24 @@ Download the server for your system from the [latest release](https://github.com
 ./darts-o-mat
 ```
 
+On Linux, packages install it as a service ([.deb](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_linux_amd64.deb) for Debian, Ubuntu and Raspberry Pi OS, [.rpm](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_linux_amd64.rpm) for Fedora and openSUSE; arm64 versions are on the release page):
+
+```sh
+sudo apt install ./darts-o-mat_linux_amd64.deb
+```
+
+```sh
+sudo systemctl enable --now darts-o-mat
+```
+
+(`sudo dnf install ./darts-o-mat_linux_amd64.rpm` for the .rpm.) The service listens on port 3000 and keeps the data in `/var/lib/darts-o-mat`; how to change the options is written at the top of `/usr/lib/systemd/system/darts-o-mat.service`. One line that picks the right file for your computer (Linux and macOS), checks it against the release's checksums and, run again later, updates it:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/sj14/darts-o-mat/main/install.sh | bash -s -- --server
+```
+
+(`--dry-run` only shows what it would do, `--version 1.2.3` takes another release. Without a package manager for .deb or .rpm, and on macOS, it puts the program into `~/.local/bin`.)
+
 Or from the source, with [Go](https://go.dev/dl/) installed, from the project folder:
 
 ```sh
@@ -75,7 +93,7 @@ go run ./cmd/darts-o-mat -db postgres -dsn "postgres://postgres:geheim@localhost
 
 ## Updates
 
-The footer of every page says "Version … available" when there is a newer release. For that the server asks GitHub for the latest release when it starts and then once a day; GitHub sees the server's address and the version, nothing else. Nothing is updated by itself: download the new version from the [release page](https://github.com/sj14/darts-o-mat/releases/latest) (or pull the new container image) and start it; the database stays as it is.
+The footer of every page says "Version … available" when there is a newer release. For that the server asks GitHub for the latest release when it starts and then once a day; GitHub sees the server's address and the version, nothing else. Nothing is updated by itself: download the new version from the [release page](https://github.com/sj14/darts-o-mat/releases/latest) (or run the install line above again, or pull the new container image) and start it; the database stays as it is.
 
 ## Playing
 
