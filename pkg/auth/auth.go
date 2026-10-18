@@ -57,7 +57,8 @@ func Require(svc *service.Service, unauthenticated http.HandlerFunc) func(http.H
 
 // Login checks the credentials and sets the session cookie.
 func Login(w http.ResponseWriter, r *http.Request, svc *service.Service, username, password string) (account.Account, error) {
-	token, a, err := svc.Login(r.Context(), username, password)
+	ctx := service.WithNetwork(r.Context(), svc.ClientNetwork(r.RemoteAddr, r.Header.Get))
+	token, a, err := svc.Login(ctx, username, password)
 	if err != nil {
 		return a, err
 	}

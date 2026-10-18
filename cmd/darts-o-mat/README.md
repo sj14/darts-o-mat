@@ -33,6 +33,8 @@ Options:
 
 - `-addr :8080` – listen on another port
 - `-registration=false` – turn off registering new accounts, e.g. if darts-o-mat is publicly reachable
+- `-max-login-failures 10` – lock a username for 15 minutes after that many failed logins, and a whole network after five times as many, as protection against guessing passwords (the default; `0` turns it off)
+- `-client-ip-header X-Forwarded-For` – behind a proxy or ingress: the header it passes the visitor's address in, so the limit per network works (only if all requests come through that proxy)
 - `-turnstile-site-key …` and `-turnstile-secret-key …` – only for servers that strangers can register on: registering then needs a [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) check ("I am not a robot"). Without both keys nothing is checked, and nothing from Cloudflare is loaded. The keys can also be set as `DARTS_O_MAT_TURNSTILE_SITE_KEY` and `DARTS_O_MAT_TURNSTILE_SECRET_KEY`.
 
 ### In a container

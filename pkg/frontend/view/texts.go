@@ -300,6 +300,7 @@ type Texts interface {
 
 	// Errors of these pages.
 	ErrLogin() string
+	ErrTooManyLogins() string
 	ErrUsernameTaken() string
 	ErrRegisterInput() string
 	ErrInvalidEmail() string

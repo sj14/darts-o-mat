@@ -18,10 +18,12 @@ import (
 
 func main() {
 	var (
-		dbType = flag.String("db", "sqlite", "database to use: sqlite or postgres")
-		dbDSN  = flag.String("dsn", "file:darts-o-mat.db", "data source name of the database")
-		addr   = flag.String("addr", ":3000", "address to listen on")
-		reg    = flag.Bool("registration", true, "allow anyone to create an account")
+		dbType           = flag.String("db", "sqlite", "database to use: sqlite or postgres")
+		dbDSN            = flag.String("dsn", "file:darts-o-mat.db", "data source name of the database")
+		addr             = flag.String("addr", ":3000", "address to listen on")
+		reg              = flag.Bool("registration", true, "allow anyone to create an account")
+		maxLoginFailures = flag.Int("max-login-failures", 10, "failed logins a username may have within 15 minutes before it is locked for a while (a network may have 5 times as many); 0 is no limit")
+		clientIPHeader   = flag.String("client-ip-header", "", "behind a proxy: the header it passes the client's address in, e.g. X-Forwarded-For; only if all requests come through it")
 		// The secret key is better passed in the environment: flags show up in the process list.
 		turnstileSite   = flag.String("turnstile-site-key", os.Getenv("DARTS_O_MAT_TURNSTILE_SITE_KEY"), "site key of a Cloudflare Turnstile widget; with the secret key, registering needs the check (or $DARTS_O_MAT_TURNSTILE_SITE_KEY)")
 		turnstileSecret = flag.String("turnstile-secret-key", os.Getenv("DARTS_O_MAT_TURNSTILE_SECRET_KEY"), "secret key of the Turnstile widget (or $DARTS_O_MAT_TURNSTILE_SECRET_KEY)")
@@ -51,7 +53,7 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 
-	opts := service.Options{Registration: *reg}
+	opts := service.Options{Registration: *reg, MaxLoginFailures: *maxLoginFailures, ClientIPHeader: *clientIPHeader}
 	switch {
 	case *turnstileSite != "" && *turnstileSecret != "":
 		opts.Captcha = captcha.NewTurnstile(*turnstileSite, *turnstileSecret)

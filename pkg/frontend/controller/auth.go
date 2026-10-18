@@ -22,6 +22,11 @@ func (c *Controller) login(w http.ResponseWriter, r *http.Request) {
 		render(w, r, http.StatusUnauthorized, view.Login(m))
 		return
 	}
+	if errors.Is(err, service.ErrTooManyLogins) {
+		m := view.AuthModel{Username: username, Error: view.T(r.Context()).ErrTooManyLogins(), Registration: c.svc.RegistrationOpen()}
+		render(w, r, http.StatusTooManyRequests, view.Login(m))
+		return
+	}
 	if err != nil {
 		serverError(w, err)
 		return

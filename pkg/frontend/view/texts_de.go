@@ -333,6 +333,9 @@ func (textsDE) ErrInvalidEmail() string {
 func (textsDE) ErrEmailTaken() string {
 	return "Diese E-Mail-Adresse wird schon von einem anderen Account verwendet."
 }
+func (textsDE) ErrTooManyLogins() string {
+	return "Zu viele Fehlversuche. Bitte versuche es in ein paar Minuten nochmal."
+}
 func (textsDE) ErrCaptcha() string {
 	return "Bitte die Prüfung bestehen, dass du kein Roboter bist, und es nochmal versuchen."
 }

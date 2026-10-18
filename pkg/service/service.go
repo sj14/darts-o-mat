@@ -66,6 +66,15 @@ func (e UnknownUserError) Unwrap() error {
 type Options struct {
 	// Registration allows anyone to create an account.
 	Registration bool
+	// MaxLoginFailures is how many failed logins a username may have within 15 minutes
+	// before logging in as it is refused (ErrTooManyLogins) until they are older; 0 is no
+	// limit.
+	MaxLoginFailures int
+	// ClientIPHeader names the header in which a proxy in front of the server passes the
+	// address of the client, e.g. X-Forwarded-For; empty uses the address of the connection.
+	// Only set it if all requests come through that proxy, anyone can send the header
+	// otherwise. See Service.ClientNetwork.
+	ClientIPHeader string
 	// Captcha checks that registrations come from a person; nil checks nothing.
 	Captcha captcha.Verifier
 }
@@ -82,6 +91,9 @@ type Service struct {
 	// of their games.
 	tournaments notify.Hub[int64]
 	// timers end the turn of a game with a time limit, by game ID (see watchTurn).
+	// logins limits the failed logins per username, nil without a limit.
+	logins   *loginLimiter
+	networks *loginLimiter
 	timers   map[int64]*time.Timer
 	timersMu sync.Mutex
 	// now is the time, replaced in tests.
@@ -89,7 +101,9 @@ type Service struct {
 }
 
 func New(store *store.Store, opts Options) *Service {
-	return &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, now: time.Now}
+	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, now: time.Now}
+	s.limitLogins(opts.MaxLoginFailures)
+	return s
 }
 
 func (s *Service) RegistrationOpen() bool {

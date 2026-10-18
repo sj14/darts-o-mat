@@ -511,6 +511,8 @@ func writeError(w http.ResponseWriter, err error) {
 		status = http.StatusConflict
 	case errors.Is(err, service.ErrInvalid), errors.Is(err, throw.ErrInvalid):
 		status = http.StatusBadRequest
+	case errors.Is(err, service.ErrTooManyLogins):
+		status = http.StatusTooManyRequests
 	case errors.Is(err, service.ErrUnauthenticated):
 		status = http.StatusUnauthorized
 	case errors.Is(err, service.ErrForbidden), errors.Is(err, service.ErrRegistrationClosed):

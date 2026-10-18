@@ -108,8 +108,33 @@ func (s *Service) SetEmail(ctx context.Context, acc account.Account, email strin
 }
 
 // Login checks the credentials and starts a session. The returned token identifies the session.
+// With a limit (Options.MaxLoginFailures) a username, or a network (WithNetwork), with too
+// many failed logins lately is refused with ErrTooManyLogins, whether the username exists or
+// not and whatever the password is.
 func (s *Service) Login(ctx context.Context, username, password string) (string, account.Account, error) {
-	a, err := s.store.GetAccountByUsername(ctx, account.NormalizeUsername(username))
+	username = account.NormalizeUsername(username)
+	network := networkOf(ctx)
+	now := s.now()
+	if s.logins != nil && (s.logins.blocked(username, now) || network != "" && s.networks.blocked(network, now)) {
+		return "", account.Account{}, ErrTooManyLogins
+	}
+	token, a, err := s.login(ctx, username, password)
+	if s.logins != nil {
+		switch {
+		case errors.Is(err, ErrUnauthenticated):
+			s.logins.fail(username, now)
+			if network != "" {
+				s.networks.fail(network, now)
+			}
+		case err == nil:
+			s.logins.reset(username)
+		}
+	}
+	return token, a, err
+}
+
+func (s *Service) login(ctx context.Context, username, password string) (string, account.Account, error) {
+	a, err := s.store.GetAccountByUsername(ctx, username)
 	if errors.Is(err, store.ErrNotFound) {
 		_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(password))
 		return "", account.Account{}, ErrUnauthenticated

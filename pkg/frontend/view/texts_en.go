@@ -346,6 +346,9 @@ func (textsEN) ErrInvalidEmail() string {
 	return "Please enter a valid email address, or leave it empty."
 }
 func (textsEN) ErrEmailTaken() string { return "Another account uses this email address already." }
+func (textsEN) ErrTooManyLogins() string {
+	return "Too many failed attempts. Please try again in a few minutes."
+}
 func (textsEN) ErrCaptcha() string {
 	return "Please complete the check that you are not a robot and try again."
 }
