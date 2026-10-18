@@ -417,6 +417,11 @@ func takeouts(v service.GameView) int {
 	return n
 }
 
+// boardVals are the form values of the button that puts a game on a board.
+func boardVals(id int64) string {
+	return `{"board_id": "` + strconv.FormatInt(id, 10) + `"}`
+}
+
 // defaultBoard is the ID of the board preselected for a new game: the one a game was
 // last started on, else the first one (the list is sorted by ID); 0 without boards.
 func defaultBoard(boards []service.BoardView) int64 {

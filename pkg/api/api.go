@@ -61,6 +61,7 @@ func (a *API) Routes() http.Handler {
 		r.Put("/games/{id}/darts/{dartID}", a.editDart)
 		r.Post("/games/{id}/takeout", a.takeout)
 		r.Post("/games/{id}/abort", a.abortGame)
+		r.Post("/games/{id}/board", a.useBoard)
 		r.Post("/games/{id}/bull-off", a.decideBullOff)
 
 		r.Get("/stats", a.stats)
@@ -330,6 +331,23 @@ func (a *API) abortGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := a.svc.AbortGame(r.Context(), auth.Account(r.Context()), id)
+	respond(w, http.StatusOK, v, err)
+}
+
+// useBoard puts a running game without a board on a board (owner only); a game that
+// was on the board continues without it.
+func (a *API) useBoard(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	var req struct {
+		BoardID int64 `json:"board_id"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	v, err := a.svc.UseBoard(r.Context(), auth.Account(r.Context()), id, req.BoardID)
 	respond(w, http.StatusOK, v, err)
 }
 

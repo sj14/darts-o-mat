@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"time"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/board"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
@@ -57,6 +58,21 @@ func (store *Store) ListGames(ctx context.Context, accountID, playerID int64, li
 	}
 	err := q.Scan(ctx)
 	return games, err
+}
+
+// SetGameBoard puts the game on a board, or takes it off one with a nil board, and marks
+// the board as used at that time.
+func (store *Store) SetGameBoard(ctx context.Context, gameID int64, boardID *int64, at time.Time) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewUpdate().Model((*game.Game)(nil)).Set("board_id = ?", boardID).Where("id = ?", gameID).Exec(ctx); err != nil {
+			return err
+		}
+		if boardID == nil {
+			return nil
+		}
+		_, err := tx.NewUpdate().Model((*board.Board)(nil)).Set("last_used_at = ?", at).Where("id = ?", *boardID).Exec(ctx)
+		return err
+	})
 }
 
 // ListGamesByBoard returns the most recent games played on a board, newest first.

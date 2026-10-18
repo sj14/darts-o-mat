@@ -47,6 +47,8 @@ type Texts interface {
 	Uninvite() string
 	AbortGame() string
 	AbortGameConfirm() string
+	PlayOnBoard() string
+	BoardInUseConfirm() string
 
 	// Game page: playing.
 	WinsGame(name string) string

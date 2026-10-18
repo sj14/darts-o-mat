@@ -207,6 +207,21 @@ func (c *Controller) abortGame(w http.ResponseWriter, r *http.Request) {
 	c.respondBoard(w, r, id, v, err)
 }
 
+// useBoard is called by htmx when the owner puts a game without a board on a board.
+func (c *Controller) useBoard(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	boardID, err := strconv.ParseInt(r.FormValue("board_id"), 10, 64)
+	if err != nil {
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrInput())
+		return
+	}
+	v, err := c.svc.UseBoard(r.Context(), auth.Account(r.Context()), id, boardID)
+	c.respondBoard(w, r, id, v, err)
+}
+
 func (c *Controller) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
@@ -282,6 +297,8 @@ func (c *Controller) handleGameError(w http.ResponseWriter, r *http.Request, id 
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrNothingToUndo())
 	case errors.Is(err, service.ErrForbidden):
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrForbidden())
+	case errors.Is(err, service.ErrInvalid):
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrInput())
 	case isNotFound(err):
 		http.NotFound(w, r)
 	default:

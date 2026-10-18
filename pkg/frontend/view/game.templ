@@ -48,6 +48,20 @@ templ gameTitle(v service.GameView, p *progress) {
 			if v.Board != nil {
 				<span class="rounded-full bg-white/10 px-3 py-1">📷 { v.Board.Name }</span>
 			}
+			for _, b := range v.Boards {
+				<button
+					type="button"
+					class="rounded-full border border-white/20 px-3 py-1 hover:bg-white/10"
+					title={ T(ctx).PlayOnBoard() }
+					hx-post={ gameURL(v.Game.ID, "/board") }
+					hx-vals={ boardVals(b.ID) }
+					hx-target="#board"
+					hx-swap="outerHTML"
+					if b.InUse {
+						hx-confirm={ T(ctx).BoardInUseConfirm() }
+					}
+				>📷 { b.Name }</button>
+			}
 			if p != nil && p.BullingOff && p.running() {
 				<span class="rounded-full bg-board-red/25 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider text-red-300">{ T(ctx).BullOff() }</span>
 			} else if p != nil && p.running() {

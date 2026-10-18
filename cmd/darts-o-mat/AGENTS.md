@@ -62,6 +62,7 @@ Shared design rules (Tailwind, building blocks, performance): [root AGENTS.md �
 How server and camera work together in general: [root AGENTS.md](../../AGENTS.md#how-server-and-camera-work-together). The client side: [darts-o-cam → connection to the game](../darts-o-cam/AGENTS.md#connection-to-the-game).
 
 - One camera token per board (boards page or `POST /api/boards/{id}/token`), stored only as SHA-256 hash in the table `board_tokens` (`board.Token`). `darts-o-cam` sends `Authorization: Bearer <token>` to `POST /api/board/darts` and `/api/board/takeout`. The dart goes to the newest game with this board that is ready and not over (`service.AddBoardDart`), on behalf of the board owner – so same rules and same undo as typing it in. No such game: `ErrNoActiveGame` (409).
+- **Moving a board** (`service.UseBoard`, `POST /games/{id}/board`, `POST /api/games/{id}/board`): the owner can put a running game without a board on one of their boards; the game page offers the boards as buttons next to the title (`GameView.Boards`, only for the owner of a running game without a board; a confirmation if another running game is on the board). That game loses the board and continues without one; the board's "last used" time is updated.
 - The dart is scored by darts-o-cam (`throw.Dart` with number, segment and X/Y in mm; the camera always knows the side of a single: `inner`/`outer`); for a miss `number` is the number it went beside (0: unknown), see [game page](#game-page).
 - **Takeout** (`service.BoardTakeout`): if the visit is incomplete at that point, the missing darts didn't stick (bounce-outs, misses) and are entered as misses; then the takeout is logged and the next player is up.
 - **Missed takeout** (user's wish 2026-10-15): a camera dart while the game waits for the takeout means the cameras didn't notice the darts being pulled out; `AddBoardDart` enters the takeout first, the dart is the next player's. Darts entered by hand still get `ErrWaitingForTakeout`. Risk accepted: a takeout of single darts misread as a new dart would now give the next player a wrong dart (to be corrected by undo), where before it was only rejected.
@@ -132,6 +133,7 @@ All endpoints under `/api` except `register`/`login`/`logout` need the session c
 - `POST /api/games/{id}/takeout`: darts were pulled (only relevant for games on a board)
 - `POST /api/games/{id}/bull-off`: `{"player_id": 2}` – on a bull-off tie this player was closer
 - `POST /api/games/{id}/abort`: abort the game (host only), afterwards `aborted_at` is set in the game
+- `POST /api/games/{id}/board`: `{"board_id": 1}` puts a running game without a board on one of the host's boards (host only); a game that was on it continues without a board
 - `DELETE /api/games/{id}/darts/last`: undo the last dart
 - `PUT /api/games/{id}/darts/{dartID}`: correct a dart (body as when entering)
 - `POST /api/boards/{id}/token`: new camera token for an own board (replaces the old one), `GET /api/boards` shows `has_token`

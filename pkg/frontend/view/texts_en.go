@@ -39,12 +39,16 @@ func (textsEN) Decline() string       { return "Decline" }
 func (textsEN) GameStartsWhenAccepted() string {
 	return "The game starts as soon as everyone invited has accepted."
 }
-func (textsEN) GuestMark() string { return "(guest)" }
-func (textsEN) Joined() string    { return "in" }
-func (textsEN) Accepted() string  { return "accepted" }
-func (textsEN) Invited() string   { return "invited" }
-func (textsEN) Uninvite() string  { return "Withdraw" }
-func (textsEN) AbortGame() string { return "Abort game" }
+func (textsEN) GuestMark() string   { return "(guest)" }
+func (textsEN) Joined() string      { return "in" }
+func (textsEN) Accepted() string    { return "accepted" }
+func (textsEN) Invited() string     { return "invited" }
+func (textsEN) Uninvite() string    { return "Withdraw" }
+func (textsEN) AbortGame() string   { return "Abort game" }
+func (textsEN) PlayOnBoard() string { return "Play on this board" }
+func (textsEN) BoardInUseConfirm() string {
+	return "Another game is on this board. Move the board to this game? The other game continues without a board."
+}
 func (textsEN) AbortGameConfirm() string {
 	return "Really abort the game? It won't count in the statistics."
 }

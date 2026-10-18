@@ -37,12 +37,16 @@ func (textsDE) Decline() string       { return "Absagen" }
 func (textsDE) GameStartsWhenAccepted() string {
 	return "Das Spiel beginnt, sobald alle Eingeladenen zugesagt haben."
 }
-func (textsDE) GuestMark() string { return "(Gast)" }
-func (textsDE) Joined() string    { return "dabei" }
-func (textsDE) Accepted() string  { return "zugesagt" }
-func (textsDE) Invited() string   { return "eingeladen" }
-func (textsDE) Uninvite() string  { return "Ausladen" }
-func (textsDE) AbortGame() string { return "Spiel abbrechen" }
+func (textsDE) GuestMark() string   { return "(Gast)" }
+func (textsDE) Joined() string      { return "dabei" }
+func (textsDE) Accepted() string    { return "zugesagt" }
+func (textsDE) Invited() string     { return "eingeladen" }
+func (textsDE) Uninvite() string    { return "Ausladen" }
+func (textsDE) AbortGame() string   { return "Spiel abbrechen" }
+func (textsDE) PlayOnBoard() string { return "Auf diesem Board spielen" }
+func (textsDE) BoardInUseConfirm() string {
+	return "Auf diesem Board läuft ein anderes Spiel. Das Board in dieses Spiel holen? Das andere Spiel läuft dann ohne Board weiter."
+}
 func (textsDE) AbortGameConfirm() string {
 	return "Spiel wirklich abbrechen? Es zählt dann nicht in die Statistik."
 }

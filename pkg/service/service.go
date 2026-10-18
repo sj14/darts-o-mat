@@ -104,6 +104,8 @@ type GameView struct {
 	IsOwner  bool `json:"is_owner"`
 	CanThrow bool `json:"can_throw"` // may enter and undo darts (once the game is ready, never after it was aborted)
 	Invited  bool `json:"invited"`   // has a pending invitation to answer
+	// Boards are the owner's boards a running game without a board can move to (UseBoard).
+	Boards []BoardChoice `json:"boards,omitempty"`
 }
 
 // Common returns the part of the game's state that is the same for all modes.
@@ -517,6 +519,11 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	v.Players, err = s.store.GetPlayers(ctx, g.PlayerIDs)
 	if err != nil {
 		return GameView{}, err
+	}
+	if v.IsOwner && g.BoardID == nil && !g.Aborted() && !v.Common().GameOver {
+		if v.Boards, err = s.boardChoices(ctx, v); err != nil {
+			return GameView{}, err
+		}
 	}
 	return v, nil
 }

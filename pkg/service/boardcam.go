@@ -92,25 +92,39 @@ func (s *Service) BoardTakeout(ctx context.Context, b board.Board) (GameView, er
 
 // activeGame returns the newest game on the board that accepts darts, seen by the board's owner.
 func (s *Service) activeGame(ctx context.Context, b board.Board) (account.Account, GameView, error) {
-	owner, err := s.store.GetAccount(ctx, b.AccountID)
+	owner, games, err := s.activeGames(ctx, b)
 	if err != nil {
 		return account.Account{}, GameView{}, err
+	}
+	if len(games) == 0 {
+		return account.Account{}, GameView{}, ErrNoActiveGame
+	}
+	return owner, games[0], nil
+}
+
+// activeGames returns the games on the board that accept darts, newest first, seen by
+// the board's owner.
+func (s *Service) activeGames(ctx context.Context, b board.Board) (account.Account, []GameView, error) {
+	owner, err := s.store.GetAccount(ctx, b.AccountID)
+	if err != nil {
+		return account.Account{}, nil, err
 	}
 	games, err := s.store.ListGamesByBoard(ctx, b.ID, 10)
 	if err != nil {
-		return account.Account{}, GameView{}, err
+		return account.Account{}, nil, err
 	}
+	var active []GameView
 	for _, g := range games {
 		if g.Aborted() {
 			continue
 		}
 		v, err := s.view(ctx, owner, g)
 		if err != nil {
-			return account.Account{}, GameView{}, err
+			return account.Account{}, nil, err
 		}
 		if v.Ready && !v.Common().GameOver {
-			return owner, v, nil
+			active = append(active, v)
 		}
 	}
-	return account.Account{}, GameView{}, ErrNoActiveGame
+	return owner, active, nil
 }
