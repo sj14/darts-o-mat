@@ -43,6 +43,7 @@ func (textsDE) Accepted() string    { return "zugesagt" }
 func (textsDE) Invited() string     { return "eingeladen" }
 func (textsDE) Uninvite() string    { return "Ausladen" }
 func (textsDE) AbortGame() string   { return "Spiel abbrechen" }
+func (textsDE) BoardInUse() string  { return "belegt, das andere Spiel verliert es" }
 func (textsDE) PlayOnBoard() string { return "Auf diesem Board spielen" }
 func (textsDE) BoardInUseConfirm() string {
 	return "Auf diesem Board läuft ein anderes Spiel. Das Board in dieses Spiel holen? Das andere Spiel läuft dann ohne Board weiter."

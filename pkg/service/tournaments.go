@@ -217,6 +217,11 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 	if err := s.store.CreateGame(ctx, &g, accounts, game.InvitationAccepted); err != nil {
 		return GameView{}, err
 	}
+	if g.BoardID != nil {
+		if err := s.freeBoard(ctx, *g.BoardID, g.ID); err != nil {
+			return GameView{}, err
+		}
+	}
 	s.tournaments.Notify(id)
 	return s.view(ctx, acc, g)
 }

@@ -436,8 +436,6 @@ func TestBoardCamera(t *testing.T) {
 	game := onBoard(keller.ID)
 	other := onBoard(verein.ID)
 	befriend(t, s, anna, ben)
-	waiting := onBoard(keller.ID, "ben") // newest, but still waiting for ben
-
 	v, err := s.AddBoardDart(ctx, keller, t20)
 	if err != nil {
 		t.Fatal(err)
@@ -445,10 +443,24 @@ func TestBoardCamera(t *testing.T) {
 	if v.Game.ID != game.Game.ID || len(v.Darts) != 1 {
 		t.Errorf("dart went to game %d with %d darts, want game %d with 1", v.Game.ID, len(v.Darts), game.Game.ID)
 	}
-	for _, id := range []int64{other.Game.ID, waiting.Game.ID} {
-		if g, _ := s.Game(ctx, anna, id); len(g.Darts) != 0 {
-			t.Errorf("game %d got a dart from the wrong board or while waiting", id)
-		}
+	if g, _ := s.Game(ctx, anna, other.Game.ID); len(g.Darts) != 0 {
+		t.Error("a game on another board got a dart")
+	}
+
+	// A new game takes the board at once, even while it waits for ben: the cameras'
+	// darts go nowhere until ben accepts.
+	waiting := onBoard(keller.ID, "ben")
+	if _, err := s.AddBoardDart(ctx, keller, t20); !errors.Is(err, ErrNoActiveGame) {
+		t.Errorf("dart while the new game waits: got %v, want ErrNoActiveGame", err)
+	}
+	if g, _ := s.Game(ctx, anna, game.Game.ID); g.Board != nil {
+		t.Error("the first game kept the board")
+	}
+	if _, err := s.AcceptInvitation(ctx, ben, waiting.Game.ID); err != nil {
+		t.Fatal(err)
+	}
+	if v, err = s.AddBoardDart(ctx, keller, t20); err != nil || v.Game.ID != waiting.Game.ID || len(v.Darts) != 1 {
+		t.Fatalf("dart after ben accepted: game %d with %d darts, %v; want game %d with 1", v.Game.ID, len(v.Darts), err, waiting.Game.ID)
 	}
 
 	// One dart stuck, two bounced off: pulling out completes the turn with misses.
@@ -729,13 +741,12 @@ func TestAbortGame(t *testing.T) {
 		t.Errorf("undo after abort: got %v, want ErrAborted", err)
 	}
 
-	// The camera skips the aborted game and goes on with the older one still running.
-	bv, err := s.AddBoardDart(ctx, keller, t20)
-	if err != nil {
-		t.Fatal(err)
+	// The camera ignores the aborted game; the older one lost the board to it.
+	if _, err := s.AddBoardDart(ctx, keller, t20); !errors.Is(err, ErrNoActiveGame) {
+		t.Errorf("board dart after the abort: got %v, want ErrNoActiveGame", err)
 	}
-	if bv.Game.ID != olderView.Game.ID {
-		t.Errorf("board dart went to game %d, want the running game %d", bv.Game.ID, olderView.Game.ID)
+	if older, _ := s.Game(ctx, anna, olderView.Game.ID); older.Board != nil {
+		t.Errorf("the older game still has the board %+v", older.Board)
 	}
 
 	// A finished game can't be aborted.

@@ -48,6 +48,7 @@ type Texts interface {
 	AbortGame() string
 	AbortGameConfirm() string
 	PlayOnBoard() string
+	BoardInUse() string
 	BoardInUseConfirm() string
 
 	// Game page: playing.

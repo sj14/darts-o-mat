@@ -417,6 +417,15 @@ func takeouts(v service.GameView) int {
 	return n
 }
 
+// boardChoiceLabel is a board's label in the new game form; it says if a running game
+// is on the board, which the new game then takes over.
+func boardChoiceLabel(t Texts, b service.BoardView) string {
+	if b.InUse {
+		return "📷 " + b.Name + " (" + t.BoardInUse() + ")"
+	}
+	return "📷 " + b.Name
+}
+
 // boardVals are the form values of the button that puts a game on a board.
 func boardVals(id int64) string {
 	return `{"board_id": "` + strconv.FormatInt(id, 10) + `"}`

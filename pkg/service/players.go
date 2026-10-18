@@ -37,6 +37,8 @@ func (s *Service) CreateGuest(ctx context.Context, acc account.Account, name str
 type BoardView struct {
 	board.Board
 	HasToken bool `json:"has_token"`
+	// InUse is true if a running game is on the board; a new game on it takes it over.
+	InUse bool `json:"in_use"`
 }
 
 func (s *Service) Boards(ctx context.Context, acc account.Account) ([]BoardView, error) {
@@ -50,7 +52,11 @@ func (s *Service) Boards(ctx context.Context, acc account.Account) ([]BoardView,
 		if err != nil {
 			return nil, err
 		}
-		views = append(views, BoardView{Board: b, HasToken: has})
+		_, active, err := s.activeGames(ctx, b)
+		if err != nil {
+			return nil, err
+		}
+		views = append(views, BoardView{Board: b, HasToken: has, InUse: len(active) > 0})
 	}
 	return views, nil
 }

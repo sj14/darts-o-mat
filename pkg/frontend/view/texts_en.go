@@ -45,6 +45,7 @@ func (textsEN) Accepted() string    { return "accepted" }
 func (textsEN) Invited() string     { return "invited" }
 func (textsEN) Uninvite() string    { return "Withdraw" }
 func (textsEN) AbortGame() string   { return "Abort game" }
+func (textsEN) BoardInUse() string  { return "in use, the other game loses it" }
 func (textsEN) PlayOnBoard() string { return "Play on this board" }
 func (textsEN) BoardInUseConfirm() string {
 	return "Another game is on this board. Move the board to this game? The other game continues without a board."

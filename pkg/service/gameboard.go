@@ -40,20 +40,9 @@ func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID, boa
 	case v.Game.BoardID != nil:
 		return GameView{}, fmt.Errorf("%w: the game is on a board already", ErrInvalid)
 	}
-	b, err := s.store.GetBoard(ctx, boardID)
-	if err != nil {
-		return GameView{}, err
-	}
-	_, others, err := s.activeGames(ctx, b)
-	if err != nil {
-		return GameView{}, err
-	}
 	now := time.Now()
-	for _, o := range others {
-		if err := s.store.SetGameBoard(ctx, o.Game.ID, nil, now); err != nil {
-			return GameView{}, err
-		}
-		s.notifyGame(o.Game)
+	if err := s.freeBoard(ctx, boardID, gameID); err != nil {
+		return GameView{}, err
 	}
 	if err := s.store.SetGameBoard(ctx, gameID, &boardID, now); err != nil {
 		return GameView{}, err
@@ -61,6 +50,30 @@ func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID, boa
 	v.Game.BoardID = &boardID
 	s.notifyGame(v.Game)
 	return s.Game(ctx, acc, gameID)
+}
+
+// freeBoard takes the board from the running games on it, except the game keep, which
+// continue without a board. The caller holds s.mu.
+func (s *Service) freeBoard(ctx context.Context, boardID, keep int64) error {
+	b, err := s.store.GetBoard(ctx, boardID)
+	if err != nil {
+		return err
+	}
+	_, active, err := s.activeGames(ctx, b)
+	if err != nil {
+		return err
+	}
+	for _, o := range active {
+		if o.Game.ID == keep {
+			continue
+		}
+		if err := s.store.SetGameBoard(ctx, o.Game.ID, nil, time.Now()); err != nil {
+			return err
+		}
+		o.Game.BoardID = nil
+		s.notifyGame(o.Game)
+	}
+	return nil
 }
 
 // boardChoices lists the boards of the owner of a running game without a board.

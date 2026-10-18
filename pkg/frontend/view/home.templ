@@ -234,7 +234,7 @@ templ participants(m HomeModel) {
 			<div class="flex flex-wrap gap-2">
 				@choice("board_id", "", T(ctx).NoBoard(), preselected == 0)
 				for _, b := range m.Boards {
-					@choice("board_id", strconv.FormatInt(b.ID, 10), "📷 "+b.Name, b.ID == preselected)
+					@choice("board_id", strconv.FormatInt(b.ID, 10), boardChoiceLabel(T(ctx), b), b.ID == preselected)
 				}
 			</div>
 		}

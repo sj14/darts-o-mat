@@ -46,7 +46,6 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
 
 ## Boards and cameras
 
-- Boards (cameras): a board should belong to at most one game at a time. Switching a running game to a board moves the board (`service.UseBoard`, see [AGENTS.md → camera connection](AGENTS.md#camera-connection)), but creating a game (or starting a tournament match) on a board that another running game uses doesn't yet: the form shows no warning and nothing moves, camera darts still go to the newest running game with the board (`service.activeGame`). Do the same there: warn in the form, move the board when the game becomes ready. Then `activeGame` can stop sorting out several games.
 - Plausibility check for camera darts while waiting for the takeout (discussed 2026-10-15, not built): a camera dart then records the takeout first (implicit takeout, `service.AddBoardDart`); a dart that comes too soon after the third one (e.g. under a few seconds, nobody pulled the darts out yet) is more likely a misdetection and could be refused or asked about.
 
 ## Accounts and guests

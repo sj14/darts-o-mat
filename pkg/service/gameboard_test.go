@@ -61,3 +61,36 @@ func TestUseBoard(t *testing.T) {
 		t.Errorf("camera darts go to game %d (%v), want %d", g.Game.ID, err, second.Game.ID)
 	}
 }
+
+func TestNewGameTakesTheBoard(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	keller, _ := s.CreateBoard(ctx, anna, "Keller")
+
+	onBoard := x01Game(anna.PlayerID)
+	onBoard.BoardID = &keller.ID
+	first, err := s.CreateGame(ctx, anna, onBoard, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if boards, _ := s.Boards(ctx, anna); !boards[0].InUse {
+		t.Error("the board isn't in use by the first game")
+	}
+
+	onBoard = x01Game(anna.PlayerID)
+	onBoard.BoardID = &keller.ID
+	second, err := s.CreateGame(ctx, anna, onBoard, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := s.Game(ctx, anna, first.Game.ID); v.Board != nil {
+		t.Errorf("first game still has the board %+v", v.Board)
+	}
+	if v, _ := s.Game(ctx, anna, second.Game.ID); v.Board == nil {
+		t.Error("second game has no board")
+	}
+	if _, g, err := s.activeGame(ctx, keller); err != nil || g.Game.ID != second.Game.ID {
+		t.Errorf("camera darts go to game %d (%v), want %d", g.Game.ID, err, second.Game.ID)
+	}
+}

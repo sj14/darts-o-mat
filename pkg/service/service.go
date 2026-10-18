@@ -154,8 +154,15 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 	if err := g.Validate(); err != nil {
 		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.store.CreateGame(ctx, &g, invited, game.InvitationPending); err != nil {
 		return GameView{}, err
+	}
+	if g.BoardID != nil {
+		if err := s.freeBoard(ctx, *g.BoardID, g.ID); err != nil {
+			return GameView{}, err
+		}
 	}
 	return s.view(ctx, acc, g)
 }

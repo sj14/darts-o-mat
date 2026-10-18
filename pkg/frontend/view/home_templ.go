@@ -1554,7 +1554,7 @@ func participants(m HomeModel) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				for _, b := range m.Boards {
-					templ_7745c5c3_Err = choice("board_id", strconv.FormatInt(b.ID, 10), "📷 "+b.Name, b.ID == preselected).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = choice("board_id", strconv.FormatInt(b.ID, 10), boardChoiceLabel(T(ctx), b), b.ID == preselected).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

@@ -31,6 +31,7 @@ The documents are split by area and link to each other:
 ## Code quality
 
 Simple, elegant, idiomatic code matters to the user (noted 2026-10-11).
+If a change of the intended behaviour (not only of the code) would make an implementation considerably simpler, ask the user about it before building the complex version (user's wish, 2026-10-18): name the simpler behaviour and what it gives up, and put it first as the recommended option. TODO entries describe a wish, not a fixed specification.
 Don't implement every feature blindly: if something brings little benefit but makes the code considerably more complicated or worse, first state the effort and the consequences for the code, propose a simpler alternative or advise against it.
 
 ## Languages
