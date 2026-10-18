@@ -51,6 +51,11 @@ h2 { margin: 0 0 1.25rem; font: 800 2.4rem/1.1 var(--display); text-transform: u
 .card:nth-child(4n+4) h3 { color: #fff; }
 .card p { margin: 0; color: var(--muted); }
 
+.shots { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); align-items: start; }
+.shot { display: block; overflow: hidden; border: 1px solid var(--line); border-radius: 1rem; background: var(--panel); }
+.shot img { display: block; width: 100%; height: auto; }
+.shot.phone { max-width: 16rem; }
+
 .steps { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
 .step h3 { margin: 0 0 0.5rem; font: 800 1.5rem/1.1 var(--display); text-transform: uppercase; color: var(--cream); }
 pre { margin: 0.5rem 0 0; padding: 0.9rem 1rem; overflow-x: auto; border-radius: 0.75rem; background: #000; color: var(--cream); font: 0.9rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }

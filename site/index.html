@@ -16,7 +16,7 @@
 <body>
 <header class="top"><div class="wrap">
 <a class="logo" href="#"><img src="assets/favicon.svg" alt="">darts<b>-o-</b>mat</a>
-<nav><a href="#features">Features</a><a href="#start">Get started</a><a href="https://github.com/sj14/darts-o-mat">GitHub</a><a href="de/" hreflang="de">Deutsch</a></nav>
+<nav><a href="#features">Features</a><a href="#screens">Screenshots</a><a href="#start">Get started</a><a href="https://github.com/sj14/darts-o-mat">GitHub</a><a href="de/" hreflang="de">Deutsch</a></nav>
 </div></header>
 <main>
 <div class="wrap hero">
@@ -26,6 +26,7 @@
 <span class="status">Early development</span>
 </div>
 <section id="features"><div class="wrap"><h2>Features</h2><div class="cards"><div class="card"><h3>Self-hosted</h3><p>One program or one container, with SQLite for the living room or PostgreSQL for more. Your games and data stay with you.</p></div><div class="card"><h3>Free &amp; open source</h3><p>Licensed under the AGPL-3.0. No subscription, no account at somebody else’s service.</p></div><div class="card"><h3>Auto-scoring</h3><p>darts-o-cam detects the darts with cheap cameras at the board and enters them into the running game. macOS, Linux and Windows.</p></div><div class="card"><h3>Play together</h3><p>X01 and Around the Clock, legs and sets, knockout and round-robin tournaments, friends, guests and statistics. English and German.</p></div></div></div></section>
+<section id="screens"><div class="wrap"><h2>Screenshots</h2><div class="shots"><a class="shot" href="screenshots/game-board-en.png"><img src="screenshots/game-board-en.png" alt="The game page with the darts the cameras located on the board" loading="lazy"></a><a class="shot" href="screenshots/game-keypad-en.png"><img src="screenshots/game-keypad-en.png" alt="The game page with the keypad" loading="lazy"></a><a class="shot" href="screenshots/tournament-en.png"><img src="screenshots/tournament-en.png" alt="A knockout tournament" loading="lazy"></a><a class="shot" href="screenshots/stats-en.png"><img src="screenshots/stats-en.png" alt="Statistics" loading="lazy"></a><a class="shot phone" href="screenshots/game-mobile-en.jpg"><img src="screenshots/game-mobile-en.jpg" alt="The game page on a phone" loading="lazy"></a></div></div></section>
 <section id="start"><div class="wrap"><h2>Get started</h2><div class="steps"><div class="card step"><h3>1. Run the server</h3><p>Install <a href="https://go.dev/dl/">Go</a>, then:</p><pre>git clone https://github.com/sj14/darts-o-mat
 cd darts-o-mat
 go run ./cmd/darts-o-mat</pre><p>Open <a href="http://localhost:3000">localhost:3000</a> and register. Played by hand, this is all you need.</p></div><div class="card step"><h3>Or as a container</h3><p>With Docker or Podman, from the project folder:</p><pre>docker build -f Containerfile -t darts-o-mat .

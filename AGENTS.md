@@ -2,7 +2,7 @@
 
 ## Goal
 
-The goal of the project is an alternative to [Autodarts](https://autodarts.io) and [Scolia](https://scoliadarts.com).
+The goal of the project is a free, open-source darts scorer that you can host yourself, with automatic detection of the darts by cameras at the board.
 
 The project consists of two programs:
 
@@ -25,6 +25,7 @@ The documents are split by area and link to each other:
 - Whatever concerns the whole project (goal, rules, shared stack, structure, how server and camera work together) goes into the documents in the root folder. Whatever concerns only the server or only the camera goes into its folder; details of camera access per operating system go into `pkg/camera`. Don't maintain anything twice, link instead.
 - `README.md` files are for humans only: short, clear and understandable without prior knowledge (what is it, how do I start it, how do I try it).
   No implementation details, architecture or instructions for agents in the READMEs; those belong in the `AGENTS.md` files.
+- **Screenshots** live in `site/screenshots` (English only, user's decision 2026-10-18) and are used by the README and the project page; redo them when the look of the pages changes noticeably. How to take them: [server → testing](cmd/darts-o-mat/AGENTS.md#testing).
 - When something changes that affects users (starting, game modes, usage), update the matching README as well.
 - Open tasks live in a `TODO.md` per area, next to its README (split by area on 2026-10-13, before that one file in the root): a task of a single part goes into its folder, one that concerns several parts or the whole project into the root [`TODO.md`](TODO.md), which links to the others.
 
