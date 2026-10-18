@@ -271,6 +271,9 @@ func (g Game) Play(entries []throw.Dart) (State, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown mode %q", g.Mode)
 	}
+	if err := g.validateRules(); err != nil {
+		return nil, err
+	}
 	return def.play(g.Rules, g.PlayerIDs(), log)
 }
 

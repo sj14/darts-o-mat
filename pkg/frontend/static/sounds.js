@@ -9,7 +9,11 @@
   "use strict";
 
   const storageKey = "darts-o-mat-sound";
+  // The sounds are mixed at moderate levels so that they don't clip each other; the bus
+  // raises them all (user's wish 2026-10-18: too quiet) and the compressor limits peaks.
+  const volume = 5;
   let ctx = null;
+  let bus = null; // everything plays through it: louder, with a limiter against clipping
   let lastID = null;
   let unlocking = false; // the current press allows audio that was blocked
 
@@ -36,6 +40,15 @@
       if (!AudioContext) return null;
       ctx = new AudioContext();
       ctx.onstatechange = updateToggle;
+      const limiter = ctx.createDynamicsCompressor();
+      limiter.threshold.value = -8;
+      limiter.knee.value = 6;
+      limiter.ratio.value = 12;
+      limiter.attack.value = 0.002;
+      limiter.release.value = 0.1;
+      bus = ctx.createGain();
+      bus.gain.value = volume;
+      bus.connect(limiter).connect(ctx.destination);
     }
     if (ctx.state === "suspended") ctx.resume().catch(() => {});
     return ctx;
@@ -58,7 +71,7 @@
     amp.gain.setValueAtTime(0.0001, t);
     amp.gain.exponentialRampToValueAtTime(gain, t + attack);
     amp.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.connect(amp).connect(a.destination);
+    osc.connect(amp).connect(bus);
     osc.start(t);
     osc.stop(t + dur + 0.05);
   }
@@ -80,7 +93,7 @@
     const amp = a.createGain();
     amp.gain.setValueAtTime(gain, t);
     amp.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f).connect(amp).connect(a.destination);
+    src.connect(f).connect(amp).connect(bus);
     src.start(t);
   }
 

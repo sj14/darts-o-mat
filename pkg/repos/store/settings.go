@@ -128,6 +128,13 @@ func loadSettings(ctx context.Context, db bun.IDB, all []*game.Settings) error {
 		if err := table.load(ctx, db, by); err != nil {
 			return err
 		}
+		// A row that is gone (e.g. a database of an older version) is an error, not a game
+		// without rules.
+		for id, settings := range by {
+			if settings[0].Rules == nil {
+				return fmt.Errorf("the %s settings %d are missing (a database of an older version? delete it)", mode, id)
+			}
+		}
 	}
 	return nil
 }
