@@ -29,6 +29,9 @@ func TestPlayersOnTheirOwnBoards(t *testing.T) {
 		t.Fatalf("ben joins on his board: ready %v, player boards %v, %v", v.Ready, v.Game.PlayerBoards, err)
 	}
 	id := v.Game.ID
+	if len(v.BoardNames) != 1 || v.BoardNames[ben.PlayerID] != "B" {
+		t.Errorf("board names = %v, want only ben's B (anna's board is the game's)", v.BoardNames)
+	}
 
 	// Each board only counts the darts of its player's turns.
 	for range 3 {

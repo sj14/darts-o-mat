@@ -440,6 +440,21 @@ func boardVals(id int64) string {
 	return `{"board_id": "` + strconv.FormatInt(id, 10) + `"}`
 }
 
+// playerBoardName returns the name of the board a player throws on, if the game has
+// players with boards of their own: theirs, else the host's. Empty otherwise.
+func playerBoardName(v service.GameView, id int64) string {
+	if !v.Game.PlayerBoards {
+		return ""
+	}
+	if name, ok := v.BoardNames[id]; ok {
+		return name
+	}
+	if v.Board != nil {
+		return v.Board.Name
+	}
+	return ""
+}
+
 // boardsOfViews and boardsOfChoices take the boards out of the service's views.
 func boardsOfViews(views []service.BoardView) []board.Board {
 	boards := make([]board.Board, len(views))

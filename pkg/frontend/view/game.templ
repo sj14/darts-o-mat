@@ -109,6 +109,9 @@ templ lobby(v service.GameView, errMsg string) {
 							if pl.IsGuest() {
 								<span class="font-sans text-sm font-normal text-white/50">{ T(ctx).GuestMark() }</span>
 							}
+							if name := playerBoardName(v, pl.ID); name != "" {
+								<span class="ml-1 font-sans text-sm font-normal text-white/50">📷 { name }</span>
+							}
 						</span>
 						{{ inv := v.InvitationOf(pl.ID) }}
 						switch  {
@@ -429,6 +432,7 @@ templ playerCard(v service.GameView, p progress, l playerLine) {
 	>
 		<div class="flex items-center justify-between gap-2">
 			<span class="truncate font-display text-2xl font-semibold uppercase tracking-wide">{ playerName(v, l.ID) }</span>
+			@playerBoardTag(v, l.ID)
 			@legDots(v, l)
 			if winner {
 				<span class="rounded-full bg-amber-400 px-3 py-0.5 font-display text-lg font-extrabold uppercase text-pub-950">{ T(ctx).Win() }</span>
@@ -449,12 +453,21 @@ templ playerCard(v service.GameView, p progress, l playerLine) {
 	</div>
 }
 
+// playerBoardTag shows the board a player throws on, in games where the players have
+// boards of their own.
+templ playerBoardTag(v service.GameView, id int64) {
+	if name := playerBoardName(v, id); name != "" {
+		<span class="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">📷 { name }</span>
+	}
+}
+
 // playerRow shows a player who waits, in one compact line; next marks who throws next.
 templ playerRow(v service.GameView, p progress, l playerLine, next bool) {
 	<div class={ "flex items-center gap-3 rounded-2xl border border-white/10 bg-pub-900/70 px-4 py-2", templ.KV("opacity-60", !next && p.running()) }>
 		<div class="min-w-0 flex-1">
 			<div class="flex items-center gap-2">
 				<span class="truncate font-display text-xl font-semibold uppercase tracking-wide">{ playerName(v, l.ID) }</span>
+				@playerBoardTag(v, l.ID)
 				@legDots(v, l)
 			</div>
 			if next {

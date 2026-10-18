@@ -105,6 +105,9 @@ type GameView struct {
 	IsOwner  bool `json:"is_owner"`
 	CanThrow bool `json:"can_throw"` // may enter and undo darts (once the game is ready, never after it was aborted)
 	Invited  bool `json:"invited"`   // has a pending invitation to answer
+	// BoardNames are the names of the boards the players chose to throw on, by player;
+	// only in games with such boards (Game.PlayerBoards).
+	BoardNames map[int64]string `json:"board_names,omitempty"`
 	// Boards are the viewer's boards: those a running game without a board can move to
 	// (UseBoard) for the owner, those to accept an invitation on for an invited player.
 	Boards []BoardChoice `json:"boards,omitempty"`
@@ -561,6 +564,19 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	v.Players, err = s.store.GetPlayers(ctx, g.PlayerIDs)
 	if err != nil {
 		return GameView{}, err
+	}
+	if g.PlayerBoards {
+		v.BoardNames = map[int64]string{}
+		for _, inv := range invitations {
+			if inv.BoardID == nil {
+				continue
+			}
+			if b, err := s.store.GetBoard(ctx, *inv.BoardID); err == nil {
+				v.BoardNames[inv.PlayerID] = b.Name
+			} else if !errors.Is(err, store.ErrNotFound) {
+				return GameView{}, err
+			}
+		}
 	}
 	if (v.IsOwner && g.BoardID == nil && !g.Aborted() && !v.Common().GameOver) || v.Invited {
 		if v.Boards, err = s.boardChoices(ctx, acc.ID); err != nil {
