@@ -15,7 +15,7 @@ Every game mode can also be played as a tournament: under "Format" on the start 
 
 ## Start
 
-Download the server for your system from the [latest release](https://github.com/sj14/darts-o-mat/releases/latest) ([Linux](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_linux_amd64.tar.gz), [macOS](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_darwin_arm64.tar.gz) / [Intel](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_darwin_amd64.tar.gz), [Windows](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_windows_amd64.zip); arm64 versions are on the release page), unpack it and start it:
+Download the server for your system from the [latest release](https://github.com/sj14/darts-o-mat/releases/latest) ([Linux](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_linux_amd64.tar.gz), [macOS](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_darwin_arm64.tar.gz) / [Intel](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_darwin_amd64.tar.gz), [Windows](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_windows_amd64.zip); arm64 versions are on the release page), unpack it and start it (in the Linux archive the program is `usr/bin/darts-o-mat`):
 
 ```sh
 ./darts-o-mat

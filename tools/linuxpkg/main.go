@@ -11,10 +11,11 @@
 // a desktop (darts-o-cam.service, not enabled). It is built without cgo; WebKitGTK, for
 // its window of its own, is only recommended: without it the program opens the browser.
 //
-// darts-o-mat gets a .deb and an .rpm with the program and a systemd service
-// (darts-o-mat.service, not enabled; the games are kept in /var/lib/darts-o-mat). No
-// .tar.gz: the release workflow builds that one (darts-o-mat_linux_amd64.tar.gz, with
-// LICENSE and README), and the name would be the same.
+// darts-o-mat gets the same three, with the program, a systemd service
+// (darts-o-mat.service, not enabled; the games are kept in /var/lib/darts-o-mat), LICENSE
+// and README in /usr/share/doc/darts-o-mat. So every Linux package of both programs comes
+// from here and has the same layout; the server's macOS and Windows archives are built by
+// the release workflow.
 //
 // The files have no version in their names (darts-o-cam_linux_amd64.deb, .rpm, .tar.gz),
 // so the links to the latest release's downloads stay the same; the version is in the
@@ -58,9 +59,11 @@ var (
 // iconSizes are the sizes of the icons in /usr/share/icons/hicolor.
 var iconSizes = []int{16, 32, 48, 64, 128, 256, 512}
 
-// asset is a file of a package besides the program, the same for every architecture.
+// asset is a file of a package besides the program, the same for every architecture. Its
+// content is data, or else the file of the project it names (relative to the project).
 type asset struct {
 	data []byte
+	file string
 	dst  string
 }
 
@@ -86,8 +89,8 @@ var programs = []program{
 		name:        "darts-o-cam",
 		description: "Detects darts with the cameras at a dartboard and reports them to darts-o-mat.",
 		assets: []asset{
-			{desktopEntry, "/usr/share/applications/darts-o-cam.desktop"},
-			{cameraUnit, "/usr/lib/systemd/system/darts-o-cam.service"},
+			{data: desktopEntry, dst: "/usr/share/applications/darts-o-cam.desktop"},
+			{data: cameraUnit, dst: "/usr/lib/systemd/system/darts-o-cam.service"},
 		},
 		icons:   true,
 		formats: []string{"deb", "rpm", "tar"},
@@ -107,10 +110,12 @@ var programs = []program{
 		name:        "darts-o-mat",
 		description: "A free, self-hosted darts scorer: enter the throws or let cameras detect them.",
 		assets: []asset{
-			{serverUnit, "/usr/lib/systemd/system/darts-o-mat.service"},
+			{data: serverUnit, dst: "/usr/lib/systemd/system/darts-o-mat.service"},
+			{file: "LICENSE", dst: "/usr/share/doc/darts-o-mat/LICENSE"},
+			{file: "cmd/darts-o-mat/README.md", dst: "/usr/share/doc/darts-o-mat/README.md"},
 		},
 		stamp:   true,
-		formats: []string{"deb", "rpm"},
+		formats: []string{"deb", "rpm", "tar"},
 	},
 }
 
@@ -160,8 +165,15 @@ func (p program) build(root, out, work, version string) error {
 	// The files besides the program, the same for every architecture.
 	var assets files.Contents
 	for _, a := range p.assets {
+		data := a.data
+		if a.file != "" {
+			var err error
+			if data, err = os.ReadFile(filepath.Join(root, a.file)); err != nil {
+				return err
+			}
+		}
 		src := filepath.Join(work, p.name, filepath.Base(a.dst))
-		if err := writeFile(src, a.data); err != nil {
+		if err := writeFile(src, data); err != nil {
 			return err
 		}
 		assets = append(assets, &files.Content{Source: src, Destination: a.dst, FileInfo: &files.ContentFileInfo{Mode: 0o644}})

@@ -84,7 +84,7 @@ plan_server deb "darts-o-mat_linux_amd64.deb" "sudo apt-get install"
 plan_server deb-only "darts-o-mat_linux_arm64.deb" "sudo dpkg -i"
 plan_server rpm-dnf "darts-o-mat_linux_arm64.rpm" "sudo dnf install"
 plan_server rpm-zypper "darts-o-mat_linux_amd64.rpm" "sudo zypper install"
-plan_server tar "darts-o-mat_linux_amd64.tar.gz" "unpack into ~/.local/bin" "Installing"
+plan_server tar "darts-o-mat_linux_amd64.tar.gz" "unpack into ~/.local" "Installing"
 
 system "$work/arm32" Linux armv7l
 run "$work/arm32" --dry-run
@@ -147,25 +147,42 @@ check deb-install "$calls" "$want"
 check deb-install "$calls" "install -y"
 check deb-install "$calls" "darts-o-cam_linux_amd64.deb"
 
-# The server, as the release has it: a .tar.gz with a folder of the program, LICENSE and
-# README, and a .deb that apt-get gets.
+# The server: the Linux .tar.gz has the tree of the packages like the camera's, the macOS
+# one is a folder with the program; a .deb is what apt-get gets.
 rm -rf "$work/home/.local"
 srv="$work/srv/darts-o-mat_1.0.0_linux_amd64"
-mkdir -p "$srv"
-printf '#!/bin/sh\necho 1.0.0\n' >"$srv/darts-o-mat"
-chmod +x "$srv/darts-o-mat"
-echo license >"$srv/LICENSE"
+mkdir -p "$srv/usr/bin" "$srv/usr/share/doc/darts-o-mat" "$srv/usr/lib/systemd/system"
+printf '#!/bin/sh\necho 1.0.0\n' >"$srv/usr/bin/darts-o-mat"
+chmod +x "$srv/usr/bin/darts-o-mat"
+echo license >"$srv/usr/share/doc/darts-o-mat/LICENSE"
+echo "[Unit]" >"$srv/usr/lib/systemd/system/darts-o-mat.service"
 tar czf "$download/darts-o-mat_linux_amd64.tar.gz" -C "$work/srv" darts-o-mat_1.0.0_linux_amd64
 sums
 run "$work/tar" --server
-check server-tar "$output" "Installed ~/.local/bin/darts-o-mat"
+check server-tar "$output" "Installed into ~/.local"
 check server-tar "$output" "http://localhost:3000"
 [ -x "$work/home/.local/bin/darts-o-mat" ] || fail "server tar: the program isn't in ~/.local/bin"
-[ ! -e "$work/home/.local/bin/darts-o-cam" ] && [ ! -e "$work/home/.local/share" ] || fail "server tar: only the program is installed"
+[ -f "$work/home/.local/share/doc/darts-o-mat/LICENSE" ] || fail "server tar: no LICENSE"
+[ ! -e "$work/home/.local/bin/darts-o-cam" ] && [ ! -e "$work/home/.local/lib" ] && [ ! -e "$work/home/.local/share/systemd" ] || fail "server tar: only the program and its documents are installed, not the service"
 run "$work/tar" --server
 check server-update "$output" "up to date"
 check server-update "$output" "games and accounts are kept"
 rm "$download/darts-o-mat_linux_amd64.tar.gz"
+# macOS: a folder with the program, LICENSE and README.
+rm -rf "$work/home/.local"
+mac="$work/macsrv/darts-o-mat_1.0.0_darwin_amd64"
+mkdir -p "$mac"
+printf '#!/bin/sh\necho 1.0.0\n' >"$mac/darts-o-mat"
+chmod +x "$mac/darts-o-mat"
+echo license >"$mac/LICENSE"
+tar czf "$download/darts-o-mat_darwin_amd64.tar.gz" -C "$work/macsrv" darts-o-mat_1.0.0_darwin_amd64
+sums
+system "$work/mac-srv" Darwin x86_64 sysctl=0
+run "$work/mac-srv" --server
+check server-mac "$output" "Installed ~/.local/bin/darts-o-mat"
+[ -x "$work/home/.local/bin/darts-o-mat" ] || fail "server on macOS: the program isn't in ~/.local/bin"
+[ ! -e "$work/home/.local/share" ] || fail "server on macOS: only the program is installed"
+rm "$download/darts-o-mat_darwin_amd64.tar.gz"
 echo deb >"$download/darts-o-mat_linux_amd64.deb"
 sums
 rm -f "$work/calls"

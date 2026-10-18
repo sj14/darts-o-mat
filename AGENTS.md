@@ -106,7 +106,7 @@ New features build on the existing stack; don't introduce additional frameworks 
 - `pkg/camui`: web interface of `darts-o-cam` (darts-o-cam)
 - `tools/tailwind`: downloads and runs the Tailwind CLI for `go generate`
 - `tools/macapp`: builds darts-o-cam as a macOS app bundle, see [camera → app](cmd/darts-o-cam/AGENTS.md#app)
-- `tools/linuxpkg`: builds the Linux packages of darts-o-cam (.deb, .rpm, .tar.gz) and of the server (.deb, .rpm), same place; a Go module of its own
+- `tools/linuxpkg`: builds the Linux packages (.deb, .rpm, .tar.gz) of darts-o-cam and of the server, same place; a Go module of its own
 - `tools/winpkg`: builds darts-o-cam's Windows .zip (.exe with icon), same place; a Go module of its own
 - `site`: the project page for GitHub Pages (static HTML and a CSS file in the look of the app, English and German in `site/de`; no generator, user's decision 2026-10-18); `make site` puts it with the app's fonts and icons into `dist/site`, `.github/workflows/pages.yml` publishes it. Texts in both languages by hand, keep them in line with the [README](README.md)
 - `install.sh` (with `install_test.sh`): the one-line installer of darts-o-cam and, with `--server`, of the server, see [camera → installer](cmd/darts-o-cam/AGENTS.md)

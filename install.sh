@@ -15,8 +15,8 @@
 #
 # darts-o-cam: on macOS the app goes into ~/Applications. On Linux a .deb or .rpm (with
 # sudo) if the system has dpkg or rpm, else the .tar.gz into ~/.local.
-# Server: on Linux a .deb or .rpm (with sudo; it comes with a systemd service), else, and
-# on macOS, the program into ~/.local/bin.
+# Server: on Linux a .deb or .rpm (with sudo; it comes with a systemd service), else the
+# .tar.gz into ~/.local; on macOS the program into ~/.local/bin.
 # Windows: not with this script, download the .zip from the release page.
 set -eu
 
@@ -88,7 +88,7 @@ linux)
 		else how="sudo rpm -U"; fi
 	else
 		file="${app}_linux_$arch.tar.gz"
-		if [ "$app" = darts-o-mat ]; then how="unpack into ~/.local/bin"; else how="unpack into ~/.local"; fi
+		how="unpack into ~/.local"
 	fi
 	;;
 esac
@@ -156,15 +156,21 @@ case $file in
 	tar xzf "$tmp/$file" -C "$tmp/unpacked"
 	root=$(echo "$tmp"/unpacked/*)
 	mkdir -p "$HOME/.local/bin"
-	if [ "$app" = darts-o-mat ]; then
-		# The server's archive is a folder with the program, LICENSE and README.
-		cp "$root/darts-o-mat" "$HOME/.local/bin/"
-		say "Installed ~/.local/bin/darts-o-mat."
-	else
+	if [ -d "$root/usr" ]; then
+		# The Linux archives have the tree of the packages. Only bin and share go into ~/.local:
+		# the systemd service belongs to the system, not to a user's folder.
 		mkdir -p "$HOME/.local/share"
 		cp -R "$root/usr/bin/." "$HOME/.local/bin/"
 		cp -R "$root/usr/share/." "$HOME/.local/share/"
-		say "Installed into ~/.local (the program in ~/.local/bin, the menu entry in ~/.local/share)."
+		if [ "$app" = darts-o-mat ]; then
+			say "Installed into ~/.local (the program in ~/.local/bin, LICENSE and README in ~/.local/share/doc)."
+		else
+			say "Installed into ~/.local (the program in ~/.local/bin, the menu entry in ~/.local/share)."
+		fi
+	else
+		# The server's macOS archive is a folder with the program, LICENSE and README.
+		cp "$root/$app" "$HOME/.local/bin/"
+		say "Installed ~/.local/bin/$app."
 	fi
 	case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) say "Add ~/.local/bin to your PATH to start it as $app." ;; esac
 	;;
