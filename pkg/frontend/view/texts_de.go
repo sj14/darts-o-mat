@@ -93,6 +93,8 @@ func (textsDE) WaitingForSeats(n int) string {
 	return "Es fehlen noch " + strconv.Itoa(n) + " Spieler."
 }
 func (textsDE) ErrNoSeat() string   { return "Es ist kein Platz mehr frei." }
+func (textsDE) EnterDart() string   { return "Dart eintragen" }
+func (textsDE) HideKeypad() string  { return "Keypad ausblenden" }
 func (textsDE) PlayOnBoard() string { return "Auf diesem Board spielen" }
 func (textsDE) BoardInUseConfirm() string {
 	return "Auf diesem Board läuft ein anderes Spiel. Das Board in dieses Spiel holen? Das andere Spiel läuft dann ohne Board weiter."

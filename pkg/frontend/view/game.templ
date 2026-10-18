@@ -28,13 +28,18 @@ templ Board(v service.GameView, errMsg string) {
 	if !v.Ready && !v.Game.Aborted() {
 		@lobby(v, errMsg)
 	} else {
-		@scores(v, errMsg, nil)
+		@scores(v, errMsg, nil, false)
 	}
 }
 
 // BoardEditing is the board with the keypad correcting an earlier dart.
 templ BoardEditing(v service.GameView, errMsg string, dart throw.Dart) {
-	@scores(v, errMsg, &dart)
+	@scores(v, errMsg, &dart, false)
+}
+
+// BoardAdding is the board with the keypad to enter a dart the cameras missed.
+templ BoardAdding(v service.GameView, errMsg string) {
+	@scores(v, errMsg, nil, true)
 }
 
 // gameTitle is the heading of the game with the board it is played on.
@@ -61,6 +66,9 @@ templ gameTitle(v service.GameView, p *progress) {
 						hx-confirm={ T(ctx).BoardInUseConfirm() }
 					}
 				>📷 { b.Name }</button>
+			}
+			if p != nil && v.IsOwner && p.running() {
+				@abortButton(v)
 			}
 			if p != nil && p.BullingOff && p.running() {
 				<span class="rounded-full bg-board-red/25 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider text-red-300">{ T(ctx).BullOff() }</span>
@@ -149,7 +157,7 @@ templ lobby(v service.GameView, errMsg string) {
 templ abortButton(v service.GameView) {
 	<button
 		type="button"
-		class="rounded-xl border border-board-red/50 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-board-red/20"
+		class="rounded-full border border-board-red/50 px-3 py-1 text-sm font-semibold text-red-300 transition hover:bg-board-red/20"
 		hx-post={ gameURL(v.Game.ID, "/abort") }
 		hx-target="#board"
 		hx-swap="outerHTML"
@@ -166,8 +174,11 @@ templ afterGame(v service.GameView, colors string) {
 	}
 }
 
-templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
+templ scores(v service.GameView, errMsg string, editing *throw.Dart, adding bool) {
 	{{ p := progressOf(v) }}
+	// The keypad takes the middle column when the viewer enters darts by hand, else the
+	// board gets the room: its darts come from cameras or from another account.
+	{{ keypad := editing != nil || adding || (p.running() && !p.WaitingForTakeout && handEntry(v, p)) }}
 	<div id="board" sse-swap="board" hx-swap="outerHTML" data-sound={ soundKind(v) } data-sound-id={ soundID(v) }>
 		@gameTitle(v, &p)
 		@errorAlert(errMsg)
@@ -186,90 +197,31 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 				@afterGame(v, "bg-white/10 hover:bg-white/20")
 			</div>
 		}
-		// Desktop: players, darts and input, board side by side, so a turn needs no
+		@celebration(v, p)
+		// Desktop: the players (the current one with the darts of the visit), the keypad if
+		// the viewer enters darts by hand, and the board side by side, so a turn needs no
 		// scrolling; history and statistics follow below. Narrow screens stack them.
-		<div class="grid items-start gap-4 lg:grid-cols-[minmax(0,4fr)_minmax(0,5fr)_minmax(0,4fr)] lg:gap-6">
+		<div class={ "grid items-start gap-4 lg:gap-6", templ.KV("lg:grid-cols-[minmax(0,4fr)_minmax(0,5fr)_minmax(0,4fr)]", keypad), templ.KV("lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]", !keypad) }>
 			<div class="flex flex-col gap-2">
 				for i, l := range playerLines(T(ctx), v, p) {
 					if i == 0 && (p.isCurrent(l.ID) || p.isWinner(l.ID)) {
-						@playerCard(v, p, l)
+						@playerCard(v, p, l, keypad)
+						@turnControls(v, p)
 					} else {
 						@playerRow(v, p, l, i == 1 && p.CurrentPlayerID != nil)
 					}
 				}
-			</div>
-			<div class="flex flex-col gap-4">
-				@celebration(v, p)
-				if editing != nil && v.CanThrow {
-					@editPanel(v, *editing)
-				} else if p.BullingOff && p.running() {
-					@bullOffPanel(v, p)
-				} else if p.running() {
-					<div class="grid grid-cols-3 gap-3">
-						{{ thrown, suggestion := turnDarts(v, p), checkoutSuggestion(v, p) }}
-						for i := range turn.DartsPerTurn {
-							if i < len(thrown) {
-								@dartTile(v, thrown[i])
-							} else if j := i - len(thrown); j < len(suggestion) {
-								// The way to finish, like Autodarts shows it.
-								<span class="@container flex h-20 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-amber-400/60 bg-amber-400/5 px-2 font-number text-amber-300 sm:h-24 lg:h-20" title={ T(ctx).CheckoutSuggestion() }>
-									@fitText(dartLabel(T(ctx), suggestion[j]), "2.25rem")
-									if j == 0 {
-										<span class="text-xs font-semibold uppercase tracking-widest text-amber-300/60">{ T(ctx).Checkout() }</span>
-									}
-								</span>
-							} else {
-								<span class="flex h-20 items-center justify-center rounded-2xl border-2 border-dashed border-white/15 font-number text-4xl text-white/20 sm:h-24 lg:h-20">{ strconv.Itoa(i + 1) }</span>
-							}
-						}
-					</div>
-					if p.WaitingForTakeout {
-						<div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 [--glow-color:var(--color-amber-400)] animate-glow" role="status">
-							<span>
-								<span class="font-display text-2xl font-extrabold uppercase text-amber-300">{ T(ctx).PullDarts() }</span>
-								if p.SetOver {
-									<span class="block text-white/70">{ T(ctx).ThenSet(p.Set + 1) }</span>
-								} else if p.LegOver {
-									<span class="block text-white/70">{ T(ctx).ThenLeg(p.Leg + 1) }</span>
-								} else {
-									<span class="block text-white/70">{ T(ctx).ThenPlayer(nextPlayerName(v, p)) }</span>
-								}
-								if v.Board != nil {
-									<span class="block text-sm text-white/50">{ T(ctx).CameraSeesTakeout() }</span>
-								}
-							</span>
-							if v.CanThrow {
-								<button
-									type="button"
-									class="rounded-xl bg-amber-400 px-5 py-3 font-display text-xl font-extrabold uppercase text-pub-950 transition hover:bg-amber-300 active:scale-95"
-									hx-post={ gameURL(v.Game.ID, "/takeout") }
-									hx-target="#board"
-									hx-swap="outerHTML"
-								>{ T(ctx).DartsPulled() }</button>
-							}
-						</div>
-					} else if v.CanThrow {
-						@dartInput(v, gameURL(v.Game.ID, "/darts"))
-					}
+				if !keypad {
+					@inputPanel(v, p, editing, adding, keypad)
 				}
-				<div class="flex flex-wrap gap-2">
-					if v.CanThrow {
-						<button
-							type="button"
-							class="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 disabled:opacity-30"
-							hx-post={ gameURL(v.Game.ID, "/undo") }
-							hx-target="#board"
-							hx-swap="outerHTML"
-							disabled?={ len(v.Darts) == 0 }
-						>{ T(ctx).UndoLastDart() }</button>
-					}
-					if v.IsOwner && p.running() {
-						@abortButton(v)
-					}
-				</div>
 			</div>
+			if keypad {
+				<div class="flex flex-col gap-4">
+					@inputPanel(v, p, editing, adding, keypad)
+				</div>
+			}
 			<div>
-				@dartboardView(v, p)
+				@dartboardView(v, p, !keypad)
 			</div>
 		</div>
 		switch st := v.State.(type) {
@@ -286,6 +238,90 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart) {
 			@gameStats(v)
 		}
 	</div>
+}
+
+// inputPanel is what the viewer uses to enter or correct darts: the keypad to correct a
+// dart, the bull-off, or the keypad for the dart of the player who is up.
+templ inputPanel(v service.GameView, p progress, editing *throw.Dart, adding, keypad bool) {
+	if editing != nil && v.CanThrow {
+		@editPanel(v, *editing)
+	} else if p.BullingOff && p.running() {
+		@bullOffPanel(v, p, keypad)
+	} else if p.running() && v.CanThrow && keypad && !p.WaitingForTakeout {
+		if adding && !handEntry(v, p) {
+			@hideKeypadButton(v)
+		}
+		@dartInput(v, gameURL(v.Game.ID, "/darts"))
+	}
+}
+
+// dartTiles shows the three darts of the visit, with the way to finish where darts are
+// still to come. The next free place is a button for a dart the cameras missed.
+templ dartTiles(v service.GameView, p progress, keypad bool) {
+	{{ thrown, suggestion := turnDarts(v, p), checkoutSuggestion(v, p) }}
+	{{ addable := mayAddDart(v, p) && !keypad && !p.WaitingForTakeout }}
+	<div class="grid grid-cols-3 gap-2">
+		for i := range turn.DartsPerTurn {
+			if i < len(thrown) {
+				@dartTile(v, thrown[i])
+			} else if j := i - len(thrown); j < len(suggestion) {
+				// The way to finish, like Autodarts shows it.
+				@freeSlot(v, addable && j == 0, "@container flex h-14 flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-400/60 bg-amber-400/5 px-2 font-number text-amber-300 sm:h-16", T(ctx).CheckoutSuggestion()) {
+					@fitText(dartLabel(T(ctx), suggestion[j]), "1.75rem")
+					if j == 0 {
+						<span class="text-[0.6rem] font-semibold uppercase tracking-widest text-amber-300/60">{ T(ctx).Checkout() }</span>
+					}
+				}
+			} else {
+				@freeSlot(v, addable && j == 0, "flex h-14 items-center justify-center rounded-xl border-2 border-dashed border-white/15 font-number text-3xl text-white/20 sm:h-16", "") {
+					{ strconv.Itoa(i + 1) }
+				}
+			}
+		}
+	</div>
+}
+
+// turnControls are below the current player's card: what to do when the darts are to be
+// pulled out, and taking the last dart back.
+templ turnControls(v service.GameView, p progress) {
+	if p.WaitingForTakeout {
+		<div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 [--glow-color:var(--color-amber-400)] animate-glow" role="status">
+			<span>
+				<span class="font-display text-2xl font-extrabold uppercase text-amber-300">{ T(ctx).PullDarts() }</span>
+				if p.SetOver {
+					<span class="block text-white/70">{ T(ctx).ThenSet(p.Set + 1) }</span>
+				} else if p.LegOver {
+					<span class="block text-white/70">{ T(ctx).ThenLeg(p.Leg + 1) }</span>
+				} else {
+					<span class="block text-white/70">{ T(ctx).ThenPlayer(nextPlayerName(v, p)) }</span>
+				}
+				if v.Board != nil {
+					<span class="block text-sm text-white/50">{ T(ctx).CameraSeesTakeout() }</span>
+				}
+			</span>
+			if v.CanThrow {
+				<button
+					type="button"
+					class="rounded-xl bg-amber-400 px-5 py-3 font-display text-xl font-extrabold uppercase text-pub-950 transition hover:bg-amber-300 active:scale-95"
+					hx-post={ gameURL(v.Game.ID, "/takeout") }
+					hx-target="#board"
+					hx-swap="outerHTML"
+				>{ T(ctx).DartsPulled() }</button>
+			}
+		</div>
+	}
+	if v.CanThrow {
+		<div>
+			<button
+				type="button"
+				class="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10 disabled:opacity-30"
+				hx-post={ gameURL(v.Game.ID, "/undo") }
+				hx-target="#board"
+				hx-swap="outerHTML"
+				disabled?={ !v.MayUndo() }
+			>{ T(ctx).UndoLastDart() }</button>
+		</div>
+	}
 }
 
 // celebration shows a big effect right after a special turn: 180 or busted.
@@ -329,9 +365,9 @@ templ targetMark(target uint8) {
 
 // dartboardView draws the board with the darts of the current turn and, in around the
 // clock, the field to hit next.
-templ dartboardView(v service.GameView, p progress) {
+templ dartboardView(v service.GameView, p progress, large bool) {
 	{{ target := boardTargetOf(v, p) }}
-	<div class="mx-auto aspect-square w-full max-w-md rounded-full shadow-[0_1rem_2rem_rgba(0,0,0,0.6)]">
+	<div class={ "mx-auto aspect-square w-full rounded-full shadow-[0_1rem_2rem_rgba(0,0,0,0.6)]", templ.KV("max-w-md", !large), templ.KV("max-w-2xl", large) }>
 		<svg viewBox={ boardViewBox } class="h-full w-full" role="img" aria-label="Dartboard">
 			<circle cx="228" cy="228" r="226" fill="#0b0c0f" stroke="#2b2e35" stroke-width="3"></circle>
 			for _, s := range boardShapes {
@@ -422,7 +458,7 @@ templ gameStats(v service.GameView) {
 // playerCard shows the player whose turn it is (or the winner) in large: the main value
 // (rest, target) and a second key figure next to it. With more than one leg or set to
 // win, it shows those won as dots.
-templ playerCard(v service.GameView, p progress, l playerLine) {
+templ playerCard(v service.GameView, p progress, l playerLine, keypad bool) {
 	{{ winner := p.isWinner(l.ID) }}
 	{{ accent := playerAccent(v, l.ID) }}
 	<div
@@ -450,6 +486,11 @@ templ playerCard(v service.GameView, p progress, l playerLine) {
 				<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ l.StatCaption }</div>
 			</div>
 		</div>
+		if p.running() && !p.BullingOff && !winner {
+			<div class="mt-4">
+				@dartTiles(v, p, keypad)
+			</div>
+		}
 	</div>
 }
 
@@ -686,21 +727,46 @@ templ turnDartsList(v service.GameView, darts []throw.Dart, complete bool) {
 // dartTile shows a dart of the current turn in large; players who may enter darts can tap it to correct it.
 // The dart just thrown flies in.
 templ dartTile(v service.GameView, d throw.Dart) {
-	if v.CanThrow {
-		<button type="button" class={ dartTileClasses(v, d), "hover:brightness-110 active:scale-95" } title={ T(ctx).Correct() } hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">@fitText(dartLabel(T(ctx), d), "3rem")</button>
+	if mayEditDart(v, d) {
+		<button type="button" class={ dartTileClasses(v, d), "hover:brightness-110 active:scale-95" } title={ T(ctx).Correct() } hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">@fitText(dartLabel(T(ctx), d), "2.25rem")</button>
 	} else {
-		<span class={ dartTileClasses(v, d) }>@fitText(dartLabel(T(ctx), d), "3rem")</span>
+		<span class={ dartTileClasses(v, d) }>@fitText(dartLabel(T(ctx), d), "2.25rem")</span>
 	}
 }
 
-// dartLink shows a dart in the history; players who may enter darts can click it to correct it.
+// dartLink shows a dart in the history; the player it belongs to can click it to correct it.
 // Misses are red, in around the clock darts that hit the target green.
 templ dartLink(v service.GameView, d throw.Dart) {
-	if v.CanThrow {
+	if mayEditDart(v, d) {
 		<a href="#" title={ T(ctx).Correct() } class={ "rounded-md px-1.5 py-0.5 font-semibold transition hover:ring-1 hover:ring-white/40", dartChipColors(v, d) } hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(T(ctx), d) }</a>
 	} else {
 		<span class={ "rounded-md px-1.5 py-0.5 font-semibold", dartChipColors(v, d) }>{ dartLabel(T(ctx), d) }</span>
 	}
+}
+
+// freeSlot is a place of the visit that has no dart yet; with add it is the button that
+// shows the keypad for a dart the cameras missed.
+templ freeSlot(v service.GameView, add bool, classes, title string) {
+	if add {
+		<button type="button" class={ classes, "cursor-pointer transition hover:border-white/50 hover:text-white/50" } title={ T(ctx).EnterDart() } hx-get={ gameURL(v.Game.ID, "/keypad") } hx-target="#board" hx-swap="outerHTML">
+			{ children... }
+		</button>
+	} else {
+		<span class={ classes } title={ title }>
+			{ children... }
+		</span>
+	}
+}
+
+// addDartButton shows the keypad for a dart the cameras missed, where there is no free
+// place to click.
+templ addDartButton(v service.GameView) {
+	<button type="button" class={ btnSecondary, btnSmall } hx-get={ gameURL(v.Game.ID, "/keypad") } hx-target="#board" hx-swap="outerHTML">{ T(ctx).EnterDart() }</button>
+}
+
+// hideKeypadButton closes the keypad that was opened for a dart the cameras missed.
+templ hideKeypadButton(v service.GameView) {
+	<button type="button" class={ btnSecondary, btnSmall } hx-get={ gameURL(v.Game.ID, "/board") } hx-target="#board" hx-swap="outerHTML">{ T(ctx).HideKeypad() }</button>
 }
 
 // editPanel corrects an earlier dart with the keypad.
@@ -785,7 +851,7 @@ templ durationTag(d time.Duration) {
 // bullOffPanel shows the bull-off: who throws, the darts so far and, for entering them by
 // hand, what counts (the bullseye beats the bull, which beats the rest). The cameras
 // enter the darts with their position, so the closest wins.
-templ bullOffPanel(v service.GameView, p progress) {
+templ bullOffPanel(v service.GameView, p progress, keypad bool) {
 	<div class="rounded-2xl border border-board-red/50 bg-board-red/10 px-4 py-3">
 		<div class="font-display text-2xl font-extrabold uppercase text-red-300">{ T(ctx).BullOff() }</div>
 		<div class="text-white/70">
@@ -824,8 +890,14 @@ templ bullOffPanel(v service.GameView, p progress) {
 			</div>
 		</div>
 	}
-	if v.CanThrow {
+	if mayAddDart(v, p) && !keypad {
+		@addDartButton(v)
+	}
+	if v.CanThrow && keypad {
 		{{ action := gameURL(v.Game.ID, "/darts") }}
+		if !handEntry(v, p) {
+			@hideKeypadButton(v)
+		}
 		<div class="grid grid-cols-3 gap-2">
 			@quickDart(action, throw.BullNumber, throw.Bullseye, T(ctx).Bullseye(), false, "1.875rem", "h-20 bg-board-red shadow-board-red/40")
 			@quickDart(action, throw.BullNumber, throw.Bull, T(ctx).Bull(), false, "1.875rem", "h-20 bg-board-green shadow-board-green/40")

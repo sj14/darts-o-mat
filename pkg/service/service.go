@@ -105,12 +105,48 @@ type GameView struct {
 	IsOwner  bool `json:"is_owner"`
 	CanThrow bool `json:"can_throw"` // may enter and undo darts (once the game is ready, never after it was aborted)
 	Invited  bool `json:"invited"`   // has a pending invitation to answer
+	// Mine are the players of the account the view was created for: its own player and,
+	// for the owner, their guests (those that take part).
+	Mine []int64 `json:"-"`
 	// BoardNames are the names of the boards the players chose to throw on, by player;
 	// only in games with such boards (Game.PlayerBoards).
 	BoardNames map[int64]string `json:"board_names,omitempty"`
 	// Boards are the viewer's boards: those a running game without a board can move to
 	// (UseBoard) for the owner, those to accept an invitation on for an invited player.
 	Boards []BoardChoice `json:"boards,omitempty"`
+}
+
+// MayEdit reports whether the viewer may correct the entry of the log at index i: it is a
+// dart of one of their players.
+func (v GameView) MayEdit(i int) bool {
+	throwers := v.Common().Throwers
+	return i >= 0 && i < len(v.Darts) && !v.Darts[i].Takeout && i < len(throwers) && v.IsMine(throwers[i])
+}
+
+// MayUndo reports whether the viewer may take back the last entry of the log: the last
+// dart, or the takeout after it, is one of their players'.
+func (v GameView) MayUndo() bool {
+	for i := len(v.Darts) - 1; i >= 0; i-- {
+		if !v.Darts[i].Takeout {
+			return v.MayEdit(i)
+		}
+	}
+	return false
+}
+
+// IsMine reports whether the player is one of the viewer's.
+func (v GameView) IsMine(playerID int64) bool {
+	return slices.Contains(v.Mine, playerID)
+}
+
+// HasCamera reports whether a player of the viewer throws on a board with cameras: one
+// the player chose, or the owner's for the owner's players (a joined player without a
+// board of their own enters their darts by hand).
+func (v GameView) HasCamera(playerID int64) bool {
+	if inv := v.InvitationOf(playerID); inv != nil && inv.BoardID != nil {
+		return true
+	}
+	return v.IsOwner && v.Game.BoardID != nil
 }
 
 // BoardOf returns the board a player throws on: their own if they chose one, else the
@@ -391,32 +427,52 @@ func (s *Service) DecideBullOff(ctx context.Context, acc account.Account, gameID
 	})
 }
 
-// AddDart registers the next dart of a game. The dart is only stored if the
+// AddDart registers the next dart of a game, for the player who is up, who has to be one
+// of the account's (ErrForbidden otherwise: nobody enters darts for another account's
+// player; the cameras of a board do, see AddBoardDart). The dart is only stored if the
 // game accepts it; otherwise the error wraps throw.ErrInvalid or turn.ErrGameOver.
 // A missing multiplier counts as single. Positions only come from the cameras
 // (AddBoardDart), so a position given here is dropped.
 func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64, d throw.Dart) (GameView, error) {
 	d.X, d.Y = nil, nil
-	return s.addDart(ctx, acc, gameID, d)
-}
-
-func (s *Service) addDart(ctx context.Context, acc account.Account, gameID int64, d throw.Dart) (GameView, error) {
 	return s.changeGame(ctx, acc, gameID, func(g *game.Game, v GameView) error {
-		d.ID, d.GameID, d.CreatedAt = 0, g.ID, time.Time{} // the database sets the time
-		normalizeDart(&d)
-		// The stored darts were accepted before, so an error can only come from the new
-		// one, e.g. turn.ErrWaitingForTakeout.
-		if _, err := g.Play(append(v.Darts, d)); err != nil {
-			return err
+		if cur := v.Common().CurrentPlayerID; cur != nil && !v.IsMine(*cur) {
+			return ErrForbidden
 		}
-		return s.store.AddDart(ctx, &d)
+		return s.storeDart(ctx, g, v, d)
 	})
 }
 
-// UndoDart removes the last entry of the game's log. It may be a takeout: then the
-// player waits for it again.
+// addDart registers a dart of a board's cameras for whoever is up, on behalf of the
+// account the board belongs to.
+func (s *Service) addDart(ctx context.Context, acc account.Account, gameID int64, d throw.Dart) (GameView, error) {
+	return s.changeGame(ctx, acc, gameID, func(g *game.Game, v GameView) error {
+		return s.storeDart(ctx, g, v, d)
+	})
+}
+
+func (s *Service) storeDart(ctx context.Context, g *game.Game, v GameView, d throw.Dart) error {
+	d.ID, d.GameID, d.CreatedAt = 0, g.ID, time.Time{} // the database sets the time
+	normalizeDart(&d)
+	// The stored darts were accepted before, so an error can only come from the new
+	// one, e.g. turn.ErrWaitingForTakeout.
+	if _, err := g.Play(append(v.Darts, d)); err != nil {
+		return err
+	}
+	return s.store.AddDart(ctx, &d)
+}
+
+// UndoDart removes the last entry of the game's log, if the last dart is one of the
+// account's players' (ErrForbidden otherwise). It may be a takeout: then the player
+// waits for it again.
 func (s *Service) UndoDart(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
-	return s.changeGame(ctx, acc, gameID, func(g *game.Game, _ GameView) error {
+	return s.changeGame(ctx, acc, gameID, func(g *game.Game, v GameView) error {
+		if !v.MayUndo() {
+			if len(v.Darts) == 0 {
+				return ErrNothingToUndo
+			}
+			return ErrForbidden
+		}
 		err := s.store.DeleteLastDart(ctx, g.ID)
 		if errors.Is(err, store.ErrNotFound) {
 			return ErrNothingToUndo
@@ -426,7 +482,7 @@ func (s *Service) UndoDart(ctx context.Context, acc account.Account, gameID int6
 }
 
 // EditDart corrects what an earlier dart hit, e.g. when the cameras or a player got it
-// wrong. The whole game is replayed with the correction. It is refused if the game
+// wrong. Only the account of the player who threw it may (ErrForbidden otherwise). The whole game is replayed with the correction. It is refused if the game
 // doesn't add up anymore (the replay's error), or if the correction ends a turn at a
 // different dart, so that later darts would count for another player (ErrChangesThrowers).
 func (s *Service) EditDart(ctx context.Context, acc account.Account, gameID, dartID int64, d throw.Dart) (GameView, error) {
@@ -435,6 +491,9 @@ func (s *Service) EditDart(ctx context.Context, acc account.Account, gameID, dar
 		i := slices.IndexFunc(darts, func(e throw.Dart) bool { return e.ID == dartID && !e.Takeout })
 		if i < 0 {
 			return ErrNotFound
+		}
+		if !v.MayEdit(i) {
+			return ErrForbidden
 		}
 		normalizeDart(&d)
 		d.ID, d.GameID = dartID, g.ID
@@ -564,6 +623,11 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	v.Players, err = s.store.GetPlayers(ctx, g.PlayerIDs)
 	if err != nil {
 		return GameView{}, err
+	}
+	for _, p := range v.Players {
+		if p.ID == acc.PlayerID || (p.GuestOf != nil && *p.GuestOf == acc.ID) {
+			v.Mine = append(v.Mine, p.ID)
+		}
 	}
 	if g.PlayerBoards {
 		v.BoardNames = map[int64]string{}

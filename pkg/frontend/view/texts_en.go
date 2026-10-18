@@ -95,6 +95,8 @@ func (textsEN) WaitingForSeats(n int) string {
 	return "Waiting for " + strconv.Itoa(n) + " more players."
 }
 func (textsEN) ErrNoSeat() string   { return "There is no free seat anymore." }
+func (textsEN) EnterDart() string   { return "Enter a dart" }
+func (textsEN) HideKeypad() string  { return "Hide keypad" }
 func (textsEN) PlayOnBoard() string { return "Play on this board" }
 func (textsEN) BoardInUseConfirm() string {
 	return "Another game is on this board. Move the board to this game? The other game continues without a board."

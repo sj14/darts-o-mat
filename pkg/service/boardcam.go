@@ -93,7 +93,7 @@ func (s *Service) BoardTakeout(ctx context.Context, b board.Board) (GameView, er
 		missing = 0
 	}
 	for range missing {
-		if v, err = s.AddDart(ctx, owner, v.Game.ID, throw.Dart{Segment: throw.Miss}); err != nil {
+		if v, err = s.addDart(ctx, owner, v.Game.ID, throw.Dart{Segment: throw.Miss}); err != nil {
 			return GameView{}, err
 		}
 	}

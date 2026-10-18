@@ -180,8 +180,22 @@ func TestInvitationFlow(t *testing.T) {
 	if _, err := s.AddDart(ctx, anna, id, t20); err != nil {
 		t.Errorf("dart by owner: %v", err)
 	}
+	if _, err := s.AddDart(ctx, ben, id, t20); !errors.Is(err, ErrForbidden) {
+		t.Errorf("ben enters a dart of anna's turn: got %v, want ErrForbidden", err)
+	}
+	for range 5 { // the rest of anna's visit and the one of her guest
+		if _, err := s.AddDart(ctx, anna, id, t20); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if _, err := s.AddDart(ctx, ben, id, t20); err != nil {
-		t.Errorf("dart by accepted invitee: %v", err)
+		t.Errorf("dart by accepted invitee on his turn: %v", err)
+	}
+	if _, err := s.UndoDart(ctx, anna, id); !errors.Is(err, ErrForbidden) {
+		t.Errorf("anna takes back ben's dart: got %v, want ErrForbidden", err)
+	}
+	if _, err := s.UndoDart(ctx, ben, id); err != nil {
+		t.Errorf("ben takes back his dart: %v", err)
 	}
 	if _, err := s.UndoDart(ctx, cara, id); !errors.Is(err, ErrNotFound) {
 		t.Errorf("undo by outsider: got %v, want ErrNotFound", err)
@@ -868,5 +882,49 @@ func TestSetColor(t *testing.T) {
 	}
 	if p, _ = s.Player(ctx, anna); p.Color != "" {
 		t.Errorf("after reset: color %q, want none", p.Color)
+	}
+}
+
+func TestOnlyOwnDartsAreCorrected(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben := register(t, s, "anna"), register(t, s, "ben")
+	befriend(t, s, anna, ben)
+	papa, _ := s.CreateGuest(ctx, anna, "Papa")
+
+	v, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID, papa.ID), []string{"ben"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Game.ID
+	if _, err := s.AcceptInvitation(ctx, ben, id, nil); err != nil {
+		t.Fatal(err)
+	}
+	for range 3 { // anna's visit, then papa's, so ben is up
+		_, _ = s.AddDart(ctx, anna, id, t20)
+	}
+	for range 3 {
+		_, _ = s.AddDart(ctx, anna, id, t20) // her guest's
+	}
+	if v, err = s.AddDart(ctx, ben, id, throw.Dart{Number: 5, Segment: throw.Single}); err != nil {
+		t.Fatal(err)
+	}
+	annas, bens, papas := v.Darts[0], v.Darts[6], v.Darts[3]
+
+	fix := throw.Dart{Number: 1, Segment: throw.Single}
+	if _, err := s.EditDart(ctx, ben, id, annas.ID, fix); !errors.Is(err, ErrForbidden) {
+		t.Errorf("ben corrects anna's dart: got %v, want ErrForbidden", err)
+	}
+	if _, err := s.EditDart(ctx, anna, id, bens.ID, fix); !errors.Is(err, ErrForbidden) {
+		t.Errorf("anna corrects ben's dart: got %v, want ErrForbidden", err)
+	}
+	if _, err := s.EditDart(ctx, anna, id, papas.ID, fix); err != nil {
+		t.Errorf("anna corrects her guest's dart: %v", err)
+	}
+	if _, err := s.EditDart(ctx, anna, id, annas.ID, fix); err != nil {
+		t.Errorf("anna corrects her own dart: %v", err)
+	}
+	if got, _ := s.Game(ctx, ben, id); !got.MayEdit(6) || got.MayEdit(0) || !got.MayUndo() {
+		t.Errorf("ben may edit his dart %v, anna's %v, undo %v; want true, false, true", got.MayEdit(6), got.MayEdit(0), got.MayUndo())
 	}
 }

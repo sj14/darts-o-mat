@@ -259,7 +259,7 @@ func fitStyle(label, maxSize string) templ.SafeCSS {
 
 // dartTileClasses style a dart's large tile; the dart just thrown flies in.
 func dartTileClasses(v service.GameView, d throw.Dart) string {
-	classes := "@container flex h-20 items-center justify-center rounded-2xl px-2 font-number font-extrabold uppercase shadow-lg transition sm:h-24 lg:h-20 " + dartTileColors(v, d)
+	classes := "@container flex h-14 items-center justify-center rounded-xl px-2 font-number font-extrabold uppercase shadow-lg transition sm:h-16 " + dartTileColors(v, d)
 	if isLatest(v, d) {
 		classes += " animate-dart-in"
 	}
@@ -453,6 +453,26 @@ func playerBoardName(v service.GameView, id int64) string {
 		return v.Board.Name
 	}
 	return ""
+}
+
+// mayEditDart reports whether the viewer may correct the dart: it is one of their
+// players' (nobody corrects the darts of another account's player).
+func mayEditDart(v service.GameView, d throw.Dart) bool {
+	return v.CanThrow && v.MayEdit(slices.IndexFunc(v.Darts, func(e throw.Dart) bool { return e.ID == d.ID }))
+}
+
+// handEntry reports whether the viewer enters the darts of the player who is up by hand:
+// that player is one of theirs and has no board with cameras. Then the page shows the
+// keypad; otherwise the darts come from cameras or from another account, and the page
+// gives the room to the board.
+func handEntry(v service.GameView, p progress) bool {
+	return p.CurrentPlayerID != nil && v.IsMine(*p.CurrentPlayerID) && !v.HasCamera(*p.CurrentPlayerID)
+}
+
+// mayAddDart reports whether the viewer may enter a dart that the cameras missed for the
+// player who is up: it is one of theirs, and they have a board with cameras.
+func mayAddDart(v service.GameView, p progress) bool {
+	return v.CanThrow && p.CurrentPlayerID != nil && v.IsMine(*p.CurrentPlayerID) && v.HasCamera(*p.CurrentPlayerID)
 }
 
 // boardsOfViews and boardsOfChoices take the boards out of the service's views.

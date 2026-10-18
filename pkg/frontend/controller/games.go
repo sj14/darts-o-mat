@@ -111,6 +111,20 @@ func (c *Controller) showBoard(w http.ResponseWriter, r *http.Request) {
 	c.renderBoard(w, r, id, "")
 }
 
+// showKeypad returns the board with the keypad to enter a dart the cameras missed.
+func (c *Controller) showKeypad(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	v, err := c.svc.Game(r.Context(), auth.Account(r.Context()), id)
+	if err != nil {
+		c.handleGameError(w, r, id, err)
+		return
+	}
+	render(w, r, http.StatusOK, view.BoardAdding(v, ""))
+}
+
 // showEditDart returns the board with the keypad to correct a dart.
 func (c *Controller) showEditDart(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
@@ -129,6 +143,10 @@ func (c *Controller) showEditDart(w http.ResponseWriter, r *http.Request) {
 	i := slices.IndexFunc(v.Darts, func(d throw.Dart) bool { return d.ID == dartID && !d.Takeout })
 	if i < 0 {
 		http.NotFound(w, r)
+		return
+	}
+	if !v.CanThrow || !v.MayEdit(i) {
+		c.handleGameError(w, r, id, service.ErrForbidden)
 		return
 	}
 	render(w, r, http.StatusOK, view.BoardEditing(v, "", v.Darts[i]))

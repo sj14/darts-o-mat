@@ -79,7 +79,12 @@ func TestRoundRobinTournament(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, m := range v.State.Matches {
-		if _, err := s.AddDart(ctx, anna, m.Result.GameID, d20); err != nil {
+		// Ben enters his own darts, anna those of hers and her guests.
+		actor := anna
+		if gv, _ := s.Game(ctx, anna, m.Result.GameID); *gv.Common().CurrentPlayerID == ben.PlayerID {
+			actor = ben
+		}
+		if _, err := s.AddDart(ctx, actor, m.Result.GameID, d20); err != nil {
 			t.Fatalf("match %d: %v", m.Index, err)
 		}
 	}

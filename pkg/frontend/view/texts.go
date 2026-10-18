@@ -85,6 +85,8 @@ type Texts interface {
 	CameraSeesTakeout() string
 	DartsPulled() string
 	UndoLastDart() string
+	EnterDart() string
+	HideKeypad() string
 	Starts(name string) string
 	SetTo(name string) string
 	LegTo(name string) string
