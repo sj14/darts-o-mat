@@ -232,6 +232,7 @@ func analyze(args []string) error {
 				line += ", " + err.Error()
 			} else {
 				earlier[c.cam.Name] = append(earlier[c.cam.Name], dartArea...)
+				line += fmt.Sprintf(", dart %d px", len(dartArea))
 				b := m.Tip(d, opts.TipShift)
 				radial, tangential := m.Resolution(b)
 				line += fmt.Sprintf(", tip %.0f,%.0f px -> %.0f,%.0f mm (%.1f mm from the center) %s (%.1f/%.1f px/mm towards the center/along the ring)", d.Tip.X, d.Tip.Y, b.X, b.Y, b.Radius(), dartboard.Score(b).String(), radial, tangential)

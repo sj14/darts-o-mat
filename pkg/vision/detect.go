@@ -226,7 +226,7 @@ func detect(before, after *image.RGBA, p detectParams, darts *Mask, tr *Trace) (
 	if tr != nil {
 		retry = &Trace{Changed: tr.Changed, Earlier: darts, Retried: true}
 	}
-	if d2, area2, err2 := detectIn(without, p, retry); err2 == nil {
+	if d2, area2, err2 := detectIn(without, p, retry); err2 == nil && len(area2) >= retryMinAreas*p.minPixels {
 		if tr != nil {
 			*tr = *retry
 		}
@@ -235,6 +235,14 @@ func detect(before, after *image.RGBA, p detectParams, darts *Mask, tr *Trace) (
 	}
 	return d, area, err
 }
+
+// retryMinAreas is how many times MinArea the dart must be that is found when the earlier
+// darts' pixels are taken out (see detect): what is left of a change can be a sliver along
+// an earlier dart's edge (2026-10-18, event 199, cam3: 484 px of a change of 10,131 px,
+// its "tip" 25 mm from where the other cameras saw it). The smallest of 45 real darts
+// (events 181 to 199 and the test throws) had 1357 px, MinArea is 150 px, so five times
+// it, 750 px, lies between them.
+const retryMinAreas = 5
 
 // detectIn finds the dart's tip in the changed pixels.
 func detectIn(mask *Mask, p detectParams, tr *Trace) (Detection, []image.Point, error) {

@@ -518,3 +518,53 @@ func TestDetectDartBesideMovedDart(t *testing.T) {
 		t.Error("the tip is free next to the earlier dart, not hidden by it")
 	}
 }
+
+// fillRect paints a rectangle.
+func fillRect(img *image.RGBA, r image.Rectangle, c color.RGBA) {
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		for x := r.Min.X; x < r.Max.X; x++ {
+			img.SetRGBA(x, y, c)
+		}
+	}
+}
+
+// With the earlier darts' pixels taken out, what is left of the change can be a sliver
+// along an earlier dart's edge (2026-10-18, event 199, cam3: 484 px of a change of 10,131
+// px, its "tip" 25 mm from where the other cameras saw the dart). It is elongated but far
+// too small for a dart, so the camera doesn't count.
+func TestDetectDartBesideSliverIsNoDart(t *testing.T) {
+	bounds := image.Rect(0, 0, 640, 480)
+	before := image.NewRGBA(bounds)
+	fillRect(before, bounds, color.RGBA{90, 90, 90, 255})
+	after := image.NewRGBA(bounds)
+	copy(after.Pix, before.Pix)
+
+	// An earlier dart's blob (wide: the change isn't shaped like a dart), and beside it a
+	// thin line of a few hundred px that only the retry without the blob leaves.
+	blob := image.Rect(200, 150, 330, 280)
+	sliver := image.Rect(330, 214, 330+dartMargin2px()+60, 218)
+	fillRect(after, blob, color.RGBA{200, 40, 40, 255})
+	fillRect(after, sliver, color.RGBA{200, 40, 40, 255})
+	var earlier []image.Point
+	for y := blob.Min.Y; y < blob.Max.Y; y++ {
+		for x := blob.Min.X; x < blob.Max.X; x++ {
+			earlier = append(earlier, image.Pt(x, y))
+		}
+	}
+
+	_, _, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier)
+	if err == nil {
+		t.Error("a sliver of a few hundred pixels counted as a dart")
+	}
+	// The same piece as wide as a real dart (over 1000 px) does.
+	big := image.Rect(sliver.Min.X, 214, sliver.Max.X, 232)
+	fillRect(after, big, color.RGBA{200, 40, 40, 255})
+	if _, _, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier); err != nil {
+		t.Errorf("a piece of over 1000 px: %v, want a dart", err)
+	}
+}
+
+// dartMargin2px is how far the earlier darts' pixels are widened, in pixels at ReferenceScale.
+func dartMargin2px() int {
+	return length(dartMargin, ReferenceScale) + 1
+}
