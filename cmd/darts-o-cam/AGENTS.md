@@ -27,6 +27,8 @@ One program for desktop and headless (user's wish, 2026-10-13): `darts-o-cam` wi
 
 ## Calibration interface
 
+The footer of every page links to the project and shows the version (`pkg/buildinfo`, same as the server, see [server → footer](../darts-o-mat/AGENTS.md#footer-and-version)).
+
 In the web interface (`pkg/camui`):
 
 - One still image per camera, the user clicks wire crossings at the double ring one after another (`camui.Targets`, hidden ones can be skipped, at least 4; click position via `<input type="image">`, image in original size, no custom JavaScript), then automatic fine calibration on the same image (`camapp.App.Calibrate` stores it with the image as reference and empty board). "Nur feinkalibrieren" refines again on the current frame with the clicked points, e.g. after a camera was bumped.

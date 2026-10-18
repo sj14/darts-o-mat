@@ -33,6 +33,10 @@ Project-wide rules, the shared stack and how server and camera work together: [r
 - **Table names are explicit** (user's decision 2026-10-17): every struct with a table embeds `bun.BaseModel` with `bun:"table:…"`, so renaming a struct doesn't rename its table and the names say what they hold (`game_invitations`, `board_tokens`, `tournament_invitations`, rather than Bun's derived `invitations`/`tokens`). The schema is created from the structs (`store.newStore`, `CreateTable … IfNotExists`), so a new table only needs its struct registered there.
 - **Mode settings as JSON** (`games.x01`, `games.around_the_clock`, the same in `tournaments`; discussed 2026-10-17): they are only read together with the game to replay it, never filtered or changed on their own, and `Settings.Validate` checks them in Go. A table per mode would cost a join or query per load and a table per new mode, flat columns would leave most of them empty. Worth reconsidering only for SQL queries by mode settings (e.g. all 501 double-out games); the statistics replay in Go anyway. Everything else of `game.Settings` (mode, legs, sets, bull-off, board) are columns.
 
+## Footer and version
+
+Every page's footer links to the project on GitHub (`buildinfo.ProjectURL`) and shows the version of the binary (`buildinfo.Version`, shared with darts-o-cam's footer): the short git revision from Go's build information (`-dirty` with uncommitted changes), for `go install …@vX.Y.Z` the module version. Nothing to pass at build time; it is empty if the build had no git information (e.g. a source archive).
+
 ## Game page
 
 Shared design rules (Tailwind, building blocks, performance): [root AGENTS.md → technologies](../../AGENTS.md#technologies).

@@ -1,6 +1,9 @@
 package view
 
-import "github.com/sj14/darts-o-mat/pkg/i18n"
+import (
+	"github.com/sj14/darts-o-mat/pkg/buildinfo"
+	"github.com/sj14/darts-o-mat/pkg/i18n"
+)
 
 // layout is the frame of every page, in the dark pub look (Tailwind, see tailwind.css).
 // user is the username of the logged-in account, empty on the login pages.
@@ -54,6 +57,9 @@ templ layout(title, user string) {
 			<main class="mx-auto max-w-6xl px-4 py-6 pb-16">
 				{ children... }
 			</main>
+			<footer class="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-white/40">
+				<a href={ templ.URL(buildinfo.ProjectURL) } class="hover:text-white/70" target="_blank" rel="noopener">darts-o-mat { buildinfo.Version() }</a>
+			</footer>
 		</body>
 	</html>
 }
