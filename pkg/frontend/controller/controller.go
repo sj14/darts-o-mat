@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/sj14/darts-o-mat/pkg/auth"
 	"github.com/sj14/darts-o-mat/pkg/frontend/static"
+	"github.com/sj14/darts-o-mat/pkg/frontend/view"
 	"github.com/sj14/darts-o-mat/pkg/i18n"
 	"github.com/sj14/darts-o-mat/pkg/service"
 )
@@ -34,7 +35,7 @@ func (c *Controller) Routes() http.Handler {
 	r.Post("/logout", c.logout)
 
 	r.Group(func(r chi.Router) {
-		r.Use(auth.Require(c.svc, redirectToLogin))
+		r.Use(auth.Require(c.svc, c.loggedOut))
 
 		r.Get("/", c.home)
 		r.Post("/language", c.setLanguage)
@@ -74,9 +75,14 @@ func (c *Controller) Routes() http.Handler {
 	return r
 }
 
-// redirectToLogin sends logged-out users to the login page.
+// loggedOut answers requests of logged-out users: the start page shows the landing page,
+// everything else sends them to the login page.
 // htmx requests get the HX-Redirect header instead, so the login page isn't swapped into the current page.
-func redirectToLogin(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) loggedOut(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet && r.URL.Path == "/" {
+		render(w, r, http.StatusOK, view.Landing(c.svc.RegistrationOpen()))
+		return
+	}
 	if r.Header.Get("HX-Request") != "" {
 		w.Header().Set("HX-Redirect", "/login")
 		return

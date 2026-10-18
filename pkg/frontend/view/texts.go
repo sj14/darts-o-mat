@@ -48,6 +48,9 @@ type Texts interface {
 	AbortGame() string
 	AbortGameConfirm() string
 	PlayOnBoard() string
+	LandingLead() string
+	LandingFeatureTitle(i int) string
+	LandingFeatureText(i int) string
 	BoardInUse() string
 	BoardInUseConfirm() string
 

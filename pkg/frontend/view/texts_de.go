@@ -37,13 +37,30 @@ func (textsDE) Decline() string       { return "Absagen" }
 func (textsDE) GameStartsWhenAccepted() string {
 	return "Das Spiel beginnt, sobald alle Eingeladenen zugesagt haben."
 }
-func (textsDE) GuestMark() string   { return "(Gast)" }
-func (textsDE) Joined() string      { return "dabei" }
-func (textsDE) Accepted() string    { return "zugesagt" }
-func (textsDE) Invited() string     { return "eingeladen" }
-func (textsDE) Uninvite() string    { return "Ausladen" }
-func (textsDE) AbortGame() string   { return "Spiel abbrechen" }
-func (textsDE) BoardInUse() string  { return "belegt, das andere Spiel verliert es" }
+func (textsDE) GuestMark() string  { return "(Gast)" }
+func (textsDE) Joined() string     { return "dabei" }
+func (textsDE) Accepted() string   { return "zugesagt" }
+func (textsDE) Invited() string    { return "eingeladen" }
+func (textsDE) Uninvite() string   { return "Ausladen" }
+func (textsDE) AbortGame() string  { return "Spiel abbrechen" }
+func (textsDE) BoardInUse() string { return "belegt, das andere Spiel verliert es" }
+func (textsDE) LandingLead() string {
+	return "Ein freier Open-Source-Darts-Zähler, den du selbst betreibst. Gib deine Würfe ein oder lass Kameras sie erkennen – die Punkte zählt das Programm."
+}
+
+func (textsDE) LandingFeatureTitle(i int) string {
+	return [...]string{"Selbst gehostet", "Frei & Open Source", "Automatisch zählen", "Zusammen spielen"}[i%4]
+}
+
+func (textsDE) LandingFeatureText(i int) string {
+	return [...]string{
+		"Ein Programm oder ein Container, mit SQLite fürs Wohnzimmer oder PostgreSQL für mehr. Deine Spiele und Daten bleiben bei dir.",
+		"Unter der AGPL-3.0 lizenziert. Kein Abo, kein Konto bei einem fremden Dienst.",
+		"darts-o-cam erkennt die Darts mit günstigen Kameras am Board und trägt sie ins laufende Spiel ein.",
+		"X01 und Around the Clock, Legs und Sets, K.-o.- und Jeder-gegen-jeden-Turniere, Freunde, Gäste und Statistiken.",
+	}[i%4]
+}
+
 func (textsDE) PlayOnBoard() string { return "Auf diesem Board spielen" }
 func (textsDE) BoardInUseConfirm() string {
 	return "Auf diesem Board läuft ein anderes Spiel. Das Board in dieses Spiel holen? Das andere Spiel läuft dann ohne Board weiter."

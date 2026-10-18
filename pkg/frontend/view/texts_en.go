@@ -39,13 +39,30 @@ func (textsEN) Decline() string       { return "Decline" }
 func (textsEN) GameStartsWhenAccepted() string {
 	return "The game starts as soon as everyone invited has accepted."
 }
-func (textsEN) GuestMark() string   { return "(guest)" }
-func (textsEN) Joined() string      { return "in" }
-func (textsEN) Accepted() string    { return "accepted" }
-func (textsEN) Invited() string     { return "invited" }
-func (textsEN) Uninvite() string    { return "Withdraw" }
-func (textsEN) AbortGame() string   { return "Abort game" }
-func (textsEN) BoardInUse() string  { return "in use, the other game loses it" }
+func (textsEN) GuestMark() string  { return "(guest)" }
+func (textsEN) Joined() string     { return "in" }
+func (textsEN) Accepted() string   { return "accepted" }
+func (textsEN) Invited() string    { return "invited" }
+func (textsEN) Uninvite() string   { return "Withdraw" }
+func (textsEN) AbortGame() string  { return "Abort game" }
+func (textsEN) BoardInUse() string { return "in use, the other game loses it" }
+func (textsEN) LandingLead() string {
+	return "A free, open-source darts scorer that you host yourself. Enter your throws or let cameras detect them – the score is counted for you."
+}
+
+func (textsEN) LandingFeatureTitle(i int) string {
+	return [...]string{"Self-hosted", "Free & open source", "Auto-scoring", "Play together"}[i%4]
+}
+
+func (textsEN) LandingFeatureText(i int) string {
+	return [...]string{
+		"One program or one container, with SQLite for the living room or PostgreSQL for more. Your games and data stay with you.",
+		"Licensed under the AGPL-3.0. No subscription, no account at somebody else’s service.",
+		"darts-o-cam detects the darts with cheap cameras at the board and enters them into the running game.",
+		"X01 and Around the Clock, legs and sets, knockout and round-robin tournaments, friends, guests and statistics.",
+	}[i%4]
+}
+
 func (textsEN) PlayOnBoard() string { return "Play on this board" }
 func (textsEN) BoardInUseConfirm() string {
 	return "Another game is on this board. Move the board to this game? The other game continues without a board."

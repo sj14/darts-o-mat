@@ -30,6 +30,31 @@ templ formField(label, id, hint string) {
 	</div>
 }
 
+// Landing is the start page for visitors who aren't logged in.
+templ Landing(registration bool) {
+	@layout("", "") {
+		<div class="mx-auto mt-6 max-w-4xl text-center">
+			<div class="mx-auto mb-4 size-24 rounded-full bg-[radial-gradient(circle,var(--color-board-red)_0_14%,var(--color-board-green)_15%_26%,var(--color-board-cream)_27%_48%,var(--color-board-red)_49%_56%,var(--color-board-black)_57%)] shadow-2xl shadow-board-red/30 ring-4 ring-white/10"></div>
+			<h1 class="font-display text-6xl font-extrabold uppercase tracking-wide text-board-cream sm:text-7xl">darts-o-mat</h1>
+			<p class="mx-auto mt-4 max-w-2xl text-lg text-white/70">{ T(ctx).LandingLead() }</p>
+			<div class="mt-6 flex flex-wrap justify-center gap-3">
+				<a href="/login" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>{ T(ctx).Login() }</a>
+				if registration {
+					<a href="/register" class={ btnSecondary, "px-6 py-3 font-display text-2xl uppercase" }>{ T(ctx).Register() }</a>
+				}
+			</div>
+			<div class="mt-10 grid gap-4 text-left sm:grid-cols-2 lg:grid-cols-4">
+				for i := range 4 {
+					@panel("") {
+						<h2 class="font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">{ T(ctx).LandingFeatureTitle(i) }</h2>
+						<p class="mt-1 text-white/65">{ T(ctx).LandingFeatureText(i) }</p>
+					}
+				}
+			</div>
+		</div>
+	}
+}
+
 templ Login(m AuthModel) {
 	@layout(T(ctx).Login(), "") {
 		@authCard(T(ctx).Login()) {
