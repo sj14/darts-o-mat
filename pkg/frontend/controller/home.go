@@ -224,9 +224,9 @@ func gameFromForm(r *http.Request) (game.Game, []string, error) {
 		if err := out.UnmarshalText([]byte(r.FormValue("out_mode"))); err != nil {
 			return g, nil, fmt.Errorf("%w: %w", service.ErrInvalid, err)
 		}
-		g.X01 = &x01.Settings{StartScore: score, OutMode: out}
+		g.Rules = &x01.Settings{StartScore: score, OutMode: out}
 	case game.ModeAroundTheClock:
-		g.AroundTheClock = &aroundtheclock.Settings{
+		g.Rules = &aroundtheclock.Settings{
 			Bull:            r.FormValue("bull") != "",
 			MultiplierSkips: r.FormValue("multiplier_skips") != "",
 		}

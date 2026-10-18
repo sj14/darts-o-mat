@@ -15,11 +15,12 @@ import (
 // settings_id (together with its mode, so there is no foreign key); the games of a
 // tournament share the row of the tournament.
 //
-// To add a mode: a row type and an entry in modeTables below, and the mode's pointer in
-// game.Settings (tagged bun:"-").
+// To add a mode: a row type and an entry in modeTables below (and the mode in
+// game/modes.go).
 
 // modeTable is how the settings of one mode are stored and found again.
 type modeTable struct {
+	table string
 	// save inserts the settings of s and returns the id of their row.
 	save func(ctx context.Context, db bun.IDB, s *game.Settings) (int64, error)
 	// load fills in the settings of those that point to a row, by the row's id.
@@ -28,8 +29,9 @@ type modeTable struct {
 
 var modeTables = map[game.Mode]modeTable{
 	game.ModeX01: {
+		table: "x01_settings",
 		save: func(ctx context.Context, db bun.IDB, s *game.Settings) (int64, error) {
-			row := x01Row{Settings: *s.X01}
+			row := x01Row{Settings: *s.Rules.(*x01.Settings)}
 			_, err := db.NewInsert().Model(&row).Exec(ctx)
 			return row.ID, err
 		},
@@ -41,15 +43,16 @@ var modeTables = map[game.Mode]modeTable{
 			for _, r := range rows {
 				for _, s := range by[r.ID] {
 					settings := r.Settings
-					s.X01 = &settings
+					s.Rules = &settings
 				}
 			}
 			return nil
 		},
 	},
 	game.ModeAroundTheClock: {
+		table: "around_the_clock_settings",
 		save: func(ctx context.Context, db bun.IDB, s *game.Settings) (int64, error) {
-			row := aroundTheClockRow{Settings: *s.AroundTheClock}
+			row := aroundTheClockRow{Settings: *s.Rules.(*aroundtheclock.Settings)}
 			_, err := db.NewInsert().Model(&row).Exec(ctx)
 			return row.ID, err
 		},
@@ -61,7 +64,7 @@ var modeTables = map[game.Mode]modeTable{
 			for _, r := range rows {
 				for _, s := range by[r.ID] {
 					settings := r.Settings
-					s.AroundTheClock = &settings
+					s.Rules = &settings
 				}
 			}
 			return nil
@@ -127,4 +130,18 @@ func loadSettings(ctx context.Context, db bun.IDB, all []*game.Settings) error {
 		}
 	}
 	return nil
+}
+
+// deleteSettings removes the row of settings whose game was deleted, unless a game or a
+// tournament still uses it (a tournament's games share its row).
+func deleteSettings(ctx context.Context, db bun.IDB, s game.Settings) error {
+	table, ok := modeTables[s.Mode]
+	if !ok {
+		return fmt.Errorf("no settings table for mode %q", s.Mode)
+	}
+	_, err := db.NewDelete().TableExpr(table.table).Where("id = ?", s.SettingsID).
+		Where("NOT EXISTS (SELECT 1 FROM games WHERE mode = ? AND settings_id = ?)", s.Mode, s.SettingsID).
+		Where("NOT EXISTS (SELECT 1 FROM tournaments WHERE mode = ? AND settings_id = ?)", s.Mode, s.SettingsID).
+		Exec(ctx)
+	return err
 }

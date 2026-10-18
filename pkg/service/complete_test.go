@@ -14,7 +14,7 @@ import (
 // quick is a game one dart ends: 40 with a double 20.
 func quick(playerIDs ...int64) game.Game {
 	g := x01Game(playerIDs...)
-	g.X01 = &x01.Settings{StartScore: 40, OutMode: x01.OutModeSingle}
+	g.Rules = &x01.Settings{StartScore: 40, OutMode: x01.OutModeSingle}
 	return g
 }
 

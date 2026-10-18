@@ -186,8 +186,14 @@ func (store *Store) RemoveParticipant(ctx context.Context, gameID, playerID int6
 		if _, err := tx.NewDelete().Model((*game.Participant)(nil)).Where("game_id = ?", gameID).Exec(ctx); err != nil {
 			return err
 		}
-		_, err = tx.NewDelete().Model((*game.Game)(nil)).Where("id = ?", gameID).Exec(ctx)
-		return err
+		var g game.Game
+		if err := tx.NewSelect().Model(&g).Column("mode", "settings_id").Where("id = ?", gameID).Scan(ctx); err != nil {
+			return err
+		}
+		if _, err = tx.NewDelete().Model((*game.Game)(nil)).Where("id = ?", gameID).Exec(ctx); err != nil {
+			return err
+		}
+		return deleteSettings(ctx, tx, g.Settings)
 	})
 }
 

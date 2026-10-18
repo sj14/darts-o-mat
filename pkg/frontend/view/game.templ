@@ -632,7 +632,7 @@ templ dartInput(v service.GameView, action string) {
 	if target == 0 {
 		@keypad(v, action)
 	} else {
-		{{ skips := v.Game.AroundTheClock.MultiplierSkips && target != throw.BullNumber }}
+		{{ skips := v.Game.Rules.(*aroundtheclock.Settings).MultiplierSkips && target != throw.BullNumber }}
 		<div class="flex flex-col gap-3">
 			<div class={ "grid gap-2", templ.KV("grid-cols-2", !skips), templ.KV("grid-cols-3", skips) }>
 				@quickDart(action, target, throw.Single, T(ctx).Hit(), skips, "3rem", "h-24 bg-board-green shadow-board-green/40")

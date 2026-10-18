@@ -6,9 +6,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/sj14/darts-o-mat/pkg/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
-	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"github.com/sj14/darts-o-mat/pkg/domain/throw"
 
 	"github.com/uptrace/bun"
@@ -50,11 +48,13 @@ type Settings struct {
 	// TurnSeconds is how long a player has for their turn; if they take longer, the turn is
 	// skipped, and after MaxSkips skipped turns in a row they leave the game. 0 is no limit.
 	TurnSeconds int `bun:",notnull,default:0" json:"turn_seconds,omitempty"`
-	// The settings of the mode (the one that fits Mode) are in a table of their own;
-	// SettingsID is the row, set by the store (the games of a tournament share its row).
-	SettingsID     int64                    `bun:",notnull,default:0" json:"-"`
-	X01            *x01.Settings            `bun:"-" json:"x01,omitempty"`
-	AroundTheClock *aroundtheclock.Settings `bun:"-" json:"around_the_clock,omitempty"`
+	// SettingsID is the row of the mode's settings in the mode's own table, set by the
+	// store (the games of a tournament share the row of the tournament).
+	SettingsID int64 `bun:",notnull,default:0" json:"-"`
+	// Rules are the settings of the mode, a pointer to the type that fits Mode (see
+	// NewRules). To decode JSON, set Rules to NewRules(mode) first: json fills in what the
+	// interface points to.
+	Rules Rules `bun:"-" json:"rules"`
 }
 
 func (s Settings) Validate() error {
@@ -67,20 +67,7 @@ func (s Settings) Validate() error {
 	if s.TurnSeconds != 0 && (s.TurnSeconds < MinTurnSeconds || s.TurnSeconds > MaxTurnSeconds) {
 		return fmt.Errorf("the time for a turn must be between %d and %d seconds, or 0 for no limit", MinTurnSeconds, MaxTurnSeconds)
 	}
-	switch s.Mode {
-	case ModeX01:
-		if s.X01 == nil || s.AroundTheClock != nil {
-			return errors.New("mode x01 needs the x01 settings only")
-		}
-		return s.X01.Validate()
-	case ModeAroundTheClock:
-		if s.AroundTheClock == nil || s.X01 != nil {
-			return errors.New("mode around_the_clock needs the around_the_clock settings only")
-		}
-		return s.AroundTheClock.Validate()
-	default:
-		return fmt.Errorf("unknown mode %q, use x01 or around_the_clock", s.Mode)
-	}
+	return s.validateRules()
 }
 
 // MaxSeats is the most players of a game that is open for strangers.
@@ -280,14 +267,11 @@ func (g Game) Play(entries []throw.Dart) (State, error) {
 			log.BullOffCloser = &i
 		}
 	}
-	switch g.Mode {
-	case ModeX01:
-		return x01.PlayLog(*g.X01, g.PlayerIDs(), log)
-	case ModeAroundTheClock:
-		return aroundtheclock.PlayLog(*g.AroundTheClock, g.PlayerIDs(), log)
-	default:
+	def, ok := modes[g.Mode]
+	if !ok {
 		return nil, fmt.Errorf("unknown mode %q", g.Mode)
 	}
+	return def.play(g.Rules, g.PlayerIDs(), log)
 }
 
 type InvitationStatus string

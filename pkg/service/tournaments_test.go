@@ -15,7 +15,7 @@ import (
 func quickTournament(format tournament.Format, playerIDs ...int64) tournament.Tournament {
 	t := tournament.Tournament{
 		Format:   format,
-		Settings: game.Settings{Mode: game.ModeX01, X01: &x01.Settings{StartScore: 40, OutMode: x01.OutModeSingle}},
+		Settings: game.Settings{Mode: game.ModeX01, Rules: &x01.Settings{StartScore: 40, OutMode: x01.OutModeSingle}},
 	}
 	for _, id := range playerIDs {
 		t.Participants = append(t.Participants, tournament.Participant{PlayerID: id})

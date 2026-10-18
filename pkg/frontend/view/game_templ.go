@@ -3633,7 +3633,7 @@ func dartInput(v service.GameView, action string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			skips := v.Game.AroundTheClock.MultiplierSkips && target != throw.BullNumber
+			skips := v.Game.Rules.(*aroundtheclock.Settings).MultiplierSkips && target != throw.BullNumber
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 278, "<div class=\"flex flex-col gap-3\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

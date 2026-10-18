@@ -45,7 +45,7 @@ func befriend(t *testing.T, s *Service, a, b account.Account) {
 }
 
 func x01Game(playerIDs ...int64) game.Game {
-	g := game.Game{Settings: game.Settings{Mode: game.ModeX01, X01: &x01.Settings{StartScore: 501, OutMode: x01.OutModeDouble}}}
+	g := game.Game{Settings: game.Settings{Mode: game.ModeX01, Rules: &x01.Settings{StartScore: 501, OutMode: x01.OutModeDouble}}}
 	for _, id := range playerIDs {
 		g.Participants = append(g.Participants, game.Participant{PlayerID: id})
 	}
@@ -440,7 +440,7 @@ func TestStats(t *testing.T) {
 	guest, _ := s.CreateGuest(ctx, anna, "Papa")
 
 	g := x01Game(anna.PlayerID, guest.ID)
-	g.X01.StartScore = 40
+	g.Rules.(*x01.Settings).StartScore = 40
 	v, err := s.CreateGame(ctx, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -701,7 +701,7 @@ func TestBoardTakeoutAfterBust(t *testing.T) {
 	guest, _ := s.CreateGuest(ctx, anna, "Papa")
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 	g := x01Game(anna.PlayerID, guest.ID)
-	g.X01.StartScore = 40
+	g.Rules.(*x01.Settings).StartScore = 40
 	g = withBoard(g, keller.ID)
 	v, err := s.CreateGame(ctx, anna, g, nil)
 	if err != nil {
@@ -729,7 +729,7 @@ func TestEditDart(t *testing.T) {
 	anna := register(t, s, "anna")
 	guest, _ := s.CreateGuest(ctx, anna, "Papa")
 	g := x01Game(anna.PlayerID, guest.ID)
-	g.X01.StartScore = 101
+	g.Rules.(*x01.Settings).StartScore = 101
 	v, err := s.CreateGame(ctx, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -828,7 +828,7 @@ func TestLeavingEndsAGameOfOneAccount(t *testing.T) {
 
 	// A finished game can't be left.
 	short := x01Game(anna.PlayerID)
-	short.X01.StartScore = 40
+	short.Rules.(*x01.Settings).StartScore = 40
 	sv, _ := s.CreateGame(ctx, anna, short, nil)
 	if _, err := s.AddDart(ctx, anna, sv.Game.ID, throw.Dart{Number: 20, Segment: throw.Double}); err != nil {
 		t.Fatal(err)

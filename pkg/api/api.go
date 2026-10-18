@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -247,7 +248,7 @@ func (a *API) createGame(w http.ResponseWriter, r *http.Request) {
 		// Invite lists usernames of other accounts to invite; they are added after PlayerIDs.
 		Invite []string `json:"invite"`
 	}
-	if !decode(w, r, &req) {
+	if !decodeGame(w, r, &req, &req.Settings) {
 		return
 	}
 	g := game.Game{Settings: req.Settings, Lobby: req.Lobby}
@@ -487,6 +488,30 @@ func urlID(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
 // decode reads the JSON body into v and writes the error response if that fails.
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		writeError(w, fmt.Errorf("%w: %w", service.ErrInvalid, err))
+		return false
+	}
+	return true
+}
+
+// decodeGame decodes the request to create a game or tournament into v, which has the
+// settings s: the rules in it are those of the mode, so the mode is read first and the
+// rules prepared for it (see game.Settings.Rules).
+func decodeGame(w http.ResponseWriter, r *http.Request, v any, s *game.Settings) bool {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, fmt.Errorf("%w: %w", service.ErrInvalid, err))
+		return false
+	}
+	var head struct {
+		Mode game.Mode `json:"mode"`
+	}
+	if err := json.Unmarshal(body, &head); err != nil {
+		writeError(w, fmt.Errorf("%w: %w", service.ErrInvalid, err))
+		return false
+	}
+	s.Rules = game.NewRules(head.Mode)
+	if err := json.Unmarshal(body, v); err != nil {
 		writeError(w, fmt.Errorf("%w: %w", service.ErrInvalid, err))
 		return false
 	}

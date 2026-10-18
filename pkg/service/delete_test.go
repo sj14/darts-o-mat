@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/sj14/darts-o-mat/pkg/domain/game/x01"
 	"testing"
 
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
@@ -19,7 +20,7 @@ func TestDeleteGuest(t *testing.T) {
 	// A finished game of anna and papa, and a running one with oma.
 	quick := func(ids ...int64) game.Game {
 		g := x01Game(ids...)
-		g.X01.StartScore = 40
+		g.Rules.(*x01.Settings).StartScore = 40
 		return g
 	}
 	done, err := s.CreateGame(ctx, anna, quick(anna.PlayerID, papa.ID), nil)
@@ -87,7 +88,7 @@ func TestDeleteAccount(t *testing.T) {
 
 	quick := func(ids ...int64) game.Game {
 		g := x01Game(ids...)
-		g.X01.StartScore = 40
+		g.Rules.(*x01.Settings).StartScore = 40
 		return g
 	}
 	// A finished game of ben and anna, kept as it was.

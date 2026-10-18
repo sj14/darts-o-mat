@@ -125,13 +125,15 @@ func plural(n int, one, many string) string {
 func modeName(t Texts, g game.Settings) string {
 	switch g.Mode {
 	case game.ModeX01:
-		return fmt.Sprintf("%d %s", g.X01.StartScore, outModeLabel(g.X01.OutMode))
+		r := g.Rules.(*x01.Settings)
+		return fmt.Sprintf("%d %s", r.StartScore, outModeLabel(r.OutMode))
 	case game.ModeAroundTheClock:
+		r := g.Rules.(*aroundtheclock.Settings)
 		label := t.AroundTheClock()
-		if g.AroundTheClock.Bull {
+		if r.Bull {
 			label += t.WithBull()
 		}
-		if g.AroundTheClock.MultiplierSkips {
+		if r.MultiplierSkips {
 			label += t.MultiplierSkips()
 		}
 		return label
@@ -428,7 +430,7 @@ func checkoutSuggestion(v service.GameView, p progress) []throw.Dart {
 		return nil
 	}
 	ps, _ := st.Player(*p.CurrentPlayerID)
-	return v.Game.X01.OutMode.Checkout(ps.Remaining, turn.DartsPerTurn-p.DartsInTurn)
+	return v.Game.Rules.(*x01.Settings).OutMode.Checkout(ps.Remaining, turn.DartsPerTurn-p.DartsInTurn)
 }
 
 // bullOffDecided returns who won the bull-off, if the dart just thrown decided it.
