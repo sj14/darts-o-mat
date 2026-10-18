@@ -5,7 +5,8 @@
 //
 // It is a module of its own, so winres stays out of the project's go.mod.
 //
-// Per architecture a .zip with darts-o-cam.exe and the license. The program is built
+// Per architecture a .zip (darts-o-cam_windows_<arch>.zip, no version in the name so the
+// links to the latest release's downloads stay the same) with darts-o-cam.exe and the license. The program is built
 // as a GUI program (-H windowsgui), so a double click opens no console window (started
 // from a terminal it logs there anyway, see cmd/darts-o-cam/console_windows.go), and
 // gets the app icon, version information and a manifest (sharp on high resolution
@@ -95,7 +96,8 @@ func build(root, out, ver string) error {
 			return fmt.Errorf("resources for %s: %w", arch, err)
 		}
 		dir := fmt.Sprintf("%s_%s_windows_%s", name, ver, arch)
-		path := filepath.Join(out, dir+".zip")
+		// No version in the name, so a link to the latest release's download stays the same.
+		path := filepath.Join(out, fmt.Sprintf("%s_windows_%s.zip", name, arch))
 		if err := writeZip(path, []zipFile{
 			{dir + "/" + name + ".exe", exe},
 			{dir + "/LICENSE.txt", license},

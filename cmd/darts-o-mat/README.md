@@ -15,7 +15,13 @@ Every game mode can also be played as a tournament: under "Format" on the start 
 
 ## Start
 
-Requirement: [Go](https://go.dev/dl/) is installed. From the project folder:
+Download the server for your system from the [latest release](https://github.com/sj14/darts-o-mat/releases/latest) ([Linux](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_linux_amd64.tar.gz), [macOS](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_darwin_arm64.tar.gz) / [Intel](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_darwin_amd64.tar.gz), [Windows](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_windows_amd64.zip); arm64 versions are on the release page), unpack it and start it:
+
+```sh
+./darts-o-mat
+```
+
+Or from the source, with [Go](https://go.dev/dl/) installed, from the project folder:
 
 ```sh
 go run ./cmd/darts-o-mat
@@ -42,7 +48,7 @@ docker run -d -p 3000:3000 -v darts-o-mat:/data darts-o-mat
 
 The data is kept in the volume `darts-o-mat`. Options go after the image name, e.g. `docker run … darts-o-mat -registration=false`.
 
-Released images are on `ghcr.io/sj14/darts-o-mat` (amd64 and arm64), e.g. `docker run -d -p 3000:3000 -v darts-o-mat:/data ghcr.io/sj14/darts-o-mat`; binaries for Linux, macOS and Windows are attached to each [release](https://github.com/sj14/darts-o-mat/releases).
+The released image is `ghcr.io/sj14/darts-o-mat` (amd64 and arm64; `latest` is the newest stable release), so there is no need to build it: `docker run -d -p 3000:3000 -v darts-o-mat:/data ghcr.io/sj14/darts-o-mat`.
 
 ### On Kubernetes
 

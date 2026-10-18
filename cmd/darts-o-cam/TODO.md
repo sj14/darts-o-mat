@@ -19,12 +19,6 @@ Open tasks of the [camera](README.md). Tasks of the whole project: [TODO.md](../
 
 - Debug images: the frames of the last 20 detections are kept on disk (cache directory), can be downloaded on the event page and traced step by step ("Detection in detail"); `-save` keeps all. Maybe later: make the number configurable in the web interface.
 
-## Testing on real systems
-
-- Test the window of its own (glaze) on Linux (with and without WebKitGTK) and Windows.
-- Start the Windows .exe (`make windows`) on Windows: icon in Explorer, taskbar and title bar, version under Properties → Details, sharp window with display scaling, no console window on a double click, log and Ctrl+C when started from a terminal (`console_windows.go`).
-- Install the Linux packages (`tools/linuxpkg`) on a real system: .deb on Debian/Ubuntu and Raspberry Pi OS, .rpm on Fedora; menu entry and icon, window or browser fallback, the systemd service with the cameras (`DynamicUser` plus group `video`).
-
 ## Running on other systems
 
 - Optimize for raspi with it's SD-Card so we won't destroy the card after using darts-o-cam for too long (too many writes).

@@ -25,27 +25,9 @@ A free, open-source darts scorer that you host yourself: enter your throws or le
 
 ## Quick start
 
-The [releases](https://github.com/sj14/darts-o-mat/releases) have the server for Linux, macOS and Windows and darts-o-cam as a macOS app, Linux packages (.deb, .rpm) and a Windows zip. Start the server and open <http://localhost:3000>:
+Download the server for your system from the [latest release](https://github.com/sj14/darts-o-mat/releases/latest): [Linux](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_linux_amd64.tar.gz) ([arm64](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_linux_arm64.tar.gz)), [macOS](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_darwin_arm64.tar.gz) ([Intel](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_darwin_amd64.tar.gz)) or [Windows](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_windows_amd64.zip) ([arm64](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-mat_windows_arm64.zip)). Unpack it, start it and open <http://localhost:3000> to create an account ("Register"). More about the server – as a container, on Kubernetes with Helm, with PostgreSQL, the options: [darts-o-mat](cmd/darts-o-mat/README.md).
 
-```sh
-./darts-o-mat
-```
-
-Or run it in a container (the games are kept in the volume):
-
-```sh
-docker run -d -p 3000:3000 -v darts-o-mat:/data ghcr.io/sj14/darts-o-mat
-```
-
-Or on Kubernetes with the [Helm](https://helm.sh) chart:
-
-```sh
-helm install darts oci://ghcr.io/sj14/charts/darts-o-mat
-```
-
-From the source, with [Go](https://go.dev/dl/) installed: `go run ./cmd/darts-o-mat`.
-
-Then create an account ("Register"). How to play and more options (PostgreSQL, turning off registration): [darts-o-mat](cmd/darts-o-mat/README.md).
+darts-o-cam, for the computer the cameras are connected to, is on the same page: [macOS app](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-cam_macos_arm64.zip) ([Intel](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-cam_macos_amd64.zip)), [Windows](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-cam_windows_amd64.zip) ([ARM](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-cam_windows_arm64.zip)), Linux as [.deb](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-cam_linux_amd64.deb) ([ARM](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-cam_linux_arm64.deb)), [.rpm](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-cam_linux_amd64.rpm) ([ARM](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-cam_linux_arm64.rpm)) or [.tar.gz](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-cam_linux_amd64.tar.gz) ([ARM](https://github.com/sj14/darts-o-mat/releases/latest/download/darts-o-cam_linux_arm64.tar.gz)). (The links without a note are for Intel/AMD processors, ARM is e.g. a Raspberry Pi; the macOS links without a note are for Apple silicon.)
 
 ## Playing with cameras
 

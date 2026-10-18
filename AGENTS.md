@@ -10,6 +10,10 @@ The project consists of two programs:
 - **Camera** [`cmd/darts-o-cam`](cmd/darts-o-cam/AGENTS.md): detects darts with cameras at the board and reports them to the server; calibration, image processing.
   Camera access per operating system lives in [`pkg/camera`](pkg/camera/AGENTS.md).
 
+## Audience
+
+User's decision 2026-10-18: darts-o-mat is for people who know little about IT, as well as for those who do. That is a goal of the project in general and above all of **darts-o-cam**: its downloads, instructions, the project page and its interface have to work for someone who has never used a terminal: a download link per system with plain labels (no jargon like "amd64"; "Intel/AMD", "ARM", "Apple silicon" plus a hint which one to choose), steps in the right order, no command lines for the camera. For the **server** compromises are fine: not everyone hosts their own server, so commands, containers and Kubernetes are fine there, just not on the first page of the project (link to the server README instead). When writing or changing the project page, the READMEs or texts of the camera's interface, ask: could someone without IT knowledge do this?
+
 ## Documentation
 
 The documents are split by area and link to each other:

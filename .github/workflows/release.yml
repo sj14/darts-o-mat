@@ -8,7 +8,12 @@
 #   - darts-o-cam: macOS app (amd64, arm64), Linux packages (.deb, .rpm, .tar.gz) and
 #     Windows .zip,
 #
-# and attaches the binaries and packages with their checksums to a GitHub release.
+# and attaches the binaries and packages with their checksums to a GitHub release. The
+# archives have no version in their names (darts-o-mat_linux_amd64.tar.gz), so
+# https://github.com/<owner>/darts-o-mat/releases/latest/download/<name> is a link that
+# always points to the newest stable release (a pre-release isn't "latest"); the
+# .deb and .rpm are built with such names too (darts-o-cam_linux_amd64.deb, the version is
+# inside the package); no renaming afterwards.
 name: Release
 
 on:
@@ -57,12 +62,13 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           name="darts-o-mat_${VERSION}_${GOOS}_${GOARCH}"
+          archive="darts-o-mat_${GOOS}_${GOARCH}"
           exe=darts-o-mat; [ "$GOOS" = windows ] && exe=darts-o-mat.exe
           mkdir -p "dist/$name"
           go build -trimpath -ldflags "-s -w -X github.com/sj14/darts-o-mat/pkg/buildinfo.stamped=${VERSION}" -o "dist/$name/$exe" ./cmd/darts-o-mat
           cp LICENSE cmd/darts-o-mat/README.md "dist/$name/"
           cd dist
-          if [ "$GOOS" = windows ]; then zip -qr "$name.zip" "$name"; else tar czf "$name.tar.gz" "$name"; fi
+          if [ "$GOOS" = windows ]; then zip -qr "$archive.zip" "$name"; else tar czf "$archive.tar.gz" "$name"; fi
           rm -rf "$name"
       - uses: actions/upload-artifact@v4
         with:
@@ -104,7 +110,7 @@ jobs:
           go build -o macapp ./tools/macapp
           GOARCH=${{ matrix.goarch }} ./macapp -o darts-o-cam.app
           mkdir -p dist
-          ditto -c -k --keepParent darts-o-cam.app "dist/darts-o-cam_${VERSION}_macos_${{ matrix.goarch }}.zip"
+          ditto -c -k --keepParent darts-o-cam.app "dist/darts-o-cam_macos_${{ matrix.goarch }}.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: camera-macos-${{ matrix.goarch }}

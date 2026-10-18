@@ -10,6 +10,9 @@
 // (darts-o-cam.desktop), icons and a systemd service for running it without a desktop
 // (darts-o-cam.service, not enabled). darts-o-cam is built without cgo; WebKitGTK, for
 // its window of its own, is only recommended: without it the program opens the browser.
+// The files have no version in their names (darts-o-cam_linux_amd64.deb, .rpm, .tar.gz),
+// so the links to the latest release's downloads stay the same; the version is in the
+// packages and in the folder inside the .tar.gz.
 // .deb and .rpm are written with nFPM, so neither dpkg nor rpmbuild is needed; it runs
 // on any system.
 package main
@@ -167,7 +170,9 @@ func pkg(out, format, arch, version string, contents files.Contents) error {
 	if err != nil {
 		return err
 	}
-	path := filepath.Join(out, packager.ConventionalFileName(info))
+	// No version in the name (darts-o-cam_linux_amd64.deb): a link to the latest release's
+	// download stays the same. The version is in the package.
+	path := filepath.Join(out, fmt.Sprintf("%s_linux_%s.%s", name, arch, format))
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -180,11 +185,12 @@ func pkg(out, format, arch, version string, contents files.Contents) error {
 	return f.Close()
 }
 
-// tarball writes the same files as the packages into a .tar.gz, below a folder
-// darts-o-cam_<version>_linux_<arch> (usr/bin/…, usr/share/…), to unpack anywhere.
+// tarball writes the same files as the packages into darts-o-cam_linux_<arch>.tar.gz,
+// below a folder darts-o-cam_<version>_linux_<arch> (usr/bin/…, usr/share/…), to unpack
+// anywhere.
 func tarball(out, arch, version string, contents files.Contents) error {
 	dir := fmt.Sprintf("%s_%s_linux_%s", name, version, arch)
-	path := filepath.Join(out, dir+".tar.gz")
+	path := filepath.Join(out, fmt.Sprintf("%s_linux_%s.tar.gz", name, arch))
 	f, err := os.Create(path)
 	if err != nil {
 		return err
