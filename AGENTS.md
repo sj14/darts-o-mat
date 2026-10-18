@@ -14,6 +14,15 @@ The project consists of two programs:
 
 User's decision 2026-10-18: darts-o-mat is for people who know little about IT, as well as for those who do. That is a goal of the project in general and above all of **darts-o-cam**: its downloads, instructions, the project page and its interface have to work for someone who has never used a terminal: a download link per system with plain labels (no jargon like "amd64"; "Intel/AMD", "ARM", "Apple silicon" plus a hint which one to choose), steps in the right order, no command lines for the camera. For the **server** compromises are fine: not everyone hosts their own server, so commands, containers and Kubernetes are fine there, just not on the first page of the project (link to the server README instead). When writing or changing the project page, the READMEs or texts of the camera's interface, ask: could someone without IT knowledge do this?
 
+## From the home server to SaaS
+
+User's decision 2026-10-18: darts-o-mat has to work both as a small self-hosted program (one person, one binary, a SQLite file, no accounts anywhere else) and as a large service with many strangers on one installation. Rules that follow:
+
+- **The small installation needs nothing extra.** Whatever only a big or public installation needs (protection against bots such as a captcha, later perhaps rate limits, mail, an external database) is **optional and off by default**: it is switched on by a flag or environment variable, and a server without it behaves exactly as before, without a network call to a third party, without an extra field in a form. No feature may make the small installation depend on a service or a key.
+- **Keys and secrets** come as a flag **and** as an environment variable (`DARTS_O_MAT_…`; the flag's default is the variable), because flags show in the process list and the container and Helm chart work with variables. A half-set configuration (one of two keys) stops the server at the start instead of running unprotected.
+- **Third parties** are named in the documentation with what they get to see, and are loaded only on the pages that need them (never in the layout); the app's own files stay embedded, no CDN (see [technologies](#technologies)).
+- When a feature for the big case would make the code for the small one more complicated, say so before building it (see [code quality](#code-quality)).
+
 ## Documentation
 
 The documents are split by area and link to each other:
@@ -82,6 +91,7 @@ New features build on the existing stack; don't introduce additional frameworks 
 - `pkg/auth`: session cookie and middleware (server)
 - `pkg/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock, tournaments); `pkg/domain/dartboard` (board geometry) is used by server and camera
 - `pkg/repos/store`: persistence (server)
+- `pkg/captcha`: the optional check that a registration comes from a person (Cloudflare Turnstile), see [server → captcha](cmd/darts-o-mat/AGENTS.md#captcha) (server)
 - `pkg/i18n`: language of the web interfaces (negotiation, request context), see [languages](#languages)
 - `pkg/notify`: tells subscribers about changes (`Signal`, `Hub` by key); `pkg/sse`: streams Server-Sent Events for htmx (`Stream`, with keepalive); both used by server and camera
 - `pkg/buildinfo`: the binary's version (git revision) and the project's URL, shown in the footers of both web interfaces

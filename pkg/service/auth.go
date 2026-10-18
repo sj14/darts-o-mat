@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/sj14/darts-o-mat/pkg/captcha"
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/player"
 	"github.com/sj14/darts-o-mat/pkg/i18n"
@@ -26,12 +27,38 @@ var (
 	ErrUnauthenticated    = errors.New("not logged in")
 	ErrRegistrationClosed = errors.New("registration is disabled")
 	ErrUsernameTaken      = store.ErrUsernameTaken
-	ErrEmailTaken         = store.ErrEmailTaken
+	// ErrCaptcha means the check that the registration comes from a person failed.
+	ErrCaptcha    = fmt.Errorf("%w: the captcha check failed", ErrInvalid)
+	ErrEmailTaken = store.ErrEmailTaken
 )
 
 // dummyHash is compared against when a username doesn't exist,
 // so a failed login takes the same time whether the username exists or not.
 var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("darts-o-mat"), bcrypt.DefaultCost)
+
+// CaptchaSiteKey is the public key of the widget the registration page shows, empty if
+// registrations aren't checked.
+func (s *Service) CaptchaSiteKey() string {
+	if s.opts.Captcha == nil {
+		return ""
+	}
+	return s.opts.Captcha.SiteKey()
+}
+
+// CheckCaptcha checks the answer of the registration page's widget before Register:
+// ErrCaptcha if it is wrong or missing, another error if the check couldn't be done. It
+// does nothing if registrations aren't checked. An answer works once.
+func (s *Service) CheckCaptcha(ctx context.Context, token string) error {
+	if s.opts.Captcha == nil {
+		return nil
+	}
+	if err := s.opts.Captcha.Verify(ctx, token); errors.Is(err, captcha.ErrRejected) {
+		return ErrCaptcha
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
 
 // Register creates an account and its player. The player's name defaults to the username;
 // the email may be empty.

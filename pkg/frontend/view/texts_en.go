@@ -346,7 +346,10 @@ func (textsEN) ErrInvalidEmail() string {
 	return "Please enter a valid email address, or leave it empty."
 }
 func (textsEN) ErrEmailTaken() string { return "Another account uses this email address already." }
-func (textsEN) DisplayName() string   { return "Display name" }
+func (textsEN) ErrCaptcha() string {
+	return "Please complete the check that you are not a robot and try again."
+}
+func (textsEN) DisplayName() string { return "Display name" }
 func (textsEN) DisplayNameHint() string {
 	return "Your name in games. Leave it empty to use the username."
 }

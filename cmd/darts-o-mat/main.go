@@ -5,10 +5,12 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/sj14/darts-o-mat/pkg/api"
+	"github.com/sj14/darts-o-mat/pkg/captcha"
 	"github.com/sj14/darts-o-mat/pkg/frontend/controller"
 	"github.com/sj14/darts-o-mat/pkg/repos/store"
 	"github.com/sj14/darts-o-mat/pkg/service"
@@ -20,6 +22,9 @@ func main() {
 		dbDSN  = flag.String("dsn", "file:darts-o-mat.db", "data source name of the database")
 		addr   = flag.String("addr", ":3000", "address to listen on")
 		reg    = flag.Bool("registration", true, "allow anyone to create an account")
+		// The secret key is better passed in the environment: flags show up in the process list.
+		turnstileSite   = flag.String("turnstile-site-key", os.Getenv("DARTS_O_MAT_TURNSTILE_SITE_KEY"), "site key of a Cloudflare Turnstile widget; with the secret key, registering needs the check (or $DARTS_O_MAT_TURNSTILE_SITE_KEY)")
+		turnstileSecret = flag.String("turnstile-secret-key", os.Getenv("DARTS_O_MAT_TURNSTILE_SECRET_KEY"), "secret key of the Turnstile widget (or $DARTS_O_MAT_TURNSTILE_SECRET_KEY)")
 	)
 	flag.Parse()
 
@@ -46,7 +51,14 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 
-	svc := service.New(repo, service.Options{Registration: *reg})
+	opts := service.Options{Registration: *reg}
+	switch {
+	case *turnstileSite != "" && *turnstileSecret != "":
+		opts.Captcha = captcha.NewTurnstile(*turnstileSite, *turnstileSecret)
+	case *turnstileSite != "" || *turnstileSecret != "":
+		log.Fatal("turnstile needs both the site key and the secret key")
+	}
+	svc := service.New(repo, opts)
 	if err := svc.ResumeTurnLimits(ctx); err != nil {
 		log.Fatalf("failed to set the turn timers: %v", err)
 	}

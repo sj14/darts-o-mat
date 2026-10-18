@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sj14/darts-o-mat/pkg/captcha"
 	"github.com/sj14/darts-o-mat/pkg/domain/account"
 	"github.com/sj14/darts-o-mat/pkg/domain/game"
 	"github.com/sj14/darts-o-mat/pkg/domain/game/turn"
@@ -65,6 +66,8 @@ func (e UnknownUserError) Unwrap() error {
 type Options struct {
 	// Registration allows anyone to create an account.
 	Registration bool
+	// Captcha checks that registrations come from a person; nil checks nothing.
+	Captcha captcha.Verifier
 }
 
 type Service struct {

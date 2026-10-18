@@ -303,6 +303,7 @@ type Texts interface {
 	ErrUsernameTaken() string
 	ErrRegisterInput() string
 	ErrInvalidEmail() string
+	ErrCaptcha() string
 	ErrEmailTaken() string
 	ErrEnterName() string
 	ErrGuestNameTaken() string

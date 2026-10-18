@@ -87,8 +87,14 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 		Email    string `json:"email"`
 		Name     string `json:"name"`
 		Password string `json:"password"`
+		// CaptchaToken is the answer of the Turnstile widget, needed if the server checks.
+		CaptchaToken string `json:"captcha_token"`
 	}
 	if !decode(w, r, &req) {
+		return
+	}
+	if err := a.svc.CheckCaptcha(r.Context(), req.CaptchaToken); err != nil {
+		writeError(w, err)
 		return
 	}
 	acc, err := a.svc.Register(r.Context(), req.Username, req.Email, req.Name, req.Password)

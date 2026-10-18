@@ -333,6 +333,9 @@ func (textsDE) ErrInvalidEmail() string {
 func (textsDE) ErrEmailTaken() string {
 	return "Diese E-Mail-Adresse wird schon von einem anderen Account verwendet."
 }
+func (textsDE) ErrCaptcha() string {
+	return "Bitte die Prüfung bestehen, dass du kein Roboter bist, und es nochmal versuchen."
+}
 func (textsDE) DisplayName() string { return "Anzeigename" }
 func (textsDE) DisplayNameHint() string {
 	return "So heißt du im Spiel. Leer lassen, um den Benutzernamen zu verwenden."

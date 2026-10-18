@@ -30,16 +30,30 @@ func (c *Controller) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) showRegister(w http.ResponseWriter, r *http.Request) {
-	render(w, r, http.StatusOK, view.Register(view.AuthModel{Registration: c.svc.RegistrationOpen()}))
+	render(w, r, http.StatusOK, view.Register(c.registerModel(view.AuthModel{})))
+}
+
+// registerModel completes the model of the registration page: whether it is open and the
+// key of the captcha widget, empty if registrations aren't checked.
+func (c *Controller) registerModel(m view.AuthModel) view.AuthModel {
+	m.Registration = c.svc.RegistrationOpen()
+	m.CaptchaSiteKey = c.svc.CaptchaSiteKey()
+	return m
 }
 
 // register creates the account and logs it in right away.
 func (c *Controller) register(w http.ResponseWriter, r *http.Request) {
-	m := view.AuthModel{Username: r.FormValue("username"), Email: r.FormValue("email"), Name: r.FormValue("name"), Registration: c.svc.RegistrationOpen()}
+	m := c.registerModel(view.AuthModel{Username: r.FormValue("username"), Email: r.FormValue("email"), Name: r.FormValue("name")})
 	password := r.FormValue("password")
 
-	_, err := c.svc.Register(r.Context(), m.Username, m.Email, m.Name, password)
+	// Turnstile's widget adds its answer to the form under this name.
+	err := c.svc.CheckCaptcha(r.Context(), r.FormValue("cf-turnstile-response"))
+	if err == nil {
+		_, err = c.svc.Register(r.Context(), m.Username, m.Email, m.Name, password)
+	}
 	switch {
+	case errors.Is(err, service.ErrCaptcha):
+		m.Error = view.T(r.Context()).ErrCaptcha()
 	case errors.Is(err, service.ErrUsernameTaken):
 		m.Error = view.T(r.Context()).ErrUsernameTaken()
 	case errors.Is(err, service.ErrEmailTaken):

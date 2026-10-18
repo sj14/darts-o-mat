@@ -1,11 +1,15 @@
 package view
 
+import "github.com/sj14/darts-o-mat/pkg/i18n"
+
 type AuthModel struct {
 	Username     string // prefilled after a failed attempt
 	Email        string
 	Name         string
 	Error        string
 	Registration bool // whether new accounts may register
+	// CaptchaSiteKey is the key of the Turnstile widget on the registration page, empty without one.
+	CaptchaSiteKey string
 }
 
 // authCard is the frame of the login and register forms.
@@ -93,6 +97,11 @@ templ Register(m AuthModel) {
 					}
 					@formField(T(ctx).Password(), "password", T(ctx).PasswordHint()) {
 						<input type="password" id="password" name="password" class={ inputClass } autocomplete="new-password" minlength="8" required/>
+					}
+					if m.CaptchaSiteKey != "" {
+						// Cloudflare's script adds the widget and its answer to the form.
+						<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+						<div class="cf-turnstile" data-sitekey={ m.CaptchaSiteKey } data-theme="dark" data-language={ string(i18n.From(ctx)) }></div>
 					}
 					<button type="submit" class={ btnPrimary, "py-3 font-display text-2xl uppercase" }>{ T(ctx).CreateAccount() }</button>
 				</form>
