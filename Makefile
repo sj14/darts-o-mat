@@ -22,6 +22,15 @@ linux:
 windows:
 	go -C tools/winpkg run . $(if $(VERSION),-version $(VERSION))
 
+# The project page (site/) with the fonts and icons of the app in dist/site, ready to be
+# published as GitHub Pages (.github/workflows/pages.yml) or opened with a local server.
+.PHONY: site
+site:
+	rm -rf dist/site
+	mkdir -p dist/site/assets
+	cp -R site/. dist/site/
+	cp pkg/frontend/static/*.woff2 pkg/frontend/static/favicon.svg pkg/frontend/static/apple-touch-icon.png pkg/frontend/static/*-OFL.txt dist/site/assets/
+
 .PHONY: clean
 clean:
 	rm -rf darts-o-cam.app dist

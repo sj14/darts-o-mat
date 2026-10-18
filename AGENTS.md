@@ -89,7 +89,8 @@ New features build on the existing stack; don't introduce additional frameworks 
 - `tools/macapp`: builds darts-o-cam as a macOS app bundle, see [camera → app](cmd/darts-o-cam/AGENTS.md#app)
 - `tools/linuxpkg`: builds darts-o-cam's Linux packages (.deb, .rpm, .tar.gz), same place; a Go module of its own
 - `tools/winpkg`: builds darts-o-cam's Windows .zip (.exe with icon), same place; a Go module of its own
-- `Makefile`: `make macapp`, `make linux`, `make windows`, `make apps` (all), `make clean`; only for these builds, everything else is the go command
+- `site`: the project page for GitHub Pages (static HTML and a CSS file in the look of the app, English and German in `site/de`; no generator, user's decision 2026-10-18); `make site` puts it with the app's fonts and icons into `dist/site`, `.github/workflows/pages.yml` publishes it. Texts in both languages by hand, keep them in line with the [README](README.md)
+- `Makefile`: `make macapp`, `make linux`, `make windows`, `make apps` (all), `make site`, `make clean`; only for these builds and the project page, everything else is the go command
 - `Containerfile`: image of the server, see [server → structure](cmd/darts-o-mat/AGENTS.md#structure)
 - `tools/internal/appicon`: the app icon for all of them, rendered from `favicon.svg`; `tools/internal/version`: the packages' version from git
 

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f1115">
+<title>darts-o-mat – freier Darts-Zähler, Open Source</title>
+<meta name="description" content="Ein freier Open-Source-Darts-Zähler zum Selbsthosten: X01, Around the Clock, Turniere, Freunde, Statistiken und automatisches Zählen mit Kameras.">
+<meta property="og:title" content="darts-o-mat – freier Darts-Zähler, Open Source">
+<meta property="og:description" content="Ein freier Open-Source-Darts-Zähler zum Selbsthosten: X01, Around the Clock, Turniere, Freunde, Statistiken und automatisches Zählen mit Kameras.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="alternate" hreflang="en" href="../">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+<a class="logo" href="#"><img src="../assets/favicon.svg" alt="">darts<b>-o-</b>mat</a>
+<nav><a href="#features">Features</a><a href="#start">Loslegen</a><a href="https://github.com/sj14/darts-o-mat">GitHub</a><a href="../" hreflang="en">English</a></nav>
+</div></header>
+<main>
+<div class="wrap hero">
+<h1>darts-o-mat</h1>
+<p class="lead">Ein freier Open-Source-Darts-Zähler, den du selbst betreibst. Gib deine Würfe ein oder lass Kameras sie erkennen – die Punkte zählt das Programm.</p>
+<div class="buttons"><a class="btn primary" href="#start">Loslegen</a><a class="btn" href="https://github.com/sj14/darts-o-mat">Auf GitHub ansehen</a></div>
+<span class="status">Frühe Entwicklung</span>
+</div>
+<section id="features"><div class="wrap"><h2>Features</h2><div class="cards"><div class="card"><h3>Selbst gehostet</h3><p>Ein Programm oder ein Container, mit SQLite fürs Wohnzimmer oder PostgreSQL für mehr. Deine Spiele und Daten bleiben bei dir.</p></div><div class="card"><h3>Frei &amp; Open Source</h3><p>Unter der AGPL-3.0 lizenziert. Kein Abo, kein Konto bei einem fremden Dienst.</p></div><div class="card"><h3>Automatisch zählen</h3><p>darts-o-cam erkennt die Darts mit günstigen Kameras am Board und trägt sie ins laufende Spiel ein. macOS, Linux und Windows.</p></div><div class="card"><h3>Zusammen spielen</h3><p>X01 und Around the Clock, Legs und Sets, K.-o.- und Jeder-gegen-jeden-Turniere, Freunde, Gäste und Statistiken. Deutsch und Englisch.</p></div></div></div></section>
+<section id="start"><div class="wrap"><h2>Loslegen</h2><div class="steps"><div class="card step"><h3>1. Server starten</h3><p><a href="https://go.dev/dl/">Go</a> installieren, dann:</p><pre>git clone https://github.com/sj14/darts-o-mat
+cd darts-o-mat
+go run ./cmd/darts-o-mat</pre><p><a href="http://localhost:3000">localhost:3000</a> öffnen und registrieren. Wer von Hand spielt, braucht nur das.</p></div><div class="card step"><h3>Oder als Container</h3><p>Mit Docker oder Podman, im Projektordner:</p><pre>docker build -f Containerfile -t darts-o-mat .
+docker run -d -p 3000:3000 -v darts-o-mat:/data darts-o-mat</pre><p>Die Daten liegen im Volume <code>darts-o-mat</code>.</p></div><div class="card step"><h3>2. Kameras hinzufügen (optional)</h3><p>Auf dem Rechner, an dem die Kameras hängen:</p><pre>go run ./cmd/darts-o-cam</pre><p>Kameras einmal hinzufügen und kalibrieren, dann in den Einstellungen Serveradresse und Token des Boards eintragen. <a href="https://github.com/sj14/darts-o-mat/blob/main/cmd/darts-o-cam/README.md">Mehr zu darts-o-cam</a></p></div></div></div></section>
+</main>
+<footer><div class="wrap"><a href="https://github.com/sj14/darts-o-mat">GitHub</a> · <a href="https://github.com/sj14/darts-o-mat/blob/main/LICENSE">AGPL-3.0</a></div></footer>
+</body>
+</html>
