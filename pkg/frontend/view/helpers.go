@@ -107,12 +107,20 @@ func outModeLabel(m x01.OutMode) string {
 	return ""
 }
 
-func modeLabel(t Texts, g game.Settings) string {
+// modeGoal is what a game is played to, "First to 3", or empty for a single leg.
+func modeGoal(t Texts, g game.Settings) string {
 	switch {
 	case g.Sets > 1:
-		return modeName(t, g) + " · " + t.FirstToSets(g.Sets, g.Legs)
+		return t.FirstToSets(g.Sets, g.Legs)
 	case g.Legs > 1:
-		return modeName(t, g) + " · First to " + strconv.Itoa(g.Legs)
+		return "First to " + strconv.Itoa(g.Legs)
+	}
+	return ""
+}
+
+func modeLabel(t Texts, g game.Settings) string {
+	if goal := modeGoal(t, g); goal != "" {
+		return modeName(t, g) + " · " + goal
 	}
 	return modeName(t, g)
 }

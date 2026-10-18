@@ -41,32 +41,21 @@ templ BoardAdding(v service.GameView, errMsg string) {
 	@scores(v, errMsg, nil, true)
 }
 
-// gameTitle is the heading of the game with the board it is played on.
+// gameTitle is the heading of the game with what belongs to it right now: the board, the
+// way out, the round, set and leg. On the game page it is the head of the left column
+// rather than a bar across the page: that column has room in height, while the board
+// beside it takes all of the right side, from the top.
 templ gameTitle(v service.GameView, p *progress) {
-	<div class="mb-5 flex flex-wrap items-end justify-between gap-2 lg:mb-3">
-		<h1 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl">{ modeLabel(T(ctx), v.Game.Settings) }</h1>
-		<div class="flex items-center gap-2 text-sm text-white/60">
-			if v.Game.TournamentID != nil {
-				<a href={ templ.URL(tournamentURL(*v.Game.TournamentID, "")) } class="rounded-full bg-amber-400/20 px-3 py-1 font-semibold text-amber-300 hover:bg-amber-400/30">{ T(ctx).ToTournament() }</a>
+	<div class="mb-3 flex flex-col gap-3">
+		<div>
+			<h1 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl lg:text-4xl xl:text-5xl">{ modeName(T(ctx), v.Game.Settings) }</h1>
+			if goal := modeGoal(T(ctx), v.Game.Settings); goal != "" {
+				<p class="font-display text-xl font-semibold uppercase tracking-wider text-white/50 sm:text-2xl lg:text-xl">{ goal }</p>
 			}
+		</div>
+		<div class="flex flex-wrap items-center gap-2 text-sm text-white/60">
 			if name := sharedBoardName(v); name != "" {
 				<span class="rounded-full bg-white/10 px-3 py-1">📷 { name }</span>
-			}
-			for _, b := range v.Boards {
-				if !v.Invited {
-				<button
-					type="button"
-					class="rounded-full border border-white/20 px-3 py-1 hover:bg-white/10"
-					title={ T(ctx).PlayOnBoard() }
-					hx-post={ gameURL(v.Game.ID, "/board") }
-					hx-vals={ boardVals(b.ID) }
-					hx-target="#board"
-					hx-swap="outerHTML"
-					if b.InUse {
-						hx-confirm={ T(ctx).BoardInUseConfirm() }
-					}
-				>📷 { b.Name }</button>
-				}
 			}
 			if p != nil && v.CanThrow && p.running() && !p.BullingOff {
 				@leaveButton(v)
@@ -74,13 +63,32 @@ templ gameTitle(v service.GameView, p *progress) {
 			if p != nil && p.BullingOff && p.running() {
 				<span class="rounded-full bg-board-red/25 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider text-red-300">{ T(ctx).BullOff() }</span>
 			} else if p != nil && p.running() {
+				<span class="rounded-full bg-white/10 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider">{ T(ctx).RoundN(p.Round) }</span>
 				if v.Game.Sets > 1 {
 					<span class="rounded-full bg-sky-400/20 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider text-sky-300">{ T(ctx).SetN(p.Set) }</span>
 				}
 				if v.Game.Legs > 1 {
 					<span class="rounded-full bg-amber-400/20 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider text-amber-300">{ T(ctx).LegN(p.Leg) }</span>
 				}
-				<span class="rounded-full bg-white/10 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider">{ T(ctx).RoundN(p.Round) }</span>
+			}
+			if v.Game.TournamentID != nil {
+				<a href={ templ.URL(tournamentURL(*v.Game.TournamentID, "")) } class="rounded-full bg-amber-400/20 px-3 py-1 font-semibold text-amber-300 hover:bg-amber-400/30">{ T(ctx).ToTournament() }</a>
+			}
+			for _, b := range v.Boards {
+				if !v.Invited {
+					<button
+						type="button"
+						class="rounded-full border border-white/20 px-3 py-1 hover:bg-white/10"
+						title={ T(ctx).PlayOnBoard() }
+						hx-post={ gameURL(v.Game.ID, "/board") }
+						hx-vals={ boardVals(b.ID) }
+						hx-target="#board"
+						hx-swap="outerHTML"
+						if b.InUse {
+							hx-confirm={ T(ctx).BoardInUseConfirm() }
+						}
+					>📷 { b.Name }</button>
+				}
 			}
 		</div>
 	</div>
@@ -173,7 +181,6 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart, adding bool
 	// board gets the room: its darts come from cameras or from another account.
 	{{ keypad := editing != nil || adding || (p.running() && !p.WaitingForTakeout && handEntry(v, p)) }}
 	<div id="board" sse-swap="board" hx-swap="outerHTML" data-sound={ soundKind(v) } data-sound-id={ soundID(v) }>
-		@gameTitle(v, &p)
 		@errorAlert(errMsg)
 		if v.HasLeft {
 			<div class="mb-4 rounded-2xl border border-white/15 bg-pub-800 px-4 py-3 text-white/70" role="status">{ T(ctx).YouLeft() }</div>
@@ -213,6 +220,7 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart, adding bool
 		// scrolling; history and statistics follow below. Narrow screens stack them.
 		<div class={ "grid items-start gap-4 lg:gap-6", templ.KV("lg:grid-cols-[minmax(0,4fr)_minmax(0,5fr)_minmax(0,4fr)]", keypad), templ.KV("lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]", !keypad) }>
 			<div class="flex flex-col gap-2">
+				@gameTitle(v, &p)
 				for i, l := range playerLines(T(ctx), v, p) {
 					if i == 0 && (p.isCurrent(l.ID) || p.isWinner(l.ID)) {
 						@playerCard(v, p, l, keypad)
