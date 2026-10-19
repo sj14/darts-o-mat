@@ -249,7 +249,7 @@ func (c *Controller) useBoard(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	boardID, err := strconv.ParseInt(r.FormValue("board_id"), 10, 64)
+	boardID, err := boardFromForm(r) // empty: no board
 	if err != nil {
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrInput())
 		return

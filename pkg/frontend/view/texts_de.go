@@ -137,6 +137,10 @@ func (textsDE) ErrCantLeave() string {
 func (textsDE) EnterDart() string   { return "Dart eintragen" }
 func (textsDE) HideKeypad() string  { return "Keypad ausblenden" }
 func (textsDE) PlayOnBoard() string { return "Auf diesem Board spielen" }
+func (textsDE) RemoveBoard() string { return "Kein Board: Darts von Hand eingeben" }
+func (textsDE) RemoveBoardConfirm() string {
+	return "Deine Spieler vom Board nehmen? Ab jetzt gibst du ihre Darts von Hand ein, zum Beispiel weil das Board kaputt ist."
+}
 func (textsDE) BoardInUseConfirm() string {
 	return "Auf diesem Board läuft ein anderes Spiel. Das Board in dieses Spiel holen? Das andere Spiel läuft dann ohne Board weiter."
 }

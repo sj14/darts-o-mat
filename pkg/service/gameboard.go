@@ -27,13 +27,15 @@ type BoardChoice struct {
 // UseBoard puts the account's players of a running game on a board, so the board's
 // cameras report their darts: one of the account's boards, or one the other players of
 // the game throw on. A board belongs to at most one game: a running game that was on it
-// continues without it.
-func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID, boardID int64) (GameView, error) {
+// continues without it. With a nil board the players are taken off theirs, e.g. because
+// it broke: from then on they enter their darts by hand, as if they had played without a
+// board from the start (the game stops waiting for takeouts if no one else has a board).
+func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID int64, boardID *int64) (GameView, error) {
 	g, err := s.store.GetGame(ctx, gameID)
 	if err != nil {
 		return GameView{}, err
 	}
-	if err := s.checkGameBoard(ctx, acc, g, &boardID); err != nil {
+	if err := s.checkGameBoard(ctx, acc, g, boardID); err != nil {
 		return GameView{}, err
 	}
 	s.mu.Lock()
@@ -55,11 +57,11 @@ func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID, boa
 		if v.Common().Records[id].Left {
 			continue
 		}
-		if err := s.store.SetParticipantBoard(ctx, gameID, id, &boardID, now); err != nil {
+		if err := s.store.SetParticipantBoard(ctx, gameID, id, boardID, now); err != nil {
 			return GameView{}, err
 		}
 	}
-	if err := s.freeBoard(ctx, boardID, gameID); err != nil {
+	if err := s.takeBoard(ctx, boardID, gameID); err != nil {
 		return GameView{}, err
 	}
 	if g, err = s.store.GetGame(ctx, gameID); err != nil {

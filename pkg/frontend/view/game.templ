@@ -54,7 +54,11 @@ templ gameTitle(v service.GameView, p *progress) {
 			}
 		</div>
 		<div class="flex flex-wrap items-center gap-2 text-sm text-white/60">
-			if name := sharedBoardName(v); name != "" {
+			// Who can still throw changes the board in a menu; for anyone else the board is
+			// only shown while it is played on, not in a game that is over.
+			if p != nil && p.running() && v.CanThrow && len(v.Boards) > 0 {
+				@boardMenu(v)
+			} else if name := sharedBoardName(v); name != "" && (p == nil || p.running()) {
 				<span class="rounded-full bg-white/10 px-3 py-1">📷 { name }</span>
 			}
 			if p != nil && v.CanThrow && p.running() && !p.BullingOff {
@@ -74,24 +78,64 @@ templ gameTitle(v service.GameView, p *progress) {
 			if v.Game.TournamentID != nil {
 				<a href={ templ.URL(tournamentURL(*v.Game.TournamentID, "")) } class="rounded-full bg-amber-400/20 px-3 py-1 font-semibold text-amber-300 hover:bg-amber-400/30">{ T(ctx).ToTournament() }</a>
 			}
-			for _, b := range v.Boards {
-				if !v.Invited {
-					<button
-						type="button"
-						class="rounded-full border border-white/20 px-3 py-1 hover:bg-white/10"
-						title={ T(ctx).PlayOnBoard() }
-						hx-post={ gameURL(v.Game.ID, "/board") }
-						hx-vals={ boardVals(b.ID) }
-						hx-target="#board"
-						hx-swap="outerHTML"
-						if b.InUse {
-							hx-confirm={ T(ctx).BoardInUseConfirm() }
-						}
-					>📷 { b.Name }</button>
-				}
-			}
 		</div>
 	</div>
+}
+
+// boardMenu is the board the viewer's players throw on, with a menu to change it or to take
+// them off it, e.g. when it broke: then the keypad takes over, as if they had played
+// without a board from the start. A <details> opens it without JavaScript; choosing swaps
+// the page's board, which closes it.
+templ boardMenu(v service.GameView) {
+	{{ current, name, on := myBoard(v) }}
+	<details class="relative">
+		<summary class="cursor-pointer list-none rounded-full border border-white/20 bg-white/10 px-3 py-1 hover:bg-white/15 [&::-webkit-details-marker]:hidden" title={ T(ctx).Board() }>
+			if on {
+				📷 { name }
+			} else {
+				📷 { T(ctx).NoBoard() }
+			}
+			<span class="text-white/40">▾</span>
+		</summary>
+		<div class="absolute left-0 z-20 mt-1 flex min-w-56 flex-col rounded-xl border border-white/15 bg-pub-900 p-1 shadow-xl shadow-black/40">
+			for _, b := range v.Boards {
+				<button
+					type="button"
+					class="flex flex-col rounded-lg px-3 py-2 text-left hover:bg-white/10 disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent"
+					title={ T(ctx).PlayOnBoard() }
+					disabled?={ on && b.ID == current }
+					hx-post={ gameURL(v.Game.ID, "/board") }
+					hx-vals={ boardVals(b.ID) }
+					hx-target="#board"
+					hx-swap="outerHTML"
+					if b.InUse {
+						hx-confirm={ T(ctx).BoardInUseConfirm() }
+					}
+				>
+					<span class="font-semibold">
+						📷 { b.Name }
+						if on && b.ID == current {
+							✓
+						}
+					</span>
+					if b.InUse {
+						<span class="text-xs text-white/50">{ T(ctx).BoardInUse() }</span>
+					}
+				</button>
+			}
+			if on {
+				<button
+					type="button"
+					class="rounded-lg border-t border-white/10 px-3 py-2 text-left text-red-300 hover:bg-board-red/20"
+					hx-post={ gameURL(v.Game.ID, "/board") }
+					hx-vals={ `{"board_id": ""}` }
+					hx-target="#board"
+					hx-swap="outerHTML"
+					hx-confirm={ T(ctx).RemoveBoardConfirm() }
+				>{ T(ctx).RemoveBoard() }</button>
+			}
+		</div>
+	</details>
 }
 
 // lobby turns into the board once everyone has accepted, pushed by the server.

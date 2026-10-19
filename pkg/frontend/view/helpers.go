@@ -509,6 +509,20 @@ func boardVals(id int64) string {
 	return `{"board_id": "` + strconv.FormatInt(id, 10) + `"}`
 }
 
+// myBoard returns the board the viewer's players throw on, ok is false if they enter
+// their darts by hand.
+func myBoard(v service.GameView) (id int64, name string, ok bool) {
+	for _, pid := range v.Mine {
+		if v.Common().Records[pid].Left {
+			continue
+		}
+		if b := v.BoardOf(pid); b != nil {
+			return *b, v.BoardNames[pid], true
+		}
+	}
+	return 0, "", false
+}
+
 // sharedBoardName returns the name of the board if all players of the game throw on the
 // same one (a game at one board), shown once at the top; empty otherwise.
 func sharedBoardName(v service.GameView) string {

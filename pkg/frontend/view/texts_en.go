@@ -137,6 +137,10 @@ func (textsEN) ErrCantLeave() string {
 func (textsEN) EnterDart() string   { return "Enter a dart" }
 func (textsEN) HideKeypad() string  { return "Hide keypad" }
 func (textsEN) PlayOnBoard() string { return "Play on this board" }
+func (textsEN) RemoveBoard() string { return "No board: enter the darts by hand" }
+func (textsEN) RemoveBoardConfirm() string {
+	return "Take your players off the board? From now on you enter their darts by hand, for example because the board is broken."
+}
 func (textsEN) BoardInUseConfirm() string {
 	return "Another game is on this board. Move the board to this game? The other game continues without a board."
 }

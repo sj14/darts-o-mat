@@ -429,14 +429,15 @@ func (a *API) leaveGame(w http.ResponseWriter, r *http.Request) {
 }
 
 // useBoard puts the account's players of a running game on a board; a game that
-// was on the board continues without it.
+// was on the board continues without it. A null board_id takes the players off their
+// board: they enter their darts by hand from then on.
 func (a *API) useBoard(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
 	}
 	var req struct {
-		BoardID int64 `json:"board_id"`
+		BoardID *int64 `json:"board_id"`
 	}
 	if !decode(w, r, &req) {
 		return

@@ -140,7 +140,8 @@ type GameView struct {
 	Mine []int64 `json:"-"`
 	// Boards are the boards the viewer can pick: its own and those the other players of
 	// the game throw on (friends at one board share it). Only for an invited player, to
-	// accept on one, and for a viewer with players without a board (UseBoard).
+	// accept on one, and for a viewer who can still throw, to change the board or take
+	// their players off it (UseBoard).
 	Boards []BoardChoice `json:"boards,omitempty"`
 }
 
@@ -742,7 +743,7 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	if !slices.ContainsFunc(v.Mine, func(id int64) bool { return !v.Common().Records[id].Left }) {
 		v.HasLeft, v.CanThrow = true, false
 	}
-	if v.Invited || (v.CanThrow && !v.Common().GameOver && slices.ContainsFunc(v.Mine, func(id int64) bool { return v.BoardOf(id) == nil })) {
+	if v.Invited || (v.CanThrow && !v.Common().GameOver) {
 		if v.Boards, err = s.boardChoices(ctx, acc, g); err != nil {
 			return GameView{}, err
 		}

@@ -53,6 +53,8 @@ type Texts interface {
 	AbortGame() string
 	AbortGameConfirm() string
 	PlayOnBoard() string
+	RemoveBoard() string
+	RemoveBoardConfirm() string
 	OpenGames() string
 	NoOpenGames() string
 	PlayersOfSeats(players, seats int) string

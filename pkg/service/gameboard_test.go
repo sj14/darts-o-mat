@@ -31,19 +31,19 @@ func TestUseBoard(t *testing.T) {
 		t.Fatalf("choices = %+v, want the free Keller", first.Boards)
 	}
 
-	if _, err := s.UseBoard(ctx, ben, first.Game.ID, bens.ID); !errors.Is(err, ErrNotFound) {
+	if _, err := s.UseBoard(ctx, ben, first.Game.ID, &bens.ID); !errors.Is(err, ErrNotFound) {
 		t.Errorf("ben uses a board in anna's game: %v, want ErrNotFound", err)
 	}
-	if _, err := s.UseBoard(ctx, anna, first.Game.ID, bens.ID); !errors.Is(err, ErrInvalid) {
+	if _, err := s.UseBoard(ctx, anna, first.Game.ID, &bens.ID); !errors.Is(err, ErrInvalid) {
 		t.Errorf("anna uses ben's board: %v, want ErrInvalid", err)
 	}
 
-	v, err := s.UseBoard(ctx, anna, first.Game.ID, keller.ID)
+	v, err := s.UseBoard(ctx, anna, first.Game.ID, &keller.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !onBoard(v, anna.PlayerID, keller.ID) || len(v.Boards) != 0 {
-		t.Errorf("board of anna = %v, choices = %+v, want Keller and no choices", v.BoardOf(anna.PlayerID), v.Boards)
+	if !onBoard(v, anna.PlayerID, keller.ID) || len(v.Boards) != 1 {
+		t.Errorf("board of anna = %v, choices = %+v, want Keller and the choice to change", v.BoardOf(anna.PlayerID), v.Boards)
 	}
 	if boards, _ := s.Boards(ctx, anna); boards[0].LastUsedAt == nil {
 		t.Error("the board isn't marked as used")
@@ -54,7 +54,7 @@ func TestUseBoard(t *testing.T) {
 	if len(second.Boards) != 1 || !second.Boards[0].InUse {
 		t.Fatalf("choices = %+v, want Keller in use", second.Boards)
 	}
-	if v, err = s.UseBoard(ctx, anna, second.Game.ID, keller.ID); err != nil || !onBoard(v, anna.PlayerID, keller.ID) {
+	if v, err = s.UseBoard(ctx, anna, second.Game.ID, &keller.ID); err != nil || !onBoard(v, anna.PlayerID, keller.ID) {
 		t.Fatalf("second game takes the board: %v", err)
 	}
 	if v, _ = s.Game(ctx, anna, first.Game.ID); v.HasBoard() {
@@ -107,8 +107,8 @@ func TestFriendsShareABoard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(v.Boards) != 0 {
-		t.Errorf("anna sees choices %+v although all her players have a board", v.Boards)
+	if len(v.Boards) != 1 || v.Boards[0].ID != keller.ID {
+		t.Errorf("anna's choices = %+v, want her Keller, to change or leave it", v.Boards)
 	}
 	bv, _ := s.Game(ctx, ben, v.Game.ID)
 	if len(bv.Boards) != 2 || !bv.Boards[1].Others || bv.Boards[1].ID != keller.ID {
@@ -131,5 +131,56 @@ func TestFriendsShareABoard(t *testing.T) {
 	}
 	if _, err := s.AddBoardDart(ctx, keller, t20); err != nil { // implies the takeout, ben's dart
 		t.Errorf("a dart of ben through anna's camera: %v", err)
+	}
+}
+
+// A board that broke is taken from the running game: its players enter the darts by hand
+// from then on, as if they had played without a board from the start.
+func TestUseNoBoard(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben := register(t, s, "anna"), register(t, s, "ben")
+	befriend(t, s, anna, ben)
+	keller, _ := s.CreateBoard(ctx, anna, "Keller")
+
+	v, err := s.CreateGame(ctx, anna, withBoard(x01Game(anna.PlayerID), keller.ID), []string{"ben"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AcceptInvitation(ctx, ben, v.Game.ID, nil); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ = s.Game(ctx, anna, v.Game.ID); !v.HasBoard() || !v.HasCamera(anna.PlayerID) {
+		t.Fatal("the game starts on the board")
+	}
+
+	// ben isn't on a board and must not take anna's players off theirs.
+	if v, err = s.UseBoard(ctx, ben, v.Game.ID, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !v.HasCamera(anna.PlayerID) {
+		t.Error("ben took anna off her board")
+	}
+
+	if v, err = s.UseBoard(ctx, anna, v.Game.ID, nil); err != nil {
+		t.Fatalf("anna takes her players off the board: %v", err)
+	}
+	if v.HasCamera(anna.PlayerID) || v.HasBoard() {
+		t.Errorf("anna's board = %v, the game has a board: %v; want neither", v.BoardOf(anna.PlayerID), v.HasBoard())
+	}
+	// The board is free again and not used by the game.
+	if boards, _ := s.Boards(ctx, anna); boards[0].InUse {
+		t.Error("the board is still in use")
+	}
+	if _, err := s.activeGame(ctx, keller); err == nil {
+		t.Error("the board's camera still reaches the game")
+	}
+	// Darts are entered by hand now.
+	if _, err := s.AddDart(ctx, anna, v.Game.ID, t20); err != nil {
+		t.Errorf("a dart by hand: %v", err)
+	}
+	// She can go back to the board.
+	if v, err = s.UseBoard(ctx, anna, v.Game.ID, &keller.ID); err != nil || !onBoard(v, anna.PlayerID, keller.ID) {
+		t.Errorf("back to the board: %v", err)
 	}
 }
