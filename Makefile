@@ -11,17 +11,16 @@ macapp:
 	go run ./tools/macapp
 
 # The Linux packages of darts-o-cam and of the server for amd64 and arm64 in dist/: .deb,
-# .rpm and .tar.gz each (see tools/linuxpkg, a module of its own). The version comes from
+# .rpm and .tar.gz each (see tools/linuxpkg). The version comes from
 # the latest vX.Y.Z tag; set one with VERSION=1.2.3.
 .PHONY: linux 
 linux:
-	go -C tools/linuxpkg run . $(if $(VERSION),-version $(VERSION))
+	go -C tools run ./linuxpkg $(if $(VERSION),-version $(VERSION))
 
-# A .zip with darts-o-cam.exe for amd64 and arm64 in dist/ (see tools/winpkg, a module
-# of its own). Version like for linux.
+# A .zip with darts-o-cam.exe for amd64 and arm64 in dist/ (see tools/winpkg). Version like for linux.
 .PHONY: windows
 windows:
-	go -C tools/winpkg run . $(if $(VERSION),-version $(VERSION))
+	go -C tools run ./winpkg $(if $(VERSION),-version $(VERSION))
 
 # The project page (site/) with the fonts and icons of the app in dist/site, ready to be
 # published as GitHub Pages (.github/workflows/pages.yml) or opened with a local server.
@@ -30,7 +29,7 @@ site:
 	rm -rf dist/site
 	mkdir -p dist/site/assets
 	cp -R site/. dist/site/
-	cp pkg/frontend/static/*.woff2 pkg/frontend/static/favicon.svg pkg/frontend/static/apple-touch-icon.png pkg/frontend/static/*-OFL.txt dist/site/assets/
+	cp common/static/*.woff2 common/static/favicon.svg common/static/apple-touch-icon.png common/static/*-OFL.txt dist/site/assets/
 
 .PHONY: clean
 clean:

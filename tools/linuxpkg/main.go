@@ -4,7 +4,7 @@
 //	go -C tools/linuxpkg run .                     # into dist/ of the project
 //	go -C tools/linuxpkg run . -o /tmp/pkgs -version 1.2.3
 //
-// It is a module of its own, so nFPM and its dependencies stay out of the project's go.mod.
+// It is part of the tools module, so nFPM and its dependencies stay out of server and cam.
 //
 // darts-o-cam gets per architecture a .deb, an .rpm and a .tar.gz, each with the program,
 // a menu entry (darts-o-cam.desktop), icons and a systemd service for running it without
@@ -69,7 +69,9 @@ type asset struct {
 
 // program is one of the programs that get packages.
 type program struct {
-	name        string
+	name string
+	// module is the project's folder of the Go module that has the program in cmd/.
+	module      string
 	description string
 	assets      []asset
 	// icons adds the program's icon in every size of iconSizes.
@@ -87,6 +89,7 @@ type program struct {
 var programs = []program{
 	{
 		name:        "darts-o-cam",
+		module:      "cam",
 		description: "Detects darts with the cameras at a dartboard and reports them to darts-o-mat.",
 		assets: []asset{
 			{data: desktopEntry, dst: "/usr/share/applications/darts-o-cam.desktop"},
@@ -100,7 +103,7 @@ var programs = []program{
 			"deb": {"libwebkitgtk-6.0-4 | libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37"},
 			"rpm": {"(webkitgtk6.0 or webkit2gtk4.1 or webkit2gtk4.0)"},
 		},
-		// libjpeg-turbo makes decoding the camera frames cheaper (pkg/camera).
+		// libjpeg-turbo makes decoding the camera frames cheaper (cam/camera).
 		suggests: map[string][]string{
 			"deb": {"libturbojpeg0"},
 			"rpm": {"turbojpeg"},
@@ -108,11 +111,12 @@ var programs = []program{
 	},
 	{
 		name:        "darts-o-mat",
+		module:      "server",
 		description: "A free, self-hosted darts scorer: enter the throws or let cameras detect them.",
 		assets: []asset{
 			{data: serverUnit, dst: "/usr/lib/systemd/system/darts-o-mat.service"},
 			{file: "LICENSE", dst: "/usr/share/doc/darts-o-mat/LICENSE"},
-			{file: "cmd/darts-o-mat/README.md", dst: "/usr/share/doc/darts-o-mat/README.md"},
+			{file: "server/README.md", dst: "/usr/share/doc/darts-o-mat/README.md"},
 		},
 		stamp:   true,
 		formats: []string{"deb", "rpm", "tar"},
@@ -133,14 +137,14 @@ func main() {
 	}
 }
 
-// projectDir returns the directory of the darts-o-mat module, which this one replaces
-// with ../.. (see go.mod).
+// projectDir returns the project's directory: the parent of the tools module, which this
+// one replaces with .. (see go.mod).
 func projectDir() (string, error) {
-	dir, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/sj14/darts-o-mat").Output()
+	dir, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/sj14/darts-o-mat/tools").Output()
 	if err != nil {
 		return "", fmt.Errorf("find the project: %w", err)
 	}
-	return strings.TrimSpace(string(dir)), nil
+	return filepath.Dir(strings.TrimSpace(string(dir))), nil
 }
 
 func build(root, out, version string) error {
@@ -194,12 +198,12 @@ func (p program) build(root, out, work, version string) error {
 
 	ldflags := "-s -w"
 	if p.stamp {
-		ldflags += " -X github.com/sj14/darts-o-mat/pkg/buildinfo.stamped=" + version
+		ldflags += " -X github.com/sj14/darts-o-mat/common/buildinfo.stamped=" + version
 	}
 	for _, arch := range []string{"amd64", "arm64"} {
 		bin := filepath.Join(work, p.name, arch, p.name)
 		goBuild := exec.Command("go", "build", "-trimpath", "-ldflags="+ldflags, "-o", bin, "./cmd/"+p.name)
-		goBuild.Dir = root
+		goBuild.Dir = filepath.Join(root, p.module)
 		goBuild.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux", "GOARCH="+arch)
 		goBuild.Stdout, goBuild.Stderr = os.Stdout, os.Stderr
 		if err := goBuild.Run(); err != nil {

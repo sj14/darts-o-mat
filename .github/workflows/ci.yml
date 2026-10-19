@@ -18,12 +18,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
-      - run: go vet ./...
-      - run: go test ./...
-      # The packaging tools are modules of their own, not covered by the commands above.
-      - run: go -C tools/linuxpkg vet .
-      - run: go -C tools/winpkg vet .
+          go-version-file: go.work
+      # go.work lists the modules; the root folder is none of them, so ./... needs the folders.
+      - run: go vet ./common/... ./server/... ./cam/... ./tools/...
+      - run: go test ./common/... ./server/... ./cam/...
       # The installer of darts-o-cam.
       - run: shellcheck -s bash install.sh install_test.sh
       - run: bash install_test.sh

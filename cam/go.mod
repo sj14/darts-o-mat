@@ -1,0 +1,39 @@
+module github.com/sj14/darts-o-mat/cam
+
+go 1.27.2
+
+tool github.com/a-h/templ/cmd/templ
+
+replace github.com/sj14/darts-o-mat/common => ../common
+
+require (
+	github.com/a-h/templ v0.3.1070
+	github.com/crgimenes/glaze v0.0.81
+	github.com/ebitengine/purego v0.11.1
+	github.com/go-chi/chi/v5 v5.5.0
+	github.com/sj14/darts-o-mat/common v0.0.0
+	golang.org/x/sys v0.49.0
+)
+
+require (
+	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
+	github.com/andybalholm/brotli v1.2.6 // indirect
+	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
+	github.com/cli/browser v1.3.0 // indirect
+	github.com/fatih/color v1.19.0 // indirect
+	github.com/fsnotify/fsnotify v1.10.1 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/mattn/go-colorable v0.1.15 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
+	github.com/natefinch/atomic v1.0.1 // indirect
+	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
+	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
+	github.com/uptrace/bun v1.3.0 // indirect
+	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
+	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	golang.org/x/mod v0.42.0 // indirect
+	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/tools v0.52.0 // indirect
+)

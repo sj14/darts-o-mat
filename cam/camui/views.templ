@@ -1,0 +1,799 @@
+package camui
+
+import (
+	"errors"
+	"image"
+	"math"
+	"net/url"
+	"strconv"
+
+	"github.com/sj14/darts-o-mat/common/buildinfo"
+	"github.com/sj14/darts-o-mat/common/update"
+	"github.com/sj14/darts-o-mat/cam/camapp"
+	"github.com/sj14/darts-o-mat/common/dartboard"
+	"github.com/sj14/darts-o-mat/common/i18n"
+	"github.com/sj14/darts-o-mat/cam/vision"
+)
+
+type OverviewModel struct {
+	Dir      string // of the configuration
+	Status   camapp.Status
+	Settings camapp.Settings
+	Cameras  []CameraModel
+	Events   []EventModel // newest first
+}
+
+type EventModel struct {
+	ID      int
+	Time    string
+	Takeout bool
+	Label   string          // the scored dart
+	Board   dartboard.Point // fused position in mm
+	Located bool            // whether the cameras found the dart's position (see vision.Event)
+	Cameras []CameraPoint   // the cameras that found the dart
+	// AllCameras lists every camera, for the images.
+	AllCameras []CameraPoint
+	// Game is the game the server entered it in, ReportErr why it didn't.
+	Game      int64
+	ReportErr string
+}
+
+type CameraPoint struct {
+	Index int
+	Name  string
+	Board dartboard.Point
+	Label string
+	// Radial and Tangential are the camera's resolution at the dart (px/mm), Hidden
+	// that it may not see the tip (see vision.Tip).
+	Radial, Tangential float64
+	Hidden             bool
+}
+
+type CheckModel struct {
+	Name                       string
+	Error                      string
+	Matches                    int
+	RMS                        float64
+	Good, Fair, Poor, Outliers int
+	Found, Searched            int  // features found in the image and searched for
+	Wrong                      bool // too few features found: the grid doesn't fit
+}
+
+type DevicesModel struct {
+	Devices []camapp.Device
+	Error   string
+}
+
+type SettingsModel struct {
+	Settings camapp.Settings
+	Saved    bool
+	Error    string
+}
+
+type CameraModel struct {
+	Name        string
+	DeviceName  string
+	DeviceModel string
+	Device      string // ID of the device in use
+	Open        bool
+	Calibrated  bool
+	OtherSize   string // the frame size it was calibrated on, if that's not the current one
+	Problem     string
+	Scale       string // pixels per board millimetre, if calibrated
+	Size        string // of its frames, if it is open
+}
+
+type CalibrateModel struct {
+	Name      string
+	Auto      bool // the first click is the one on the double of the 20, not a wire crossing
+	Points    int // clicked so far
+	MinPoints int
+	Target    *[2]uint8 // the next point to click, nil when all were offered
+	Bounds    image.Rectangle
+	Error     string
+}
+
+// eventFrameURL is the download of a camera's whole frame before or after an event.
+func eventFrameURL(id, camera int, kind string) string {
+	return "/event/" + strconv.Itoa(id) + "/cam/" + strconv.Itoa(camera) + "/" + kind + ".jpg"
+}
+
+func camURL(name, suffix string) string {
+	return "/cam/" + name + suffix
+}
+
+func snapshotURL(id string) string {
+	return "/devices/snapshot.jpg?id=" + url.QueryEscape(id)
+}
+
+func sizeValue(w, h int) string {
+	return strconv.Itoa(w) + "x" + strconv.Itoa(h)
+}
+
+// numberField is an input of the detection's thresholds in the settings.
+type numberField struct {
+	Name, Label, Unit, Hint, Value, Step string
+}
+
+func dec(f float64) string {
+	return strconv.FormatFloat(f, 'f', 2, 64)
+}
+
+// detectionFields are the detection's thresholds, as fields of the settings form.
+func detectionFields(t Texts, o vision.WatchOptions) []numberField {
+	d := o.Detect
+	return []numberField{
+		{"diff_threshold", t.DiffThreshold(), "0–255", t.DiffThresholdHint(), strconv.Itoa(int(d.DiffThreshold)), "1"},
+		{"weak_threshold", t.WeakThreshold(), "0–255", t.WeakThresholdHint(), strconv.Itoa(int(d.WeakThreshold)), "1"},
+		{"blur", t.Blur(), "mm", t.BlurHint(), dec(d.Blur), "0.01"},
+		{"min_area", t.MinArea(), "mm²", t.MinAreaHint(), dec(d.MinArea), "0.01"},
+		{"min_speck", t.MinSpeck(), "mm²", t.MinSpeckHint(), dec(d.MinSpeck), "0.01"},
+		{"min_elongation", t.MinElongation(), t.LengthToWidth(), t.MinElongationHint(), dec(d.MinElongation), "0.1"},
+		{"gap", t.Gap(), "mm", t.GapHint(), dec(d.Gap), "0.01"},
+		{"axis_distance", t.AxisDistance(), "mm", t.AxisDistanceHint(), dec(d.AxisDistance), "0.01"},
+		{"tip_shift", t.TipShift(), "mm", t.TipShiftHint(), dec(d.TipShift), "0.01"},
+		{"sample_step", t.SampleStep(), "mm", t.SampleStepHint(), dec(o.SampleStep), "0.01"},
+		{"motion_threshold", t.MotionThreshold(), "0–255", t.MotionThresholdHint(), strconv.Itoa(int(o.MotionThreshold)), "1"},
+		{"motion_area", t.MotionArea(), "mm²", t.MotionAreaHint(), dec(o.MotionArea), "0.01"},
+		{"stable_frames", t.StableFrames(), t.Frames(), t.StableFramesHint(), strconv.Itoa(o.StableFrames), "1"},
+		{"takeout_area", t.TakeoutArea(), "mm²", t.TakeoutAreaHint(), dec(o.TakeoutArea), "0.01"},
+	}
+}
+
+// statusText says what the detection is doing.
+func statusText(t Texts, s camapp.Status) string {
+	switch {
+	case s.Running:
+		return t.DetectionRunning(s.Cameras)
+	case errors.Is(s.Err, camapp.ErrNoCalibratedCamera):
+		return t.DetectionWaiting()
+	case s.Err != nil:
+		return t.DetectionStopped(s.Err.Error())
+	}
+	return t.DetectionOff()
+}
+templ layout(title string) {
+	<!DOCTYPE html>
+	<html lang={ string(i18n.From(ctx)) } class="dark">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title } · darts-o-cam</title>
+			<link rel="icon" href="/static/favicon.svg" type="image/svg+xml"/>
+			<link rel="stylesheet" href="/static/tailwind.css"/>
+			<script src="/static/htmx.min.js"></script>
+			<script src="/static/htmx-ext-sse.min.js"></script>
+		</head>
+		<body class="min-h-screen text-white antialiased">
+			<header class="border-b border-white/10 bg-pub-950/80">
+				<div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+					<a href="/" class="font-display text-2xl font-extrabold uppercase tracking-wide">📷 darts<span class="text-board-red">-o-</span>cam</a>
+					<nav class="flex flex-wrap items-center gap-1 text-sm font-semibold">
+						<a href="/" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavCameras() }</a>
+						<a href="/devices" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavAddCamera() }</a>
+						<a href="/settings" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavSettings() }</a>
+					</nav>
+				</div>
+			</header>
+			<main class="mx-auto max-w-6xl px-4 py-6 pb-16">
+				{ children... }
+			</main>
+			<footer class="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-white/40">
+				<a href={ templ.URL(buildinfo.ProjectURL) } class="hover:text-white/70" target="_blank" rel="noopener">darts-o-cam { buildinfo.Version() }</a>
+				if v, ok := update.Available(); ok {
+					<a href={ templ.URL(buildinfo.ProjectURL + "/releases/latest") } class="ml-3 font-semibold text-amber-300 hover:text-amber-200" target="_blank" rel="noopener">{ T(ctx).NewVersion(v) }</a>
+				}
+			</footer>
+		</body>
+	</html>
+}
+
+templ title(text string) {
+	<h1 class="mb-3 font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl">{ text }</h1>
+}
+
+templ sectionTitle(text string) {
+	<h2 class="mt-8 mb-3 font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">{ text }</h2>
+}
+
+templ errorAlert(msg string) {
+	if msg != "" {
+		<div class="mb-4 rounded-2xl border border-board-red/50 bg-board-red/15 px-4 py-3 text-red-200" role="alert">{ msg }</div>
+	}
+}
+
+templ badge(text, colors string) {
+	<span class={ "rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider", colors }>{ text }</span>
+}
+
+templ backLink() {
+	<p class="mt-6"><a href="/" class={ linkClass }>← { T(ctx).Back() }</a></p>
+}
+
+templ notice(text, colors string) {
+	<div class={ "mb-4 rounded-2xl border px-4 py-3", colors } role="status">{ text }</div>
+}
+
+templ Overview(m OverviewModel) {
+	@layout(T(ctx).NavCameras()) {
+		@title(T(ctx).NavCameras())
+		<div class="mb-6 flex max-w-3xl flex-col gap-3 rounded-3xl border border-white/10 bg-pub-900/80 p-4">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<span class={ templ.KV("text-emerald-300", m.Status.Running), templ.KV("text-amber-300", !m.Status.Running) }>{ statusText(T(ctx), m.Status) }</span>
+				<form method="post" action="/detect">
+					if m.Status.Running || m.Status.Err != nil {
+						<input type="hidden" name="on" value="false"/>
+						<button type="submit" class={ btnSecondary, btnSmall }>{ T(ctx).TurnDetectionOff() }</button>
+					} else {
+						<input type="hidden" name="on" value="true"/>
+						<button type="submit" class={ btnPrimary, btnSmall }>{ T(ctx).TurnDetectionOn() }</button>
+					}
+				</form>
+			</div>
+			if m.Status.Reporting {
+				<span class="text-white/70">{ T(ctx).ThrowsGoTo() } <strong class="text-white">{ m.Settings.Server }</strong>.</span>
+			} else {
+				<span class="text-white/70">{ T(ctx).NotConnectedBefore() }<a href="/settings" class={ linkClass }>{ T(ctx).NavSettings() }</a>{ T(ctx).NotConnectedAfter() }</span>
+			}
+		</div>
+		if len(m.Cameras) == 0 {
+			@notice(T(ctx).NoCameras(), "border-amber-400/50 bg-amber-400/10 text-amber-200")
+		} else {
+			<p class="mb-4 max-w-3xl text-white/60">
+				{ T(ctx).CalibrateHintBefore() } <strong class="text-white">{ T(ctx).EmptyBoard() }</strong>{ T(ctx).CalibrateHintAfter() }
+				<a href="/" class={ linkClass }>{ T(ctx).RefreshImages() }</a>
+			</p>
+			<form method="post" action="/reconnect" class="mb-4 flex flex-wrap items-center gap-3">
+				<button type="submit" class={ btnSecondary, btnSmall }>{ T(ctx).Reconnect() }</button>
+				<span class="text-sm text-white/50">{ T(ctx).ReconnectHint() }</span>
+			</form>
+		}
+		<div class="grid gap-6 md:grid-cols-2">
+			for _, c := range m.Cameras {
+				<div class="overflow-hidden rounded-3xl border border-white/10 bg-pub-900/80 shadow-xl shadow-black/30">
+					if c.Open {
+						<img src={ camURL(c.Name, "/frame.jpg") } class="w-full" alt={ T(ctx).ImageOf(c.Name) }/>
+					}
+					<div class="flex flex-col gap-3 p-4">
+						<div class="flex items-center justify-between gap-2">
+							<span>
+								<span class="font-display text-2xl font-semibold uppercase">{ c.Name }</span>
+								<span class="text-sm text-white/40">
+									{ c.DeviceName }
+									if c.DeviceModel != "" {
+										({ c.DeviceModel })
+									}
+									if c.Size != "" {
+										· { c.Size }
+									}
+								</span>
+							</span>
+							if c.Calibrated {
+								<span class="flex items-center gap-2">
+									<span class="text-sm text-white/40" title={ T(ctx).PixelsPerMM() }>{ c.Scale } px/mm</span>
+									@badge(T(ctx).Calibrated(), "bg-board-green/25 text-emerald-300")
+								</span>
+							} else {
+								@badge(T(ctx).NotCalibrated(), "bg-amber-400/20 text-amber-300")
+							}
+						</div>
+						if c.Problem != "" {
+							<p class="text-sm text-red-300">{ c.Problem }</p>
+						}
+						if c.OtherSize != "" {
+							<p class="text-sm text-amber-300">{ T(ctx).CalibratedForOtherSize(c.OtherSize) }</p>
+						}
+						<div class="flex flex-wrap gap-2">
+							if c.Open {
+								<form method="post" action={ templ.URL(camURL(c.Name, "/start")) }>
+									<button type="submit" class={ btnPrimary }>
+										if c.Calibrated {
+											{ T(ctx).Recalibrate() }
+										} else {
+											{ T(ctx).Calibrate() }
+										}
+									</button>
+								</form>
+								if c.Calibrated {
+									<a href={ templ.URL(camURL(c.Name, "/check")) } class={ btnSecondary }>{ T(ctx).CheckGrid() }</a>
+									<form method="post" action={ templ.URL(camURL(c.Name, "/refine")) }>
+										<button type="submit" class={ btnSecondary }>{ T(ctx).RefineOnly() }</button>
+									</form>
+								}
+							}
+							<a href={ templ.URL(camURL(c.Name, "/remove")) } class={ btnDanger }>{ T(ctx).Remove() }</a>
+						</div>
+					</div>
+				</div>
+			}
+		</div>
+		@sectionTitle(T(ctx).LatestDetections())
+		// The list swaps itself whenever darts-o-cam detects something (Server-Sent Events).
+		<div hx-ext="sse" sse-connect="/events/stream" sse-swap="events">
+			@eventList(m.Events)
+		</div>
+		<p class="mt-8 text-sm text-white/40">{ T(ctx).ConfigHint(m.Dir) }</p>
+	}
+}
+
+// eventList is the list of the latest detections, newest first.
+templ eventList(events []EventModel) {
+	if len(events) == 0 {
+		<p class="text-white/50">{ T(ctx).NoEvents() }</p>
+	} else {
+		<ul class="flex flex-col gap-1">
+			for _, e := range events {
+				<li>
+					<a href={ templ.URL("/event/" + strconv.Itoa(e.ID)) } class="flex flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2 transition hover:bg-white/5">
+						<span class="tabular-nums text-white/50">{ e.Time }</span>
+						if e.Takeout {
+							<span class="text-white/50">{ T(ctx).DartsPulledOut() }</span>
+						} else {
+							<span><span class="font-display text-2xl font-extrabold">{ e.Label }</span> <span class="text-sm text-white/40">{ T(ctx).NCameras(len(e.Cameras)) }</span></span>
+						}
+						@reportResult(e)
+					</a>
+				</li>
+			}
+		</ul>
+	}
+}
+
+// reportResult shows what the server did with a detection.
+templ reportResult(e EventModel) {
+	if e.ReportErr != "" {
+		<span class="text-sm text-red-300">{ T(ctx).NotReported(e.ReportErr) }</span>
+	} else if e.Game != 0 {
+		<span class="text-sm text-emerald-300">{ T(ctx).ReportedInGame(strconv.FormatInt(e.Game, 10)) }</span>
+	}
+}
+
+templ RemovePage(c CameraModel) {
+	@layout(T(ctx).RemoveTitle(c.Name)) {
+		@title(T(ctx).RemoveQuestion(c.Name))
+		<p class="mb-4 max-w-3xl text-white/70">{ T(ctx).RemoveHint() }</p>
+		<div class="flex items-center gap-3">
+			<form method="post" action={ templ.URL(camURL(c.Name, "/remove")) }>
+				<button type="submit" class={ btnDanger }>{ T(ctx).Remove() }</button>
+			</form>
+			<a href="/" class={ linkClass }>{ T(ctx).Cancel() }</a>
+		</div>
+	}
+}
+
+templ Calibrate(m CalibrateModel) {
+	@layout(T(ctx).CalibrateTitle(m.Name)) {
+		@title(T(ctx).CalibrateHeading(m.Name))
+		@errorAlert(m.Error)
+		if m.Auto {
+			// One click on the double of the 20 is enough, the rest is found (vision.AutoCalibrate).
+			<div class={ stickyBar }>
+				<div class="mb-3 rounded-2xl border border-sky-400/50 bg-sky-400/10 px-4 py-3">
+					<div class="font-semibold">{ T(ctx).AutoTap() }</div>
+					<div class="text-sm text-white/60">{ T(ctx).AutoTapHint() }</div>
+				</div>
+				<div class="flex flex-wrap gap-2">
+					<form method="post" action={ templ.URL(camURL(m.Name, "/manual")) }>
+						<button type="submit" class={ btnSecondary }>{ T(ctx).ByHand() }</button>
+					</form>
+					<form method="post" action={ templ.URL(camURL(m.Name, "/start")) }>
+						<button type="submit" class={ btnDanger }>{ T(ctx).StartOver() }</button>
+					</form>
+					<a href="/" class={ btnSecondary }>{ T(ctx).Cancel() }</a>
+				</div>
+			</div>
+			// Shown in full size, so the click position the image input sends is in image pixels.
+			<form id="frame" method="post" action={ templ.URL(camURL(m.Name, "/auto")) } class="scroll-mt-48 overflow-auto rounded-2xl border border-white/10">
+				<input
+					type="image"
+					name="click"
+					src={ camURL(m.Name, "/clicked.jpg?n=0") }
+					width={ strconv.Itoa(m.Bounds.Dx()) }
+					height={ strconv.Itoa(m.Bounds.Dy()) }
+					class="max-w-none cursor-crosshair"
+					alt={ T(ctx).ClickImage() }
+				/>
+			</form>
+		} else {
+			<div class={ stickyBar }>
+			<div class="mb-3 rounded-2xl border border-sky-400/50 bg-sky-400/10 px-4 py-3">
+				if m.Target != nil {
+					<div class="font-semibold">
+						{ T(ctx).ClickBefore() }
+						<span class="rounded-md bg-board-cream px-2 font-display text-xl font-extrabold text-pub-950">{ strconv.Itoa(int(m.Target[0])) }</span> { T(ctx).And() }
+						<span class="rounded-md bg-board-cream px-2 font-display text-xl font-extrabold text-pub-950">{ strconv.Itoa(int(m.Target[1])) }</span>
+						{ T(ctx).ClickAfter() }
+					</div>
+					<div class="text-sm text-white/60">{ T(ctx).ClickHint() }</div>
+				} else {
+					<div class="font-semibold">{ T(ctx).AllPointsDone() }</div>
+				}
+				<div class="mt-1 text-sm text-white/60">{ T(ctx).PointsSet(m.Points, m.MinPoints) }</div>
+			</div>
+			<div class="flex flex-wrap gap-2">
+				if m.Target != nil {
+					<form method="post" action={ templ.URL(camURL(m.Name, "/skip")) }>
+						<button type="submit" class={ btnSecondary }>{ T(ctx).Skip() }</button>
+					</form>
+				}
+				<form method="post" action={ templ.URL(camURL(m.Name, "/finish")) }>
+					<button type="submit" class={ btnPrimary } disabled?={ m.Points < m.MinPoints }>{ T(ctx).FinishCalibration() }</button>
+				</form>
+				<form method="post" action={ templ.URL(camURL(m.Name, "/start")) }>
+					<button type="submit" class={ btnDanger }>{ T(ctx).StartOver() }</button>
+				</form>
+				<a href="/" class={ btnSecondary }>{ T(ctx).Cancel() }</a>
+			</div>
+			</div>
+			// Shown in full size, so the click position the image input sends is in image pixels.
+			<form id="frame" method="post" action={ templ.URL(camURL(m.Name, "/point")) } class="scroll-mt-48 overflow-auto rounded-2xl border border-white/10">
+				<input
+					type="image"
+					name="click"
+					src={ camURL(m.Name, "/clicked.jpg?n="+strconv.Itoa(m.Points)) }
+					width={ strconv.Itoa(m.Bounds.Dx()) }
+					height={ strconv.Itoa(m.Bounds.Dy()) }
+					class="max-w-none cursor-crosshair"
+					alt={ T(ctx).ClickImage() }
+				/>
+			</form>
+		}
+	}
+}
+
+templ Check(m CheckModel) {
+	@layout(T(ctx).CheckTitle(m.Name)) {
+		@title(T(ctx).CheckHeading(m.Name))
+		if m.Error != "" {
+			@errorAlert(m.Error)
+		} else {
+			if m.Wrong {
+				<div class="mb-4 max-w-3xl rounded-2xl border border-board-red/50 bg-board-red/15 px-4 py-3 text-red-200" role="alert">
+					<p class="mb-3">
+						<strong>{ T(ctx).GridWrongTitle() }</strong> { T(ctx).GridWrong(m.Found, m.Searched) }
+						{ T(ctx).GridWrongHint() }
+					</p>
+					<form method="post" action={ templ.URL(camURL(m.Name, "/start")) }>
+						<button type="submit" class={ btnPrimary }>{ T(ctx).Recalibrate() }</button>
+					</form>
+				</div>
+			}
+			<p class="mb-4 max-w-3xl text-white/70">
+				{ T(ctx).CheckExplanation() }
+			</p>
+			<div class="mb-4 flex flex-wrap items-center gap-3">
+				<span>
+					@badge(strconv.Itoa(m.Good), "bg-board-green/25 text-emerald-300")
+					≤ 1 px
+				</span>
+				<span>
+					@badge(strconv.Itoa(m.Fair), "bg-amber-400/20 text-amber-300")
+					≤ 2 px
+				</span>
+				<span>
+					@badge(strconv.Itoa(m.Poor), "bg-board-red/25 text-red-300")
+					{ T(ctx).FurtherOff() }
+				</span>
+				<span>
+					@badge(strconv.Itoa(m.Outliers), "bg-board-red/25 text-red-300")
+					{ T(ctx).Discarded() }
+				</span>
+				<span class="text-white/50">{ T(ctx).MeanDeviation(T(ctx).Number(m.RMS, 2)) }</span>
+			</div>
+			<p class="mb-4 text-sm text-white/50">{ T(ctx).OnlyACheck() }</p>
+			<div class="overflow-auto rounded-2xl border border-white/10">
+				<img src={ camURL(m.Name, "/features.jpg") } class="max-w-none" alt={ T(ctx).FoundFeatures() }/>
+			</div>
+		}
+		@backLink()
+	}
+}
+
+templ EventPage(m EventModel) {
+	@layout(T(ctx).DetectionTitle()) {
+		<h1 class="mb-4 font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl">
+			<span class="text-white/40">{ m.Time }:</span>
+			if m.Takeout {
+				{ T(ctx).DartsPulledOut() }
+			} else {
+				{ m.Label }
+			}
+		</h1>
+		if !m.Takeout {
+			// Computed only on request: it costs as much as the detection.
+			<p class="mb-4"><a href={ templ.URL("/event/" + strconv.Itoa(m.ID) + "/trace") } class={ btnSecondary, btnSmall }>🔍 { T(ctx).TraceTitle() }</a></p>
+		}
+		if !m.Takeout && !m.Located {
+			@notice(T(ctx).UnlocatedNotice(), "border-white/15 bg-white/5 text-white/70")
+		}
+		if !m.Takeout && m.Located {
+			<div class="mb-6 grid items-start gap-6 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+				@boardSketch(m)
+				<div class="rounded-3xl border border-white/10 bg-pub-900/80 p-5">
+					<table class="w-full text-sm tabular-nums">
+						<thead class="text-left text-xs uppercase tracking-wider text-white/50">
+							<tr><th class="py-2">{ T(ctx).Camera() }</th><th class="py-2 text-right">{ T(ctx).PositionMM() }</th><th class="py-2 text-right">{ T(ctx).DistanceToCenter() }</th><th class="py-2 text-right">{ T(ctx).Resolution() }</th><th class="py-2 pl-3">{ T(ctx).Field() }</th></tr>
+						</thead>
+						<tbody class="divide-y divide-white/5">
+							for _, c := range m.Cameras {
+								<tr>
+									<td class="py-2"><span style={ "color: " + cameraColor(c.Index) }>●</span> { c.Name }</td>
+									<td class="py-2 text-right">{ T(ctx).Number(c.Board.X, 1) }; { T(ctx).Number(c.Board.Y, 1) }</td>
+									<td class="py-2 text-right">{ T(ctx).Number(c.Board.Radius(), 1) }</td>
+									<td class="py-2 text-right">{ T(ctx).Number(c.Radial, 1) } / { T(ctx).Number(c.Tangential, 1) }</td>
+									<td class="py-2 pl-3">
+										{ c.Label }
+										if c.Hidden {
+											<span class="text-white/40">{ T(ctx).Hidden() }</span>
+										}
+									</td>
+								</tr>
+							}
+							<tr class="font-bold">
+								<td class="py-2">{ T(ctx).Result() }</td>
+								<td class="py-2 text-right">{ T(ctx).Number(m.Board.X, 1) }; { T(ctx).Number(m.Board.Y, 1) }</td>
+								<td class="py-2 text-right">{ T(ctx).Number(m.Board.Radius(), 1) }</td>
+								<td></td>
+								<td class="py-2 pl-3 text-amber-300">{ m.Label }</td>
+							</tr>
+						</tbody>
+					</table>
+					<p class="mt-3 text-sm text-white/50">{ T(ctx).EventExplanation() }</p>
+				</div>
+			</div>
+		}
+		<div class="grid gap-4 md:grid-cols-3">
+			for _, c := range m.AllCameras {
+				<div>
+					<div class="mb-1 flex items-center justify-between gap-2">
+						<span class="font-semibold"><span style={ "color: " + cameraColor(c.Index) }>●</span> { c.Name }</span>
+						<span class="flex gap-3 text-sm">
+							<a href={ templ.URL(eventFrameURL(m.ID, c.Index, "before")) } class={ linkClass }>{ T(ctx).Before() }</a>
+							<a href={ templ.URL(eventFrameURL(m.ID, c.Index, "after")) } class={ linkClass }>{ T(ctx).After() }</a>
+						</span>
+					</div>
+					<img src={ "/event/" + strconv.Itoa(m.ID) + "/cam/" + strconv.Itoa(c.Index) + ".jpg" } class="w-full rounded-2xl border border-white/10" alt={ T(ctx).ImageOf(c.Name) }/>
+				</div>
+			}
+		</div>
+		@backLink()
+	}
+}
+
+// boardSketch draws the board from the front with the positions seen by each camera
+// and the result, zoomed to the area around the dart.
+templ boardSketch(m EventModel) {
+	{{ vb := sketchViewBox(m) }}
+	<svg viewBox={ vb } class="aspect-square w-full rounded-3xl border border-white/10 bg-pub-900">
+		for _, r := range []float64{dartboard.DoubleOuterRadius, dartboard.DoubleInnerRadius, dartboard.TripleOuterRadius, dartboard.TripleInnerRadius, dartboard.BullRadius, dartboard.BullseyeRadius} {
+			<circle cx="0" cy="0" r={ num(r) } fill="none" stroke="#888" stroke-width={ num(sketchStroke(m)) }></circle>
+		}
+		for i := range 20 {
+			{{ a := (float64(i) + 0.5) * dartboard.SegmentAngle }}
+			{{ p1, p2 := dartboard.Polar(dartboard.BullRadius, a), dartboard.Polar(dartboard.DoubleOuterRadius, a) }}
+			<line x1={ num(p1.X) } y1={ num(-p1.Y) } x2={ num(p2.X) } y2={ num(-p2.Y) } stroke="#888" stroke-width={ num(sketchStroke(m)) }></line>
+			{{ t := dartboard.Polar(185, float64(i)*dartboard.SegmentAngle) }}
+			<text x={ num(t.X) } y={ num(-t.Y) } fill="#ccc" font-size="14" text-anchor="middle" dominant-baseline="middle">{ strconv.Itoa(int(dartboard.Segments[i])) }</text>
+		}
+		for _, c := range m.Cameras {
+			<circle cx={ num(c.Board.X) } cy={ num(-c.Board.Y) } r={ num(sketchStroke(m) * 4) } fill={ cameraColor(c.Index) }></circle>
+		}
+		{{ s := sketchStroke(m) * 6 }}
+		<line x1={ num(m.Board.X - s) } y1={ num(-m.Board.Y - s) } x2={ num(m.Board.X + s) } y2={ num(-m.Board.Y + s) } stroke="#fff" stroke-width={ num(sketchStroke(m) * 1.5) }></line>
+		<line x1={ num(m.Board.X - s) } y1={ num(-m.Board.Y + s) } x2={ num(m.Board.X + s) } y2={ num(-m.Board.Y - s) } stroke="#fff" stroke-width={ num(sketchStroke(m) * 1.5) }></line>
+	</svg>
+}
+
+// sketchSize is the width of the board area shown, in mm: enough to see the dart's field.
+func sketchSize(m EventModel) float64 {
+	spread := 0.0
+	for _, c := range m.Cameras {
+		spread = max(spread, math.Hypot(c.Board.X-m.Board.X, c.Board.Y-m.Board.Y))
+	}
+	return max(60, 4*spread)
+}
+
+func sketchViewBox(m EventModel) string {
+	size := sketchSize(m)
+	return num(m.Board.X-size/2) + " " + num(-m.Board.Y-size/2) + " " + num(size) + " " + num(size)
+}
+
+func sketchStroke(m EventModel) float64 {
+	return sketchSize(m) / 300
+}
+
+var cameraColors = []string{"#ff5a5a", "#4cc3ff", "#ffd23f", "#8bff6b", "#d78bff"}
+
+func cameraColor(i int) string {
+	return cameraColors[i%len(cameraColors)]
+}
+
+func num(f float64) string {
+	return strconv.FormatFloat(f, 'f', 2, 64)
+}
+
+templ Devices(m DevicesModel) {
+	@layout(T(ctx).NavAddCamera()) {
+		@title(T(ctx).NavAddCamera())
+		<p class="mb-4 max-w-3xl text-white/60">
+			{ T(ctx).DevicesHint() }
+		</p>
+		@errorAlert(m.Error)
+		<form method="post" action="/devices/refresh" class="mb-4 flex flex-wrap items-center gap-3">
+			<button type="submit" class={ btnSecondary, btnSmall }>{ T(ctx).TakeNewImages() }</button>
+			<span class="text-sm text-white/50">{ T(ctx).WhichIsWhich() }</span>
+		</form>
+		if len(m.Devices) == 0 && m.Error == "" {
+			@notice(T(ctx).NoDevices(), "border-amber-400/50 bg-amber-400/10 text-amber-200")
+		}
+		<div class="grid gap-6 md:grid-cols-2">
+			for _, d := range m.Devices {
+				<div class="overflow-hidden rounded-3xl border border-white/10 bg-pub-900/80 shadow-xl shadow-black/30">
+					<img src={ snapshotURL(d.ID) } class="aspect-video w-full bg-pub-800 object-cover" alt={ T(ctx).ImageUnavailable(d.Name) }/>
+					<div class="flex flex-wrap items-center justify-between gap-3 p-4">
+						<span>
+							<span class="font-display text-2xl font-semibold uppercase">{ d.Name }</span>
+							if d.Model != "" {
+								<span class="text-sm text-white/40">({ d.Model })</span>
+							}
+						</span>
+						if d.Camera != "" {
+							@badge(T(ctx).OnBoardAs(d.Camera), "bg-board-green/25 text-emerald-300")
+						} else {
+							<form method="post" action="/devices/add">
+								<input type="hidden" name="id" value={ d.ID }/>
+								<button type="submit" class={ btnPrimary }>{ T(ctx).AddDevice() }</button>
+							</form>
+						}
+					</div>
+				</div>
+			}
+		</div>
+		@backLink()
+	}
+}
+
+templ SettingsPage(m SettingsModel) {
+	@layout(T(ctx).NavSettings()) {
+		@title(T(ctx).NavSettings())
+		@errorAlert(m.Error)
+		if m.Saved {
+			@notice(T(ctx).Saved(), "border-board-green/50 bg-board-green/15 text-emerald-200")
+		}
+		<form method="post" action="/settings" class="flex max-w-2xl flex-col gap-6">
+			<fieldset class="flex flex-col gap-3">
+				<legend class="mb-2 font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">darts-o-mat</legend>
+				<p class="text-white/60">{ T(ctx).ServerHint() }</p>
+				<label class="flex flex-col gap-1">
+					<span class="font-semibold">{ T(ctx).Server() }</span>
+					<input type="url" name="server" value={ m.Settings.Server } placeholder="http://localhost:3000" class={ inputClass }/>
+				</label>
+				<label class="flex flex-col gap-1">
+					<span class="font-semibold">{ T(ctx).CameraToken() }</span>
+					<input type="text" name="token" value={ m.Settings.Token } autocomplete="off" spellcheck="false" class={ inputClass }/>
+				</label>
+			</fieldset>
+			<fieldset class="flex flex-col gap-3">
+				<legend class="mb-2 font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">{ T(ctx).NavCameras() }</legend>
+				<label class="flex flex-col gap-1">
+					<span class="font-semibold">{ T(ctx).FrameSize() }</span>
+					<select name="size" class={ inputClass }>
+						for _, size := range Sizes {
+							<option value={ sizeValue(size[0], size[1]) } selected?={ size[0] == m.Settings.Width && size[1] == m.Settings.Height }>{ strconv.Itoa(size[0]) } × { strconv.Itoa(size[1]) }</option>
+						}
+					</select>
+					<span class="text-sm text-white/50">{ T(ctx).FrameSizeHint() }</span>
+				</label>
+				<label class="flex flex-col gap-1">
+					<span class="font-semibold">{ T(ctx).FPS() }</span>
+					<input type="number" name="fps" min="1" max="30" value={ strconv.Itoa(m.Settings.FPS) } class={ inputClass }/>
+					<span class="text-sm text-white/50">{ T(ctx).FPSHint() }</span>
+				</label>
+			</fieldset>
+			<details class="rounded-2xl border border-white/10 bg-pub-900/60 p-4">
+				<summary class="cursor-pointer font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">{ T(ctx).Advanced() }</summary>
+				<p class="mt-3 text-white/60">
+					{ T(ctx).AdvancedHint() }
+				</p>
+				<div class="mt-4 grid gap-4 sm:grid-cols-2">
+					for _, f := range detectionFields(T(ctx), m.Settings.Detection) {
+						<label class="flex flex-col gap-1">
+							<span class="font-semibold">{ f.Label } <span class="text-sm font-normal text-white/40">({ f.Unit })</span></span>
+							<input type="number" name={ f.Name } value={ f.Value } step={ f.Step } min="0" class={ inputClass }/>
+							<span class="text-sm text-white/50">{ f.Hint }</span>
+						</label>
+					}
+				</div>
+				// Belongs to its own form below: Enter in a field submits with the form's first
+				// button, which must be the save button, not this one.
+				<button type="submit" form="detection-defaults" class={ btnSecondary, btnSmall, "mt-4" }>{ T(ctx).Defaults() }</button>
+			</details>
+			<div class="flex items-center gap-3">
+				<button type="submit" class={ btnPrimary }>{ T(ctx).Save() }</button>
+				<a href="/" class={ linkClass }>{ T(ctx).Back() }</a>
+			</div>
+		</form>
+		<form id="detection-defaults" method="post" action="/settings/defaults"></form>
+	}
+}
+
+type TraceModel struct {
+	Event   EventModel
+	Cameras []TraceCamera
+}
+
+// TraceCamera is a camera's detection computed again, as the trace page tells it.
+type TraceCamera struct {
+	Index, Changed, Pieces, Seed, Area, TipEnd int
+	Name                                       string
+	Found, Retried                             bool
+	Elongation                                 float64
+	Err                                        string
+}
+
+// TracePage shows how each camera detected a dart, step by step, on its frame and
+// enlarged around the tip.
+templ TracePage(m TraceModel) {
+	@layout(T(ctx).TraceTitle()) {
+		<h1 class="mb-2 font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream">
+			{ T(ctx).TraceTitle() }: <span class="text-white/40">{ m.Event.Time }</span> { m.Event.Label }
+		</h1>
+		<p class="mb-4 max-w-3xl text-white/60">{ T(ctx).TraceHint() }</p>
+		<ul class="mb-6 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+			for _, l := range traceLegend(T(ctx)) {
+				<li class="flex items-center gap-1.5"><span class="inline-block size-3 rounded-sm" style={ "background: " + l.Color }></span>{ l.Text }</li>
+			}
+		</ul>
+		<div class="flex flex-col gap-8">
+			for _, c := range m.Cameras {
+				@traceCamera(m.Event.ID, c)
+			}
+		</div>
+		<p class="mt-6"><a href={ templ.URL("/event/" + strconv.Itoa(m.Event.ID)) } class={ linkClass }>← { T(ctx).Back() }</a></p>
+	}
+}
+
+templ traceCamera(id int, c TraceCamera) {
+	<section class="rounded-3xl border border-white/10 bg-pub-900/80 p-4">
+		<h2 class="mb-2 font-display text-2xl font-extrabold uppercase"><span style={ "color: " + cameraColor(c.Index) }>●</span> { c.Name }</h2>
+		<ul class="mb-3 text-sm text-white/70">
+			<li>{ T(ctx).TraceChanged(c.Changed, c.Pieces) }</li>
+			if c.Seed > 0 {
+				<li>{ T(ctx).TraceDart(c.Seed, c.Area, T(ctx).Number(c.Elongation, 1)) }</li>
+			}
+			if c.Retried {
+				<li class="text-amber-300">{ T(ctx).TraceRetried() }</li>
+			}
+			if c.Err != "" {
+				<li class="text-red-300">{ T(ctx).TraceNoDart(c.Err) }</li>
+			}
+		</ul>
+		if c.Changed > 0 || c.Found {
+			<div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,1fr)]">
+				// The zoom changes the size with CSS only (radio buttons, like the keypad of the
+				// game page); the image keeps its pixels sharp.
+				<div class="group/zoom">
+					<div class="mb-2 flex items-center gap-2 text-sm">
+						<span class="text-white/50">{ T(ctx).Zoom() }</span>
+						for _, z := range []int{2, 4, 8} {
+							<label class="cursor-pointer">
+								<input type="radio" name={ "zoom-" + strconv.Itoa(c.Index) } value={ strconv.Itoa(z) } checked?={ z == 4 } class="peer sr-only"/>
+								<span class="rounded-lg border border-white/15 px-2 py-0.5 text-white/70 peer-checked:bg-board-cream peer-checked:text-pub-950">{ strconv.Itoa(z) }×</span>
+							</label>
+						}
+					</div>
+					<div class="max-h-[720px] max-w-[min(960px,90vw)] overflow-auto rounded-xl border border-white/10">
+						<img
+							src={ "/event/" + strconv.Itoa(id) + "/trace/" + strconv.Itoa(c.Index) + "/zoom.jpg" }
+							class="max-w-none [image-rendering:pixelated] w-[240px] group-has-[[value='4']:checked]/zoom:w-[480px] group-has-[[value='8']:checked]/zoom:w-[960px]"
+							alt={ T(ctx).Zoom() }
+						/>
+					</div>
+				</div>
+				<a href={ templ.URL("/event/" + strconv.Itoa(id) + "/trace/" + strconv.Itoa(c.Index) + ".jpg") } target="_blank" title={ T(ctx).WholeImage() }>
+					<img src={ "/event/" + strconv.Itoa(id) + "/trace/" + strconv.Itoa(c.Index) + ".jpg" } class="w-full rounded-xl border border-white/10" alt={ T(ctx).WholeImage() }/>
+				</a>
+			</div>
+		}
+	</section>
+}

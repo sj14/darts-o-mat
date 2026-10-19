@@ -1,0 +1,50 @@
+package view
+
+import "github.com/sj14/darts-o-mat/server/domain/player"
+
+// Settings lets an account change how it appears (the accent color of its player) and its email.
+templ Settings(user, email string, p player.Player, errMsg string) {
+	@layout(T(ctx).NavSettings(), user) {
+		<div class="mx-auto max-w-3xl">
+			@pageTitle(T(ctx).NavSettings(), "")
+			@errorAlert(errMsg)
+			@panel("") {
+				<h2 class={ labelClass }>{ T(ctx).AccentColor() }</h2>
+				<p class={ hintClass }>{ T(ctx).AccentColorHint() }</p>
+				// Choosing submits at once; without JavaScript the button does.
+				<form method="post" action="/settings/color" onchange="this.submit()" class="mt-4 flex flex-wrap items-center gap-3">
+					<label class="cursor-pointer">
+						<input type="radio" name="color" value="" class="peer sr-only" checked?={ p.Color == "" }/>
+						<span class="flex h-10 items-center gap-2 rounded-full border border-white/20 px-4 text-sm font-semibold text-white/80 peer-checked:border-white peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-white/70">
+							<span class={ "size-4 rounded-full", accents[p.Accent()].Swatch }></span>
+							{ T(ctx).ColorAuto() }
+						</span>
+					</label>
+					for _, c := range player.Colors {
+						<label class="cursor-pointer" title={ T(ctx).ColorName(c) }>
+							<input type="radio" name="color" value={ c } class="peer sr-only" checked?={ p.Color == c } aria-label={ T(ctx).ColorName(c) }/>
+							<span class={ "block size-10 rounded-full ring-2 ring-transparent ring-offset-2 ring-offset-pub-900 peer-checked:ring-white peer-focus-visible:ring-white/70", accents[c].Swatch }></span>
+						</label>
+					}
+					<noscript><button type="submit" class={ btnSecondary }>OK</button></noscript>
+				</form>
+			}
+			@panel("mt-6") {
+				<h2 class={ labelClass }>{ T(ctx).Email() }</h2>
+				<p class={ hintClass }>{ T(ctx).EmailHint() }</p>
+				<form method="post" action="/settings/email" class="mt-4 flex flex-wrap items-center gap-3">
+					<input type="email" name="email" value={ email } class={ inputClass, "max-w-xs" } autocomplete="email" autocapitalize="none" aria-label={ T(ctx).Email() }/>
+					<button type="submit" class={ btnSecondary }>{ T(ctx).SaveEmail() }</button>
+				</form>
+			}
+			@panel("mt-6 border-board-red/40") {
+				<h2 class={ labelClass }>{ T(ctx).DeleteAccountTitle() }</h2>
+				<p class={ hintClass }>{ T(ctx).DeleteAccountHint() }</p>
+				<form method="post" action="/settings/delete" data-confirm={ T(ctx).DeleteAccountConfirm() } onsubmit="return confirm(this.dataset.confirm)" class="mt-4 flex flex-wrap items-center gap-3">
+					<input type="password" name="password" class={ inputClass, "max-w-xs" } placeholder={ T(ctx).Password() } autocomplete="current-password" required aria-label={ T(ctx).Password() }/>
+					<button type="submit" class={ btnDanger }>{ T(ctx).DeleteAccountButton() }</button>
+				</form>
+			}
+		</div>
+	}
+}

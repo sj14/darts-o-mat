@@ -1,0 +1,199 @@
+package aroundtheclock
+
+import (
+	"errors"
+	"slices"
+	"testing"
+
+	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/server/domain/game/turn"
+)
+
+// hit is a dart entered by hand: number and multiplier (for the bull number, 1 is the
+// bull and 2 the bullseye; anything else stays invalid).
+func hit(number, multiplier uint8) throw.Dart {
+	segments := []throw.Segment{1: throw.Single, 2: throw.Double, 3: throw.Triple}
+	if number == throw.BullNumber && multiplier < 3 {
+		segments = []throw.Segment{1: throw.Bull, 2: throw.Bullseye}
+	}
+	return throw.Dart{Number: number, Segment: segments[multiplier]}
+}
+
+// hitsUpTo returns single hits on 1 to n.
+func hitsUpTo(n uint8) []throw.Dart {
+	var darts []throw.Dart
+	for i := uint8(1); i <= n; i++ {
+		darts = append(darts, hit(i, 1))
+	}
+	return darts
+}
+
+func TestPlay(t *testing.T) {
+	tests := []struct {
+		name        string
+		settings    Settings
+		darts       []throw.Dart
+		wantTargets []uint8
+		wantCurrent int64 // 0 means the game is over
+		wantWinner  int64
+	}{
+		{
+			name:        "no darts",
+			wantTargets: []uint8{1, 1},
+			wantCurrent: 1,
+		},
+		{
+			name:        "wrong number does not advance",
+			darts:       []throw.Dart{hit(2, 1), hit(1, 1), hit(2, 1)},
+			wantTargets: []uint8{3, 1},
+			wantCurrent: 2,
+		},
+		{
+			name:        "double advances one without skips",
+			darts:       []throw.Dart{hit(1, 2)},
+			wantTargets: []uint8{2, 1},
+			wantCurrent: 1,
+		},
+		{
+			name:        "multiplier skips",
+			settings:    Settings{MultiplierSkips: true},
+			darts:       []throw.Dart{hit(1, 2), hit(3, 3)},
+			wantTargets: []uint8{6, 1},
+			wantCurrent: 1,
+		},
+		{
+			name:        "hitting the 20 without bull wins at once",
+			darts:       oneplayer(hitsUpTo(20)),
+			wantTargets: []uint8{0, 1},
+			wantWinner:  1,
+		},
+		{
+			name:        "bull is the last target",
+			settings:    Settings{Bull: true},
+			darts:       oneplayer(hitsUpTo(20)),
+			wantTargets: []uint8{throw.BullNumber, 1},
+			wantCurrent: 1,
+		},
+		{
+			name:        "win with bull",
+			settings:    Settings{Bull: true},
+			darts:       oneplayer(append(hitsUpTo(20), hit(throw.BullNumber, 1))),
+			wantTargets: []uint8{0, 1},
+			wantWinner:  1,
+		},
+		{
+			name:        "skipping past 20 goes to bull",
+			settings:    Settings{Bull: true, MultiplierSkips: true},
+			darts:       oneplayer(append(hitsUpTo(18), hit(19, 3))),
+			wantTargets: []uint8{throw.BullNumber, 1},
+			wantCurrent: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st, err := Play(tt.settings, []int64{1, 2}, tt.darts)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			for i, want := range tt.wantTargets {
+				if got := st.Players[i].Target; got != want {
+					t.Errorf("player %d target = %d, want %d", i+1, got, want)
+				}
+			}
+			var current int64
+			if st.CurrentPlayerID != nil {
+				current = *st.CurrentPlayerID
+			}
+			if current != tt.wantCurrent {
+				t.Errorf("current player = %d, want %d", current, tt.wantCurrent)
+			}
+			var winner int64
+			if st.WinnerID != nil {
+				winner = *st.WinnerID
+			}
+			if winner != tt.wantWinner || st.GameOver != (tt.wantWinner != 0) {
+				t.Errorf("winner = %d (game over %v), want %d", winner, st.GameOver, tt.wantWinner)
+			}
+		})
+	}
+}
+
+// oneplayer interleaves the darts of player 1 with three misses of player 2 after each turn.
+func oneplayer(darts []throw.Dart) []throw.Dart {
+	var result []throw.Dart
+	for i, d := range darts {
+		result = append(result, d)
+		if i%3 == 2 && i != len(darts)-1 {
+			result = append(result, throw.Dart{Segment: throw.Miss}, throw.Dart{Segment: throw.Miss}, throw.Dart{Segment: throw.Miss})
+		}
+	}
+	return result
+}
+
+func TestPlayAfterWin(t *testing.T) {
+	_, err := Play(Settings{}, []int64{1}, append(hitsUpTo(20), throw.Dart{Segment: throw.Miss}))
+	if !errors.Is(err, turn.ErrGameOver) {
+		t.Errorf("got %v, want ErrGameOver", err)
+	}
+}
+
+func TestStats(t *testing.T) {
+	darts := []throw.Dart{hit(1, 1), hit(5, 1), hit(2, 1), throw.Dart{Segment: throw.Miss}}
+	st, err := Play(Settings{}, []int64{1, 2}, darts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := st.Players[0].Stats; got.Darts != 3 || got.Hits != 2 || got.HitRate != 2.0/3 {
+		t.Errorf("player 1 stats = %+v", got)
+	}
+	if got := st.Players[1].Stats; got.Darts != 1 || got.Hits != 0 || got.HitRate != 0 {
+		t.Errorf("player 2 stats = %+v", got)
+	}
+}
+
+func TestTurns(t *testing.T) {
+	darts := []throw.Dart{hit(1, 1), hit(5, 1), hit(2, 1), {Segment: throw.Miss}, hit(3, 1)}
+	st, err := Play(Settings{}, []int64{1, 2}, darts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(st.Turns) != 2 {
+		t.Fatalf("got %d turns, want 2", len(st.Turns))
+	}
+	first := st.Turns[0]
+	if first.PlayerID != 1 || first.From != 1 || first.Target != 3 || !first.Complete || !slices.Equal(first.Hits, []bool{true, false, true}) {
+		t.Errorf("first turn = %+v", first)
+	}
+	second := st.Turns[1]
+	if second.PlayerID != 2 || second.From != 1 || second.Target != 1 || second.Complete || !slices.Equal(second.Hits, []bool{false, false}) {
+		t.Errorf("turn in progress = %+v", second)
+	}
+
+	// On a board the turn is over while waiting for the takeout.
+	st, _ = PlayLog(Settings{}, []int64{1, 2}, turn.Log{Entries: darts[:3], WaitForTakeout: true})
+	if !st.WaitingForTakeout || !st.Turns[0].Complete {
+		t.Errorf("waiting=%v complete=%v, want a complete turn waiting for the takeout", st.WaitingForTakeout, st.Turns[0].Complete)
+	}
+
+	// Finishing ends the turn early.
+	st, _ = Play(Settings{}, []int64{1}, hitsUpTo(20))
+	if last := st.Turns[len(st.Turns)-1]; !last.Complete || last.Target != 0 || len(last.Darts) != 2 {
+		t.Errorf("last turn = %+v, want complete after 2 darts with target 0", last)
+	}
+}
+
+func TestLegs(t *testing.T) {
+	log := turn.Log{Legs: 2, Entries: oneplayer(hitsUpTo(20))}
+	st, err := PlayLog(Settings{}, []int64{1, 2}, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.GameOver || st.Leg != 2 || st.Players[0].Legs != 1 || st.Players[0].Target != 1 || *st.CurrentPlayerID != 2 {
+		t.Errorf("after leg 1: over=%v leg=%d legs=%d target=%d, want leg 2 started by player 2 with targets reset",
+			st.GameOver, st.Leg, st.Players[0].Legs, st.Players[0].Target)
+	}
+	if got := st.Players[0].BestLeg; got != 20 {
+		t.Errorf("best leg = %d darts, want 20", got)
+	}
+}

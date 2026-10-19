@@ -1,5 +1,5 @@
-/* The project page, in the look of the app (pkg/frontend/view/tailwind.css): same colors
-   and fonts. The fonts and the favicon come from pkg/frontend/static via `make site`. */
+/* The project page, in the look of the app (server/frontend/view/tailwind.css): same colors
+   and fonts. The fonts and the favicon come from common/static via `make site`. */
 @font-face { font-family: "Barlow Condensed"; font-weight: 600; font-display: swap; src: url("assets/barlow-condensed-600.woff2") format("woff2"); }
 @font-face { font-family: "Barlow Condensed"; font-weight: 800; font-display: swap; src: url("assets/barlow-condensed-800.woff2") format("woff2"); }
 @font-face { font-family: "Roboto Condensed"; font-weight: 600 800; font-display: swap; src: url("assets/roboto-condensed-latin.woff2") format("woff2"); }

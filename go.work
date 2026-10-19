@@ -1,0 +1,8 @@
+go 1.27.2
+
+use (
+	./cam
+	./common
+	./server
+	./tools
+)

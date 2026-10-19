@@ -54,7 +54,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: go.work
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
@@ -65,8 +65,8 @@ jobs:
           archive="darts-o-mat_${GOOS}_${GOARCH}"
           exe=darts-o-mat; [ "$GOOS" = windows ] && exe=darts-o-mat.exe
           mkdir -p "dist/$name"
-          go build -trimpath -ldflags "-s -w -X github.com/sj14/darts-o-mat/pkg/buildinfo.stamped=${VERSION}" -o "dist/$name/$exe" ./cmd/darts-o-mat
-          cp LICENSE cmd/darts-o-mat/README.md "dist/$name/"
+          go build -trimpath -ldflags "-s -w -X github.com/sj14/darts-o-mat/common/buildinfo.stamped=${VERSION}" -o "dist/$name/$exe" ./server/cmd/darts-o-mat
+          cp LICENSE server/README.md "dist/$name/"
           cd dist
           if [ "$GOOS" = windows ]; then zip -qr "$archive.zip" "$name"; else tar czf "$archive.tar.gz" "$name"; fi
           rm -rf "$name"
@@ -84,7 +84,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: go.work
       - run: make linux windows VERSION=${{ needs.version.outputs.version }}
       - uses: actions/upload-artifact@v4
         with:
@@ -105,7 +105,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: go.work
       - name: Build the app
         run: |
           go build -o macapp ./tools/macapp
