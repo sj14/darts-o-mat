@@ -10,6 +10,10 @@ import (
 	"github.com/sj14/darts-o-mat/internal/cam/vision"
 )
 
+// snapshotOptions are what a device is opened with to take a picture: it belongs to no
+// board yet, so no board's settings apply.
+var snapshotOptions = newBoard(0, "").options()
+
 // snapshot is a still frame of a device that isn't a board camera, to show which camera
 // it is. Taking one opens the device for a moment.
 type snapshot struct {
@@ -39,11 +43,8 @@ func (a *App) Snapshot(id string) (*image.RGBA, error) {
 	a.snapMu.Unlock()
 	defer s.mu.Unlock()
 	if s.frame == nil && s.err == nil {
-		a.mu.Lock()
-		opts := camera.Options{Width: a.cfg.Width, Height: a.cfg.Height, FPS: a.cfg.FPS}
-		a.mu.Unlock()
 		var cam *camera.Camera
-		if cam, s.frame, s.err = vision.OpenCamera(id, opts); s.err == nil {
+		if cam, s.frame, s.err = vision.OpenCamera(id, snapshotOptions); s.err == nil {
 			cam.Close()
 		}
 	}

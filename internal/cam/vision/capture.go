@@ -33,7 +33,13 @@ var ErrNotConnected = errors.New("not connected")
 // device name don't match the references (e.g. a camera was moved), those cameras are
 // opened in device order with ErrAmbiguousCameras in problems: they need to be
 // calibrated again. The exposure is locked once it settled.
-func OpenCameras(calib Calibration, opts camera.Options) (cams []*camera.Camera, problems []error) {
+//
+// All cameras of the calibration are assigned together, so identical cameras of several
+// boards are told apart as well as those of one. opts says how to open each camera; the
+// devices are first opened like the group's first camera and reopened for the cameras
+// that want something else. Devices in busy (by ID), e.g. open already for other
+// cameras, are left alone.
+func OpenCameras(calib Calibration, opts func(CameraCalibration) camera.Options, busy map[string]bool) (cams []*camera.Camera, problems []error) {
 	cams = make([]*camera.Camera, len(calib.Cameras))
 	problems = make([]error, len(calib.Cameras))
 	if len(calib.Cameras) == 0 {
@@ -57,14 +63,14 @@ func OpenCameras(calib Calibration, opts camera.Options) (cams []*camera.Camera,
 		byName[c.DeviceName] = append(byName[c.DeviceName], i)
 	}
 	for _, name := range names {
-		openGroup(calib, byName[name], devices, opts, cams, problems)
+		openGroup(calib, byName[name], devices, opts, busy, cams, problems)
 	}
 	return cams, problems
 }
 
 // openGroup opens the cameras of a calibration that share a device name (indexes),
 // see OpenCameras.
-func openGroup(calib Calibration, indexes []int, devices []camera.Device, opts camera.Options, cams []*camera.Camera, problems []error) {
+func openGroup(calib Calibration, indexes []int, devices []camera.Device, opts func(CameraCalibration) camera.Options, busy map[string]bool, cams []*camera.Camera, problems []error) {
 	fail := func(err error) {
 		for _, i := range indexes {
 			problems[i] = err
@@ -72,11 +78,12 @@ func openGroup(calib Calibration, indexes []int, devices []camera.Device, opts c
 	}
 	var candidates []*camera.Camera
 	var openErr error
+	matchOpts := opts(calib.Cameras[indexes[0]]) // only to compare the views
 	for _, d := range devices {
-		if d.Name != calib.Cameras[indexes[0]].DeviceName {
+		if d.Name != calib.Cameras[indexes[0]].DeviceName || busy[d.ID] {
 			continue
 		}
-		cam, err := camera.Open(d.ID, opts)
+		cam, err := camera.Open(d.ID, matchOpts)
 		if err != nil {
 			openErr = err // e.g. used by another program
 			continue
@@ -127,12 +134,21 @@ func openGroup(calib Calibration, indexes []int, devices []camera.Device, opts c
 
 	used := make([]bool, len(candidates))
 	for r, f := range assignment {
+		var err error
 		i := indexes[r]
 		if f < 0 {
 			problems[i] = ErrNotConnected
 			continue
 		}
 		cams[i], problems[i], used[f] = candidates[f], mismatch, true
+		if want := opts(calib.Cameras[i]); want != matchOpts {
+			// Another size or frame rate than the views were taken with.
+			id := candidates[f].Device.ID
+			candidates[f].Close()
+			if cams[i], _, err = OpenCamera(id, want); err != nil {
+				problems[i] = err
+			}
+		}
 	}
 	for f, c := range candidates {
 		if !used[f] {

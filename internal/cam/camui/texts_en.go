@@ -173,7 +173,16 @@ func (textsEN) ServerHint() string {
 }
 func (textsEN) Server() string      { return "Server" }
 func (textsEN) CameraToken() string { return "Camera token" }
-func (textsEN) FrameSize() string   { return "Wanted frame size" }
+func (textsEN) Board() string       { return "Board" }
+func (textsEN) Boards() string      { return "Boards" }
+func (textsEN) BoardName() string   { return "Board name" }
+func (textsEN) AddBoard() string    { return "Add board" }
+func (textsEN) RemoveBoard() string { return "Remove board" }
+func (textsEN) ErrBoardHasCameras(board string) string {
+	return board + " still has cameras. Remove them first, then the board."
+}
+func (textsEN) ErrLastBoard() string { return "The last board can't be removed." }
+func (textsEN) FrameSize() string    { return "Wanted frame size" }
 func (textsEN) FrameSizeHint() string {
 	return "Each camera takes its own mode closest to this size; the size it delivers is on its card. The cameras are opened again for it. A calibration only holds for the size it was made in."
 }

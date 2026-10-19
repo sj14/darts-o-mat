@@ -34,7 +34,9 @@ On a desktop the web interface opens in a window of its own; closing the window 
 3. **Connect to darts-o-mat:** in darts-o-mat, create your board under "Boards" and click "Create camera token". Enter the server address and the token in darts-o-cam under "Settings".
 4. Select the board when starting a game. Darts now appear by themselves.
 
-Under "Settings" you can also change the image size and frame rate and, for unusual setups, the thresholds of the detection; they are given in millimetres on the board and adapt to each camera's resolution and distance by themselves.
+**Several boards on one computer:** under "Settings" click "Add board", give it a name, its own token (and server) and add its cameras under "Add camera" (choose the board there). With more than one board the pages show a tab per board; each board has its own game, detection, detections list and settings (image size, frame rate, thresholds).
+
+Under "Settings" you can also change, per board, the image size and frame rate and, for unusual setups, the thresholds of the detection; they are given in millimetres on the board and adapt to each camera's resolution and distance by themselves.
 
 The overview shows what the cameras detected for the last throws (new ones appear by themselves) and whether the server took them, and lets you check ("Check the grid") whether the calibration still fits the board. If it warns that the grid doesn't fit, calibrate again. After plugging a camera in or out, click "Reconnect cameras".
 

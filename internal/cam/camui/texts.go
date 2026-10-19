@@ -149,6 +149,13 @@ type Texts interface {
 	ServerHint() string
 	Server() string
 	CameraToken() string
+	Board() string
+	Boards() string
+	BoardName() string
+	AddBoard() string
+	RemoveBoard() string
+	ErrBoardHasCameras(board string) string
+	ErrLastBoard() string
 	FrameSize() string
 	FrameSizeHint() string
 	FPS() string

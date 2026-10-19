@@ -92,12 +92,16 @@ func (ui *UI) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(i18n.Middleware) // the browser's language; darts-o-cam has no accounts
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServerFS(static.FS)))
-	r.Get("/", ui.overview)
-	r.Post("/detect", ui.setDetect)
-	r.Post("/reconnect", ui.reconnect)
-	r.Get("/settings", ui.settingsPage)
-	r.Post("/settings", ui.saveSettings)
-	r.Post("/settings/defaults", ui.defaultDetection)
+	r.Get("/", ui.home)
+	r.Get("/board/{board}", ui.overview)
+	r.Post("/board/{board}/detect", ui.setDetect)
+	r.Post("/board/{board}/reconnect", ui.reconnect)
+	r.Get("/board/{board}/events/stream", ui.eventStream)
+	r.Post("/boards/add", ui.addBoard)
+	r.Post("/boards/{board}/remove", ui.removeBoard)
+	r.Get("/board/{board}/settings", ui.settingsPage)
+	r.Post("/board/{board}/settings", ui.saveSettings)
+	r.Post("/board/{board}/settings/defaults", ui.defaultDetection)
 	r.Get("/devices", ui.devicesPage)
 	r.Get("/devices/snapshot.jpg", ui.snapshot)
 	r.Post("/devices/refresh", ui.refreshSnapshots)
@@ -116,7 +120,6 @@ func (ui *UI) Routes() http.Handler {
 	r.Post("/cam/{name}/refine", ui.refineAgain)
 	r.Get("/cam/{name}/check", ui.checkPage)
 	r.Get("/cam/{name}/features.jpg", ui.featuresImage)
-	r.Get("/events/stream", ui.eventStream)
 	r.Get("/event/{id}", ui.eventPage)
 	r.Get("/event/{id}/cam/{i}.jpg", ui.eventImage)
 	r.Get("/event/{id}/cam/{i}/{kind}.jpg", ui.eventFrame)
@@ -124,6 +127,18 @@ func (ui *UI) Routes() http.Handler {
 	r.Get("/event/{id}/trace/{i}.jpg", ui.traceImage)
 	r.Get("/event/{id}/trace/{i}/zoom.jpg", ui.traceZoom)
 	return r
+}
+
+// board returns the board named in the URL, writing 404 if there is none.
+func (ui *UI) board(w http.ResponseWriter, r *http.Request) (camapp.Board, bool) {
+	id, _ := strconv.Atoi(chi.URLParam(r, "board"))
+	for _, b := range ui.app.Boards() {
+		if b.ID == id {
+			return b, true
+		}
+	}
+	http.NotFound(w, r)
+	return camapp.Board{}, false
 }
 
 // camera returns the camera named in the URL, writing 404 if there is none.
@@ -149,17 +164,26 @@ func latest(w http.ResponseWriter, c camapp.CameraState) (*image.RGBA, bool) {
 	return img, true
 }
 
+// home leads to the first board.
+func (ui *UI) home(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, boardURL(ui.app.Boards()[0].ID), http.StatusSeeOther)
+}
+
 func (ui *UI) overview(w http.ResponseWriter, r *http.Request) {
-	m := OverviewModel{Dir: ui.app.Dir(), Status: ui.app.Status(), Settings: ui.app.Settings()}
-	for _, c := range ui.app.Cameras() {
+	b, ok := ui.board(w, r)
+	if !ok {
+		return
+	}
+	m := OverviewModel{boardNav: ui.nav(b.ID), Dir: ui.app.Dir(), Status: ui.app.Status(b.ID)}
+	for _, c := range ui.app.Cameras(b.ID) {
 		m.Cameras = append(m.Cameras, cameraModel(T(r.Context()), c))
 	}
-	m.Events = ui.events(T(r.Context()))
+	m.Events = ui.events(T(r.Context()), b.ID)
 	render(w, r, Overview(m))
 }
 
 func cameraModel(t Texts, c camapp.CameraState) CameraModel {
-	m := CameraModel{Name: c.Name, DeviceName: c.DeviceName, DeviceModel: c.DeviceModel, Open: c.Live != nil, Calibrated: c.Calibrated}
+	m := CameraModel{Name: c.Name, BoardID: c.BoardID, DeviceName: c.DeviceName, DeviceModel: c.DeviceModel, Open: c.Live != nil, Calibrated: c.Calibrated}
 	if toBoard, err := c.ToBoard(); err == nil && c.Calibrated {
 		m.Scale = t.Number(vision.PixelScale(toBoard), 2)
 	}
@@ -186,26 +210,57 @@ func cameraModel(t Texts, c camapp.CameraState) CameraModel {
 }
 
 func (ui *UI) setDetect(w http.ResponseWriter, r *http.Request) {
-	if err := ui.app.SetDetect(r.FormValue("on") == "true"); err != nil {
+	b, ok := ui.board(w, r)
+	if !ok {
+		return
+	}
+	if err := ui.app.SetDetect(b.ID, r.FormValue("on") == "true"); err != nil {
 		log.Printf("detection: %v", err)
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, boardURL(b.ID), http.StatusSeeOther)
 }
 
+// reconnect opens the cameras of the board again.
 func (ui *UI) reconnect(w http.ResponseWriter, r *http.Request) {
-	ui.app.Reconnect()
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	b, ok := ui.board(w, r)
+	if !ok {
+		return
+	}
+	if err := ui.app.Reconnect(b.ID); err != nil {
+		log.Printf("reconnect: %v", err)
+	}
+	http.Redirect(w, r, boardURL(b.ID), http.StatusSeeOther)
 }
 
 func (ui *UI) settingsPage(w http.ResponseWriter, r *http.Request) {
-	render(w, r, SettingsPage(SettingsModel{Settings: ui.app.Settings(), Saved: r.URL.Query().Has("saved")}))
+	b, ok := ui.board(w, r)
+	if !ok {
+		return
+	}
+	m := ui.settingsModel(b)
+	m.Saved = r.URL.Query().Has("saved")
+	render(w, r, SettingsPage(m))
+}
+
+// settingsModel is the settings page of a board with the given settings.
+func (ui *UI) settingsModel(b camapp.Board) SettingsModel {
+	return SettingsModel{Boards: ui.app.Boards(), Board: b}
+}
+
+// nav returns the boards for the page of the board with the given ID.
+func (ui *UI) nav(id int) boardNav {
+	return boardNav{Boards: ui.app.Boards(), Current: id}
 }
 
 // Sizes are the frame sizes offered in the settings.
 var Sizes = [][2]int{{640, 480}, {1280, 720}, {1920, 1080}}
 
 func (ui *UI) saveSettings(w http.ResponseWriter, r *http.Request) {
-	s := camapp.Settings{Server: r.FormValue("server"), Token: r.FormValue("token")}
+	b, ok := ui.board(w, r)
+	if !ok {
+		return
+	}
+	s := camapp.Board{ID: b.ID, Name: r.FormValue("name"), Server: r.FormValue("server"), Token: r.FormValue("token")}
 	if _, err := fmt.Sscanf(r.FormValue("size"), "%dx%d", &s.Width, &s.Height); err != nil {
 		s.Width, s.Height = 0, 0
 	}
@@ -216,9 +271,12 @@ func (ui *UI) saveSettings(w http.ResponseWriter, r *http.Request) {
 
 // defaultDetection resets the detection's thresholds to their defaults.
 func (ui *UI) defaultDetection(w http.ResponseWriter, r *http.Request) {
-	s := ui.app.Settings()
-	s.Detection = vision.DefaultWatchOptions
-	ui.applySettings(w, r, s)
+	b, ok := ui.board(w, r)
+	if !ok {
+		return
+	}
+	b.Detection = vision.DefaultWatchOptions
+	ui.applySettings(w, r, b)
 }
 
 // detectionForm reads the detection's thresholds from the settings form; a field that
@@ -251,25 +309,65 @@ func detectionForm(r *http.Request) vision.WatchOptions {
 	}
 }
 
-func (ui *UI) applySettings(w http.ResponseWriter, r *http.Request, s camapp.Settings) {
-	if err := ui.app.SetSettings(s); err != nil {
-		m := SettingsModel{Settings: s, Error: err.Error()}
+func (ui *UI) applySettings(w http.ResponseWriter, r *http.Request, s camapp.Board) {
+	if err := ui.app.SetBoard(s); err != nil {
+		m := ui.settingsModel(s)
+		m.Error = err.Error()
 		if errors.Is(err, camapp.ErrInvalidSettings) {
 			m.Error = T(r.Context()).ErrInvalidSettings(err.Error())
 		}
 		render(w, r, SettingsPage(m))
 		return
 	}
-	http.Redirect(w, r, "/settings?saved", http.StatusSeeOther)
+	http.Redirect(w, r, boardURL(s.ID)+"/settings?saved", http.StatusSeeOther)
 }
 
-func (ui *UI) devicesPage(w http.ResponseWriter, r *http.Request) {
+// addBoard adds a board and goes on to its settings, to name it and connect it.
+func (ui *UI) addBoard(w http.ResponseWriter, r *http.Request) {
+	id, err := ui.app.AddBoard()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, boardURL(id)+"/settings", http.StatusSeeOther)
+}
+
+func (ui *UI) removeBoard(w http.ResponseWriter, r *http.Request) {
+	b, ok := ui.board(w, r)
+	if !ok {
+		return
+	}
+	m := ui.settingsModel(b)
+	switch err := ui.app.RemoveBoard(b.ID); {
+	case errors.Is(err, camapp.ErrBoardHasCameras):
+		m.Error = T(r.Context()).ErrBoardHasCameras(b.Name)
+		render(w, r, SettingsPage(m))
+	case errors.Is(err, camapp.ErrLastBoard):
+		m.Error = T(r.Context()).ErrLastBoard()
+		render(w, r, SettingsPage(m))
+	case err != nil:
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	default:
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}
+}
+
+// devicesModel is the devices page; selected is the board preselected for new cameras.
+func (ui *UI) devicesModel(selected int) DevicesModel {
 	devices, err := ui.app.Devices()
-	m := DevicesModel{Devices: devices}
+	m := DevicesModel{boardNav: ui.nav(selected), Devices: devices}
+	if m.Board().ID != selected { // unknown or none given: the first
+		m.Current = m.Boards[0].ID
+	}
 	if err != nil {
 		m.Error = err.Error()
 	}
-	render(w, r, Devices(m))
+	return m
+}
+
+func (ui *UI) devicesPage(w http.ResponseWriter, r *http.Request) {
+	selected, _ := strconv.Atoi(r.URL.Query().Get("board"))
+	render(w, r, Devices(ui.devicesModel(selected)))
 }
 
 // snapshot serves a frame of a connected device, to tell the cameras apart.
@@ -287,12 +385,14 @@ func (ui *UI) refreshSnapshots(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/devices", http.StatusSeeOther)
 }
 
-// addCamera adds a device to the board and goes on to calibrate it.
+// addCamera adds a device to a board and goes on to calibrate it.
 func (ui *UI) addCamera(w http.ResponseWriter, r *http.Request) {
-	name, err := ui.app.AddCamera(r.FormValue("id"))
+	board, _ := strconv.Atoi(r.FormValue("board"))
+	name, err := ui.app.AddCamera(board, r.FormValue("id"))
 	if err != nil {
-		devices, _ := ui.app.Devices()
-		render(w, r, Devices(DevicesModel{Devices: devices, Error: T(r.Context()).ErrAddCamera(err.Error())}))
+		m := ui.devicesModel(board)
+		m.Error = T(r.Context()).ErrAddCamera(err.Error())
+		render(w, r, Devices(m))
 		return
 	}
 	http.Redirect(w, r, "/cam/"+name+"/calibrate", http.StatusSeeOther)
@@ -307,7 +407,11 @@ func (ui *UI) removePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ui *UI) removeCamera(w http.ResponseWriter, r *http.Request) {
-	name := chi.URLParam(r, "name")
+	c, ok := ui.camera(w, r)
+	if !ok {
+		return
+	}
+	name := c.Name
 	if err := ui.app.RemoveCamera(name); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -316,7 +420,7 @@ func (ui *UI) removeCamera(w http.ResponseWriter, r *http.Request) {
 	delete(ui.session, name)
 	delete(ui.checks, name)
 	ui.mu.Unlock()
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, boardURL(c.BoardID), http.StatusSeeOther)
 }
 
 // frame serves the camera's newest frame, with the board drawn on it if calibrated.
@@ -372,7 +476,7 @@ func (ui *UI) calibratePage(w http.ResponseWriter, r *http.Request) {
 		ui.start(w, r)
 		return
 	}
-	m := CalibrateModel{Name: c.Name, Auto: !s.manual, Points: len(s.points), MinPoints: MinPoints, Error: calibrationError(T(r.Context()), s.err), Bounds: s.frame.Bounds()}
+	m := CalibrateModel{Name: c.Name, BoardID: c.BoardID, Auto: !s.manual, Points: len(s.points), MinPoints: MinPoints, Error: calibrationError(T(r.Context()), s.err), Bounds: s.frame.Bounds()}
 	if s.target < len(Targets) {
 		m.Target = &Targets[s.target]
 	}
@@ -513,7 +617,7 @@ func (ui *UI) refineAgain(w http.ResponseWriter, r *http.Request) {
 	if err := ui.refine(c.Name, c.Points, img); err != nil {
 		log.Printf("refine %s: %v", c.Name, err)
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, boardURL(c.BoardID), http.StatusSeeOther)
 }
 
 // Why finishing a calibration failed; calibrationError says it in the user's language.
@@ -597,7 +701,7 @@ func (ui *UI) checkPage(w http.ResponseWriter, r *http.Request) {
 	ui.checks[cam.Name] = c
 	ui.mu.Unlock()
 
-	m := CheckModel{Name: cam.Name}
+	m := CheckModel{Name: cam.Name, BoardID: cam.BoardID}
 	if c.err != nil {
 		m.Error = c.err.Error()
 	} else {
@@ -660,22 +764,26 @@ func dot(img *image.RGBA, p dartboard.Point, c color.Color) {
 	}
 }
 
-func (ui *UI) events(t Texts) []EventModel {
+func (ui *UI) events(t Texts, board int) []EventModel {
 	var events []EventModel
-	for _, e := range ui.app.Events() {
+	for _, e := range ui.app.Events(board) {
 		events = append(events, eventModel(t, e))
 	}
 	return events
 }
 
-// eventStream sends the list of the latest detections whenever there is a new one
+// eventStream sends the list of a board's latest detections whenever there is a new one
 // (Server-Sent Events, event "events"), so the overview shows them without reloading.
 func (ui *UI) eventStream(w http.ResponseWriter, r *http.Request) {
+	b, ok := ui.board(w, r)
+	if !ok {
+		return
+	}
 	changes, stop := ui.app.WatchEvents()
 	defer stop()
 	sse.Stream(w, r, "events", changes, func() (string, error) {
 		var buf bytes.Buffer
-		if err := eventList(ui.events(T(r.Context()))).Render(r.Context(), &buf); err != nil {
+		if err := eventList(ui.events(T(r.Context()), b.ID)).Render(r.Context(), &buf); err != nil {
 			log.Printf("render events: %v", err)
 			return "", err
 		}
@@ -684,7 +792,7 @@ func (ui *UI) eventStream(w http.ResponseWriter, r *http.Request) {
 }
 
 func eventModel(t Texts, e camapp.Event) EventModel {
-	m := EventModel{ID: e.ID, Time: e.Time.Format("15:04:05"), Takeout: e.Kind == vision.EventTakeout, Game: e.Game}
+	m := EventModel{ID: e.ID, BoardID: e.BoardID, Time: e.Time.Format("15:04:05"), Takeout: e.Kind == vision.EventTakeout, Game: e.Game}
 	if e.ReportErr != nil {
 		m.ReportErr = e.ReportErr.Error()
 	}

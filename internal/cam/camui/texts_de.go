@@ -181,7 +181,15 @@ func (textsDE) ServerHint() string {
 	return "Leg auf dem Server unter „Boards“ dein Board an und erzeuge einen Kamera-Token. Erkannte Würfe gehen dann in das laufende Spiel auf diesem Board."
 }
 func (textsDE) CameraToken() string { return "Kamera-Token" }
-func (textsDE) FrameSize() string   { return "Gewünschte Bildgröße" }
+func (textsDE) Boards() string      { return "Boards" }
+func (textsDE) BoardName() string   { return "Name des Boards" }
+func (textsDE) AddBoard() string    { return "Board hinzufügen" }
+func (textsDE) RemoveBoard() string { return "Board entfernen" }
+func (textsDE) ErrBoardHasCameras(board string) string {
+	return board + " hat noch Kameras. Entferne zuerst diese, dann das Board."
+}
+func (textsDE) ErrLastBoard() string { return "Das letzte Board kann nicht entfernt werden." }
+func (textsDE) FrameSize() string    { return "Gewünschte Bildgröße" }
 func (textsDE) FrameSizeHint() string {
 	return "Jede Kamera nimmt ihren eigenen Modus, der dieser Größe am nächsten kommt; welche Größe sie liefert, steht auf ihrer Karte. Die Kameras werden dafür neu geöffnet. Eine Kalibrierung gilt nur für die Größe, in der sie gemacht wurde."
 }

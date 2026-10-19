@@ -11,7 +11,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/cam/vision"
 )
 
-// Status tells what the detection is doing.
+// Status tells what a board's detection is doing.
 type Status struct {
 	// Running is whether the detection runs; Cameras is how many it watches.
 	Running bool
@@ -25,17 +25,17 @@ type Status struct {
 // ErrNoCalibratedCamera means the detection waits for a calibrated camera.
 var ErrNoCalibratedCamera = errors.New("no calibrated camera")
 
-// Status returns what the detection is doing.
-func (a *App) Status() Status {
+// Status returns what the detection of a board is doing.
+func (a *App) Status(board int) Status {
 	a.evMu.Lock()
 	defer a.evMu.Unlock()
-	return a.status
+	return a.statuses[board]
 }
 
-func (a *App) setStatus(s Status) {
+func (a *App) setStatus(board int, s Status) {
 	a.evMu.Lock()
 	defer a.evMu.Unlock()
-	a.status = s
+	a.statuses[board] = s
 }
 
 // run is a running detection.
@@ -44,31 +44,54 @@ type run struct {
 	done   chan struct{}
 }
 
-// stop ends the running detection, if any. a.mu must be held.
-func (a *App) stop() {
-	if a.run == nil {
+// stopBoard ends the running detection of a board, if any. a.mu must be held.
+func (a *App) stopBoard(id int) {
+	r := a.runs[id]
+	if r == nil {
 		return
 	}
-	a.run.cancel()
-	<-a.run.done
-	a.run = nil
+	r.cancel()
+	<-r.done
+	delete(a.runs, id)
 }
 
-// restart starts the detection over with the current cameras and settings, if it is
-// switched on. a.mu must be held.
+// stop ends all running detections. a.mu must be held.
+func (a *App) stop() {
+	for id := range a.runs {
+		a.stopBoard(id)
+	}
+}
+
+// restart starts the detections over with the current cameras and settings. a.mu must
+// be held.
 func (a *App) restart() {
 	a.stop()
-	if !a.cfg.Detect {
-		a.setStatus(Status{})
+	for i := range a.cfg.Boards {
+		a.start(&a.cfg.Boards[i])
+	}
+}
+
+// restartBoard starts the detection of one board over, leaving those of the other boards
+// alone (they know which darts are in their board). a.mu must be held.
+func (a *App) restartBoard(b *BoardConfig) {
+	a.stopBoard(b.ID)
+	a.start(b)
+}
+
+// start starts the detection of a board, if it is switched on. a.mu must be held, the
+// board's detection stopped.
+func (a *App) start(b *BoardConfig) {
+	if !b.Detect {
+		a.setStatus(b.ID, Status{})
 		return
 	}
-	d := detection{opts: a.cfg.Detection}
-	if a.cfg.Server != "" && a.cfg.Token != "" {
-		d.server = newServer(a.cfg.Server, a.cfg.Token)
+	d := detection{board: b.ID, name: b.Name, opts: b.Detection}
+	if b.Server != "" && b.Token != "" {
+		d.server = newServer(b.Server, b.Token)
 	}
 	calib := a.calibration()
-	for i, c := range a.cfg.Cameras {
-		bc := a.cams[i]
+	for _, c := range b.Cameras {
+		bc := a.cams[c.Name]
 		// A camera whose view doesn't match its reference may be another one of the
 		// same name, with the wrong calibration: not until it's calibrated again.
 		if bc.live == nil || bc.problem != nil || !c.Calibrated(bc.width, bc.height) {
@@ -85,26 +108,28 @@ func (a *App) restart() {
 		d.empty = append(d.empty, empty)
 	}
 	if len(d.lives) == 0 {
-		a.setStatus(Status{Err: ErrNoCalibratedCamera, Reporting: d.server != nil})
+		a.setStatus(b.ID, Status{Err: ErrNoCalibratedCamera, Reporting: d.server != nil})
 		return
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &run{cancel: cancel, done: make(chan struct{})}
-	a.run = r
-	a.setStatus(Status{Running: true, Cameras: len(d.lives), Reporting: d.server != nil})
+	a.runs[b.ID] = r
+	a.setStatus(b.ID, Status{Running: true, Cameras: len(d.lives), Reporting: d.server != nil})
 	go func() {
 		defer close(r.done)
 		err := a.detect(ctx, d)
 		if ctx.Err() == nil {
-			log.Printf("detection stopped: %v", err)
-			a.setStatus(Status{Err: err, Reporting: d.server != nil})
+			log.Printf("%s: detection stopped: %v", d.name, err)
+			a.setStatus(d.board, Status{Err: err, Reporting: d.server != nil})
 		}
 	}()
 }
 
 // detection is what a run of the detection works with; it doesn't change while it runs.
 type detection struct {
+	board  int // ID of the board
+	name   string
 	lives  []*vision.Live
 	names  []string
 	maps   []vision.Mapping
@@ -117,14 +142,14 @@ type detection struct {
 func (a *App) detect(ctx context.Context, d detection) error {
 	w := vision.NewWatcher(d.maps, d.opts)
 	if !hasAll(d.empty) {
-		log.Printf("not all cameras have an image of the empty board: start with an empty board, or pulling out darts that were already in it counts as a throw")
+		log.Printf("%s: not all cameras have an image of the empty board: start with an empty board, or pulling out darts that were already in it counts as a throw", d.name)
 	} else {
 		w.Empty = d.empty
 	}
 	if a.opts.Verbose {
-		w.OnMotion = func() { log.Printf("motion") }
+		w.OnMotion = func() { log.Printf("%s: motion", d.name) }
 	}
-	log.Printf("watching %d cameras: %v", len(d.lives), d.names)
+	log.Printf("%s: watching %d cameras: %v", d.name, len(d.lives), d.names)
 
 	seq := make([]uint64, len(d.lives))
 	frames := make([]*image.RGBA, len(d.lives))
@@ -147,14 +172,14 @@ func (a *App) detect(ctx context.Context, d detection) error {
 
 // handle logs, reports and keeps an event.
 func (a *App) handle(ctx context.Context, d detection, e *vision.Event) {
-	ev := Event{Event: e, Cameras: d.names}
+	ev := Event{BoardID: d.board, Event: e, Cameras: d.names}
 	switch e.Kind {
 	case vision.EventDart:
 		var cams strings.Builder
 		for i, p := range e.Cameras {
 			fmt.Fprintf(&cams, " %s=%.0f,%.0f", d.names[i], p.X, p.Y)
 		}
-		log.Printf("dart: %s at %.1f,%.1f mm (%d cameras:%s)", e.Dart.String(), e.Board.X, e.Board.Y, len(e.Cameras), cams.String())
+		log.Printf("%s: dart: %s at %.1f,%.1f mm (%d cameras:%s)", d.name, e.Dart.String(), e.Board.X, e.Board.Y, len(e.Cameras), cams.String())
 		if d.server != nil {
 			// The position goes along for the statistics, if the cameras found it.
 			dart := e.Dart
@@ -164,7 +189,7 @@ func (a *App) handle(ctx context.Context, d detection, e *vision.Event) {
 			ev.Game, ev.ReportErr = d.server.dart(ctx, dart)
 		}
 	case vision.EventTakeout:
-		log.Printf("takeout")
+		log.Printf("%s: takeout", d.name)
 		if d.server != nil {
 			ev.Game, ev.ReportErr = d.server.takeout(ctx)
 		}

@@ -31,11 +31,15 @@ var ErrNoTrace = errors.New("no detection to trace")
 // event was dropped already (see maxEvents) are missing. It uses the current calibration
 // and settings, which may differ from those at the time of the throw.
 func (a *App) Traces(id int) ([]CameraTrace, error) {
+	target, ok := a.Event(id)
+	if !ok || target.Kind != vision.EventDart {
+		return nil, ErrNoTrace
+	}
 	a.evMu.Lock()
-	events := slices.Clone(a.events) // oldest first
+	events := a.boardEvents(target.BoardID) // oldest first; the other boards' darts are not in this one
 	a.evMu.Unlock()
 	end := slices.IndexFunc(events, func(e Event) bool { return e.ID == id })
-	if end < 0 || events[end].Kind != vision.EventDart {
+	if end < 0 {
 		return nil, ErrNoTrace
 	}
 	start := end
@@ -44,7 +48,10 @@ func (a *App) Traces(id int) ([]CameraTrace, error) {
 	}
 
 	a.mu.Lock()
-	calib, opts := a.calibration(), a.cfg.Detection.Detect
+	calib, opts := a.calibration(), newBoard(0, "").Detection.Detect
+	if b := a.cfg.board(target.BoardID); b != nil { // not if it was removed since
+		opts = b.Detection.Detect
+	}
 	a.mu.Unlock()
 
 	earlier := map[string][]image.Point{}

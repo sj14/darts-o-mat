@@ -5,6 +5,7 @@ import (
 	"image"
 	"math"
 	"net/url"
+	"slices"
 	"strconv"
 
 	"github.com/sj14/darts-o-mat/internal/common/buildinfo"
@@ -15,16 +16,33 @@ import (
 	"github.com/sj14/darts-o-mat/internal/cam/vision"
 )
 
+// boardNav is what the pages of a board need to switch between the boards.
+type boardNav struct {
+	Boards  []camapp.Board // all, in order
+	Current int            // ID of the board the page is about
+}
+
+// Board returns the current board.
+func (n boardNav) Board() camapp.Board {
+	i := slices.IndexFunc(n.Boards, func(b camapp.Board) bool { return b.ID == n.Current })
+	if i < 0 {
+		return camapp.Board{}
+	}
+	return n.Boards[i]
+}
+
 type OverviewModel struct {
-	Dir      string // of the configuration
-	Status   camapp.Status
-	Settings camapp.Settings
-	Cameras  []CameraModel
-	Events   []EventModel // newest first
+	boardNav
+	Dir    string // of the configuration
+	Status camapp.Status
+	// Cameras and Events are the board's own.
+	Cameras []CameraModel
+	Events  []EventModel // newest first
 }
 
 type EventModel struct {
 	ID      int
+	BoardID int
 	Time    string
 	Takeout bool
 	Label   string          // the scored dart
@@ -51,6 +69,7 @@ type CameraPoint struct {
 
 type CheckModel struct {
 	Name                       string
+	BoardID                    int
 	Error                      string
 	Matches                    int
 	RMS                        float64
@@ -60,18 +79,24 @@ type CheckModel struct {
 }
 
 type DevicesModel struct {
+	// boardNav's current board is the one preselected for new cameras.
+	boardNav
 	Devices []camapp.Device
 	Error   string
 }
 
 type SettingsModel struct {
-	Settings camapp.Settings
-	Saved    bool
-	Error    string
+	Boards []camapp.Board // all, as saved, for the tabs
+	// Board is what the form shows: its settings as saved, or as entered if they
+	// couldn't be saved.
+	Board camapp.Board
+	Saved bool
+	Error string
 }
 
 type CameraModel struct {
 	Name        string
+	BoardID     int
 	DeviceName  string
 	DeviceModel string
 	Device      string // ID of the device in use
@@ -85,6 +110,7 @@ type CameraModel struct {
 
 type CalibrateModel struct {
 	Name      string
+	BoardID   int
 	Auto      bool // the first click is the one on the double of the 20, not a wire crossing
 	Points    int // clicked so far
 	MinPoints int
@@ -98,12 +124,29 @@ func eventFrameURL(id, camera int, kind string) string {
 	return "/event/" + strconv.Itoa(id) + "/cam/" + strconv.Itoa(camera) + "/" + kind + ".jpg"
 }
 
+func boardURL(id int) string {
+	return "/board/" + strconv.Itoa(id)
+}
+
+func devicesURL(board int) string {
+	return "/devices?board=" + strconv.Itoa(board)
+}
+
+func boardActionURL(id int, action string) string {
+	return boardURL(id) + "/" + action
+}
+
 func camURL(name, suffix string) string {
 	return "/cam/" + name + suffix
 }
 
 func snapshotURL(id string) string {
 	return "/devices/snapshot.jpg?id=" + url.QueryEscape(id)
+}
+
+// boardField is the name of a board's field in the settings form.
+func boardField(id int, field string) string {
+	return "board." + strconv.Itoa(id) + "." + field
 }
 
 func sizeValue(w, h int) string {
@@ -152,7 +195,9 @@ func statusText(t Texts, s camapp.Status) string {
 	}
 	return t.DetectionOff()
 }
-templ layout(title string) {
+// layout is the frame of every page; board is the one the page belongs to, whose pages
+// the navigation leads to.
+templ layout(title string, board int) {
 	<!DOCTYPE html>
 	<html lang={ string(i18n.From(ctx)) } class="dark">
 		<head>
@@ -169,9 +214,9 @@ templ layout(title string) {
 				<div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
 					<a href="/" class="font-display text-2xl font-extrabold uppercase tracking-wide">📷 darts<span class="text-board-red">-o-</span>cam</a>
 					<nav class="flex flex-wrap items-center gap-1 text-sm font-semibold">
-						<a href="/" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavCameras() }</a>
-						<a href="/devices" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavAddCamera() }</a>
-						<a href="/settings" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavSettings() }</a>
+						<a href={ templ.URL(boardURL(board)) } class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavCameras() }</a>
+						<a href={ templ.URL(devicesURL(board)) } class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavAddCamera() }</a>
+						<a href={ templ.URL(boardActionURL(board, "settings")) } class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavSettings() }</a>
 					</nav>
 				</div>
 			</header>
@@ -206,8 +251,19 @@ templ badge(text, colors string) {
 	<span class={ "rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider", colors }>{ text }</span>
 }
 
-templ backLink() {
-	<p class="mt-6"><a href="/" class={ linkClass }>← { T(ctx).Back() }</a></p>
+templ backLink(href string) {
+	<p class="mt-6"><a href={ templ.URL(href) } class={ linkClass }>← { T(ctx).Back() }</a></p>
+}
+
+// boardTabs switches between the boards; with only one there is nothing to choose.
+templ boardTabs(boards []camapp.Board, current int, page string) {
+	if len(boards) > 1 {
+		<nav class="mb-4 flex flex-wrap gap-2">
+			for _, b := range boards {
+				<a href={ templ.URL(boardURL(b.ID) + page) } class={ btnSmall, templ.KV(btnPrimary, b.ID == current), templ.KV(btnSecondary, b.ID != current) }>{ b.Name }</a>
+			}
+		</nav>
+	}
 }
 
 templ notice(text, colors string) {
@@ -215,12 +271,13 @@ templ notice(text, colors string) {
 }
 
 templ Overview(m OverviewModel) {
-	@layout(T(ctx).NavCameras()) {
+	@layout(T(ctx).NavCameras(), m.Current) {
+		@boardTabs(m.Boards, m.Current, "")
 		@title(T(ctx).NavCameras())
 		<div class="mb-6 flex max-w-3xl flex-col gap-3 rounded-3xl border border-white/10 bg-pub-900/80 p-4">
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<span class={ templ.KV("text-emerald-300", m.Status.Running), templ.KV("text-amber-300", !m.Status.Running) }>{ statusText(T(ctx), m.Status) }</span>
-				<form method="post" action="/detect">
+				<form method="post" action={ templ.URL(boardActionURL(m.Current, "detect")) }>
 					if m.Status.Running || m.Status.Err != nil {
 						<input type="hidden" name="on" value="false"/>
 						<button type="submit" class={ btnSecondary, btnSmall }>{ T(ctx).TurnDetectionOff() }</button>
@@ -231,9 +288,9 @@ templ Overview(m OverviewModel) {
 				</form>
 			</div>
 			if m.Status.Reporting {
-				<span class="text-white/70">{ T(ctx).ThrowsGoTo() } <strong class="text-white">{ m.Settings.Server }</strong>.</span>
+				<span class="text-white/70">{ T(ctx).ThrowsGoTo() } <strong class="text-white">{ m.Board().Server }</strong>.</span>
 			} else {
-				<span class="text-white/70">{ T(ctx).NotConnectedBefore() }<a href="/settings" class={ linkClass }>{ T(ctx).NavSettings() }</a>{ T(ctx).NotConnectedAfter() }</span>
+				<span class="text-white/70">{ T(ctx).NotConnectedBefore() }<a href={ templ.URL(boardActionURL(m.Current, "settings")) } class={ linkClass }>{ T(ctx).NavSettings() }</a>{ T(ctx).NotConnectedAfter() }</span>
 			}
 		</div>
 		if len(m.Cameras) == 0 {
@@ -241,9 +298,9 @@ templ Overview(m OverviewModel) {
 		} else {
 			<p class="mb-4 max-w-3xl text-white/60">
 				{ T(ctx).CalibrateHintBefore() } <strong class="text-white">{ T(ctx).EmptyBoard() }</strong>{ T(ctx).CalibrateHintAfter() }
-				<a href="/" class={ linkClass }>{ T(ctx).RefreshImages() }</a>
+				<a href={ templ.URL(boardURL(m.Current)) } class={ linkClass }>{ T(ctx).RefreshImages() }</a>
 			</p>
-			<form method="post" action="/reconnect" class="mb-4 flex flex-wrap items-center gap-3">
+			<form method="post" action={ templ.URL(boardActionURL(m.Current, "reconnect")) } class="mb-4 flex flex-wrap items-center gap-3">
 				<button type="submit" class={ btnSecondary, btnSmall }>{ T(ctx).Reconnect() }</button>
 				<span class="text-sm text-white/50">{ T(ctx).ReconnectHint() }</span>
 			</form>
@@ -309,7 +366,7 @@ templ Overview(m OverviewModel) {
 		</div>
 		@sectionTitle(T(ctx).LatestDetections())
 		// The list swaps itself whenever darts-o-cam detects something (Server-Sent Events).
-		<div hx-ext="sse" sse-connect="/events/stream" sse-swap="events">
+		<div hx-ext="sse" sse-connect={ boardActionURL(m.Current, "events/stream") } sse-swap="events">
 			@eventList(m.Events)
 		</div>
 		<p class="mt-8 text-sm text-white/40">{ T(ctx).ConfigHint(m.Dir) }</p>
@@ -349,14 +406,14 @@ templ reportResult(e EventModel) {
 }
 
 templ RemovePage(c CameraModel) {
-	@layout(T(ctx).RemoveTitle(c.Name)) {
+	@layout(T(ctx).RemoveTitle(c.Name), c.BoardID) {
 		@title(T(ctx).RemoveQuestion(c.Name))
 		<p class="mb-4 max-w-3xl text-white/70">{ T(ctx).RemoveHint() }</p>
 		<div class="flex items-center gap-3">
 			<form method="post" action={ templ.URL(camURL(c.Name, "/remove")) }>
 				<button type="submit" class={ btnDanger }>{ T(ctx).Remove() }</button>
 			</form>
-			<a href="/" class={ linkClass }>{ T(ctx).Cancel() }</a>
+			<a href={ templ.URL(boardURL(c.BoardID)) } class={ linkClass }>{ T(ctx).Cancel() }</a>
 		</div>
 	}
 }
@@ -382,7 +439,7 @@ templ clickImage(action, src string, bounds image.Rectangle) {
 }
 
 templ Calibrate(m CalibrateModel) {
-	@layout(T(ctx).CalibrateTitle(m.Name)) {
+	@layout(T(ctx).CalibrateTitle(m.Name), m.BoardID) {
 		@title(T(ctx).CalibrateHeading(m.Name))
 		@errorAlert(m.Error)
 		if m.Auto {
@@ -399,7 +456,7 @@ templ Calibrate(m CalibrateModel) {
 					<form method="post" action={ templ.URL(camURL(m.Name, "/start")) }>
 						<button type="submit" class={ btnDanger }>{ T(ctx).StartOver() }</button>
 					</form>
-					<a href="/" class={ btnSecondary }>{ T(ctx).Cancel() }</a>
+					<a href={ templ.URL(boardURL(m.BoardID)) } class={ btnSecondary }>{ T(ctx).Cancel() }</a>
 				</div>
 			</div>
 			@clickImage(camURL(m.Name, "/auto"), camURL(m.Name, "/clicked.jpg?n=0"), m.Bounds)
@@ -431,7 +488,7 @@ templ Calibrate(m CalibrateModel) {
 				<form method="post" action={ templ.URL(camURL(m.Name, "/start")) }>
 					<button type="submit" class={ btnDanger }>{ T(ctx).StartOver() }</button>
 				</form>
-				<a href="/" class={ btnSecondary }>{ T(ctx).Cancel() }</a>
+				<a href={ templ.URL(boardURL(m.BoardID)) } class={ btnSecondary }>{ T(ctx).Cancel() }</a>
 			</div>
 			</div>
 			@clickImage(camURL(m.Name, "/point"), camURL(m.Name, "/clicked.jpg?n="+strconv.Itoa(m.Points)), m.Bounds)
@@ -440,7 +497,7 @@ templ Calibrate(m CalibrateModel) {
 }
 
 templ Check(m CheckModel) {
-	@layout(T(ctx).CheckTitle(m.Name)) {
+	@layout(T(ctx).CheckTitle(m.Name), m.BoardID) {
 		@title(T(ctx).CheckHeading(m.Name))
 		if m.Error != "" {
 			@errorAlert(m.Error)
@@ -483,12 +540,12 @@ templ Check(m CheckModel) {
 				<img src={ camURL(m.Name, "/features.jpg") } class="max-w-none" alt={ T(ctx).FoundFeatures() }/>
 			</div>
 		}
-		@backLink()
+		@backLink(boardURL(m.BoardID))
 	}
 }
 
 templ EventPage(m EventModel) {
-	@layout(T(ctx).DetectionTitle()) {
+	@layout(T(ctx).DetectionTitle(), m.BoardID) {
 		<h1 class="mb-4 font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl">
 			<span class="text-white/40">{ m.Time }:</span>
 			if m.Takeout {
@@ -554,7 +611,7 @@ templ EventPage(m EventModel) {
 				</div>
 			}
 		</div>
-		@backLink()
+		@backLink(boardURL(m.BoardID))
 	}
 }
 
@@ -611,7 +668,7 @@ func num(f float64) string {
 }
 
 templ Devices(m DevicesModel) {
-	@layout(T(ctx).NavAddCamera()) {
+	@layout(T(ctx).NavAddCamera(), m.Current) {
 		@title(T(ctx).NavAddCamera())
 		<p class="mb-4 max-w-3xl text-white/60">
 			{ T(ctx).DevicesHint() }
@@ -638,8 +695,17 @@ templ Devices(m DevicesModel) {
 						if d.Camera != "" {
 							@badge(T(ctx).OnBoardAs(d.Camera), "bg-board-green/25 text-emerald-300")
 						} else {
-							<form method="post" action="/devices/add">
+							<form method="post" action="/devices/add" class="flex items-center gap-2">
 								<input type="hidden" name="id" value={ d.ID }/>
+								if len(m.Boards) > 1 {
+									<select name="board" class={ inputClass } aria-label={ T(ctx).Board() }>
+										for _, b := range m.Boards {
+											<option value={ strconv.Itoa(b.ID) } selected?={ b.ID == m.Current }>{ b.Name }</option>
+										}
+									</select>
+								} else if len(m.Boards) == 1 {
+									<input type="hidden" name="board" value={ strconv.Itoa(m.Boards[0].ID) }/>
+								}
 								<button type="submit" class={ btnPrimary }>{ T(ctx).AddDevice() }</button>
 							</form>
 						}
@@ -647,28 +713,33 @@ templ Devices(m DevicesModel) {
 				</div>
 			}
 		</div>
-		@backLink()
+		@backLink("/")
 	}
 }
 
 templ SettingsPage(m SettingsModel) {
-	@layout(T(ctx).NavSettings()) {
+	@layout(T(ctx).NavSettings(), m.Board.ID) {
+		@boardTabs(m.Boards, m.Board.ID, "/settings")
 		@title(T(ctx).NavSettings())
 		@errorAlert(m.Error)
 		if m.Saved {
 			@notice(T(ctx).Saved(), "border-board-green/50 bg-board-green/15 text-emerald-200")
 		}
-		<form method="post" action="/settings" class="flex max-w-2xl flex-col gap-6">
+		<form method="post" action={ templ.URL(boardActionURL(m.Board.ID, "settings")) } class="flex max-w-2xl flex-col gap-6">
 			<fieldset class="flex flex-col gap-3">
 				<legend class="mb-2 font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">darts-o-mat</legend>
 				<p class="text-white/60">{ T(ctx).ServerHint() }</p>
 				<label class="flex flex-col gap-1">
+					<span class="font-semibold">{ T(ctx).BoardName() }</span>
+					<input type="text" name="name" value={ m.Board.Name } class={ inputClass }/>
+				</label>
+				<label class="flex flex-col gap-1">
 					<span class="font-semibold">{ T(ctx).Server() }</span>
-					<input type="url" name="server" value={ m.Settings.Server } placeholder="http://localhost:3000" class={ inputClass }/>
+					<input type="url" name="server" value={ m.Board.Server } placeholder="http://localhost:3000" class={ inputClass }/>
 				</label>
 				<label class="flex flex-col gap-1">
 					<span class="font-semibold">{ T(ctx).CameraToken() }</span>
-					<input type="text" name="token" value={ m.Settings.Token } autocomplete="off" spellcheck="false" class={ inputClass }/>
+					<input type="text" name="token" value={ m.Board.Token } autocomplete="off" spellcheck="false" class={ inputClass }/>
 				</label>
 			</fieldset>
 			<fieldset class="flex flex-col gap-3">
@@ -677,14 +748,14 @@ templ SettingsPage(m SettingsModel) {
 					<span class="font-semibold">{ T(ctx).FrameSize() }</span>
 					<select name="size" class={ inputClass }>
 						for _, size := range Sizes {
-							<option value={ sizeValue(size[0], size[1]) } selected?={ size[0] == m.Settings.Width && size[1] == m.Settings.Height }>{ strconv.Itoa(size[0]) } × { strconv.Itoa(size[1]) }</option>
+							<option value={ sizeValue(size[0], size[1]) } selected?={ size[0] == m.Board.Width && size[1] == m.Board.Height }>{ strconv.Itoa(size[0]) } × { strconv.Itoa(size[1]) }</option>
 						}
 					</select>
 					<span class="text-sm text-white/50">{ T(ctx).FrameSizeHint() }</span>
 				</label>
 				<label class="flex flex-col gap-1">
 					<span class="font-semibold">{ T(ctx).FPS() }</span>
-					<input type="number" name="fps" min="1" max="30" value={ strconv.Itoa(m.Settings.FPS) } class={ inputClass }/>
+					<input type="number" name="fps" min="1" max="30" value={ strconv.Itoa(m.Board.FPS) } class={ inputClass }/>
 					<span class="text-sm text-white/50">{ T(ctx).FPSHint() }</span>
 				</label>
 			</fieldset>
@@ -694,7 +765,7 @@ templ SettingsPage(m SettingsModel) {
 					{ T(ctx).AdvancedHint() }
 				</p>
 				<div class="mt-4 grid gap-4 sm:grid-cols-2">
-					for _, f := range detectionFields(T(ctx), m.Settings.Detection) {
+					for _, f := range detectionFields(T(ctx), m.Board.Detection) {
 						<label class="flex flex-col gap-1">
 							<span class="font-semibold">{ f.Label } <span class="text-sm font-normal text-white/40">({ f.Unit })</span></span>
 							<input type="number" name={ f.Name } value={ f.Value } step={ f.Step } min="0" class={ inputClass }/>
@@ -708,10 +779,21 @@ templ SettingsPage(m SettingsModel) {
 			</details>
 			<div class="flex items-center gap-3">
 				<button type="submit" class={ btnPrimary }>{ T(ctx).Save() }</button>
-				<a href="/" class={ linkClass }>{ T(ctx).Back() }</a>
+				<a href={ templ.URL(boardURL(m.Board.ID)) } class={ linkClass }>{ T(ctx).Back() }</a>
 			</div>
 		</form>
-		<form id="detection-defaults" method="post" action="/settings/defaults"></form>
+		<form id="detection-defaults" method="post" action={ templ.URL(boardActionURL(m.Board.ID, "settings/defaults")) }></form>
+		@sectionTitle(T(ctx).Boards())
+		<div class="flex flex-wrap gap-3">
+			<form method="post" action="/boards/add">
+				<button type="submit" class={ btnSecondary, btnSmall }>{ T(ctx).AddBoard() }</button>
+			</form>
+			if len(m.Boards) > 1 {
+				<form method="post" action={ "/boards/" + strconv.Itoa(m.Board.ID) + "/remove" }>
+					<button type="submit" class={ btnDanger, btnSmall }>{ T(ctx).RemoveBoard() }</button>
+				</form>
+			}
+		</div>
 	}
 }
 
@@ -732,7 +814,7 @@ type TraceCamera struct {
 // TracePage shows how each camera detected a dart, step by step, on its frame and
 // enlarged around the tip.
 templ TracePage(m TraceModel) {
-	@layout(T(ctx).TraceTitle()) {
+	@layout(T(ctx).TraceTitle(), m.Event.BoardID) {
 		<h1 class="mb-2 font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream">
 			{ T(ctx).TraceTitle() }: <span class="text-white/40">{ m.Event.Time }</span> { m.Event.Label }
 		</h1>

@@ -19,26 +19,26 @@ import (
 	"github.com/sj14/darts-o-mat/internal/common/notify"
 )
 
-// App runs darts-o-cam: it keeps the board's cameras open, so they can be added,
-// calibrated and removed at any time, and runs the detection on the calibrated ones.
-// Every change takes effect right away: the detection starts over with the new
-// cameras, calibration or settings. It is safe for concurrent use.
+// App runs darts-o-cam: it keeps the cameras of all boards open, so they can be added,
+// calibrated and removed at any time, and runs a detection per board on its calibrated
+// cameras. Every change takes effect right away: the detection of the board it concerns
+// starts over with the new cameras, calibration or settings. It is safe for concurrent use.
 type App struct {
 	dir  string
 	opts Options
 
-	mu   sync.Mutex // guards cfg, cams and run
+	mu   sync.Mutex // guards cfg, cams and runs
 	cfg  Config
-	cams []*boardCamera // the open cameras, parallel to cfg.Cameras
-	run  *run           // the running detection, nil if stopped
+	cams map[string]*boardCamera // the open cameras, by name
+	runs map[int]*run            // the running detections, by board
 
 	snapMu sync.Mutex
 	snaps  map[string]*snapshot // device ID → frame of a device that isn't a board camera
 
-	evMu   sync.Mutex // guards events, nextID and status
-	events []Event    // newest last
-	nextID int
-	status Status
+	evMu     sync.Mutex // guards events, nextID and statuses
+	events   []Event    // newest last, of all boards
+	nextID   int
+	statuses map[int]Status // by board
 	// newEvent is told about every new detection, see WatchEvents.
 	newEvent notify.Signal
 }
@@ -55,15 +55,15 @@ type Options struct {
 	Verbose bool
 }
 
-// boardCamera is a camera of the board at runtime.
+// boardCamera is a camera at runtime.
 type boardCamera struct {
 	live          *vision.Live // nil if it couldn't be opened
 	width, height int          // of its frames
 	problem       error        // why it isn't open, or that its view doesn't match (vision.ErrAmbiguousCameras)
 }
 
-// New starts darts-o-cam with the configuration in dir: it opens the board's cameras
-// and starts the detection. Without a configuration it starts without cameras.
+// New starts darts-o-cam with the configuration in dir: it opens the cameras and starts
+// the detections. Without a configuration it starts without cameras.
 func New(dir string, opts Options) (*App, error) {
 	cfg, err := LoadConfig(dir)
 	if err != nil {
@@ -84,10 +84,10 @@ func New(dir string, opts Options) (*App, error) {
 	if err := os.MkdirAll(opts.FrameDir, 0o755); err != nil {
 		return nil, err
 	}
-	a := &App{dir: dir, opts: opts, cfg: cfg, snaps: map[string]*snapshot{}}
+	a := &App{dir: dir, opts: opts, cfg: cfg, cams: map[string]*boardCamera{}, runs: map[int]*run{}, snaps: map[string]*snapshot{}, statuses: map[int]Status{}}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.openCameras()
+	a.openCameras(a.allBoards()...)
 	a.restart()
 	return a, nil
 }
@@ -110,23 +110,48 @@ func (a *App) calibration() vision.Calibration {
 	return a.cfg.Calibration(a.dir)
 }
 
-// openCameras opens the configured cameras. a.mu must be held.
-func (a *App) openCameras() {
-	opts := camera.Options{Width: a.cfg.Width, Height: a.cfg.Height, FPS: a.cfg.FPS}
-	cams, problems := vision.OpenCameras(a.calibration(), opts)
-	a.cams = make([]*boardCamera, len(cams))
-	for i, cam := range cams {
-		a.cams[i] = &boardCamera{problem: problems[i]}
-		if cam == nil {
-			log.Printf("%s: %v", a.cfg.Cameras[i].Name, problems[i])
-			continue
-		}
-		a.cams[i].start(cam)
-		log.Printf("%s: device %s %s", a.cfg.Cameras[i].Name, cam.Device.ID, cam.Format)
-		if problems[i] != nil {
-			log.Printf("%s: %v", a.cfg.Cameras[i].Name, problems[i])
+// openCameras opens the configured cameras of the boards together, so that identical
+// cameras of several boards are told apart as well as those of one. Devices open already
+// (for other boards) are left alone. a.mu must be held.
+func (a *App) openCameras(boards ...*BoardConfig) {
+	var cameras []vision.CameraCalibration
+	options := map[string]camera.Options{}
+	for _, b := range boards {
+		cameras = append(cameras, b.Cameras...)
+		for _, c := range b.Cameras {
+			options[c.Name] = b.options()
 		}
 	}
+	busy := map[string]bool{}
+	for _, c := range a.cams {
+		if c.live != nil {
+			busy[c.live.Device().ID] = true
+		}
+	}
+	cams, problems := vision.OpenCameras(vision.NewCalibration(a.dir, cameras), func(c vision.CameraCalibration) camera.Options { return options[c.Name] }, busy)
+	for i, cam := range cams {
+		name := cameras[i].Name
+		bc := &boardCamera{problem: problems[i]}
+		a.cams[name] = bc
+		if cam == nil {
+			log.Printf("%s: %v", name, problems[i])
+			continue
+		}
+		bc.start(cam)
+		log.Printf("%s: device %s %s", name, cam.Device.ID, cam.Format)
+		if problems[i] != nil {
+			log.Printf("%s: %v", name, problems[i])
+		}
+	}
+}
+
+// allBoards returns all boards. a.mu must be held.
+func (a *App) allBoards() []*BoardConfig {
+	boards := make([]*BoardConfig, len(a.cfg.Boards))
+	for i := range boards {
+		boards[i] = &a.cfg.Boards[i]
+	}
+	return boards
 }
 
 // start reads the opened camera in the background.
@@ -137,14 +162,21 @@ func (c *boardCamera) start(cam *camera.Camera) {
 	}
 }
 
-// closeCameras closes the board's cameras. a.mu must be held, the detection stopped.
+// closeCameras closes the cameras of all boards. a.mu must be held, the detections stopped.
 func (a *App) closeCameras() {
-	for _, c := range a.cams {
-		if c.live != nil {
-			c.live.Close()
-		}
+	for i := range a.cfg.Boards {
+		a.closeBoardCameras(&a.cfg.Boards[i])
 	}
-	a.cams = nil
+}
+
+// closeBoardCameras closes the cameras of a board. a.mu must be held, its detection stopped.
+func (a *App) closeBoardCameras(b *BoardConfig) {
+	for _, c := range b.Cameras {
+		if bc := a.cams[c.Name]; bc != nil && bc.live != nil {
+			bc.live.Close()
+		}
+		delete(a.cams, c.Name)
+	}
 }
 
 // save writes the configuration. a.mu must be held.
@@ -152,10 +184,12 @@ func (a *App) save() error {
 	return a.cfg.save(a.dir)
 }
 
-// CameraState is a camera of the board as the web interface shows it.
+// CameraState is a camera as the web interface shows it.
 type CameraState struct {
 	vision.CameraCalibration
-	Live *vision.Live // nil if it isn't open
+	// BoardID is the board the camera belongs to.
+	BoardID int
+	Live    *vision.Live // nil if it isn't open
 	// Frame is the size of its frames, zero if it isn't open.
 	Frame image.Point
 	// Calibrated is whether it is calibrated for the size of its frames.
@@ -164,36 +198,42 @@ type CameraState struct {
 	Problem error
 }
 
-// Cameras returns the board's cameras.
-func (a *App) Cameras() []CameraState {
+// state returns the state of the camera c of the board. a.mu must be held.
+func (a *App) state(board int, c vision.CameraCalibration) CameraState {
+	bc := a.cams[c.Name]
+	s := CameraState{CameraCalibration: c, BoardID: board, Live: bc.live, Frame: image.Pt(bc.width, bc.height), Problem: bc.problem, Calibrated: c.Calibrated(bc.width, bc.height)}
+	if bc.live != nil {
+		if _, err := bc.live.Latest(); err != nil {
+			s.Problem = err // e.g. unplugged
+		}
+	}
+	return s
+}
+
+// Cameras returns the cameras of a board.
+func (a *App) Cameras(board int) []CameraState {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	states := make([]CameraState, len(a.cfg.Cameras))
-	for i, c := range a.cfg.Cameras {
-		bc := a.cams[i]
-		states[i] = CameraState{CameraCalibration: c, Live: bc.live, Frame: image.Pt(bc.width, bc.height), Problem: bc.problem, Calibrated: c.Calibrated(bc.width, bc.height)}
-		if bc.live != nil {
-			if _, err := bc.live.Latest(); err != nil {
-				states[i].Problem = err // e.g. unplugged
-			}
-		}
+	b := a.cfg.board(board)
+	if b == nil {
+		return nil
+	}
+	states := make([]CameraState, len(b.Cameras))
+	for i, c := range b.Cameras {
+		states[i] = a.state(board, c)
 	}
 	return states
 }
 
-// Camera returns the board camera with the given name.
+// Camera returns the camera with the given name, of whichever board.
 func (a *App) Camera(name string) (CameraState, bool) {
-	for _, c := range a.Cameras() {
-		if c.Name == name {
-			return c, true
-		}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	b, i := a.cfg.camera(name)
+	if b == nil {
+		return CameraState{}, false
 	}
-	return CameraState{}, false
-}
-
-// index returns the index of the camera named name, -1 if there is none. a.mu must be held.
-func (a *App) index(name string) int {
-	return slices.IndexFunc(a.cfg.Cameras, func(c vision.CameraCalibration) bool { return c.Name == name })
+	return a.state(b.ID, b.Cameras[i]), true
 }
 
 // Calibrate stores a camera's new calibration, made on frame, an image of the empty
@@ -201,11 +241,11 @@ func (a *App) index(name string) int {
 func (a *App) Calibrate(name string, points []vision.CalibrationPoint, refined vision.Mapping, frame *image.RGBA) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	i := a.index(name)
-	if i < 0 {
+	b, i := a.cfg.camera(name)
+	if b == nil {
 		return fmt.Errorf("no camera %q", name)
 	}
-	cam := a.cfg.Cameras[i]
+	cam := b.Cameras[i]
 	cam.Points, cam.Refined, cam.Correction = points, &refined.ToBoard, refined.Correction
 	cam.Width, cam.Height = frame.Bounds().Dx(), frame.Bounds().Dy()
 	cam.Reference, cam.Empty = name+".jpg", name+"-empty.jpg"
@@ -215,22 +255,22 @@ func (a *App) Calibrate(name string, points []vision.CalibrationPoint, refined v
 			return err
 		}
 	}
-	a.cfg.Cameras[i] = cam
+	b.Cameras[i] = cam
 	// The view matches the reference again.
-	if errors.Is(a.cams[i].problem, vision.ErrAmbiguousCameras) {
-		a.cams[i].problem = nil
+	if bc := a.cams[name]; errors.Is(bc.problem, vision.ErrAmbiguousCameras) {
+		bc.problem = nil
 	}
 	if err := a.save(); err != nil {
 		return err
 	}
-	a.restart()
+	a.restartBoard(b)
 	return nil
 }
 
 // Device is a camera connected to this computer.
 type Device struct {
 	camera.Device
-	// Camera is the board camera using the device, empty if it isn't one.
+	// Camera is the camera using the device, empty if it isn't used.
 	Camera string
 }
 
@@ -248,29 +288,39 @@ func (a *App) Devices() ([]Device, error) {
 	return list, nil
 }
 
-// usedDevices maps the device IDs of the open board cameras to the cameras' names.
+// usedDevices maps the device IDs of the open cameras to the cameras' names.
 func (a *App) usedDevices() map[string]string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	used := map[string]string{}
-	for i, c := range a.cams {
+	for name, c := range a.cams {
 		if c.live != nil {
-			used[c.live.Device().ID] = a.cfg.Cameras[i].Name
+			used[c.live.Device().ID] = name
 		}
 	}
 	return used
 }
 
-// AddCamera adds the device with the given ID to the board as a new camera, which then
+// ErrNoBoard means there is no board with the given ID.
+var ErrNoBoard = errors.New("no such board")
+
+// AddCamera adds the device with the given ID to a board as a new camera, which then
 // needs to be calibrated. It returns the camera's name.
-func (a *App) AddCamera(id string) (string, error) {
+func (a *App) AddCamera(board int, id string) (string, error) {
 	if name := a.usedDevices()[id]; name != "" {
 		return "", fmt.Errorf("device is already camera %s", name)
 	}
-	a.forgetSnapshot(id) // the board camera shows its frames from now on
 	a.mu.Lock()
-	opts := camera.Options{Width: a.cfg.Width, Height: a.cfg.Height, FPS: a.cfg.FPS}
+	var opts camera.Options
+	b := a.cfg.board(board)
+	if b != nil {
+		opts = b.options()
+	}
 	a.mu.Unlock()
+	if b == nil {
+		return "", ErrNoBoard
+	}
+	a.forgetSnapshot(id) // the board camera shows its frames from now on
 	// Opening takes a moment until the exposure settled: not while holding a.mu.
 	cam, frame, err := vision.OpenCamera(id, opts)
 	if err != nil {
@@ -279,6 +329,11 @@ func (a *App) AddCamera(id string) (string, error) {
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	b = a.cfg.board(board)
+	if b == nil { // removed meanwhile
+		cam.Close()
+		return "", ErrNoBoard
+	}
 	name := a.freeName()
 	cc := vision.CameraCalibration{Name: name, DeviceName: cam.Device.Name, DeviceModel: cam.Device.Model, Reference: name + ".jpg"}
 	// Its view tells it apart from cameras with the same name at the next start.
@@ -288,69 +343,71 @@ func (a *App) AddCamera(id string) (string, error) {
 	}
 	bc := &boardCamera{}
 	bc.start(cam)
-	a.cfg.Cameras = append(a.cfg.Cameras, cc)
-	a.cams = append(a.cams, bc)
-	log.Printf("%s: added device %s (%s) %s", name, cam.Device.ID, cam.Device.Name, cam.Format)
+	b.Cameras = append(b.Cameras, cc)
+	a.cams[name] = bc
+	log.Printf("%s: added device %s (%s) %s to %s", name, cam.Device.ID, cam.Device.Name, cam.Format, b.Name)
 	return name, a.save()
 }
 
-// freeName returns the first of cam1, cam2, … not used by a camera. a.mu must be held.
+// freeName returns the first of cam1, cam2, … not used by a camera of any board. a.mu
+// must be held.
 func (a *App) freeName() string {
 	for n := 1; ; n++ {
-		if name := "cam" + strconv.Itoa(n); a.index(name) < 0 {
+		name := "cam" + strconv.Itoa(n)
+		if b, _ := a.cfg.camera(name); b == nil {
 			return name
 		}
 	}
 }
 
-// RemoveCamera removes a camera from the board, with its calibration and images.
+// RemoveCamera removes a camera from its board, with its calibration and images.
 func (a *App) RemoveCamera(name string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	i := a.index(name)
-	if i < 0 {
+	b, i := a.cfg.camera(name)
+	if b == nil {
 		return fmt.Errorf("no camera %q", name)
 	}
-	a.stop()
-	if live := a.cams[i].live; live != nil {
+	a.stopBoard(b.ID)
+	if live := a.cams[name].live; live != nil {
 		live.Close()
 	}
-	cam := a.cfg.Cameras[i]
+	delete(a.cams, name)
+	cam := b.Cameras[i]
 	for _, file := range []string{cam.Reference, cam.Empty} {
 		if file != "" {
 			_ = os.Remove(filepath.Join(a.dir, file))
 		}
 	}
-	a.cfg.Cameras = slices.Delete(a.cfg.Cameras, i, i+1)
-	a.cams = slices.Delete(a.cams, i, i+1)
+	b.Cameras = slices.Delete(b.Cameras, i, i+1)
 	err := a.save()
-	a.restart()
+	a.restartBoard(b)
 	return err
 }
 
-// Settings are what can be set in the web interface.
-type Settings struct {
-	Server, Token string
-	// Width and Height are the wanted frame size; each camera uses its own mode closest
-	// to it (see camera.Options).
-	Width, Height, FPS int
-	Detection          vision.WatchOptions
-}
-
-// Settings returns the current settings.
-func (a *App) Settings() Settings {
+// Boards returns the boards with their settings.
+func (a *App) Boards() []Board {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return Settings{Server: a.cfg.Server, Token: a.cfg.Token, Width: a.cfg.Width, Height: a.cfg.Height, FPS: a.cfg.FPS, Detection: a.cfg.Detection}
+	boards := make([]Board, len(a.cfg.Boards))
+	for i, b := range a.cfg.Boards {
+		boards[i] = b.Board
+	}
+	return boards
 }
 
 // ErrInvalidSettings is returned for settings that can't be used.
 var ErrInvalidSettings = errors.New("invalid settings")
 
-// SetSettings changes the settings. Cameras are opened again for a new size or frame
-// rate (a camera calibrated on another size needs a new calibration then).
-func (a *App) SetSettings(s Settings) error {
-	s.Server, s.Token = strings.TrimSuffix(strings.TrimSpace(s.Server), "/"), strings.TrimSpace(s.Token)
+// SetBoard changes the settings of the board with s.ID. Its cameras are opened again for
+// a new size or frame rate (a camera calibrated on another size needs a new calibration
+// then); the other boards are left alone.
+func (a *App) SetBoard(s Board) error {
+	s.Name, s.Token = strings.TrimSpace(s.Name), strings.TrimSpace(s.Token)
+	s.Server = strings.TrimSuffix(strings.TrimSpace(s.Server), "/")
+	if s.Name == "" {
+		return fmt.Errorf("%w: a board needs a name", ErrInvalidSettings)
+	}
 	if s.Server != "" {
 		if u, err := url.Parse(s.Server); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 			return fmt.Errorf("%w: the server must be an address like http://localhost:3000", ErrInvalidSettings)
@@ -365,30 +422,84 @@ func (a *App) SetSettings(s Settings) error {
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	reopen := s.Width != a.cfg.Width || s.Height != a.cfg.Height || s.FPS != a.cfg.FPS
-	a.cfg.Server, a.cfg.Token = s.Server, s.Token
-	a.cfg.Width, a.cfg.Height, a.cfg.FPS = s.Width, s.Height, s.FPS
-	a.cfg.Detection = s.Detection
+	b := a.cfg.board(s.ID)
+	if b == nil {
+		return ErrNoBoard
+	}
+	if slices.ContainsFunc(a.cfg.Boards, func(o BoardConfig) bool { return o.ID != s.ID && o.Name == s.Name }) {
+		return fmt.Errorf("%w: another board is called %q", ErrInvalidSettings, s.Name)
+	}
+	reopen := s.Width != b.Width || s.Height != b.Height || s.FPS != b.FPS
+	b.Board = s
 	if err := a.save(); err != nil {
 		return err
 	}
-	a.stop()
+	a.stopBoard(b.ID)
 	if reopen {
-		a.closeCameras()
-		a.openCameras()
+		a.closeBoardCameras(b)
+		a.openCameras(b)
 	}
-	a.restart()
+	a.start(b)
 	return nil
 }
 
-// Reconnect opens the cameras again, e.g. after one was plugged in or out.
-func (a *App) Reconnect() {
+// AddBoard adds a board without cameras and returns its ID.
+func (a *App) AddBoard() (int, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.stop()
-	a.closeCameras()
-	a.openCameras()
-	a.restart()
+	id := 1
+	for _, b := range a.cfg.Boards {
+		id = max(id, b.ID+1)
+	}
+	name := "Board " + strconv.Itoa(id)
+	for n := id + 1; slices.ContainsFunc(a.cfg.Boards, func(b BoardConfig) bool { return b.Name == name }); n++ {
+		name = "Board " + strconv.Itoa(n) // one was renamed to this
+	}
+	a.cfg.Boards = append(a.cfg.Boards, newBoard(id, name))
+	a.start(&a.cfg.Boards[len(a.cfg.Boards)-1])
+	return id, a.save()
+}
+
+// Why a board can't be removed.
+var (
+	ErrLastBoard       = errors.New("the last board can't be removed")
+	ErrBoardHasCameras = errors.New("the board still has cameras")
+)
+
+// RemoveBoard removes a board; its cameras have to be removed before.
+func (a *App) RemoveBoard(id int) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	b := a.cfg.board(id)
+	switch {
+	case b == nil:
+		return ErrNoBoard
+	case len(a.cfg.Boards) == 1:
+		return ErrLastBoard
+	case len(b.Cameras) > 0:
+		return ErrBoardHasCameras
+	}
+	a.stopBoard(id)
+	a.cfg.Boards = slices.DeleteFunc(a.cfg.Boards, func(b BoardConfig) bool { return b.ID == id })
+	a.evMu.Lock()
+	delete(a.statuses, id)
+	a.evMu.Unlock()
+	return a.save()
+}
+
+// Reconnect opens the cameras of a board again, e.g. after one was plugged in or out.
+func (a *App) Reconnect(board int) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	b := a.cfg.board(board)
+	if b == nil {
+		return ErrNoBoard
+	}
+	a.stopBoard(b.ID)
+	a.closeBoardCameras(b)
+	a.openCameras(b)
+	a.start(b)
+	return nil
 }
 
 // maxTipShift limits DetectOptions.TipShift (mm): more than a few millimetres is no
@@ -414,12 +525,16 @@ func validDetection(o vision.WatchOptions) error {
 	return nil
 }
 
-// SetDetect starts or stops the detection.
-func (a *App) SetDetect(on bool) error {
+// SetDetect starts or stops the detection of a board.
+func (a *App) SetDetect(board int, on bool) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.cfg.Detect = on
+	b := a.cfg.board(board)
+	if b == nil {
+		return ErrNoBoard
+	}
+	b.Detect = on
 	err := a.save()
-	a.restart()
+	a.restartBoard(b)
 	return err
 }

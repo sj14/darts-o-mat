@@ -64,7 +64,7 @@ func TestEventPages(t *testing.T) {
 		loadRGBA(t, "../vision/testdata/cam3.jpg"),
 	}
 	names := []string{"cam1", "cam2", "cam3"}
-	app.AddEvent(camapp.Event{Cameras: names, Game: 12, Event: &vision.Event{
+	app.AddEvent(camapp.Event{BoardID: 1, Cameras: names, Game: 12, Event: &vision.Event{
 		Kind:    vision.EventDart,
 		Board:   dartboard.Point{X: 71, Y: 67},
 		Dart:    dartboard.Hit{Number: 4, Segment: dartboard.Outer},
@@ -78,7 +78,7 @@ func TestEventPages(t *testing.T) {
 		Before: frames,
 		After:  frames,
 	}})
-	app.AddEvent(camapp.Event{Cameras: names, ReportErr: errors.New("no game"), Event: &vision.Event{Kind: vision.EventTakeout, After: frames}})
+	app.AddEvent(camapp.Event{BoardID: 1, Cameras: names, ReportErr: errors.New("no game"), Event: &vision.Event{Kind: vision.EventTakeout, After: frames}})
 
 	code, body := get(t, srv, "/")
 	if code != 200 || !strings.Contains(body, ">4<") || !strings.Contains(body, "pulled out") {
@@ -155,7 +155,10 @@ func TestSettings(t *testing.T) {
 				values.Set(f.Name, f.Value)
 			}
 		}
-		resp, err := http.PostForm(srv.URL+"/settings", values)
+		if !values.Has("name") {
+			values.Set("name", "Board")
+		}
+		resp, err := http.PostForm(srv.URL+"/board/1/settings", values)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -168,8 +171,9 @@ func TestSettings(t *testing.T) {
 	if code != 200 || !strings.Contains(body, "Saved") {
 		t.Errorf("save: %d, not saved", code)
 	}
-	want := camapp.Settings{Server: "http://darts.local:3000", Token: "abc", Width: 640, Height: 480, FPS: 15, Detection: app.Settings().Detection}
-	if got := app.Settings(); got != want {
+	want := app.Boards()[0]
+	want.Server, want.Token, want.Width, want.Height, want.FPS = "http://darts.local:3000", "abc", 640, 480, 15
+	if got := app.Boards()[0]; got != want {
 		t.Errorf("settings = %+v, want %+v", got, want)
 	}
 	if blur := want.Detection.Detect.Blur; blur != 1.42 {
@@ -177,8 +181,8 @@ func TestSettings(t *testing.T) {
 	}
 	// Enter in a field submits with the form's first own submit button (buttons with a
 	// form attribute belong to another form): that must save.
-	_, page := get(t, srv, "/settings")
-	form := page[strings.Index(page, `<form method="post" action="/settings"`):]
+	_, page := get(t, srv, "/board/1/settings")
+	form := page[strings.Index(page, `<form method="post" action="/board/1/settings"`):]
 	form = form[:strings.Index(form, "</form>")]
 	for _, button := range strings.Split(form, "<button")[1:] {
 		tag := button[:strings.Index(button, ">")]
@@ -201,16 +205,16 @@ func TestSettings(t *testing.T) {
 	if _, body := post(url.Values{"size": {"640x480"}, "fps": {"15"}, "weak_threshold": {"30"}}); !strings.Contains(body, "Invalid settings") {
 		t.Errorf("weak threshold above the strong one: no error shown")
 	}
-	if got := app.Settings(); got != want {
+	if got := app.Boards()[0]; got != want {
 		t.Errorf("invalid settings were stored: %+v", got)
 	}
 
-	resp, err := http.PostForm(srv.URL+"/settings/defaults", nil)
+	resp, err := http.PostForm(srv.URL+"/board/1/settings/defaults", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if got := app.Settings().Detection; got != vision.DefaultWatchOptions {
+	if got := app.Boards()[0].Detection; got != vision.DefaultWatchOptions {
 		t.Errorf("after resetting: detection %+v, want the defaults", got)
 	}
 	want.Detection = vision.DefaultWatchOptions
@@ -221,7 +225,7 @@ func TestSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer again.Close()
-	if got := again.Settings(); got != want {
+	if got := again.Boards()[0]; got != want {
 		t.Errorf("settings after a restart = %+v, want %+v", got, want)
 	}
 }
@@ -245,7 +249,7 @@ func TestNewCreatesDir(t *testing.T) {
 func TestEventStream(t *testing.T) {
 	app, srv := newUI(t)
 	ctx := t.Context()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/events/stream", nil)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/board/1/events/stream", nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -257,7 +261,7 @@ func TestEventStream(t *testing.T) {
 
 	// The response has started: the stream is watching.
 	frames := []*image.RGBA{image.NewRGBA(image.Rect(0, 0, 4, 4))}
-	app.AddEvent(camapp.Event{Cameras: []string{"cam1"}, Event: &vision.Event{
+	app.AddEvent(camapp.Event{BoardID: 1, Cameras: []string{"cam1"}, Event: &vision.Event{
 		Kind:    vision.EventDart,
 		Dart:    dartboard.Hit{Number: 19, Segment: dartboard.Triple},
 		Cameras: map[int]vision.Tip{0: {}},
@@ -278,7 +282,66 @@ func TestEventStream(t *testing.T) {
 		t.Errorf("stream sent %q, want the list with the new detection", got)
 	}
 
-	if _, body := get(t, srv, "/"); !strings.Contains(body, `sse-connect="/events/stream"`) || !strings.Contains(body, "/static/htmx-ext-sse.min.js") {
+	if _, body := get(t, srv, "/"); !strings.Contains(body, `sse-connect="/board/1/events/stream"`) || !strings.Contains(body, "/static/htmx-ext-sse.min.js") {
 		t.Error("overview doesn't connect to the stream")
+	}
+}
+
+// With one board the pages show no choice; a second one brings the tabs, and each board
+// shows its own detections.
+func TestBoards(t *testing.T) {
+	app, srv := newUI(t)
+	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := noRedirect.Get(srv.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/board/1" {
+		t.Errorf("/ → %d %s, want a redirect to the first board", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	if _, body := get(t, srv, "/board/1"); strings.Contains(body, "<nav class=\"mb-4") {
+		t.Error("tabs shown with one board")
+	}
+	if code, _ := get(t, srv, "/board/2"); code != 404 {
+		t.Errorf("unknown board: %d, want 404", code)
+	}
+
+	resp, err = noRedirect.PostForm(srv.URL+"/boards/add", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.Header.Get("Location") != "/board/2/settings" {
+		t.Errorf("add board → %s", resp.Header.Get("Location"))
+	}
+	frames := []*image.RGBA{image.NewRGBA(image.Rect(0, 0, 4, 4))}
+	app.AddEvent(camapp.Event{BoardID: 2, Cameras: []string{"cam1"}, Event: &vision.Event{
+		Kind: vision.EventDart, Dart: dartboard.Hit{Number: 19, Segment: dartboard.Triple},
+		Cameras: map[int]vision.Tip{0: {}}, Before: frames, After: frames,
+	}})
+	_, one := get(t, srv, "/board/1")
+	_, two := get(t, srv, "/board/2")
+	if !strings.Contains(one, `href="/board/2"`) || !strings.Contains(two, `href="/board/1"`) {
+		t.Error("no tabs with two boards")
+	}
+	if strings.Contains(one, "T19") || !strings.Contains(two, "T19") {
+		t.Error("a detection isn't shown at its own board only")
+	}
+
+	// The last board stays.
+	resp, err = http.PostForm(srv.URL+"/boards/2/remove", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	resp, err = http.PostForm(srv.URL+"/boards/1/remove", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(body), "The last board can") || len(app.Boards()) != 1 {
+		t.Errorf("removing the last board: %d boards left, page %q", len(app.Boards()), body)
 	}
 }

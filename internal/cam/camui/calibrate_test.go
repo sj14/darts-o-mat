@@ -22,8 +22,11 @@ func calibrationFixture(t *testing.T) (ui *UI, app *camapp.App, srv *httptest.Se
 	t.Helper()
 	dir := t.TempDir()
 	cfg, err := json.Marshal(camapp.Config{
-		Cameras: []vision.CameraCalibration{{Name: "cam1", DeviceName: "none", Points: []vision.CalibrationPoint{}}},
-		Width:   1280, Height: 720, FPS: 10, Detection: vision.DefaultWatchOptions,
+		Boards: []camapp.BoardConfig{{
+			Board:   camapp.Board{ID: 1, Name: "Board", Width: 1280, Height: 720, FPS: 10, Detection: vision.DefaultWatchOptions},
+			Detect:  true,
+			Cameras: []vision.CameraCalibration{{Name: "cam1", DeviceName: "none", Points: []vision.CalibrationPoint{}}},
+		}},
 	})
 	if err != nil {
 		t.Fatal(err)

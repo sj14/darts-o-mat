@@ -13,15 +13,17 @@ import (
 	"github.com/sj14/darts-o-mat/internal/cam/vision"
 )
 
-// maxEvents is how many detections are shown. Their frames are on disk (about 1.2 MB
+// maxEvents is how many detections of a board are shown. Their frames are on disk (about 1.2 MB
 // per detection with three cameras at 1280×720), only the rest is kept in memory: in
 // memory the frames took about 22 MB per detection, 1.6 GB in all (2026-10-13).
 const maxEvents = 20
 
 // Event is a detection, as kept to show it. Its frames are on disk, see EventFrame.
 type Event struct {
-	ID   int
-	Time time.Time
+	ID int
+	// BoardID is the board it was detected at.
+	BoardID int
+	Time    time.Time
 	// Event is the detection without its frames (Before and After are nil).
 	*vision.Event
 	// Cameras are the names of the cameras by their index in the vision.Event.
@@ -32,13 +34,18 @@ type Event struct {
 	ReportErr error
 }
 
-// Events returns the latest detections, newest first.
-func (a *App) Events() []Event {
+// Events returns the latest detections at a board, newest first.
+func (a *App) Events(board int) []Event {
 	a.evMu.Lock()
 	defer a.evMu.Unlock()
-	events := slices.Clone(a.events)
+	events := a.boardEvents(board)
 	slices.Reverse(events)
 	return events
+}
+
+// boardEvents returns the detections at a board, oldest first. a.evMu must be held.
+func (a *App) boardEvents(board int) []Event {
+	return slices.DeleteFunc(slices.Clone(a.events), func(e Event) bool { return e.BoardID != board })
 }
 
 // Event returns the detection with the given ID.
@@ -75,11 +82,14 @@ func (a *App) AddEvent(e Event) int {
 	i, _ := slices.BinarySearchFunc(a.events, e.ID, func(x Event, id int) int { return x.ID - id })
 	a.events = slices.Insert(a.events, i, e)
 	var dropped []Event
-	if len(a.events) > maxEvents && !a.opts.KeepFrames {
-		dropped = slices.Clone(a.events[:len(a.events)-maxEvents])
-	}
-	if len(a.events) > maxEvents {
-		a.events = a.events[len(a.events)-maxEvents:]
+	if own := a.boardEvents(e.BoardID); len(own) > maxEvents {
+		old := own[:len(own)-maxEvents]
+		a.events = slices.DeleteFunc(a.events, func(x Event) bool {
+			return slices.ContainsFunc(old, func(o Event) bool { return o.ID == x.ID })
+		})
+		if !a.opts.KeepFrames {
+			dropped = old
+		}
 	}
 	a.evMu.Unlock()
 	a.newEvent.Notify()

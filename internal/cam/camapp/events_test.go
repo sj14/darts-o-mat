@@ -52,7 +52,7 @@ func TestEventFramesOnDisk(t *testing.T) {
 	if !ok || filepath.Base(path) != "022-cam2-after.jpg" {
 		t.Errorf("newest detection's frame = %q, %v", path, ok)
 	}
-	for _, e := range a.Events() {
+	for _, e := range a.Events(0) {
 		if e.Before != nil || e.After != nil {
 			t.Fatalf("detection %d keeps its frames in memory", e.ID)
 		}

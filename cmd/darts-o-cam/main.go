@@ -171,7 +171,7 @@ func analyze(args []string) error {
 	if err != nil {
 		return err
 	}
-	calib, opts := cfg.Calibration(*configDir), cfg.Detection.Detect
+	calib, opts := cfg.Calibration(*configDir), cfg.Boards[0].Detection.Detect // of the first board
 	events, err := savedEvents(*dir)
 	if err != nil {
 		return err

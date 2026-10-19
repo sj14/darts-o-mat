@@ -10,7 +10,7 @@ import (
 )
 
 // sameInAllLanguages are texts that are the same in every language on purpose.
-var sameInAllLanguages = []string{"Server", "PositionMM"}
+var sameInAllLanguages = []string{"Server", "PositionMM", "Board", "Boards"}
 
 // TestTranslations checks that English is complete and German fully translated (see
 // view.TestTranslations).
