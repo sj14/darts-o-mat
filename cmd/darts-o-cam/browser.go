@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 )
 
@@ -17,6 +18,20 @@ func hasDisplay() bool {
 		return true
 	}
 	return os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""
+}
+
+// reveal shows a file in the file manager (Finder, or the folder it is in).
+func reveal(path string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", "-R", path)
+	case "windows":
+		cmd = exec.Command("explorer", "/select,"+path)
+	default:
+		cmd = exec.Command("xdg-open", filepath.Dir(path))
+	}
+	return cmd.Start()
 }
 
 // openBrowser opens url in the default browser.

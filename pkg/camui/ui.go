@@ -460,7 +460,7 @@ func (ui *UI) point(w http.ResponseWriter, r *http.Request) {
 		s.err = nil
 	}
 	ui.mu.Unlock()
-	http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
+	http.Redirect(w, r, calibrateURL(name)+"#frame", http.StatusSeeOther) // back to the image, not the top of the page
 }
 
 // skip moves on to the next target, e.g. when the point is hidden by a dart.
@@ -471,7 +471,7 @@ func (ui *UI) skip(w http.ResponseWriter, r *http.Request) {
 		s.target++
 	}
 	ui.mu.Unlock()
-	http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
+	http.Redirect(w, r, calibrateURL(name)+"#frame", http.StatusSeeOther) // back to the image, not the top of the page
 }
 
 // finish refines the clicked calibration on the frame and saves it.
