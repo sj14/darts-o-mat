@@ -5,9 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
 	"github.com/sj14/darts-o-mat/server/domain/game"
 	"github.com/sj14/darts-o-mat/server/domain/game/x01"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/sj14/darts-o-mat/server/domain/tournament"
 )
 
@@ -23,7 +24,7 @@ func quickTournament(format tournament.Format, playerIDs ...int64) tournament.To
 	return t
 }
 
-var d20 = throw.Dart{Number: 20, Segment: throw.Double}
+var d20 = throw.Dart{Number: 20, Segment: dartboard.Double}
 
 func TestRoundRobinTournament(t *testing.T) {
 	ctx := context.Background()

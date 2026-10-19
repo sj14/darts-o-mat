@@ -7,8 +7,6 @@ package dartboard
 
 import (
 	"math"
-
-	"github.com/sj14/darts-o-mat/common/throw"
 )
 
 // Radii of the standard board in mm (to the middle of the wires).
@@ -68,24 +66,24 @@ func SegmentIndex(number uint8) int {
 
 // Score returns the dart hitting the board at p, with the single field's side (Inner,
 // Outer).
-func Score(p Point) throw.Dart {
+func Score(p Point) Hit {
 	r := p.Radius()
-	d := throw.Dart{Number: p.Number()}
+	d := Hit{Number: p.Number()}
 	switch {
 	case r <= BullseyeRadius:
-		return throw.Dart{Number: throw.BullNumber, Segment: throw.Bullseye}
+		return Hit{Number: BullNumber, Segment: Bullseye}
 	case r <= BullRadius:
-		return throw.Dart{Number: throw.BullNumber, Segment: throw.Bull}
+		return Hit{Number: BullNumber, Segment: Bull}
 	case r > DoubleOuterRadius:
-		d.Segment = throw.Miss
+		d.Segment = Miss
 	case r >= DoubleInnerRadius:
-		d.Segment = throw.Double
+		d.Segment = Double
 	case r > TripleOuterRadius:
-		d.Segment = throw.Outer
+		d.Segment = Outer
 	case r >= TripleInnerRadius:
-		d.Segment = throw.Triple
+		d.Segment = Triple
 	default:
-		d.Segment = throw.Inner
+		d.Segment = Inner
 	}
 	return d
 }

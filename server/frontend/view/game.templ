@@ -7,8 +7,9 @@ import (
 	"github.com/sj14/darts-o-mat/server/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/server/domain/game/x01"
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/sj14/darts-o-mat/server/service"
+	"github.com/sj14/darts-o-mat/common/dartboard"
 )
 
 templ Game(user string, v service.GameView) {
@@ -420,14 +421,14 @@ templ celebration(v service.GameView, p progress) {
 templ targetMark(target uint8) {
 	<path d={ dimPath(target) } fill="#000" fill-opacity="0.6" fill-rule="evenodd" pointer-events="none"></path>
 	<path d={ targetPath(target) } fill="none" stroke={ boardTarget } stroke-width="4" stroke-linejoin="round" pointer-events="none"></path>
-	if target == throw.BullNumber {
+	if target == dartboard.BullNumber {
 		// The bull is small on the board: a ring around it makes it easy to spot.
 		<circle cx="228" cy="228" r="26" fill="none" stroke={ boardTarget } stroke-width="4" pointer-events="none"></circle>
 	}
 	// A wide soft edge that lights up and fades.
 	<g class="animate-target" pointer-events="none">
 		<path d={ targetPath(target) } fill="none" stroke={ boardTarget } stroke-width="12" stroke-opacity="0.5" stroke-linejoin="round"></path>
-		if target == throw.BullNumber {
+		if target == dartboard.BullNumber {
 			<circle cx="228" cy="228" r="26" fill="none" stroke={ boardTarget } stroke-width="12" stroke-opacity="0.5"></circle>
 		}
 	</g>
@@ -653,9 +654,9 @@ templ keypad(v service.GameView, action string) {
 		class="group/keypad flex flex-col gap-3"
 	>
 		<div class="grid grid-cols-3 gap-1 rounded-2xl bg-pub-800 p-1" role="group" aria-label={ T(ctx).Multiplier() }>
-			@segmentButton(throw.Single, T(ctx).Single(), true)
-			@segmentButton(throw.Double, T(ctx).Double(), false)
-			@segmentButton(throw.Triple, T(ctx).Triple(), false)
+			@segmentButton(dartboard.Single, T(ctx).Single(), true)
+			@segmentButton(dartboard.Double, T(ctx).Double(), false)
+			@segmentButton(dartboard.Triple, T(ctx).Triple(), false)
 		</div>
 		<div class="grid grid-cols-5 gap-2">
 			for n := 1; n <= 20; n++ {
@@ -673,8 +674,8 @@ templ keypad(v service.GameView, action string) {
 				name="number"
 				value="25"
 				class={ "@container col-span-2 h-14 rounded-xl px-2 font-number font-extrabold uppercase text-board-cream transition active:scale-95 sm:h-16 lg:h-12",
-					templ.KV("bg-board-green shadow-lg shadow-board-green/40 ring-2 ring-white", target == throw.BullNumber),
-					templ.KV("bg-board-green/80 hover:bg-board-green", target != throw.BullNumber),
+					templ.KV("bg-board-green shadow-lg shadow-board-green/40 ring-2 ring-white", target == dartboard.BullNumber),
+					templ.KV("bg-board-green/80 hover:bg-board-green", target != dartboard.BullNumber),
 					"group-has-[[value='triple']:checked]/keypad:pointer-events-none group-has-[[value='triple']:checked]/keypad:opacity-30" }
 			>
 				<span class="group-has-[[value='double']:checked]/keypad:hidden">@fitText(T(ctx).Bull(), "1.875rem")</span>
@@ -693,13 +694,13 @@ templ dartInput(v service.GameView, action string) {
 	if target == 0 {
 		@keypad(v, action)
 	} else {
-		{{ skips := v.Game.Rules.(*aroundtheclock.Settings).MultiplierSkips && target != throw.BullNumber }}
+		{{ skips := v.Game.Rules.(*aroundtheclock.Settings).MultiplierSkips && target != dartboard.BullNumber }}
 		<div class="flex flex-col gap-3">
 			<div class={ "grid gap-2", templ.KV("grid-cols-2", !skips), templ.KV("grid-cols-3", skips) }>
-				@quickDart(action, target, throw.Single, T(ctx).Hit(), skips, "3rem", "h-24 bg-board-green shadow-board-green/40")
+				@quickDart(action, target, dartboard.Single, T(ctx).Hit(), skips, "3rem", "h-24 bg-board-green shadow-board-green/40")
 				if skips {
-					@quickDart(action, target, throw.Double, "D"+targetLabel(T(ctx), target), false, "1.875rem", "h-16 bg-board-green/75 shadow-board-green/30")
-					@quickDart(action, target, throw.Triple, "T"+targetLabel(T(ctx), target), false, "1.875rem", "h-16 bg-board-green/75 shadow-board-green/30")
+					@quickDart(action, target, dartboard.Double, "D"+targetLabel(T(ctx), target), false, "1.875rem", "h-16 bg-board-green/75 shadow-board-green/30")
+					@quickDart(action, target, dartboard.Triple, "T"+targetLabel(T(ctx), target), false, "1.875rem", "h-16 bg-board-green/75 shadow-board-green/30")
 				}
 				<form hx-post={ action } hx-target="#board" hx-swap="outerHTML">
 					<button type="submit" name="miss" value="true" class={ "@container w-full rounded-2xl bg-board-red/85 px-2 font-number font-extrabold uppercase text-board-cream shadow-lg shadow-board-red/30 transition hover:bg-board-red active:scale-95", templ.KV("h-24", !skips), templ.KV("h-16", skips) }>
@@ -726,7 +727,7 @@ templ dartInput(v service.GameView, action string) {
 
 // quickDart is a button that enters a given field; wide spans the whole row, size is the
 // label's largest size (see fitText).
-templ quickDart(action string, number uint8, segment throw.Segment, label string, wide bool, size, classes string) {
+templ quickDart(action string, number uint8, segment dartboard.Segment, label string, wide bool, size, classes string) {
 	<form hx-post={ action } hx-target="#board" hx-swap="outerHTML" class={ templ.KV("col-span-3", wide) }>
 		<input type="hidden" name="number" value={ strconv.Itoa(int(number)) }/>
 		<input type="hidden" name="segment" value={ segment.String() }/>
@@ -743,7 +744,7 @@ templ fitText(label, size string) {
 
 // segmentButton is one option of the single/double/triple control. On the bull key,
 // single is the bull and double the bullseye (see controller.dartFromForm).
-templ segmentButton(segment throw.Segment, label string, checked bool) {
+templ segmentButton(segment dartboard.Segment, label string, checked bool) {
 	<label class="cursor-pointer">
 		<input type="radio" name="segment" value={ segment.String() } checked?={ checked } class="peer sr-only"/>
 		<span class="block rounded-xl py-2 text-center font-display text-xl font-semibold uppercase tracking-wide text-white/60 transition peer-checked:bg-board-cream peer-checked:text-pub-950 peer-checked:shadow peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400">{ label }</span>
@@ -995,8 +996,8 @@ templ bullOffPanel(v service.GameView, p progress, keypad bool) {
 			@hideKeypadButton(v)
 		}
 		<div class="grid grid-cols-3 gap-2">
-			@quickDart(action, throw.BullNumber, throw.Bullseye, T(ctx).Bullseye(), false, "1.875rem", "h-20 bg-board-red shadow-board-red/40")
-			@quickDart(action, throw.BullNumber, throw.Bull, T(ctx).Bull(), false, "1.875rem", "h-20 bg-board-green shadow-board-green/40")
+			@quickDart(action, dartboard.BullNumber, dartboard.Bullseye, T(ctx).Bullseye(), false, "1.875rem", "h-20 bg-board-red shadow-board-red/40")
+			@quickDart(action, dartboard.BullNumber, dartboard.Bull, T(ctx).Bull(), false, "1.875rem", "h-20 bg-board-green shadow-board-green/40")
 			<form hx-post={ action } hx-target="#board" hx-swap="outerHTML">
 				<button type="submit" name="miss" value="true" class="@container h-20 w-full rounded-2xl bg-pub-700 px-2 font-number font-extrabold uppercase text-white/80 shadow-lg transition hover:bg-pub-700/70 active:scale-95">@fitText(T(ctx).Miss(), "1.875rem")</button>
 			</form>

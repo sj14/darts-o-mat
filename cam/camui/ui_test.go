@@ -16,7 +16,6 @@ import (
 	"github.com/sj14/darts-o-mat/cam/camapp"
 	"github.com/sj14/darts-o-mat/cam/vision"
 	"github.com/sj14/darts-o-mat/common/dartboard"
-	"github.com/sj14/darts-o-mat/common/throw"
 )
 
 func loadRGBA(t *testing.T, path string) *image.RGBA {
@@ -68,7 +67,7 @@ func TestEventPages(t *testing.T) {
 	app.AddEvent(camapp.Event{Cameras: names, Game: 12, Event: &vision.Event{
 		Kind:    vision.EventDart,
 		Board:   dartboard.Point{X: 71, Y: 67},
-		Dart:    throw.Dart{Number: 4, Segment: throw.Outer},
+		Dart:    dartboard.Hit{Number: 4, Segment: dartboard.Outer},
 		Located: true,
 		Cameras: map[int]vision.Tip{
 			0: {Point: dartboard.Point{X: 74, Y: 66}, Radial: 1.8, Tangential: 1.3},
@@ -260,7 +259,7 @@ func TestEventStream(t *testing.T) {
 	frames := []*image.RGBA{image.NewRGBA(image.Rect(0, 0, 4, 4))}
 	app.AddEvent(camapp.Event{Cameras: []string{"cam1"}, Event: &vision.Event{
 		Kind:    vision.EventDart,
-		Dart:    throw.Dart{Number: 19, Segment: throw.Triple},
+		Dart:    dartboard.Hit{Number: 19, Segment: dartboard.Triple},
 		Cameras: map[int]vision.Tip{0: {}},
 		Before:  frames,
 		After:   frames,

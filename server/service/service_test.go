@@ -6,11 +6,12 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
 	"github.com/sj14/darts-o-mat/server/domain/account"
 	"github.com/sj14/darts-o-mat/server/domain/game"
 	"github.com/sj14/darts-o-mat/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/server/domain/game/x01"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/sj14/darts-o-mat/server/store"
 )
 
@@ -60,7 +61,7 @@ func withBoard(g game.Game, boardID int64) game.Game {
 	return g
 }
 
-var t20 = throw.Dart{Number: 20, Segment: throw.Triple}
+var t20 = throw.Dart{Number: 20, Segment: dartboard.Triple}
 
 func TestAuth(t *testing.T) {
 	ctx := context.Background()
@@ -446,7 +447,7 @@ func TestStats(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Anna checks out with her first dart and wins at once.
-	if _, err := s.AddDart(ctx, anna, v.Game.ID, throw.Dart{Number: 20, Segment: throw.Double}); err != nil {
+	if _, err := s.AddDart(ctx, anna, v.Game.ID, throw.Dart{Number: 20, Segment: dartboard.Double}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -549,7 +550,7 @@ func TestBoardCamera(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(v.Darts) != 4 || v.Darts[1].Segment != throw.Miss || v.Darts[2].Segment != throw.Miss || !v.Darts[3].Takeout {
+	if len(v.Darts) != 4 || v.Darts[1].Segment != dartboard.Miss || v.Darts[2].Segment != dartboard.Miss || !v.Darts[3].Takeout {
 		t.Errorf("after takeout: %d entries %+v, want the dart, 2 misses and the takeout", len(v.Darts), v.Darts)
 	}
 	// Nothing to pull out anymore: the log stays as it is.
@@ -708,7 +709,7 @@ func TestBoardTakeoutAfterBust(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _ = s.AddDart(ctx, anna, v.Game.ID, throw.Dart{Number: 5, Segment: throw.Single})
+	_, _ = s.AddDart(ctx, anna, v.Game.ID, throw.Dart{Number: 5, Segment: dartboard.Single})
 	if v, err = s.AddDart(ctx, anna, v.Game.ID, t20); err != nil { // bust
 		t.Fatal(err)
 	}
@@ -736,7 +737,7 @@ func TestEditDart(t *testing.T) {
 	}
 	id := v.Game.ID
 	remaining := func(v GameView) uint64 { return v.State.(x01.State).Players[0].Remaining }
-	single := func(n uint8) throw.Dart { return throw.Dart{Number: n, Segment: throw.Single} }
+	single := func(n uint8) throw.Dart { return throw.Dart{Number: n, Segment: dartboard.Single} }
 
 	// Anna throws T20, 1, 1: 39 left. Then the guest throws a 5.
 	for _, d := range []throw.Dart{t20, single(1), single(1), single(5)} {
@@ -755,7 +756,7 @@ func TestEditDart(t *testing.T) {
 	}
 
 	// The first dart was the bullseye: 101 - 50 - 19 - 1 = 31 left.
-	if v, err = s.EditDart(ctx, anna, id, first, throw.Dart{Number: throw.BullNumber, Segment: throw.Bullseye}); err != nil {
+	if v, err = s.EditDart(ctx, anna, id, first, throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bullseye}); err != nil {
 		t.Fatal(err)
 	}
 	if remaining(v) != 31 {
@@ -830,7 +831,7 @@ func TestLeavingEndsAGameOfOneAccount(t *testing.T) {
 	short := x01Game(anna.PlayerID)
 	short.Rules.(*x01.Settings).StartScore = 40
 	sv, _ := s.CreateGame(ctx, anna, short, nil)
-	if _, err := s.AddDart(ctx, anna, sv.Game.ID, throw.Dart{Number: 20, Segment: throw.Double}); err != nil {
+	if _, err := s.AddDart(ctx, anna, sv.Game.ID, throw.Dart{Number: 20, Segment: dartboard.Double}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.LeaveGame(ctx, anna, sv.Game.ID); !errors.Is(err, turn.ErrGameOver) {
@@ -861,7 +862,7 @@ func TestDartPosition(t *testing.T) {
 	x, y := 97.6, 21.0
 
 	// The cameras' position is stored with the dart.
-	seen := throw.Dart{Number: 13, Segment: throw.Outer, X: &x, Y: &y}
+	seen := throw.Dart{Number: 13, Segment: dartboard.Outer, X: &x, Y: &y}
 	if _, err := s.AddBoardDart(ctx, keller, seen); err != nil {
 		t.Fatal(err)
 	}
@@ -869,7 +870,7 @@ func TestDartPosition(t *testing.T) {
 	if _, err := s.AddDart(ctx, anna, v.Game.ID, seen); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AddBoardDart(ctx, keller, throw.Dart{Number: 1, Segment: throw.Outer, X: &x}); !errors.Is(err, ErrInvalid) {
+	if _, err := s.AddBoardDart(ctx, keller, throw.Dart{Number: 1, Segment: dartboard.Outer, X: &x}); !errors.Is(err, ErrInvalid) {
 		t.Errorf("only x: got %v, want ErrInvalid", err)
 	}
 
@@ -883,11 +884,11 @@ func TestDartPosition(t *testing.T) {
 	}
 
 	// A correction changes the field and keeps where the cameras saw the dart.
-	v, err = s.EditDart(ctx, anna, v.Game.ID, camera.ID, throw.Dart{Number: 13, Segment: throw.Triple})
+	v, err = s.EditDart(ctx, anna, v.Game.ID, camera.ID, throw.Dart{Number: 13, Segment: dartboard.Triple})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := v.Darts[0]; got.Segment != throw.Triple || got.X == nil || *got.X != x {
+	if got := v.Darts[0]; got.Segment != dartboard.Triple || got.X == nil || *got.X != x {
 		t.Errorf("corrected dart = %+v, want T13 at the cameras' position", got)
 	}
 }
@@ -906,7 +907,7 @@ func TestDecideBullOff(t *testing.T) {
 	if _, err := s.DecideBullOff(ctx, anna, v.Game.ID, papa.ID); !errors.Is(err, ErrInvalid) {
 		t.Errorf("decide without a tie: got %v, want ErrInvalid", err)
 	}
-	bull := throw.Dart{Number: throw.BullNumber, Segment: throw.Bull}
+	bull := throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bull}
 	for range 2 {
 		if _, err := s.AddDart(ctx, anna, v.Game.ID, bull); err != nil {
 			t.Fatal(err)
@@ -969,12 +970,12 @@ func TestOnlyOwnDartsAreCorrected(t *testing.T) {
 	for range 3 {
 		_, _ = s.AddDart(ctx, anna, id, t20) // her guest's
 	}
-	if v, err = s.AddDart(ctx, ben, id, throw.Dart{Number: 5, Segment: throw.Single}); err != nil {
+	if v, err = s.AddDart(ctx, ben, id, throw.Dart{Number: 5, Segment: dartboard.Single}); err != nil {
 		t.Fatal(err)
 	}
 	annas, bens, papas := v.Darts[0], v.Darts[6], v.Darts[3]
 
-	fix := throw.Dart{Number: 1, Segment: throw.Single}
+	fix := throw.Dart{Number: 1, Segment: dartboard.Single}
 	if _, err := s.EditDart(ctx, ben, id, annas.ID, fix); !errors.Is(err, ErrForbidden) {
 		t.Errorf("ben corrects anna's dart: got %v, want ErrForbidden", err)
 	}

@@ -1,20 +1,20 @@
-package throw
+package dartboard
 
 import (
 	"encoding/json"
 	"testing"
 )
 
-func TestString(t *testing.T) {
+func TestHitString(t *testing.T) {
 	tests := []struct {
-		dart Dart
+		dart Hit
 		want string
 	}{
-		{Dart{Number: 20, Segment: Triple}, "T20"},
-		{Dart{Number: 20, Segment: Inner}, "20"},
-		{Dart{Number: BullNumber, Segment: Bullseye}, "Bullseye"},
-		{Dart{Segment: Miss, Number: 7}, "M7"},
-		{Dart{Segment: Miss}, "Miss"},
+		{Hit{Number: 20, Segment: Triple}, "T20"},
+		{Hit{Number: 20, Segment: Inner}, "20"},
+		{Hit{Number: BullNumber, Segment: Bullseye}, "Bullseye"},
+		{Hit{Segment: Miss, Number: 7}, "M7"},
+		{Hit{Segment: Miss}, "Miss"},
 	}
 	for _, tt := range tests {
 		if got := tt.dart.String(); got != tt.want {
@@ -23,17 +23,17 @@ func TestString(t *testing.T) {
 	}
 }
 
-func TestScore(t *testing.T) {
+func TestHitScore(t *testing.T) {
 	tests := []struct {
-		dart Dart
+		dart Hit
 		want uint64
 	}{
-		{Dart{Number: 20, Segment: Triple}, 60},
-		{Dart{Number: 20, Segment: Outer}, 20},
-		{Dart{Number: 5, Segment: Double}, 10},
-		{Dart{Number: BullNumber, Segment: Bull}, 25},
-		{Dart{Number: BullNumber, Segment: Bullseye}, 50},
-		{Dart{Number: 7, Segment: Miss}, 0},
+		{Hit{Number: 20, Segment: Triple}, 60},
+		{Hit{Number: 20, Segment: Outer}, 20},
+		{Hit{Number: 5, Segment: Double}, 10},
+		{Hit{Number: BullNumber, Segment: Bull}, 25},
+		{Hit{Number: BullNumber, Segment: Bullseye}, 50},
+		{Hit{Number: 7, Segment: Miss}, 0},
 	}
 	for _, tt := range tests {
 		if got := tt.dart.Score(); got != tt.want {
@@ -42,8 +42,8 @@ func TestScore(t *testing.T) {
 	}
 }
 
-func TestValidate(t *testing.T) {
-	valid := []Dart{
+func TestHitValidate(t *testing.T) {
+	valid := []Hit{
 		{Segment: Miss, Number: 20},
 		{Segment: Miss},
 		{Segment: Single, Number: 1},
@@ -54,7 +54,7 @@ func TestValidate(t *testing.T) {
 			t.Errorf("%+v: %v", d, err)
 		}
 	}
-	invalid := []Dart{
+	invalid := []Hit{
 		{Segment: Miss, Number: BullNumber},   // beside the bull
 		{Segment: Triple, Number: BullNumber}, // no triple bull
 		{Segment: Bull, Number: 20},           // the bull is 25
@@ -70,19 +70,15 @@ func TestValidate(t *testing.T) {
 }
 
 func TestSegmentJSON(t *testing.T) {
-	data, err := json.Marshal(Dart{Number: 20, Segment: Outer})
+	data, err := json.Marshal(Hit{Number: 20, Segment: Outer})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var d Dart
+	var d Hit
 	if err := json.Unmarshal(data, &d); err != nil || d.Segment != Outer {
 		t.Errorf("%s: got %+v, %v", data, d, err)
 	}
 	if err := json.Unmarshal([]byte(`{"number":20,"segment":"quadruple"}`), &d); err == nil {
 		t.Error("unknown segment: no error")
-	}
-	// A takeout has no segment, and none in its JSON.
-	if data, _ := json.Marshal(Dart{Takeout: true}); string(data) != `{"id":0,"number":0,"takeout":true}` {
-		t.Errorf("takeout: %s", data)
 	}
 }

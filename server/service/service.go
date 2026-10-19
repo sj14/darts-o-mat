@@ -10,13 +10,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sj14/darts-o-mat/common/dartboard"
 	"github.com/sj14/darts-o-mat/common/notify"
-	"github.com/sj14/darts-o-mat/common/throw"
 	"github.com/sj14/darts-o-mat/server/captcha"
 	"github.com/sj14/darts-o-mat/server/domain/account"
 	"github.com/sj14/darts-o-mat/server/domain/game"
 	"github.com/sj14/darts-o-mat/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/server/domain/player"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/sj14/darts-o-mat/server/store"
 )
 
@@ -503,7 +504,7 @@ func (s *Service) DecideBullOff(ctx context.Context, acc account.Account, gameID
 // AddDart registers the next dart of a game, for the player who is up, who has to be one
 // of the account's (ErrForbidden otherwise: nobody enters darts for another account's
 // player; the cameras of a board do, see AddBoardDart). The dart is only stored if the
-// game accepts it; otherwise the error wraps throw.ErrInvalid or turn.ErrGameOver.
+// game accepts it; otherwise the error wraps dartboard.ErrInvalid or turn.ErrGameOver.
 // A missing multiplier counts as single. Positions only come from the cameras
 // (AddBoardDart), so a position given here is dropped.
 func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64, d throw.Dart) (GameView, error) {
@@ -594,8 +595,8 @@ func (s *Service) EditDart(ctx context.Context, acc account.Account, gameID, dar
 // unknown). Takeouts go through Takeout.
 func normalizeDart(d *throw.Dart) {
 	d.Takeout, d.Leave, d.Skip = false, false, false
-	if d.Segment == throw.NoSegment {
-		d.Segment = throw.Single
+	if d.Segment == dartboard.NoSegment {
+		d.Segment = dartboard.Single
 	}
 }
 

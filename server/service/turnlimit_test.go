@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
 	"github.com/sj14/darts-o-mat/server/domain/game"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 )
 
 func TestTurnLimit(t *testing.T) {
@@ -100,7 +101,7 @@ func TestSkippedTurnsCantBeTakenBack(t *testing.T) {
 		t.Errorf("entry after the skipped turn: %+v, may undo %v; want a skip that is no dart and can't be undone", v.Darts[1], v.MayUndo())
 	}
 	// A client can't enter a skip as a dart.
-	d := throw.Dart{Number: 5, Segment: throw.Single, Skip: true}
+	d := throw.Dart{Number: 5, Segment: dartboard.Single, Skip: true}
 	if v, err := s.AddDart(ctx, ben, id, d); err != nil || !v.Darts[len(v.Darts)-1].IsDart() {
 		t.Errorf("dart with the skip flag set: %v, want a normal dart", err)
 	}

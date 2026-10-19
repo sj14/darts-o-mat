@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
 )
 
 // A dart the server refuses, e.g. because the player who is up throws on another
@@ -30,7 +30,7 @@ func TestServerReportsRefusedDarts(t *testing.T) {
 	defer srv.Close()
 
 	s := newServer(srv.URL+"/", "secret")
-	_, err := s.dart(context.Background(), throw.Dart{Number: 20, Segment: throw.Single})
+	_, err := s.dart(context.Background(), dartboard.Hit{Number: 20, Segment: dartboard.Single})
 	if err == nil || !strings.Contains(err.Error(), "doesn't throw on this board") {
 		t.Errorf("refused dart: got %v, want the server's reason", err)
 	}

@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
 	"github.com/sj14/darts-o-mat/server/domain/game"
 	"github.com/sj14/darts-o-mat/server/domain/game/x01"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 )
 
 // quick is a game one dart ends: 40 with a double 20.
@@ -167,7 +168,7 @@ func TestStatsOfCompletedGames(t *testing.T) {
 	g := withBoard(quick(anna.PlayerID), boardA.ID)
 	v, _ := s.CreateGame(ctx, anna, g, nil)
 	x, y := 0.0, 100.0 // between the 20 and the inner side of the triple, at the top
-	if _, err := s.AddBoardDart(ctx, boardA, throw.Dart{Number: 20, Segment: throw.Double, X: &x, Y: &y}); err != nil {
+	if _, err := s.AddBoardDart(ctx, boardA, throw.Dart{Number: 20, Segment: dartboard.Double, X: &x, Y: &y}); err != nil {
 		t.Fatal(err)
 	}
 

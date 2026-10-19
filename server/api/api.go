@@ -12,10 +12,11 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
 	"github.com/sj14/darts-o-mat/server/auth"
 	"github.com/sj14/darts-o-mat/server/domain/game"
 	"github.com/sj14/darts-o-mat/server/domain/game/turn"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/sj14/darts-o-mat/server/domain/tournament"
 	"github.com/sj14/darts-o-mat/server/service"
 )
@@ -229,11 +230,11 @@ func (a *API) createBoardToken(w http.ResponseWriter, r *http.Request) {
 
 // addBoardDart enters a dart detected by the board's cameras into the running game on the board.
 func (a *API) addBoardDart(w http.ResponseWriter, r *http.Request) {
-	var d throw.Dart
-	if !decode(w, r, &d) {
+	var h dartboard.Hit // only what the cameras know, no player or takeout
+	if !decode(w, r, &h) {
 		return
 	}
-	v, err := a.svc.AddBoardDart(r.Context(), auth.Board(r.Context()), d)
+	v, err := a.svc.AddBoardDart(r.Context(), auth.Board(r.Context()), throw.FromHit(h))
 	respond(w, http.StatusCreated, v, err)
 }
 
@@ -681,7 +682,7 @@ func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, service.ErrAlreadyFriends):
 		status = http.StatusConflict
-	case errors.Is(err, service.ErrInvalid), errors.Is(err, throw.ErrInvalid):
+	case errors.Is(err, service.ErrInvalid), errors.Is(err, dartboard.ErrInvalid):
 		status = http.StatusBadRequest
 	case errors.Is(err, service.ErrTooManyLogins):
 		status = http.StatusTooManyRequests

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/sj14/darts-o-mat/common/throw"
 	"github.com/sj14/darts-o-mat/server/domain/board"
 	"github.com/sj14/darts-o-mat/server/domain/game"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/uptrace/bun"
 )
 

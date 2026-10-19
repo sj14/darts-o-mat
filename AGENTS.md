@@ -60,7 +60,7 @@ User's decision 2026-10-14: English is the default language, German the first tr
 - **New texts:** never write German or English directly into a template or a handler anymore; add a method to `Texts`, implement it in English and German.
 - darts-o-cam has no accounts: its language is only the browser's (`i18n.Middleware` in `camui`); in its own window (glaze) that's the system's web view. Its error texts from `camapp`/`vision` (e.g. in "Detection stopped: …") stay English.
 - Errors meant for the user are sentinel errors or types in the code and get their text in the handler (e.g. `camui.calibrationError`), not formatted strings.
-- Numbers are formatted by the language too (server `Texts.Decimal`/`Percent`, darts-o-cam `Texts.Number`: 90.0 / 90,0). The dart labels of the interfaces come from `dartLabel` in each package ("Miss"/"Daneben"); `throw.Dart.String` stays for logs and `darts-o-cam analyze`. Texts of JavaScript come from data attributes of the page (sound toggle).
+- Numbers are formatted by the language too (server `Texts.Decimal`/`Percent`, darts-o-cam `Texts.Number`: 90.0 / 90,0). The dart labels of the interfaces come from `dartLabel` in each package ("Miss"/"Daneben"); `dartboard.Hit.String` stays for logs and `darts-o-cam analyze`. Texts of JavaScript come from data attributes of the page (sound toggle).
 - Not chosen: go-i18n or `golang.org/x/text/message` with message files – missing texts only show at runtime, and their extraction doesn't know templ; worth reconsidering once translators without Go come in.
 
 ## Breaking changes
@@ -87,9 +87,9 @@ New features build on the existing stack; don't introduce additional frameworks 
 
 ## Structure
 
-User's decision 2026-10-19: one repository, several Go modules (joined by [`go.work`](go.work), which is committed, and by `replace` directives in each `go.mod`), so each program has only the dependencies it needs: `server` has no GUI window library, `cam` has no SQLite or password hashing, and `tools` (packaging, nFPM with its ~40 modules) stays out of both. There is no module in the project's root folder, so `go test ./...` there matches nothing: give the folders (`go test ./common/... ./server/... ./cam/...`); inside a module `./...` works as usual. `common` is internal to this repository (never tagged or imported from outside), so changing it needs no versions: whoever uses it is built from the same checkout. It must not get dependencies only one program needs (it still has `bun` because `common/throw.Dart` is also the database model, which the camera therefore compiles in; `cam/TODO.md`).
+User's decision 2026-10-19: one repository, several Go modules (joined by [`go.work`](go.work), which is committed, and by `replace` directives in each `go.mod`), so each program has only the dependencies it needs: `server` has no GUI window library, `cam` has no SQLite or password hashing, and `tools` (packaging, nFPM with its ~40 modules) stays out of both. There is no module in the project's root folder, so `go test ./...` there matches nothing: give the folders (`go test ./common/... ./server/... ./cam/...`); inside a module `./...` works as usual. `common` is internal to this repository (never tagged or imported from outside), so changing it needs no versions: whoever uses it is built from the same checkout. It must not get dependencies only one program needs: it has none besides the standard library, and what only the server knows (the game's log entry `throw.Dart` with its database tags) stays in `server/domain/throw`, so the camera doesn't compile in the database library either.
 
-- [`common`](common): what both programs share: `dartboard`, `throw`, `i18n`, `notify`, `sse`, `buildinfo`, `update`, `static`
+- [`common`](common): what both programs share: `dartboard` (board geometry, `Segment` and `Hit`, the dart as the cameras report it), `i18n`, `notify`, `sse`, `buildinfo`, `update`, `static`
 - [`server`](server/AGENTS.md): the web server (`cmd/darts-o-mat`, `api`, `auth`, `captcha`, `service`, `store`, `domain`, `frontend`)
 - [`cam`](cam/AGENTS.md): the camera app (`cmd/darts-o-cam`, `camapp`, `camui`, `vision`, `camera`)
 - [`tools`](tools): packaging and generators, see below
@@ -117,7 +117,7 @@ In detail:
 - `tools/winpkg`: builds darts-o-cam's Windows .zip (.exe with icon), same place
 - `site`: the project page for GitHub Pages (static HTML and a CSS file in the look of the app, English and German in `site/de`; no generator, user's decision 2026-10-18); `make site` puts it with the app's fonts and icons into `dist/site`, `.github/workflows/pages.yml` publishes it. Texts in both languages by hand, keep them in line with the [README](README.md)
 - `install.sh` (with `install_test.sh`): the one-line installer of darts-o-cam and, with `--server`, of the server, see [camera → installer](cam/AGENTS.md)
-- `Makefile`: `make macapp`, `make linux`, `make windows`, `make apps` (all), `make site`, `make clean`; only for these builds and the project page, everything else is the go command
+- `Makefile`: `make macapp`, `make linux`, `make windows`, `make apps` (all), `make site`, `make generate` (templ and Tailwind CSS in all modules), `make tidy` (`go mod tidy` in all modules), `make clean`; only for these builds, the project page and what spans the modules, everything else is the go command
 - `deploy/helm/darts-o-mat`: Helm chart of the server, see [server → deployment](server/AGENTS.md#deployment)
 - `.github/workflows`: `ci.yml` (tests, chart lint), `release.yml` (a tag `vX.Y.Z` builds binaries, image, chart and the camera's packages, see [server → deployment](server/AGENTS.md#deployment)), `pages.yml` (project page)
 - `Containerfile`: image of the server, see [server → structure](server/AGENTS.md#structure)

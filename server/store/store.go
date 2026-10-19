@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/sj14/darts-o-mat/common/throw"
 	"github.com/sj14/darts-o-mat/server/domain/account"
 	"github.com/sj14/darts-o-mat/server/domain/board"
 	"github.com/sj14/darts-o-mat/server/domain/game"
 	"github.com/sj14/darts-o-mat/server/domain/player"
 	"github.com/sj14/darts-o-mat/server/domain/stats"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/sj14/darts-o-mat/server/domain/tournament"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"

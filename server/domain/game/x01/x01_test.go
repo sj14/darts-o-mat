@@ -5,21 +5,22 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
 	"github.com/sj14/darts-o-mat/server/domain/game/turn"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 )
 
 // hit is a dart entered by hand: number and multiplier (for the bull number, 1 is the
 // bull and 2 the bullseye; anything else stays invalid).
 func hit(number, multiplier uint8) throw.Dart {
-	segments := []throw.Segment{1: throw.Single, 2: throw.Double, 3: throw.Triple}
-	if number == throw.BullNumber && multiplier < 3 {
-		segments = []throw.Segment{1: throw.Bull, 2: throw.Bullseye}
+	segments := []dartboard.Segment{1: dartboard.Single, 2: dartboard.Double, 3: dartboard.Triple}
+	if number == dartboard.BullNumber && multiplier < 3 {
+		segments = []dartboard.Segment{1: dartboard.Bull, 2: dartboard.Bullseye}
 	}
 	return throw.Dart{Number: number, Segment: segments[multiplier]}
 }
 
-var miss = throw.Dart{Segment: throw.Miss}
+var miss = throw.Dart{Segment: dartboard.Miss}
 
 func TestPlay(t *testing.T) {
 	tests := []struct {
@@ -92,7 +93,7 @@ func TestPlay(t *testing.T) {
 		{
 			name:          "bullseye counts as double",
 			settings:      Settings{StartScore: 50, OutMode: OutModeDouble},
-			darts:         []throw.Dart{hit(throw.BullNumber, 2)},
+			darts:         []throw.Dart{hit(dartboard.BullNumber, 2)},
 			wantRemaining: []uint64{0, 50},
 			wantRound:     1,
 			wantDarts:     1,
@@ -186,8 +187,8 @@ func TestPlayErrors(t *testing.T) {
 		t.Errorf("dart after win: got %v, want ErrGameOver", err)
 	}
 
-	_, err = Play(s, []int64{1}, []throw.Dart{hit(throw.BullNumber, 3)})
-	if !errors.Is(err, throw.ErrInvalid) {
+	_, err = Play(s, []int64{1}, []throw.Dart{hit(dartboard.BullNumber, 3)})
+	if !errors.Is(err, dartboard.ErrInvalid) {
 		t.Errorf("triple bull: got %v, want ErrInvalid", err)
 	}
 }

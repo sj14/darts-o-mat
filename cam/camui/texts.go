@@ -6,8 +6,8 @@ import (
 	"image/color"
 
 	"github.com/sj14/darts-o-mat/cam/vision"
+	"github.com/sj14/darts-o-mat/common/dartboard"
 	"github.com/sj14/darts-o-mat/common/i18n"
-	"github.com/sj14/darts-o-mat/common/throw"
 )
 
 // Texts are the texts of darts-o-cam's web interface, one method per text, like the
@@ -204,8 +204,8 @@ func textsOf(l i18n.Lang) Texts {
 
 // dartLabel is how a detected dart is shown: 20, D20, T20, Bull, Bullseye, M7 (a miss
 // beside the 7), or "Miss" when unknown where.
-func dartLabel(t Texts, d throw.Dart) string {
-	if d.Segment == throw.Miss && d.Number == 0 {
+func dartLabel(t Texts, d dartboard.Hit) string {
+	if d.Segment == dartboard.Miss && d.Number == 0 {
 		return t.Miss()
 	}
 	return d.String()

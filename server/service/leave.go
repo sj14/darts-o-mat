@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/sj14/darts-o-mat/common/throw"
 	"github.com/sj14/darts-o-mat/server/domain/account"
 	"github.com/sj14/darts-o-mat/server/domain/game/turn"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/sj14/darts-o-mat/server/domain/tournament"
 )
 

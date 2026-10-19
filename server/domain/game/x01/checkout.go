@@ -3,28 +3,29 @@ package x01
 import (
 	"slices"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 )
 
 // fields are all fields of the board, in the order a checkout lists its setup darts:
 // trebles first, high numbers first.
 var fields = func() []throw.Dart {
 	var fs []throw.Dart
-	for _, s := range []throw.Segment{throw.Triple, throw.Single} {
+	for _, s := range []dartboard.Segment{dartboard.Triple, dartboard.Single} {
 		for n := uint8(20); n >= 1; n-- {
 			fs = append(fs, throw.Dart{Number: n, Segment: s})
 		}
 	}
-	fs = append(fs, throw.Dart{Number: throw.BullNumber, Segment: throw.Bull})
+	fs = append(fs, throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bull})
 	for n := uint8(20); n >= 1; n-- {
-		fs = append(fs, throw.Dart{Number: n, Segment: throw.Double})
+		fs = append(fs, throw.Dart{Number: n, Segment: dartboard.Double})
 	}
-	return append(fs, throw.Dart{Number: throw.BullNumber, Segment: throw.Bullseye})
+	return append(fs, throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bullseye})
 }()
 
 // finishOrder ranks the numbers to finish on: the common doubles first (D16 can be
 // split into D8 and D4 after a miss into the single), the bull last.
-var finishOrder = []uint8{20, 16, 8, 18, 12, 10, 14, 4, 6, 2, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1, throw.BullNumber}
+var finishOrder = []uint8{20, 16, 8, 18, 12, 10, 14, 4, 6, 2, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1, dartboard.BullNumber}
 
 // Checkout suggests how to finish remaining with at most darts darts, nil if that
 // isn't possible. For double out it is the usual route of the checkout tables (see

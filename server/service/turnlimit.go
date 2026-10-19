@@ -6,8 +6,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/sj14/darts-o-mat/common/throw"
 	"github.com/sj14/darts-o-mat/server/domain/game"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 )
 
 // resumeWithin is how far back a game's last dart may be for its turn timer to be set

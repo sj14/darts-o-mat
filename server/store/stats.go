@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/sj14/darts-o-mat/common/dartboard"
-	"github.com/sj14/darts-o-mat/common/throw"
 	"github.com/sj14/darts-o-mat/server/domain/stats"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/uptrace/bun"
 )
 

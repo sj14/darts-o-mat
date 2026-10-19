@@ -3,8 +3,9 @@ package aroundtheclock
 import (
 	"fmt"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
 	"github.com/sj14/darts-o-mat/server/domain/game/turn"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 )
 
 type Settings struct {
@@ -98,7 +99,7 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 			cur = &st.Turns[len(st.Turns)-1]
 		}
 		p.Stats.Darts++
-		hit := d.Segment != throw.Miss && d.Number == p.Target
+		hit := d.Segment != dartboard.Miss && d.Number == p.Target
 		cur.Darts, cur.Hits = append(cur.Darts, d), append(cur.Hits, hit)
 		if hit {
 			p.Stats.Hits++
@@ -132,7 +133,7 @@ func PlayLog(s Settings, playerIDs []int64, log turn.Log) (State, error) {
 
 // next returns the target after hitting target, 0 if the player has finished.
 func (s Settings) next(target uint8, multiplier int) uint8 {
-	if target == throw.BullNumber {
+	if target == dartboard.BullNumber {
 		return 0
 	}
 
@@ -145,7 +146,7 @@ func (s Settings) next(target uint8, multiplier int) uint8 {
 		return target + steps
 	}
 	if s.Bull {
-		return throw.BullNumber
+		return dartboard.BullNumber
 	}
 	return 0
 }

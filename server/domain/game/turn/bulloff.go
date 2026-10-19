@@ -4,7 +4,8 @@ import (
 	"math"
 	"slices"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 )
 
 // bullOff decides who starts the first leg: each contender throws one dart at the
@@ -71,9 +72,9 @@ func bullDistance(d throw.Dart) float64 {
 	switch {
 	case d.X != nil && d.Y != nil:
 		return math.Hypot(*d.X, *d.Y)
-	case d.Segment == throw.Bullseye:
+	case d.Segment == dartboard.Bullseye:
 		return 0
-	case d.Segment == throw.Bull:
+	case d.Segment == dartboard.Bull:
 		return singleBull
 	}
 	return math.Inf(1)

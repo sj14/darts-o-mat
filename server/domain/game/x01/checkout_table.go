@@ -4,7 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 )
 
 // doubleOutTable holds the usual three-dart routes for double out from 170 to 41,
@@ -55,29 +56,29 @@ func doubleOutRoute(remaining uint64) []throw.Dart {
 		return nil
 	}
 	if remaining%2 == 0 {
-		return []throw.Dart{{Number: uint8(remaining / 2), Segment: throw.Double}}
+		return []throw.Dart{{Number: uint8(remaining / 2), Segment: dartboard.Double}}
 	}
 	leave := uint64(32)
 	for leave >= remaining {
 		leave /= 2
 	}
-	return []throw.Dart{{Number: uint8(remaining - leave), Segment: throw.Single}, {Number: uint8(leave / 2), Segment: throw.Double}}
+	return []throw.Dart{{Number: uint8(remaining - leave), Segment: dartboard.Single}, {Number: uint8(leave / 2), Segment: dartboard.Double}}
 }
 
 // parseRoute reads a route like "T20 10 D16"; DB is the bullseye.
 func parseRoute(route string) []throw.Dart {
 	var darts []throw.Dart
 	for f := range strings.FieldsSeq(route) {
-		d := throw.Dart{Segment: throw.Single}
+		d := throw.Dart{Segment: dartboard.Single}
 		switch f[0] {
 		case 'T':
-			d.Segment, f = throw.Triple, f[1:]
+			d.Segment, f = dartboard.Triple, f[1:]
 		case 'D':
-			d.Segment, f = throw.Double, f[1:]
+			d.Segment, f = dartboard.Double, f[1:]
 		}
 		if f == "B" {
-			d.Number = throw.BullNumber
-			d.Segment = map[throw.Segment]throw.Segment{throw.Single: throw.Bull, throw.Double: throw.Bullseye}[d.Segment]
+			d.Number = dartboard.BullNumber
+			d.Segment = map[dartboard.Segment]dartboard.Segment{dartboard.Single: dartboard.Bull, dartboard.Double: dartboard.Bullseye}[d.Segment]
 		} else {
 			n, _ := strconv.Atoi(f)
 			d.Number = uint8(n)

@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/sj14/darts-o-mat/common/dartboard"
-	"github.com/sj14/darts-o-mat/common/throw"
 )
 
 func loadRGBA(t *testing.T, path string) *image.RGBA {
@@ -232,16 +231,16 @@ func TestRealThrows(t *testing.T) {
 	tests := []struct {
 		name   string
 		camera string
-		want   throw.Dart
+		want   dartboard.Hit
 	}{
 		// A reflection on a wire far below the dart used to be taken for the tip.
-		{"003", "cam3", throw.Dart{Number: 8, Segment: throw.Single}},
+		{"003", "cam3", dartboard.Hit{Number: 8, Segment: dartboard.Single}},
 		// The barrel in front of black fields only shows as a dashed line.
-		{"004", "cam1", throw.Dart{Number: 13, Segment: throw.Single}},
+		{"004", "cam1", dartboard.Hit{Number: 13, Segment: dartboard.Single}},
 		// A dart in the bull, recorded while pulling it out (before and after swapped,
 		// which doesn't matter for the comparison). Following the axis further used to
 		// run 14 px into the shadow, out of the bull.
-		{"005", "cam2", throw.Dart{Number: throw.BullNumber, Segment: throw.Bull}},
+		{"005", "cam2", dartboard.Hit{Number: dartboard.BullNumber, Segment: dartboard.Bull}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name+"-"+tt.camera, func(t *testing.T) {
@@ -334,16 +333,16 @@ func TestFuseTips(t *testing.T) {
 	tests := []struct {
 		name   string
 		points []dartboard.Point
-		want   throw.Dart
+		want   dartboard.Hit
 	}{
 		// Real T18: two cameras in the triple, one 3 mm inside (2026-10-11).
-		{"two of three in the triple", []dartboard.Point{{X: 56.0, Y: 82.3}, {X: 55.6, Y: 78.6}, {X: 59.7, Y: 80.4}}, throw.Dart{Number: 18, Segment: throw.Triple}},
+		{"two of three in the triple", []dartboard.Point{{X: 56.0, Y: 82.3}, {X: 55.6, Y: 78.6}, {X: 59.7, Y: 80.4}}, dartboard.Hit{Number: 18, Segment: dartboard.Triple}},
 		// One camera far off doesn't matter.
-		{"outlier", []dartboard.Point{{X: 0, Y: 130}, {X: 1, Y: 131}, {X: 40, Y: 60}}, throw.Dart{Number: 20, Segment: throw.Outer}},
+		{"outlier", []dartboard.Point{{X: 0, Y: 130}, {X: 1, Y: 131}, {X: 40, Y: 60}}, dartboard.Hit{Number: 20, Segment: dartboard.Outer}},
 		// Around the center the angles say nothing.
-		{"bullseye", []dartboard.Point{{X: 3, Y: 0}, {X: -3, Y: 1}, {X: 0, Y: -2}}, throw.Dart{Number: throw.BullNumber, Segment: throw.Bullseye}},
+		{"bullseye", []dartboard.Point{{X: 3, Y: 0}, {X: -3, Y: 1}, {X: 0, Y: -2}}, dartboard.Hit{Number: dartboard.BullNumber, Segment: dartboard.Bullseye}},
 		// Angles across the wrap-around at ±180° (left of the board, segment 11).
-		{"wrap around", []dartboard.Point{{X: -120, Y: 2}, {X: -121, Y: -2}, {X: -119, Y: 0}}, throw.Dart{Number: 11, Segment: throw.Outer}},
+		{"wrap around", []dartboard.Point{{X: -120, Y: 2}, {X: -121, Y: -2}, {X: -119, Y: 0}}, dartboard.Hit{Number: 11, Segment: dartboard.Outer}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -381,7 +380,7 @@ func TestFuseTipsWeighted(t *testing.T) {
 	if math.Abs(p.Radius()-want) > 0.01 {
 		t.Errorf("two cameras: %.2f mm, want the weighted mean %.2f", p.Radius(), want)
 	}
-	if got := dartboard.Score(p); got != (throw.Dart{Number: 14, Segment: throw.Outer}) {
+	if got := dartboard.Score(p); got != (dartboard.Hit{Number: 14, Segment: dartboard.Outer}) {
 		t.Errorf("scored %+v, want S14", got)
 	}
 

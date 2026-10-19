@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
 )
 
 // server reports darts to darts-o-mat with the board's token.
@@ -25,7 +25,7 @@ func newServer(url, token string) *server {
 }
 
 // dart enters a dart into the running game on the board and returns the game's id.
-func (s *server) dart(ctx context.Context, d throw.Dart) (int64, error) {
+func (s *server) dart(ctx context.Context, d dartboard.Hit) (int64, error) {
 	body, err := json.Marshal(d)
 	if err != nil {
 		return 0, err

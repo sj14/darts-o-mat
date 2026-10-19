@@ -8,10 +8,11 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/sj14/darts-o-mat/common/dartboard"
 	"github.com/sj14/darts-o-mat/common/sse"
-	"github.com/sj14/darts-o-mat/common/throw"
 	"github.com/sj14/darts-o-mat/server/auth"
 	"github.com/sj14/darts-o-mat/server/domain/game/turn"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/sj14/darts-o-mat/server/frontend/view"
 	"github.com/sj14/darts-o-mat/server/service"
 )
@@ -83,9 +84,9 @@ func (c *Controller) addDart(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err == nil:
 		render(w, r, http.StatusOK, view.Board(v, ""))
-	case d.Number == throw.BullNumber && d.Segment == throw.Triple:
+	case d.Number == dartboard.BullNumber && d.Segment == dartboard.Triple:
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrTripleBull())
-	case errors.Is(err, throw.ErrInvalid):
+	case errors.Is(err, dartboard.ErrInvalid):
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrNoSuchField())
 	default:
 		c.handleGameError(w, r, id, err)
@@ -193,9 +194,9 @@ func (c *Controller) editDart(w http.ResponseWriter, r *http.Request) {
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrChangesThrowers())
 	case errors.Is(err, turn.ErrGameOver):
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrEndsEarlier())
-	case d.Number == throw.BullNumber && d.Segment == throw.Triple:
+	case d.Number == dartboard.BullNumber && d.Segment == dartboard.Triple:
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrTripleBull())
-	case errors.Is(err, throw.ErrInvalid):
+	case errors.Is(err, dartboard.ErrInvalid):
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrNoSuchField())
 	default:
 		c.handleGameError(w, r, id, err)
@@ -373,21 +374,21 @@ func gameURL(id int64) string {
 // dartFromForm reads the dart entered with the keypad.
 func dartFromForm(r *http.Request) (throw.Dart, bool) {
 	if r.FormValue("miss") == "true" {
-		return throw.Dart{Segment: throw.Miss}, true
+		return throw.Dart{Segment: dartboard.Miss}, true
 	}
 	number, err1 := strconv.ParseUint(r.FormValue("number"), 10, 8)
-	segment, err2 := throw.ParseSegment(r.FormValue("segment"))
+	segment, err2 := dartboard.ParseSegment(r.FormValue("segment"))
 	if err1 != nil || err2 != nil {
 		return throw.Dart{}, false
 	}
 	d := throw.Dart{Number: uint8(number), Segment: segment}
-	if d.Number == throw.BullNumber {
+	if d.Number == dartboard.BullNumber {
 		// The keypad's bull key follows the single/double choice.
 		switch segment {
-		case throw.Single:
-			d.Segment = throw.Bull
-		case throw.Double:
-			d.Segment = throw.Bullseye
+		case dartboard.Single:
+			d.Segment = dartboard.Bull
+		case dartboard.Double:
+			d.Segment = dartboard.Bullseye
 		}
 	}
 	return d, true

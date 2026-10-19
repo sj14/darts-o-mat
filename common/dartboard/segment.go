@@ -1,4 +1,4 @@
-package throw
+package dartboard
 
 import (
 	"database/sql/driver"

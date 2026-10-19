@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
 	"github.com/sj14/darts-o-mat/server/domain/account"
 	"github.com/sj14/darts-o-mat/server/domain/board"
 	"github.com/sj14/darts-o-mat/server/domain/game"
 	"github.com/sj14/darts-o-mat/server/domain/game/turn"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/sj14/darts-o-mat/server/store"
 )
 
@@ -99,7 +100,7 @@ func (s *Service) BoardTakeout(ctx context.Context, b board.Board) (GameView, er
 			missing = 0
 		}
 		for range missing {
-			if err := s.storeDart(ctx, g, v, throw.Dart{Segment: throw.Miss}); err != nil {
+			if err := s.storeDart(ctx, g, v, throw.Dart{Segment: dartboard.Miss}); err != nil {
 				return err
 			}
 			var err error

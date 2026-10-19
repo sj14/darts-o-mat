@@ -13,7 +13,6 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/sj14/darts-o-mat/common/dartboard"
-	"github.com/sj14/darts-o-mat/common/throw"
 	"github.com/sj14/darts-o-mat/server/domain/board"
 	"github.com/sj14/darts-o-mat/server/domain/game"
 	"github.com/sj14/darts-o-mat/server/domain/game/aroundtheclock"
@@ -21,6 +20,7 @@ import (
 	"github.com/sj14/darts-o-mat/server/domain/game/x01"
 	"github.com/sj14/darts-o-mat/server/domain/player"
 	"github.com/sj14/darts-o-mat/server/domain/stats"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/sj14/darts-o-mat/server/service"
 )
 
@@ -89,7 +89,7 @@ func targetLabel(t Texts, target uint8) string {
 	switch target {
 	case 0:
 		return "✓"
-	case throw.BullNumber:
+	case dartboard.BullNumber:
 		return t.Bull()
 	}
 	return strconv.Itoa(int(target))
@@ -278,7 +278,7 @@ func countTrue(flags []bool) int {
 // target in around the clock, empty otherwise.
 func dartClass(v service.GameView, d throw.Dart) string {
 	switch {
-	case d.Segment == throw.Miss:
+	case d.Segment == dartboard.Miss:
 		return "miss"
 	case hitTarget(v, d):
 		return "hit"
@@ -290,11 +290,11 @@ func dartClass(v service.GameView, d throw.Dart) string {
 // 7), or "Miss" when unknown where.
 func dartLabel(t Texts, d throw.Dart) string {
 	switch {
-	case d.Segment == throw.Miss && d.Number == 0:
+	case d.Segment == dartboard.Miss && d.Number == 0:
 		return t.Miss()
-	case d.Segment == throw.Bullseye:
+	case d.Segment == dartboard.Bullseye:
 		return t.Bullseye()
-	case d.Segment == throw.Bull:
+	case d.Segment == dartboard.Bull:
 		return t.Bull()
 	}
 	return d.String()
@@ -421,15 +421,15 @@ func soundKind(v service.GameView) string {
 		return "takeout"
 	case c.GameOver || c.LegWinner != nil:
 		return "win"
-	case last.Segment == throw.Miss || counted && !hit: // in around the clock, every dart off the target misses
+	case last.Segment == dartboard.Miss || counted && !hit: // in around the clock, every dart off the target misses
 		return "miss"
 	case hit:
 		return "hit"
 	case last.Segment.IsBull():
 		return "bull"
-	case last.Segment == throw.Triple:
+	case last.Segment == dartboard.Triple:
 		return "triple"
-	case last.Segment == throw.Double:
+	case last.Segment == dartboard.Double:
 		return "double"
 	}
 	return "dart"

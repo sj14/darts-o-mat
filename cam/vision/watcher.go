@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/sj14/darts-o-mat/common/dartboard"
-	"github.com/sj14/darts-o-mat/common/throw"
 )
 
 // WatchOptions tune when the board counts as moving or still. Like DetectOptions, sizes
@@ -60,7 +59,7 @@ type Event struct {
 	// Located tells a dart whose position the cameras found from a miss they didn't
 	// locate (see Watcher.Feed).
 	Located bool
-	Dart    throw.Dart
+	Dart    dartboard.Hit
 	// Cameras are the positions on the board seen by the cameras that found the dart, by camera index.
 	Cameras map[int]Tip
 	// Tips are where those cameras found the tip in their image, in pixels.
@@ -198,7 +197,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		// With the empty board, a takeout is told apart above: this was a dart no camera
 		// located, e.g. far out in the surround, where a thin change along the board's rim
 		// (the surround moved when hit) was taken for it (2026-10-13). A miss.
-		e.Dart = throw.Dart{Segment: throw.Miss}
+		e.Dart = dartboard.Hit{Segment: dartboard.Miss}
 		return e
 	}
 	e.Board, e.Located = board, true

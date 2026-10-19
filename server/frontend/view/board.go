@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/sj14/darts-o-mat/common/dartboard"
-	"github.com/sj14/darts-o-mat/common/throw"
 	"github.com/sj14/darts-o-mat/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/server/domain/stats"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 	"github.com/sj14/darts-o-mat/server/service"
 )
 
@@ -120,7 +120,7 @@ func heatCells(h stats.Heat) []heatCell {
 // targetPath outlines the field to hit next in around the clock: the whole segment of
 // the number, since single, double and triple all count, or the bull.
 func targetPath(target uint8) string {
-	if target == throw.BullNumber {
+	if target == dartboard.BullNumber {
 		r := dartboard.BullRadius
 		return fmt.Sprintf("M%g %gA%g %g 0 1 0 %g %gA%g %g 0 1 0 %g %gZ", boardCenter-r, boardCenter, r, r, boardCenter+r, boardCenter, r, r, boardCenter-r, boardCenter)
 	}
@@ -149,23 +149,23 @@ func boardTargetOf(v service.GameView, p progress) uint8 {
 func fieldCenter(d throw.Dart, nth int) (dartboard.Point, bool) {
 	shift := float64(nth) * 5
 	switch d.Segment {
-	case throw.Miss, throw.NoSegment:
+	case dartboard.Miss, dartboard.NoSegment:
 		return dartboard.Point{}, false
-	case throw.Bullseye:
+	case dartboard.Bullseye:
 		return dartboard.Polar(shift/2, 90*float64(nth)), true
-	case throw.Bull:
+	case dartboard.Bull:
 		return dartboard.Polar(11, 45+90*float64(nth)), true
 	}
 	i := dartboard.SegmentIndex(d.Number)
 	if i < 0 {
 		return dartboard.Point{}, false
 	}
-	radius := map[throw.Segment]float64{
-		throw.Inner:  (dartboard.BullRadius + dartboard.TripleInnerRadius) / 2,
-		throw.Single: (dartboard.TripleOuterRadius + dartboard.DoubleInnerRadius) / 2,
-		throw.Outer:  (dartboard.TripleOuterRadius + dartboard.DoubleInnerRadius) / 2,
-		throw.Double: (dartboard.DoubleInnerRadius + dartboard.DoubleOuterRadius) / 2,
-		throw.Triple: (dartboard.TripleInnerRadius + dartboard.TripleOuterRadius) / 2,
+	radius := map[dartboard.Segment]float64{
+		dartboard.Inner:  (dartboard.BullRadius + dartboard.TripleInnerRadius) / 2,
+		dartboard.Single: (dartboard.TripleOuterRadius + dartboard.DoubleInnerRadius) / 2,
+		dartboard.Outer:  (dartboard.TripleOuterRadius + dartboard.DoubleInnerRadius) / 2,
+		dartboard.Double: (dartboard.DoubleInnerRadius + dartboard.DoubleOuterRadius) / 2,
+		dartboard.Triple: (dartboard.TripleInnerRadius + dartboard.TripleOuterRadius) / 2,
 	}[d.Segment]
 	return dartboard.Polar(radius, float64(i)*dartboard.SegmentAngle+shift-5), true
 }

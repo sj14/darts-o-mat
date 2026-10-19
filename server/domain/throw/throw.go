@@ -1,19 +1,11 @@
 package throw
 
 import (
-	"errors"
-	"fmt"
-	"strconv"
 	"time"
 
+	"github.com/sj14/darts-o-mat/common/dartboard"
 	"github.com/uptrace/bun"
 )
-
-// BullNumber is the number of the bull and the bullseye: the bull scores 25, the
-// bullseye 50.
-const BullNumber = 25
-
-var ErrInvalid = errors.New("invalid dart")
 
 // Dart is an entry of a game's log, in the order it happened: a dart thrown, or the
 // darts being pulled out of the board (Takeout), which ends a turn in games played on
@@ -26,9 +18,9 @@ type Dart struct {
 	// Number is the field's number, 25 for the bull and the bullseye; for a miss the
 	// number it went beside (the lines between the numbers drawn on, from the cameras'
 	// position; 0 if unknown).
-	Number  uint8   `json:"number"`
-	Segment Segment `bun:",notnull" json:"segment,omitempty"`
-	Takeout bool    `bun:",notnull,default:false" json:"takeout,omitempty"`
+	Number  uint8             `json:"number"`
+	Segment dartboard.Segment `bun:",notnull" json:"segment,omitempty"`
+	Takeout bool              `bun:",notnull,default:false" json:"takeout,omitempty"`
 	// PlayerID is the player who threw the dart, set by the server from whose turn it was
 	// (0 for takeouts); for a Skip or Leave entry the player whose turn was skipped, or who left. Replaying a game checks
 	// that it is the player who is up.
@@ -56,48 +48,22 @@ func (d Dart) IsDart() bool {
 	return !d.Takeout && !d.Leave && !d.Skip
 }
 
-// Validate checks that the dart hit a field that exists on the board.
-func (d Dart) Validate() error {
-	switch {
-	case d.Segment == NoSegment || !d.Segment.valid():
-		return fmt.Errorf("%w: no segment", ErrInvalid)
-	case d.Segment == Miss:
-		if d.Number > 20 {
-			return fmt.Errorf("%w: a miss beside number %d", ErrInvalid, d.Number)
-		}
-	case d.Segment.IsBull():
-		if d.Number != BullNumber {
-			return fmt.Errorf("%w: the %s is number %d, not %d", ErrInvalid, d.Segment, BullNumber, d.Number)
-		}
-	case d.Number < 1 || d.Number > 20:
-		return fmt.Errorf("%w: number %d does not exist", ErrInvalid, d.Number)
-	}
-	return nil
+// Hit returns the field and position of the dart, without the rest of the log entry.
+func (d Dart) Hit() dartboard.Hit {
+	return dartboard.Hit{Number: d.Number, Segment: d.Segment, X: d.X, Y: d.Y}
 }
+
+// FromHit returns the log entry for a dart the cameras saw, still without game and
+// player.
+func FromHit(h dartboard.Hit) Dart {
+	return Dart{Number: h.Number, Segment: h.Segment, X: h.X, Y: h.Y}
+}
+
+// Validate checks that the dart hit a field that exists on the board.
+func (d Dart) Validate() error { return d.Hit().Validate() }
 
 // Score returns the points of the dart, 0 for a miss.
-func (d Dart) Score() uint64 {
-	return uint64(d.Number) * uint64(d.Segment.Multiplier())
-}
+func (d Dart) Score() uint64 { return d.Hit().Score() }
 
-// String returns the dart as players read it: 20, D20, T20, Bull, Bullseye, M7 (a miss
-// beside the 7), Miss (a miss, unknown where). The web interfaces translate it.
-func (d Dart) String() string {
-	n := strconv.Itoa(int(d.Number))
-	switch d.Segment {
-	case Miss:
-		if d.Number > 0 {
-			return "M" + n
-		}
-		return "Miss"
-	case Bull:
-		return "Bull"
-	case Bullseye:
-		return "Bullseye"
-	case Double:
-		return "D" + n
-	case Triple:
-		return "T" + n
-	}
-	return n
-}
+// String returns the dart as players read it, see dartboard.Hit.String.
+func (d Dart) String() string { return d.Hit().String() }

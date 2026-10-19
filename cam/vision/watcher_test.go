@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/sj14/darts-o-mat/common/dartboard"
-	"github.com/sj14/darts-o-mat/common/throw"
 )
 
 func TestWatcher(t *testing.T) {
@@ -266,7 +265,7 @@ func TestWatcherUnlocatedMiss(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("got %d events, want 1", len(events))
 	}
-	if e := events[0]; e.Kind != EventDart || e.Dart.Segment != throw.Miss || e.Located {
+	if e := events[0]; e.Kind != EventDart || e.Dart.Segment != dartboard.Miss || e.Located {
 		t.Errorf("got %s %+v, located %v; want a miss without position", e.Kind, e.Dart, e.Located)
 	}
 }

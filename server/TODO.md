@@ -9,7 +9,7 @@ Open tasks of the [server](README.md). Tasks of the whole project: [TODO.md](../
 
 ## Game modes
 
-- Game mode segment training (planned 2026-10-14, why `throw.Segment` knows the inner and outer single field): e.g. hit a given segment as often as possible. A new mode follows [AGENTS.md → game state](AGENTS.md#game-state).
+- Game mode segment training (planned 2026-10-14, why `dartboard.Segment` knows the inner and outer single field): e.g. hit a given segment as often as possible. A new mode follows [AGENTS.md → game state](AGENTS.md#game-state).
 
 ## Games
 

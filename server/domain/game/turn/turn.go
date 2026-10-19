@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 )
 
 const DartsPerTurn = 3

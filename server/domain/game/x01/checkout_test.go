@@ -4,11 +4,12 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/sj14/darts-o-mat/common/throw"
+	"github.com/sj14/darts-o-mat/common/dartboard"
+	"github.com/sj14/darts-o-mat/server/domain/throw"
 )
 
 func TestCheckout(t *testing.T) {
-	bull := throw.Dart{Number: throw.BullNumber, Segment: throw.Bullseye}
+	bull := throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bullseye}
 	tests := []struct {
 		mode      OutMode
 		remaining uint64
