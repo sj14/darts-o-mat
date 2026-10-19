@@ -617,10 +617,11 @@ func optionalBoard(w http.ResponseWriter, r *http.Request) (*int64, bool) {
 	return req.BoardID, true
 }
 
-// listLobbies lists the games and tournaments of others that are open for strangers.
+// listLobbies lists the games and tournaments of others that are open for strangers,
+// narrowed down by the filter of the query (see service.LobbyFilterFromQuery).
 func (a *API) listLobbies(w http.ResponseWriter, r *http.Request) {
 	lobbies, err := a.svc.OpenLobbies(r.Context(), auth.Account(r.Context()))
-	respond(w, http.StatusOK, lobbies, err)
+	respond(w, http.StatusOK, service.LobbyFilterFromQuery(r.URL.Query()).Apply(lobbies), err)
 }
 
 // joinGame takes a seat of an open game with the account's player.

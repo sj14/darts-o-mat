@@ -38,6 +38,7 @@ templ layout(title, user string) {
 					</a>
 					if user != "" {
 						<nav class="flex flex-wrap items-center gap-1 text-sm font-semibold">
+							<a href="/lobbies" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).OpenGames() }</a>
 							<a href="/stats" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavStats() }</a>
 							<a href="/friends" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavFriends() }</a>
 							<a href="/boards" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavBoards() }</a>

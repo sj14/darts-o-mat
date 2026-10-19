@@ -57,6 +57,16 @@ type Texts interface {
 	NoOpenGames() string
 	PlayersOfSeats(players, seats int) string
 	JoinLobby() string
+	LobbiesHint() string
+	LobbiesShown(shown, total int) string
+	NoMatchingGames() string
+	OpenForMinutes(n int) string
+	GameMode() string
+	FilterAny() string
+	FilterYes() string
+	FilterNo() string
+	FilterReset() string
+	TurnLimited() string
 	Strangers() string
 	AllowStrangers() string
 	StrangerSeats() string
@@ -178,7 +188,6 @@ type Texts interface {
 	TournamentInvitations() string
 	WithPlayers(names string) string
 	PlayerCount(n int) string
-	Guests() string
 	GuestsHint() string
 	Name() string
 	GuestName() string

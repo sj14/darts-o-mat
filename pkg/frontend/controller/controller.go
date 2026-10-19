@@ -55,6 +55,7 @@ func (c *Controller) Routes() http.Handler {
 		r.Post("/boards/{id}/delete", c.deleteBoard)
 		r.Post("/boards/{id}/token", c.createBoardToken)
 
+		r.Get("/lobbies", c.showLobbies)
 		r.Post("/games", c.createGame)
 		r.Post("/games/{id}/join", c.joinGame)
 		r.Post("/tournaments/{id}/join", c.joinTournament)

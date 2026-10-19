@@ -37,10 +37,6 @@ func (c *Controller) renderHome(w http.ResponseWriter, r *http.Request, status i
 		serverError(w, err)
 		return
 	}
-	if m.OpenLobbies, err = c.svc.OpenLobbies(ctx, m.Account); err != nil {
-		serverError(w, err)
-		return
-	}
 	if m.Games, err = c.svc.ListGames(ctx, m.Account, 10); err != nil {
 		serverError(w, err)
 		return
@@ -65,7 +61,12 @@ func (c *Controller) renderHome(w http.ResponseWriter, r *http.Request, status i
 }
 
 func (c *Controller) createGuest(w http.ResponseWriter, r *http.Request) {
-	_, err := c.svc.CreateGuest(r.Context(), auth.Account(r.Context()), r.FormValue("name"))
+	guest, err := c.svc.CreateGuest(r.Context(), auth.Account(r.Context()), r.FormValue("name"))
+	if isHTMX(r) {
+		// From the player selection: only that part is answered, the new guest ticked.
+		c.renderPlayers(w, r, err, guest.ID, 0)
+		return
+	}
 	if errors.Is(err, service.ErrGuestNameTaken) {
 		c.renderHome(w, r, http.StatusBadRequest, "", view.T(r.Context()).ErrGuestNameTaken())
 		return
@@ -87,7 +88,12 @@ func (c *Controller) deleteGuest(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	switch err := c.svc.DeleteGuest(r.Context(), auth.Account(r.Context()), id); {
+	err := c.svc.DeleteGuest(r.Context(), auth.Account(r.Context()), id)
+	if isHTMX(r) && !isNotFound(err) {
+		c.renderPlayers(w, r, err, 0, id)
+		return
+	}
+	switch {
 	case err == nil:
 		http.Redirect(w, r, homeURL(r), http.StatusSeeOther)
 	case isNotFound(err):
@@ -97,6 +103,49 @@ func (c *Controller) deleteGuest(w http.ResponseWriter, r *http.Request) {
 	default:
 		serverError(w, err)
 	}
+}
+
+// isHTMX reports whether htmx sent the request, which then wants a part of the page.
+func isHTMX(r *http.Request) bool {
+	return r.Header.Get("HX-Request") != ""
+}
+
+// renderPlayers answers adding or deleting a guest from the player selection with that
+// selection: who was ticked stays ticked, the new guest (if any) joins them, and why it
+// failed (err) is told within it. The status is 200 even then, htmx doesn't swap errors.
+func (c *Controller) renderPlayers(w http.ResponseWriter, r *http.Request, err error, added, deleted int64) {
+	ctx := r.Context()
+	t := view.T(ctx)
+	m := view.PlayersModel{Selected: map[int64]bool{}}
+	switch {
+	case err == nil:
+	case errors.Is(err, service.ErrGuestNameTaken):
+		m.Error = t.ErrGuestNameTaken()
+	case errors.Is(err, service.ErrGuestBusy):
+		m.Error = t.ErrGuestBusy()
+	case errors.Is(err, service.ErrInvalid):
+		m.Error = t.ErrEnterName()
+	default:
+		serverError(w, err)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	for _, s := range r.Form["player_ids"] {
+		if id, err := strconv.ParseInt(s, 10, 64); err == nil && id != deleted {
+			m.Selected[id] = true
+		}
+	}
+	if added != 0 {
+		m.Selected[added] = true
+	}
+	if m.Players, err = c.svc.Players(ctx, auth.Account(ctx)); err != nil {
+		serverError(w, err)
+		return
+	}
+	render(w, r, http.StatusOK, view.PlayerPicker(m))
 }
 
 // homeURL returns the start page the request came from, so a selected mode

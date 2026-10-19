@@ -78,10 +78,24 @@ func (textsDE) NoOpenGames() string { return "Zurzeit sucht kein Spiel Mitspiele
 func (textsDE) PlayersOfSeats(players, seats int) string {
 	return strconv.Itoa(players) + " von " + strconv.Itoa(seats) + " Spielern"
 }
-func (textsDE) JoinLobby() string      { return "Beitreten" }
-func (textsDE) Strangers() string      { return "Fremde" }
-func (textsDE) AllowStrangers() string { return "Fremde mitspielen lassen" }
-func (textsDE) StrangerSeats() string  { return "Spieler insgesamt" }
+func (textsDE) JoinLobby() string { return "Beitreten" }
+func (textsDE) LobbiesHint() string {
+	return "Spiele und Turniere, die Mitspieler suchen. Grenze die Liste auf das passende ein und tritt bei: Es startet, sobald alle Plätze besetzt sind."
+}
+func (textsDE) LobbiesShown(shown, total int) string {
+	return strconv.Itoa(shown) + " von " + strconv.Itoa(total) + " offenen Spielen"
+}
+func (textsDE) NoMatchingGames() string     { return "Kein offenes Spiel passt zu diesen Filtern." }
+func (textsDE) OpenForMinutes(n int) string { return "noch " + strconv.Itoa(n) + " Min. offen" }
+func (textsDE) GameMode() string            { return "Spielmodus" }
+func (textsDE) FilterAny() string           { return "Egal" }
+func (textsDE) FilterYes() string           { return "Ja" }
+func (textsDE) FilterNo() string            { return "Nein" }
+func (textsDE) FilterReset() string         { return "Filter zurücksetzen" }
+func (textsDE) TurnLimited() string         { return "Mit Limit" }
+func (textsDE) Strangers() string           { return "Fremde" }
+func (textsDE) AllowStrangers() string      { return "Fremde mitspielen lassen" }
+func (textsDE) StrangerSeats() string       { return "Spieler insgesamt" }
 func (textsDE) StrangersHint() string {
 	return "Das Spiel steht 30 Minuten in der Liste der offenen Spiele und startet, sobald alle Plätze besetzt sind. Ein Turnier braucht mindestens 3 Spieler."
 }
@@ -240,7 +254,6 @@ func (textsDE) Invitations() string             { return "Einladungen" }
 func (textsDE) TournamentInvitations() string   { return "Turnier-Einladungen" }
 func (textsDE) WithPlayers(names string) string { return "mit " + names }
 func (textsDE) PlayerCount(n int) string        { return strconv.Itoa(n) + " Spieler" }
-func (textsDE) Guests() string                  { return "Gastspieler" }
 func (textsDE) GuestsHint() string              { return "Für Mitspieler ohne eigenen Account. Nur du siehst sie." }
 func (textsDE) GuestName() string               { return "Name des Gastspielers" }
 func (textsDE) Add() string                     { return "Anlegen" }

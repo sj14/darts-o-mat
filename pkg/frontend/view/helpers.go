@@ -699,3 +699,38 @@ func lobbyPlayers(ctx context.Context, l service.OpenLobby) string {
 	}
 	return strings.Join(names, ", ")
 }
+
+// minutesLeft is how many more minutes an open game or tournament is offered, at least one.
+func minutesLeft(l service.OpenLobby) int {
+	left := service.OpenFor - time.Since(l.CreatedAt)
+	return max(1, int((left+time.Minute-1)/time.Minute))
+}
+
+// filterValue is a number as the filter form has it: empty for none.
+func filterValue(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return strconv.Itoa(n)
+}
+
+// outModeValue is the check-out mode as the filter form has it: empty for none.
+func outModeValue(m x01.OutMode) string {
+	name, err := m.MarshalText()
+	if err != nil {
+		return ""
+	}
+	return string(name)
+}
+
+// filterOption is one choice of a select of the lobby filter.
+type filterOption struct{ Value, Label string }
+
+// numberOptions are the numbers from..to as choices.
+func numberOptions(from, to int) []filterOption {
+	var options []filterOption
+	for n := from; n <= to; n++ {
+		options = append(options, filterOption{strconv.Itoa(n), strconv.Itoa(n)})
+	}
+	return options
+}

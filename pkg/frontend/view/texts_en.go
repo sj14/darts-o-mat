@@ -80,10 +80,24 @@ func (textsEN) NoOpenGames() string { return "No game is looking for players rig
 func (textsEN) PlayersOfSeats(players, seats int) string {
 	return strconv.Itoa(players) + " of " + strconv.Itoa(seats) + " players"
 }
-func (textsEN) JoinLobby() string      { return "Join" }
-func (textsEN) Strangers() string      { return "Strangers" }
-func (textsEN) AllowStrangers() string { return "Let strangers join" }
-func (textsEN) StrangerSeats() string  { return "Players in total" }
+func (textsEN) JoinLobby() string { return "Join" }
+func (textsEN) LobbiesHint() string {
+	return "Games and tournaments that look for players. Narrow the list down to the one that fits and join: it starts as soon as every seat is taken."
+}
+func (textsEN) LobbiesShown(shown, total int) string {
+	return strconv.Itoa(shown) + " of " + strconv.Itoa(total) + " open games"
+}
+func (textsEN) NoMatchingGames() string     { return "No open game fits these filters." }
+func (textsEN) OpenForMinutes(n int) string { return "open for " + strconv.Itoa(n) + " more min" }
+func (textsEN) GameMode() string            { return "Game mode" }
+func (textsEN) FilterAny() string           { return "Any" }
+func (textsEN) FilterYes() string           { return "Yes" }
+func (textsEN) FilterNo() string            { return "No" }
+func (textsEN) FilterReset() string         { return "Reset filters" }
+func (textsEN) TurnLimited() string         { return "With limit" }
+func (textsEN) Strangers() string           { return "Strangers" }
+func (textsEN) AllowStrangers() string      { return "Let strangers join" }
+func (textsEN) StrangerSeats() string       { return "Players in total" }
 func (textsEN) StrangersHint() string {
 	return "The game shows up in the list of open games for 30 minutes and starts once all seats are taken. A tournament needs at least 3 players."
 }
@@ -248,7 +262,6 @@ func (textsEN) WithPlayers(names string) string { return "with " + names }
 func (textsEN) PlayerCount(n int) string {
 	return strconv.Itoa(n) + " " + plural(n, "player", "players")
 }
-func (textsEN) Guests() string { return "Guest players" }
 func (textsEN) GuestsHint() string {
 	return "For fellow players without an account of their own. Only you see them."
 }
