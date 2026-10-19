@@ -1,0 +1,83 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/sj14/darts-o-mat/internal/server/service"
+)
+
+templ Friends(user string, list service.FriendList, errMsg, info string) {
+	@layout(T(ctx).NavFriends(), user) {
+		<div class="mx-auto flex max-w-3xl flex-col gap-6">
+			<div>
+				@pageTitle(T(ctx).NavFriends(), T(ctx).FriendsHint())
+				@errorAlert(errMsg)
+				@notice(info)
+				<form method="post" action="/friends" class="flex gap-2">
+					<input type="text" name="username" class={ inputClass } placeholder={ T(ctx).Username() } autocapitalize="none" required aria-label={ T(ctx).Username() }/>
+					<button type="submit" class={ btnPrimary, "shrink-0" }>{ T(ctx).SendRequest() }</button>
+				</form>
+			</div>
+			if len(list.Incoming) > 0 {
+				@panel("border-sky-400/50 [--glow-color:var(--color-sky-400)] animate-glow") {
+					@sectionTitle(T(ctx).RequestsToYou())
+					<ul class="divide-y divide-white/10">
+						for _, f := range list.Incoming {
+							@friendItem(f) {
+								@friendAction(f, "/accept", T(ctx).AcceptRequest(), btnPrimary)
+								@friendAction(f, "/remove", T(ctx).DeclineRequest(), btnDanger)
+							}
+						}
+					</ul>
+				}
+			}
+			@panel("") {
+				@sectionTitle(T(ctx).YourFriends())
+				if len(list.Friends) == 0 {
+					<p class="text-white/50">{ T(ctx).NoFriendsYet() }</p>
+				} else {
+					<ul class="divide-y divide-white/10">
+						for _, f := range list.Friends {
+							@friendItem(f) {
+								@friendAction(f, "/remove", T(ctx).Remove(), btnDanger)
+							}
+						}
+					</ul>
+				}
+			}
+			if len(list.Outgoing) > 0 {
+				@panel("") {
+					@sectionTitle(T(ctx).SentRequests())
+					<ul class="divide-y divide-white/10">
+						for _, f := range list.Outgoing {
+							@friendItem(f) {
+								@friendAction(f, "/remove", T(ctx).WithdrawRequest(), btnSecondary)
+							}
+						}
+					</ul>
+				}
+			}
+		</div>
+	}
+}
+
+// friendItem shows a friend with the actions passed as children.
+templ friendItem(f service.Friend) {
+	<li class="flex flex-wrap items-center justify-between gap-3 py-3">
+		<span>
+			<span class="font-display text-2xl font-semibold uppercase">{ f.Name }</span>
+			if f.Name != f.Username {
+				<span class="text-white/40">{ "@" + f.Username }</span>
+			}
+		</span>
+		<span class="flex gap-2">
+			{ children... }
+		</span>
+	</li>
+}
+
+templ friendAction(f service.Friend, action, label, class string) {
+	<form method="post" action={ templ.URL("/friends/" + strconv.FormatInt(f.AccountID, 10) + action) }>
+		<button type="submit" class={ class, btnSmall }>{ label }</button>
+	</form>
+}

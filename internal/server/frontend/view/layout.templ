@@ -1,0 +1,88 @@
+package view
+
+import (
+	"github.com/sj14/darts-o-mat/internal/common/buildinfo"
+	"github.com/sj14/darts-o-mat/internal/common/update"
+	"github.com/sj14/darts-o-mat/internal/common/i18n"
+)
+
+// layout is the frame of every page, in the dark pub look (Tailwind, see tailwind.css).
+// user is the username of the logged-in account, empty on the login pages.
+templ layout(title, user string) {
+	<!DOCTYPE html>
+	<html lang={ string(i18n.From(ctx)) } class="dark">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="theme-color" content="#0f1115"/>
+			if title == "" {
+				<title>darts-o-mat</title>
+			} else {
+				<title>{ title } · darts-o-mat</title>
+			}
+			<link rel="icon" href="/static/favicon.svg" type="image/svg+xml"/>
+			<link rel="apple-touch-icon" href="/static/apple-touch-icon.png"/>
+			<link rel="preload" href="/static/barlow-condensed-800.woff2" as="font" type="font/woff2" crossorigin/>
+			<link rel="preload" href="/static/roboto-condensed-latin.woff2" as="font" type="font/woff2" crossorigin/>
+			<link rel="stylesheet" href="/static/tailwind.css"/>
+			<script src="/static/htmx.min.js"></script>
+			<script src="/static/htmx-ext-sse.min.js"></script>
+			<script src="/static/sounds.js" defer></script>
+		</head>
+		<body class="min-h-screen text-white antialiased">
+			<header class="border-b border-white/10 bg-pub-950/80">
+				<div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+					<a href="/" class="flex items-center gap-2 font-display text-2xl font-extrabold uppercase tracking-wide">
+						<span class="grid size-9 place-items-center rounded-full bg-[radial-gradient(circle,var(--color-board-red)_0_22%,var(--color-board-green)_23%_40%,var(--color-board-cream)_41%_62%,var(--color-board-black)_63%)] ring-2 ring-white/20"></span>
+						darts<span class="text-board-red">-o-</span>mat
+					</a>
+					if user != "" {
+						<nav class="flex flex-wrap items-center gap-1 text-sm font-semibold">
+							<a href="/lobbies" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).OpenGames() }</a>
+							<a href="/stats" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavStats() }</a>
+							<a href="/friends" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavFriends() }</a>
+							<a href="/boards" class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white">{ T(ctx).NavBoards() }</a>
+							<button
+								type="button"
+								id="sound-toggle"
+								hidden
+								class="rounded-lg px-3 py-1.5 text-white/70 hover:bg-white/10 hover:text-white"
+								data-on={ T(ctx).SoundOn() }
+								data-off={ T(ctx).SoundOff() }
+								data-blocked={ T(ctx).SoundBlocked() }
+							>{ T(ctx).SoundOn() }</button>
+							<a href="/settings" class="rounded-lg px-2 py-1.5 text-white/50 hover:bg-white/10 hover:text-white" title={ T(ctx).NavSettings() }>{ user }</a>
+							@languageChoice()
+							<form method="post" action="/logout">
+								<button type="submit" class="rounded-lg border border-white/15 px-3 py-1.5 text-white/70 hover:bg-white/10">{ T(ctx).Logout() }</button>
+							</form>
+						</nav>
+					}
+				</div>
+			</header>
+			<main class="mx-auto max-w-6xl px-4 py-6 pb-16">
+				{ children... }
+			</main>
+			<footer class="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-white/40">
+				<a href={ templ.URL(buildinfo.ProjectURL) } class="hover:text-white/70" target="_blank" rel="noopener">darts-o-mat { buildinfo.Version() }</a>
+				if v, ok := update.Available(); ok {
+					<a href={ templ.URL(buildinfo.ProjectURL + "/releases/latest") } class="ml-3 font-semibold text-amber-300 hover:text-amber-200" target="_blank" rel="noopener">{ T(ctx).NewVersion(v) }</a>
+				}
+			</footer>
+		</body>
+	</html>
+}
+
+// languageChoice shows the language of the page as a flag and sets the account's
+// language. Choosing submits the form right away; without JavaScript the button does.
+templ languageChoice() {
+	<form method="post" action="/language" class="flex items-center">
+		<label class="sr-only" for="language">{ T(ctx).Language() }</label>
+		<select id="language" name="language" onchange="this.form.submit()" class="rounded-lg border border-white/15 bg-pub-950 px-2 py-1 text-lg" title={ T(ctx).Language() + ": " + languageName(i18n.From(ctx)) }>
+			for _, l := range i18n.Supported {
+				<option value={ string(l) } selected?={ i18n.From(ctx) == l } aria-label={ languageName(l) }>{ languageFlag(l) }</option>
+			}
+		</select>
+		<noscript><button type="submit" class="ml-1 rounded-lg px-2 py-1.5 text-white/70 hover:bg-white/10">OK</button></noscript>
+	</form>
+}

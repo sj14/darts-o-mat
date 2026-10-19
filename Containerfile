@@ -1,5 +1,5 @@
 # The server darts-o-mat as a container image (darts-o-cam needs the cameras, see
-# cam/TODO.md). From the project folder:
+# internal/cam/TODO.md). From the project folder:
 #
 #	docker build -f Containerfile -t darts-o-mat .
 #	docker run -p 3000:3000 -v darts-o-mat:/data darts-o-mat
@@ -16,7 +16,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X github.com/sj14/darts-o-mat/common/buildinfo.stamped=${VERSION}" -o /darts-o-mat ./server/cmd/darts-o-mat
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X github.com/sj14/darts-o-mat/internal/common/buildinfo.stamped=${VERSION}" -o /darts-o-mat ./cmd/darts-o-mat
 # The SQLite database's folder, owned by nonroot so a new volume is writable.
 RUN mkdir /data
 

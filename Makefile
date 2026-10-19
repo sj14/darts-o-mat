@@ -29,14 +29,14 @@ site:
 	rm -rf dist/site
 	mkdir -p dist/site/assets
 	cp -R site/. dist/site/
-	cp common/static/*.woff2 common/static/favicon.svg common/static/apple-touch-icon.png common/static/*-OFL.txt dist/site/assets/
+	cp internal/common/static/*.woff2 internal/common/static/favicon.svg internal/common/static/apple-touch-icon.png internal/common/static/*-OFL.txt dist/site/assets/
 
 # The generated code: the templ views of the server and of darts-o-cam, then the CSS
-# (common/static, built from the classes the views use).
+# (internal/common/static, built from the classes the views use).
 .PHONY: generate
 generate:
 	go tool templ generate
-	go generate ./common/...
+	go generate ./internal/common/...
 
 # go mod tidy in both modules (needs the network).
 .PHONY: tidy

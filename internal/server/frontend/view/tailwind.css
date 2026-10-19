@@ -1,0 +1,177 @@
+/*
+ * Source of internal/common/static/tailwind.css, built with `go generate ./common/static`.
+ * Only the classes used in the templates and view helpers end up in the output.
+ */
+@import "tailwindcss" source(none);
+@source "./*.templ";
+@source "./*.go";
+@source "../../../cam/camui/*.templ";
+@source "../../../cam/camui/*.go";
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/static/barlow-condensed-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-weight: 800;
+  font-display: swap;
+  src: url("/static/barlow-condensed-800.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Roboto Condensed";
+  font-weight: 600 800;
+  font-display: swap;
+  src: url("/static/roboto-condensed-latin.woff2") format("woff2");
+}
+
+@theme {
+  --font-display: "Barlow Condensed", ui-sans-serif, system-ui, sans-serif;
+  /* Numbers and dart labels of the game page: in the display font M looked like 11 and 1
+     like T; a fixed font, not the system's, so labels are as wide everywhere (user's
+     choice, 2026-10-15). */
+  --font-number: "Roboto Condensed", ui-sans-serif, system-ui, sans-serif;
+
+  /* The board's own colors, used as accents. */
+  --color-board-red: oklch(58% 0.21 25);
+  --color-board-green: oklch(62% 0.16 150);
+  --color-board-cream: oklch(93% 0.04 85);
+  --color-board-black: oklch(18% 0.01 260);
+
+  /* Surfaces of the dark pub look. */
+  --color-pub-950: oklch(14% 0.012 260);
+  --color-pub-900: oklch(19% 0.014 260);
+  --color-pub-800: oklch(25% 0.016 260);
+  --color-pub-700: oklch(33% 0.018 260);
+
+  --animate-dart-in: dart-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  --animate-shake: shake 0.5s ease-in-out both;
+  --animate-celebrate: celebrate 2.4s ease-out both;
+  /* The target on the board lights up and fades again (opacity only, see Performance). */
+  --animate-target: target 1.6s ease-in-out infinite;
+  /* The bar of the time for a turn runs down; the duration and where it starts come from
+     the page (style attribute), transform only. */
+  --animate-turn: turn linear both;
+
+  @keyframes turn {
+    to {
+      transform: scaleX(0);
+    }
+  }
+
+  @keyframes target {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes dart-in {
+    from {
+      opacity: 0;
+      transform: scale(1.6) translateY(-0.5rem);
+    }
+  }
+
+  @keyframes shake {
+    20%,
+    60% {
+      transform: translateX(-0.4rem);
+    }
+    40%,
+    80% {
+      transform: translateX(0.4rem);
+    }
+  }
+
+  @keyframes celebrate {
+    0% {
+      opacity: 0;
+      transform: scale(0.4) rotate(-8deg);
+    }
+    15% {
+      opacity: 1;
+      transform: scale(1.1) rotate(2deg);
+    }
+    25% {
+      transform: scale(1) rotate(0);
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.3);
+    }
+  }
+}
+
+/*
+ * Performance: effects that scroll or animate must not make the browser repaint the page.
+ * The glow behind the page is a fixed layer of its own (instead of background-attachment:
+ * fixed, which repaints everything on every scroll step), panels have no backdrop-filter,
+ * and the pulsing glow animates only the opacity of a shadow layer (box-shadow animations
+ * repaint in every frame).
+ */
+@layer base {
+  body {
+    background: var(--color-pub-950);
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 90% 50% at 15% 0%, oklch(58% 0.21 25 / 0.14), transparent 70%),
+      radial-gradient(ellipse 90% 50% at 85% 0%, oklch(62% 0.16 150 / 0.12), transparent 70%);
+  }
+}
+
+/* A pulsing glow in --glow-color around the element. */
+@utility animate-glow {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: 0 0 2.5rem -0.25rem var(--glow-color);
+    pointer-events: none;
+    animation: glow 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* SVG elements scale around their own center (the hit markers on the board). */
+.svg-center {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* text-fit makes a label fit the width of its container (an element with @container):
+   the font size shrinks with the label's length (--fit-len, characters, see fitText)
+   down from --fit-max, so long words like DANEBEN or BULLSEYE fit any tile and font. */
+@utility text-fit {
+  white-space: nowrap;
+  font-size: min(var(--fit-max, 3rem), calc(100cqw / (var(--fit-len, 3) * 0.6)));
+}

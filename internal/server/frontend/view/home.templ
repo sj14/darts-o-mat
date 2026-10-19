@@ -1,0 +1,438 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/sj14/darts-o-mat/internal/server/domain/account"
+	"github.com/sj14/darts-o-mat/internal/server/domain/board"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game"
+	"github.com/sj14/darts-o-mat/internal/server/domain/player"
+	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
+	"github.com/sj14/darts-o-mat/internal/server/service"
+)
+
+type HomeModel struct {
+	Account     account.Account
+	Players     []player.Player // the account's own player followed by its guests
+	Boards      []service.BoardView
+	Games       []service.GameView
+	Invitations []service.GameView
+	Friends     service.FriendList
+
+	Tournaments           []service.TournamentView
+	TournamentInvitations []service.TournamentView
+	Mode        game.Mode // selected mode of the new game, empty until the user picked one
+	Error       string
+}
+
+templ Home(m HomeModel) {
+	@layout(T(ctx).HomeTitle(), m.Account.Username) {
+		@errorAlert(m.Error)
+		if len(m.Friends.Incoming) > 0 {
+			<div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-400/40 bg-sky-400/10 px-4 py-3">
+				<span>
+					{ T(ctx).FriendRequests(len(m.Friends.Incoming)) }
+				</span>
+				<a href="/friends" class={ btnSecondary, btnSmall }>{ T(ctx).Show() }</a>
+			</div>
+		}
+		if len(m.Invitations) > 0 {
+			@invitations(m.Invitations)
+		}
+		if len(m.TournamentInvitations) > 0 {
+			@tournamentInvitations(m.TournamentInvitations)
+		}
+		<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+			@newGame(m)
+			<div class="flex flex-col gap-6">
+				if len(m.Tournaments) > 0 {
+					@panel("") {
+						@sectionTitle(T(ctx).Tournaments())
+						@tournamentList(m.Tournaments)
+					}
+				}
+				if len(m.Games) > 0 {
+					@recentGames(m.Games)
+				}
+			</div>
+		</div>
+	}
+}
+
+templ invitations(views []service.GameView) {
+	@panel("mb-6 border-amber-400/50 [--glow-color:var(--color-amber-400)] animate-glow") {
+		@sectionTitle(T(ctx).Invitations())
+		<ul class="divide-y divide-white/10">
+			for _, v := range views {
+				<li class="flex flex-wrap items-center justify-between gap-3 py-3">
+					<div>
+						<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">{ modeLabel(T(ctx), v.Game.Settings) }</a>
+						<div class="text-sm text-white/50">{ T(ctx).WithPlayers(playerNames(ctx, v, v.Game.PlayerIDs())) }</div>
+					</div>
+					@answerInvitation(v.Game.ID, boardsOfChoices(v.Boards))
+				</li>
+			}
+		</ul>
+	}
+}
+
+templ tournamentInvitations(views []service.TournamentView) {
+	@panel("mb-6 border-amber-400/50 [--glow-color:var(--color-amber-400)] animate-glow") {
+		@sectionTitle(T(ctx).TournamentInvitations())
+		<ul class="divide-y divide-white/10">
+			for _, v := range views {
+				<li class="flex flex-wrap items-center justify-between gap-3 py-3">
+					<div>
+						<a href={ templ.URL(tournamentURL(v.Tournament.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">🏆 { formatName(T(ctx), v.Tournament.Format) }</a>
+						<div class="text-sm text-white/50">{ modeLabel(T(ctx), v.Tournament.Settings) } · { T(ctx).PlayerCount(len(v.Players)) }</div>
+					</div>
+					@answerTournament(v.Tournament.ID, boardsOfChoices(v.Boards))
+				</li>
+			}
+		</ul>
+	}
+}
+
+templ answerInvitation(gameID int64, boards []board.Board) {
+	<div class="flex flex-wrap items-center gap-2">
+		<form method="post" action={ templ.URL(gameURL(gameID, "/accept")) } class="flex items-center gap-2">
+			@boardSelect(boards)
+			<button type="submit" class={ btnPrimary }>{ T(ctx).Accept() }</button>
+		</form>
+		<form method="post" action={ templ.URL(gameURL(gameID, "/decline")) }>
+			<button type="submit" class={ btnDanger }>{ T(ctx).Decline() }</button>
+		</form>
+	</div>
+}
+
+templ recentGames(views []service.GameView) {
+	@panel("") {
+		@sectionTitle(T(ctx).RecentGames())
+		<ul class="-mx-2 flex flex-col gap-1">
+			for _, v := range views {
+				<li>
+					<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="block rounded-2xl px-3 py-2.5 transition hover:bg-white/5">
+						<div class="flex items-center justify-between gap-2">
+							<span class="font-display text-xl font-semibold uppercase">{ modeLabel(T(ctx), v.Game.Settings) }</span>
+							switch  {
+								case v.Game.Aborted():
+									@statusBadge(T(ctx).StatusAborted(), "bg-white/10 text-white/50")
+								case !v.Ready:
+									@statusBadge(T(ctx).StatusWaiting(), "bg-amber-400/20 text-amber-300")
+								case progressOf(v).GameOver:
+									@statusBadge(T(ctx).StatusOver(), "bg-board-cream/15 text-board-cream")
+								default:
+									@statusBadge(T(ctx).StatusRunning(), "bg-board-green/25 text-emerald-300")
+							}
+						</div>
+						<div class="text-sm text-white/50">{ playerNames(ctx, v, v.Game.PlayerIDs()) }</div>
+					</a>
+				</li>
+			}
+		</ul>
+	}
+}
+
+// fieldset is a labeled group of form fields.
+templ fieldset(label string) {
+	<fieldset>
+		<legend class={ labelClass }>{ label }</legend>
+		{ children... }
+	</fieldset>
+}
+
+// formatChoice picks a single game or a tournament of games with these settings.
+templ formatChoice() {
+	@fieldset(T(ctx).GameFormat()) {
+		<div class="flex flex-wrap gap-2">
+			@choice("format", "", T(ctx).SingleGame(), true)
+			@choice("format", "knockout", "🏆 "+T(ctx).Knockout(), false)
+			@choice("format", "round_robin", "🏆 "+T(ctx).RoundRobin(), false)
+		</div>
+		<p class={ hintClass }>{ T(ctx).TournamentHint(tournament.MinPlayers, tournament.MaxPlayers) }</p>
+	}
+}
+
+// legsChoice picks how many legs win the game, and optionally how many sets.
+templ legsChoice() {
+	@fieldset(T(ctx).Legs()) {
+		<div class="flex flex-wrap gap-2">
+			@choice("legs", "1", T(ctx).OneLeg(), true)
+			for _, n := range []int{2, 3, 4, 5} {
+				@choice("legs", strconv.Itoa(n), "First to "+strconv.Itoa(n), false)
+			}
+		</div>
+		<p class={ hintClass }>{ T(ctx).LegsHint() }</p>
+	}
+	@fieldset(T(ctx).Sets()) {
+		<div class="flex flex-wrap gap-2">
+			@choice("sets", "1", T(ctx).NoSets(), true)
+			for _, n := range []int{2, 3, 4, 5} {
+				@choice("sets", strconv.Itoa(n), "First to "+strconv.Itoa(n), false)
+			}
+		</div>
+		<p class={ hintClass }>{ T(ctx).SetsHint() }</p>
+	}
+	@fieldset(T(ctx).WhoStarts()) {
+		@checkbox("bull-off", "bull_off", "on", false) {
+			{ T(ctx).BullOff() } <span class="text-white/40">{ T(ctx).BullOffOptionHint() }</span>
+		}
+	}
+	@fieldset(T(ctx).TurnLimit()) {
+		<div class="flex flex-wrap gap-2">
+			@choice("turn_seconds", "0", T(ctx).NoTurnLimit(), true)
+			for _, n := range []int{30, 60, 120, 300} {
+				@choice("turn_seconds", strconv.Itoa(n), T(ctx).TurnTime(n), false)
+			}
+		</div>
+		<p class={ hintClass }>{ T(ctx).TurnLimitHint(game.MaxSkips) }</p>
+	}
+}
+
+// PlayersModel is what the player selection shows: who can play, who is ticked, and why
+// adding or deleting a guest failed, if it did.
+type PlayersModel struct {
+	Players  []player.Player // the account's own player followed by its guests
+	Selected map[int64]bool
+	Error    string
+}
+
+// firstSelected ticks the account's own player, as a new game starts out.
+func firstSelected(players []player.Player) map[int64]bool {
+	if len(players) == 0 {
+		return nil
+	}
+	return map[int64]bool{players[0].ID: true}
+}
+
+// PlayerPicker lets the user pick who plays, and add or delete guests without leaving the
+// form: htmx swaps only this part, so the settings picked so far stay, and the guest just
+// added is ticked. The name and the button belong to the form guest-form (the form attribute),
+// which sits next to the game's form, as forms can't be nested.
+templ PlayerPicker(m PlayersModel) {
+	<div id="players">
+		@fieldset(T(ctx).Players()) {
+			@errorAlert(m.Error)
+			<div class="flex flex-col gap-1">
+				for i, p := range m.Players {
+					<div class="flex items-center gap-1">
+						@checkbox("player-"+strconv.FormatInt(p.ID, 10), "player_ids", strconv.FormatInt(p.ID, 10), m.Selected[p.ID]) {
+							if i == 0 {
+								{ T(ctx).Me(p.Name) }
+							} else {
+								{ p.Name } <span class="text-white/40">{ T(ctx).GuestMark() }</span>
+							}
+						}
+						if i > 0 {
+							<button
+								type="button"
+								class="rounded-full px-2 text-white/40 transition hover:bg-board-red/30 hover:text-red-300"
+								title={ T(ctx).DeleteGuest() }
+								aria-label={ T(ctx).DeleteGuest() }
+								hx-post={ "/guests/" + strconv.FormatInt(p.ID, 10) + "/delete" }
+								hx-target="#players"
+								hx-swap="outerHTML"
+								hx-confirm={ T(ctx).DeleteGuestConfirm(p.Name) }
+							>✕</button>
+						}
+					</div>
+				}
+			</div>
+			<div class="mt-3 flex gap-2">
+				<input form="guest-form" type="text" name="name" class={ inputClass } placeholder={ T(ctx).GuestName() } aria-label={ T(ctx).GuestName() }/>
+				<button form="guest-form" type="submit" class={ btnSecondary }>{ T(ctx).Add() }</button>
+			</div>
+			<p class={ hintClass }>{ T(ctx).GuestsHint() }</p>
+		}
+	</div>
+}
+
+// participants lets the user pick who plays and on which board.
+// The players throw in the listed order, invited accounts last.
+templ participants(m HomeModel) {
+	@PlayerPicker(PlayersModel{Players: m.Players, Selected: firstSelected(m.Players)})
+	@fieldset(T(ctx).InviteFriends()) {
+		if len(m.Friends.Friends) == 0 {
+			<p class="text-white/50">{ T(ctx).NoFriendsBefore() }<a href="/friends" class={ linkClass }>{ T(ctx).NavFriends() }</a>{ T(ctx).NoFriendsAfter() }</p>
+		}
+		<div class="flex flex-col gap-1">
+			for _, f := range m.Friends.Friends {
+				@checkbox("invite-"+f.Username, "invite", f.Username, false) {
+					{ f.Name }
+				}
+			}
+		</div>
+		if len(m.Friends.Friends) > 0 {
+			<p class={ hintClass }>{ T(ctx).GameStartsWhenAccepted() }</p>
+		}
+	}
+	@fieldset(T(ctx).Strangers()) {
+		@checkbox("open", "open", "on", false) {
+			{ T(ctx).AllowStrangers() }
+		}
+		<label class="mt-2 flex flex-wrap items-center gap-3 px-2 text-sm text-white/70">
+			{ T(ctx).StrangerSeats() }
+			<input type="number" name="seats" min="2" max="32" value="2" class={ inputClass, "w-24!" }/>
+		</label>
+		<p class={ hintClass }>{ T(ctx).StrangersHint() }</p>
+	}
+	if len(m.Boards) > 0 {
+		@fieldset(T(ctx).Board()) {
+			{{ preselected := defaultBoard(boardsOfViews(m.Boards)) }}
+			<div class="flex flex-wrap gap-2">
+				@choice("board_id", "", T(ctx).NoBoard(), preselected == 0)
+				for _, b := range m.Boards {
+					@choice("board_id", strconv.FormatInt(b.ID, 10), boardChoiceLabel(T(ctx), b), b.ID == preselected)
+				}
+			</div>
+		}
+	}
+}
+
+// newGame first lets the user pick a mode and then shows the options of that mode.
+// Picking a mode reloads only this section via htmx; without JavaScript the links still work.
+templ newGame(m HomeModel) {
+	<div id="new-game">
+		@panel("flex flex-col gap-5") {
+			<h2 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream">{ T(ctx).NewGame() }</h2>
+			<div class="grid gap-3 sm:grid-cols-2">
+				@modeTile(game.ModeX01, m.Mode, "X01", T(ctx).X01Description(), "501")
+				@modeTile(game.ModeAroundTheClock, m.Mode, T(ctx).AroundTheClock(), T(ctx).AroundTheClockDescription(), "1→20")
+			</div>
+			// The form of the guest field in the player selection, outside the game's form.
+			<form id="guest-form" method="post" action="/guests" hx-post="/guests" hx-target="#players" hx-swap="outerHTML" hx-include="#players [name=player_ids]"></form>
+			switch m.Mode {
+				case game.ModeX01:
+					<form method="post" action="/games" class="flex flex-col gap-5">
+						<input type="hidden" name="mode" value="x01"/>
+						@fieldset(T(ctx).StartScore()) {
+							<div class="flex flex-wrap gap-2">
+								for _, score := range []int{301, 501, 701} {
+									@choice("start_score", strconv.Itoa(score), strconv.Itoa(score), score == 501)
+								}
+							</div>
+						}
+						@fieldset(T(ctx).CheckOutWith()) {
+							<div class="flex flex-wrap gap-2">
+								@choice("out_mode", "single", T(ctx).AnyDart(), false)
+								@choice("out_mode", "double", T(ctx).Double(), true)
+								@choice("out_mode", "master", T(ctx).DoubleOrTriple(), false)
+							</div>
+						}
+						@formatChoice()
+						@legsChoice()
+						@participants(m)
+						<div>
+							<button type="submit" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>{ T(ctx).StartMode("X01") }</button>
+						</div>
+					</form>
+				case game.ModeAroundTheClock:
+					<form method="post" action="/games" class="flex flex-col gap-5">
+						<input type="hidden" name="mode" value="around_the_clock"/>
+						@fieldset(T(ctx).Rules()) {
+							<div class="flex flex-col gap-1">
+								@checkbox("atc-bull", "bull", "on", true) {
+									{ T(ctx).BullAtTheEnd() }
+								}
+								@checkbox("atc-skips", "multiplier_skips", "on", false) {
+									{ T(ctx).SkipsRule() }
+								}
+							</div>
+						}
+						@formatChoice()
+						@legsChoice()
+						@participants(m)
+						<div>
+							<button type="submit" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>{ T(ctx).StartMode(T(ctx).AroundTheClock()) }</button>
+						</div>
+					</form>
+				default:
+					<p class="text-white/50">{ T(ctx).ChooseMode() }</p>
+			}
+		}
+	</div>
+}
+
+templ modeTile(mode, selected game.Mode, title, description, symbol string) {
+	<a
+		href={ templ.URL("/?mode=" + string(mode)) }
+		hx-get={ "/?mode=" + string(mode) }
+		hx-target="#new-game"
+		hx-select="#new-game"
+		hx-swap="outerHTML"
+		hx-push-url="true"
+		class={ "group relative block rounded-2xl border p-4 transition-colors",
+			templ.KV("border-board-green bg-board-green/15 [--glow-color:var(--color-board-green)] animate-glow", mode == selected),
+			templ.KV("border-white/10 bg-pub-800 hover:border-white/30", mode != selected) }
+		if mode == selected {
+			aria-current="true"
+		}
+	>
+		<div class="pointer-events-none absolute right-3 bottom-1 font-display text-6xl leading-none font-extrabold text-white/5 transition-colors group-hover:text-white/10">{ symbol }</div>
+		<div class="font-display text-3xl font-extrabold uppercase">{ title }</div>
+		<div class="mt-1 text-sm text-white/60">{ description }</div>
+	</a>
+}
+
+// NewBoardToken is shown once, right after it was created.
+type NewBoardToken struct {
+	BoardName string
+	Token     string
+	Server    string // URL of this server, as the camera has to reach it
+}
+
+templ Boards(user string, boards []service.BoardView, errMsg string, newToken *NewBoardToken) {
+	@layout(T(ctx).NavBoards(), user) {
+		<div class="mx-auto max-w-3xl">
+			@pageTitle(T(ctx).NavBoards(), T(ctx).BoardsHint())
+			@errorAlert(errMsg)
+			if newToken != nil {
+				<div class="mb-6 rounded-3xl border border-board-green/50 bg-board-green/10 p-5" role="status">
+					<div class="font-display text-2xl font-extrabold uppercase text-emerald-300">{ T(ctx).CameraTokenFor(newToken.BoardName) }</div>
+					<p class="mt-2">{ T(ctx).TokenShownOnce() }</p>
+					<dl class="mt-3 grid gap-2 rounded-xl bg-pub-950 p-3 text-sm sm:grid-cols-[auto_1fr]">
+						<dt class="text-white/60">{ T(ctx).Server() }</dt>
+						<dd class="break-all font-mono text-emerald-200">{ newToken.Server }</dd>
+						<dt class="text-white/60">{ T(ctx).CameraToken() }</dt>
+						<dd class="break-all font-mono text-emerald-200">{ newToken.Token }</dd>
+					</dl>
+					<p class="mt-3 text-sm text-white/60">{ T(ctx).CalibrationHintBefore() }<code>go run ./cmd/darts-o-cam</code>{ T(ctx).CalibrationHintMiddle() }<code>http://localhost:8090</code>).</p>
+				</div>
+			}
+			@panel("") {
+				if len(boards) > 0 {
+					<ul class="mb-4 divide-y divide-white/10">
+						for _, b := range boards {
+							<li class="flex flex-wrap items-center justify-between gap-3 py-3">
+								<span class="flex items-center gap-3">
+									<span class="font-display text-2xl font-semibold uppercase">📷 { b.Name }</span>
+									if b.HasToken {
+										@statusBadge(T(ctx).CameraTokenActive(), "bg-board-green/25 text-emerald-300")
+									}
+								</span>
+								<span class="flex gap-2">
+									<form method="post" action={ templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/token") }>
+										<button type="submit" class={ btnSecondary, btnSmall }>
+											if b.HasToken {
+												{ T(ctx).NewCameraToken() }
+											} else {
+												{ T(ctx).CreateCameraToken() }
+											}
+										</button>
+									</form>
+									<form method="post" action={ templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/delete") }>
+										<button type="submit" class={ btnDanger, btnSmall }>{ T(ctx).Delete() }</button>
+									</form>
+								</span>
+							</li>
+						}
+					</ul>
+				}
+				<form method="post" action="/boards" class="flex gap-2">
+					<input type="text" name="name" class={ inputClass } placeholder={ T(ctx).BoardNameExample() } required aria-label={ T(ctx).BoardName() }/>
+					<button type="submit" class={ btnPrimary }>{ T(ctx).Add() }</button>
+				</form>
+			}
+		</div>
+	}
+}

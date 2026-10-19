@@ -69,9 +69,7 @@ type asset struct {
 
 // program is one of the programs that get packages.
 type program struct {
-	name string
-	// module is the project's folder that has the program in cmd/.
-	module      string
+	name        string
 	description string
 	assets      []asset
 	// icons adds the program's icon in every size of iconSizes.
@@ -89,7 +87,6 @@ type program struct {
 var programs = []program{
 	{
 		name:        "darts-o-cam",
-		module:      "cam",
 		description: "Detects darts with the cameras at a dartboard and reports them to darts-o-mat.",
 		assets: []asset{
 			{data: desktopEntry, dst: "/usr/share/applications/darts-o-cam.desktop"},
@@ -103,7 +100,7 @@ var programs = []program{
 			"deb": {"libwebkitgtk-6.0-4 | libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37"},
 			"rpm": {"(webkitgtk6.0 or webkit2gtk4.1 or webkit2gtk4.0)"},
 		},
-		// libjpeg-turbo makes decoding the camera frames cheaper (cam/camera).
+		// libjpeg-turbo makes decoding the camera frames cheaper (internal/cam/camera).
 		suggests: map[string][]string{
 			"deb": {"libturbojpeg0"},
 			"rpm": {"turbojpeg"},
@@ -111,12 +108,11 @@ var programs = []program{
 	},
 	{
 		name:        "darts-o-mat",
-		module:      "server",
 		description: "A free, self-hosted darts scorer: enter the throws or let cameras detect them.",
 		assets: []asset{
 			{data: serverUnit, dst: "/usr/lib/systemd/system/darts-o-mat.service"},
 			{file: "LICENSE", dst: "/usr/share/doc/darts-o-mat/LICENSE"},
-			{file: "server/README.md", dst: "/usr/share/doc/darts-o-mat/README.md"},
+			{file: "cmd/darts-o-mat/README.md", dst: "/usr/share/doc/darts-o-mat/README.md"},
 		},
 		stamp:   true,
 		formats: []string{"deb", "rpm", "tar"},
@@ -198,12 +194,12 @@ func (p program) build(root, out, work, version string) error {
 
 	ldflags := "-s -w"
 	if p.stamp {
-		ldflags += " -X github.com/sj14/darts-o-mat/common/buildinfo.stamped=" + version
+		ldflags += " -X github.com/sj14/darts-o-mat/internal/common/buildinfo.stamped=" + version
 	}
 	for _, arch := range []string{"amd64", "arm64"} {
 		bin := filepath.Join(work, p.name, arch, p.name)
 		goBuild := exec.Command("go", "build", "-trimpath", "-ldflags="+ldflags, "-o", bin, "./cmd/"+p.name)
-		goBuild.Dir = filepath.Join(root, p.module)
+		goBuild.Dir = root
 		goBuild.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux", "GOARCH="+arch)
 		goBuild.Stdout, goBuild.Stderr = os.Stdout, os.Stderr
 		if err := goBuild.Run(); err != nil {

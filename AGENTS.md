@@ -6,9 +6,9 @@ The goal of the project is a free, open-source darts scorer that you can host yo
 
 The project consists of two programs:
 
-- **Server** [`server/cmd/darts-o-mat`](server/AGENTS.md): web interface and API, accounts, games, game state, statistics.
-- **Camera** [`cam/cmd/darts-o-cam`](cam/AGENTS.md): detects darts with cameras at the board and reports them to the server; calibration, image processing.
-  Camera access per operating system lives in [`cam/camera`](cam/camera/AGENTS.md).
+- **Server** [`cmd/darts-o-mat`](internal/server/AGENTS.md): web interface and API, accounts, games, game state, statistics.
+- **Camera** [`cmd/darts-o-cam`](internal/cam/AGENTS.md): detects darts with cameras at the board and reports them to the server; calibration, image processing.
+  Camera access per operating system lives in [`internal/cam/camera`](internal/cam/camera/AGENTS.md).
 
 ## Audience
 
@@ -21,29 +21,29 @@ User's decision 2026-10-18: darts-o-mat has to work both as a small self-hosted 
 - **The small installation needs nothing extra.** Whatever only a big or public installation needs (protection against bots such as a captcha, later perhaps rate limits, mail, an external database) is **optional and off by default**: it is switched on by a flag or environment variable, and a server without it behaves exactly as before, without a network call to a third party, without an extra field in a form. No feature may make the small installation depend on a service or a key.
 - **Exception: cheap protection for everybody is on by default** (the limit on failed logins: no third party, no key, no extra field); the operator can turn it off or change it with a flag.
 - **Keys and secrets** come as a flag **and** as an environment variable (`DARTS_O_MAT_…`; the flag's default is the variable), because flags show in the process list and the container and Helm chart work with variables. A half-set configuration (one of two keys) stops the server at the start instead of running unprotected.
-- **Exception, the user's decision 2026-10-18: the hint about a newer version** (`common/update`, in the footers of the server and of darts-o-cam) asks GitHub for the latest release when the program starts and then once a day. A failed check shows nothing, a build that isn't a release (a git revision as its version) never shows a hint.
+- **Exception, the user's decision 2026-10-18: the hint about a newer version** (`internal/common/update`, in the footers of the server and of darts-o-cam) asks GitHub for the latest release when the program starts and then once a day. A failed check shows nothing, a build that isn't a release (a git revision as its version) never shows a hint.
 - **Third parties** are named in the documentation with what they get to see, and are loaded only on the pages that need them (never in the layout); the app's own files stay embedded, no CDN (see [technologies](#technologies)).
 - When a feature for the big case would make the code for the small one more complicated, say so before building it (see [code quality](#code-quality)).
 
 ## Documentation
 
-The documents are split by area and link to each other:
+The documents are split by area and link to each other. The READMEs of the two programs are in their `cmd/` folders (they are the first thing someone looking at a program finds, and the release archives ship the server's), the `AGENTS.md` and `TODO.md` in `internal/server` and `internal/cam`:
 
 | Area | For humans | For agents | Open tasks |
 | --- | --- | --- | --- |
 | Whole project | [`README.md`](README.md) | this file | [`TODO.md`](TODO.md) |
-| Server | [`server/README.md`](server/README.md) | [`server/AGENTS.md`](server/AGENTS.md) | [`server/TODO.md`](server/TODO.md) |
-| Camera | [`cam/README.md`](cam/README.md) | [`cam/AGENTS.md`](cam/AGENTS.md) | [`cam/TODO.md`](cam/TODO.md) |
-| Camera access | [`cam/camera/README.md`](cam/camera/README.md) | [`cam/camera/AGENTS.md`](cam/camera/AGENTS.md) | [`cam/camera/TODO.md`](cam/camera/TODO.md) |
+| Server | [`cmd/darts-o-mat/README.md`](cmd/darts-o-mat/README.md) | [`internal/server/AGENTS.md`](internal/server/AGENTS.md) | [`internal/server/TODO.md`](internal/server/TODO.md) |
+| Camera | [`cmd/darts-o-cam/README.md`](cmd/darts-o-cam/README.md) | [`internal/cam/AGENTS.md`](internal/cam/AGENTS.md) | [`internal/cam/TODO.md`](internal/cam/TODO.md) |
+| Camera access | [`internal/cam/camera/README.md`](internal/cam/camera/README.md) | [`internal/cam/camera/AGENTS.md`](internal/cam/camera/AGENTS.md) | [`internal/cam/camera/TODO.md`](internal/cam/camera/TODO.md) |
 
 - All documentation is written in English (user's decision, 2026-10-12). The user interfaces are translated (English, German), see [languages](#languages).
-- Whatever concerns the whole project (goal, rules, shared stack, structure, how server and camera work together) goes into the documents in the root folder. Whatever concerns only the server or only the camera goes into its folder; details of camera access per operating system go into `cam/camera`. Don't maintain anything twice, link instead.
+- Whatever concerns the whole project (goal, rules, shared stack, structure, how server and camera work together) goes into the documents in the root folder. Whatever concerns only the server or only the camera goes into its folder; details of camera access per operating system go into `internal/cam/camera`. Don't maintain anything twice, link instead.
 - `README.md` files are for humans only: short, clear and understandable without prior knowledge (what is it, how do I start it, how do I try it).
   No implementation details, architecture or instructions for agents in the READMEs; those belong in the `AGENTS.md` files.
-- **Screenshots** live in `site/screenshots` (English only, user's decision 2026-10-18) and are used by the README and the project page; redo them when the look of the pages changes noticeably. How to take them: [server → testing](server/AGENTS.md#testing).
+- **Screenshots** live in `site/screenshots` (English only, user's decision 2026-10-18) and are used by the README and the project page; redo them when the look of the pages changes noticeably. How to take them: [server → testing](internal/server/AGENTS.md#testing).
 - When something changes that affects users (starting, game modes, usage), update the matching README as well.
 - **Keep the `TODO.md` files up to date** (user's wish 2026-10-18): with every change, remove what is done, reword what is only partly done, and add what was left out or decided against for now (with the date and the reason). Check them before you report a task as finished.
-- Open tasks live in a `TODO.md` per area, next to its README (split by area on 2026-10-13, before that one file in the root): a task of a single part goes into its folder, one that concerns several parts or the whole project into the root [`TODO.md`](TODO.md), which links to the others.
+- Open tasks live in a `TODO.md` per area, next to its `AGENTS.md` (split by area on 2026-10-13, before that one file in the root): a task of a single part goes into its folder, one that concerns several parts or the whole project into the root [`TODO.md`](TODO.md), which links to the others.
 
 ## Code quality
 
@@ -55,7 +55,7 @@ Don't implement every feature blindly: if something brings little benefit but ma
 
 User's decision 2026-10-14: English is the default language, German the first translation; more languages may follow, also only partly translated.
 
-- **Which language:** the account's choice (`account.Account.Language`; the page header shows the current language as a flag, choosing another stores it – user's wish 2026-10-14, no "like the browser" option, so once chosen it stays; `service.SetLanguage` with an empty language would clear it), else the browser's `Accept-Language` (only supported languages count, `de-AT` is German), else English (`i18n.Default`). `common/i18n` negotiates it and carries it in the request context (`i18n.Middleware` for the browser, `auth.Require` for the account's choice).
+- **Which language:** the account's choice (`account.Account.Language`; the page header shows the current language as a flag, choosing another stores it – user's wish 2026-10-14, no "like the browser" option, so once chosen it stays; `service.SetLanguage` with an empty language would clear it), else the browser's `Accept-Language` (only supported languages count, `de-AT` is German), else English (`i18n.Default`). `internal/common/i18n` negotiates it and carries it in the request context (`i18n.Middleware` for the browser, `auth.Require` for the account's choice).
 - **Texts:** per interface an interface with one method per text (server: `view.Texts`, darts-o-cam: `camui.Texts`; `T(ctx)` in templates and handlers); parameters and plurals are plain Go. English (`textsEN`) implements every method, so a missing English text doesn't compile. Every other language embeds the English type and overrides what is translated (`textsDE struct{ textsEN }`), so whatever isn't translated falls back to English instead of breaking. `TestTranslations` (in both packages, with `i18n.Empty` and `i18n.Untranslated`) calls every text in every language: a text that comes out the same as in English isn't translated, except those listed in `sameInAllLanguages` (Bull, Checkout, …); languages in `complete` (German) fail the test then, others only log what's missing.
 - **New texts:** never write German or English directly into a template or a handler anymore; add a method to `Texts`, implement it in English and German.
 - darts-o-cam has no accounts: its language is only the browser's (`i18n.Middleware` in `camui`); in its own window (glaze) that's the system's web view. Its error texts from `camapp`/`vision` (e.g. in "Detection stopped: …") stay English.
@@ -74,65 +74,65 @@ New features build on the existing stack; don't introduce additional frameworks 
 
 - **Language:** Go (version see `go.mod`)
 - **HTTP routing:** [chi](https://github.com/go-chi/chi) v5
-- **Frontend:** server-side rendered HTML templates with [templ](https://templ.guide) (included as a Go tool in `go.mod`; generate with `go tool templ generate`, or `make generate` for the CSS as well) and [htmx](https://htmx.org) for interactivity: handlers return templ fragments that htmx swaps into the page, instead of custom JavaScript or a JS framework. Applies to the server's web interface and to darts-o-cam's calibration interface (`cam/camui`).
-- **Design (user's decision 2026-10-11):** [Tailwind CSS](https://tailwindcss.com) v4 (previously Bootstrap 6 alpha) with a custom dark "pub" look: board colors red/green/cream as accents, font Barlow Condensed for headings; numbers and dart labels of the game page (dart tiles, keypad, scores, the board's numbers) use Roboto Condensed (`font-number`, user's choice 2026-10-15: in Barlow Condensed M looked like 11 and 1 like T; a fixed font rather than the system's, which made labels as wide as each device's font). Labels in tiles and buttons shrink to fit (`fitText`: the `text-fit` utility sizes the font from the container's width, `@container`, and the label's length, `--fit-len`, up to a largest size), so DANEBEN, TREFFER or BULLSEYE fit in any tile, language and screen width. Applies to all pages of darts-o-mat and to darts-o-cam's calibration interface (`cam/camui`, same CSS file). Building blocks: `view/ui.templ` (`panel`, `pageTitle`, `sectionTitle`, `errorAlert`, `notice`, `choice`, `checkbox`, `statusBadge`) and class constants in `view/ui.go` and `camui/styles.go` (`btnPrimary`, `inputClass`, …). The game page is described in the [server document](server/AGENTS.md#game-page).
-  Source: `server/frontend/view/tailwind.css` (`@theme` with colors `board-*`/`pub-*`, fonts `font-display` and `font-number`, animations `animate-dart-in`/`shake`/`celebrate`/`glow`/`target`; scans `view` and `camui`). `common/static/tailwind.css` is generated with `go generate ./common/static` – after every change to classes in `.templ` or `.go` files of these packages. The file is committed so that `go run` works without Tailwind and without internet. `go generate` runs `tools/tailwind`, which downloads the Tailwind standalone CLI in a fixed version with checksum once into the user cache (no Node/npm). Classes that Go code assembles must appear there as whole words, otherwise Tailwind doesn't find them.
+- **Frontend:** server-side rendered HTML templates with [templ](https://templ.guide) (included as a Go tool in `go.mod`; generate with `go tool templ generate`, or `make generate` for the CSS as well) and [htmx](https://htmx.org) for interactivity: handlers return templ fragments that htmx swaps into the page, instead of custom JavaScript or a JS framework. Applies to the server's web interface and to darts-o-cam's calibration interface (`internal/cam/camui`).
+- **Design (user's decision 2026-10-11):** [Tailwind CSS](https://tailwindcss.com) v4 (previously Bootstrap 6 alpha) with a custom dark "pub" look: board colors red/green/cream as accents, font Barlow Condensed for headings; numbers and dart labels of the game page (dart tiles, keypad, scores, the board's numbers) use Roboto Condensed (`font-number`, user's choice 2026-10-15: in Barlow Condensed M looked like 11 and 1 like T; a fixed font rather than the system's, which made labels as wide as each device's font). Labels in tiles and buttons shrink to fit (`fitText`: the `text-fit` utility sizes the font from the container's width, `@container`, and the label's length, `--fit-len`, up to a largest size), so DANEBEN, TREFFER or BULLSEYE fit in any tile, language and screen width. Applies to all pages of darts-o-mat and to darts-o-cam's calibration interface (`internal/cam/camui`, same CSS file). Building blocks: `view/ui.templ` (`panel`, `pageTitle`, `sectionTitle`, `errorAlert`, `notice`, `choice`, `checkbox`, `statusBadge`) and class constants in `view/ui.go` and `camui/styles.go` (`btnPrimary`, `inputClass`, …). The game page is described in the [server document](internal/server/AGENTS.md#game-page).
+  Source: `internal/server/frontend/view/tailwind.css` (`@theme` with colors `board-*`/`pub-*`, fonts `font-display` and `font-number`, animations `animate-dart-in`/`shake`/`celebrate`/`glow`/`target`; scans `view` and `camui`). `internal/common/static/tailwind.css` is generated with `go generate ./common/static` – after every change to classes in `.templ` or `.go` files of these packages. The file is committed so that `go run` works without Tailwind and without internet. `go generate` runs `tools/tailwind`, which downloads the Tailwind standalone CLI in a fixed version with checksum once into the user cache (no Node/npm). Classes that Go code assembles must appear there as whole words, otherwise Tailwind doesn't find them.
   **Performance** (user noticed janky scrolling, 2026-10-11): no `backdrop-blur`, no `background-attachment: fixed` (the background shimmer is its own `position: fixed` layer, `body::before`), no `filter`/`drop-shadow` on large elements and no animations of `box-shadow` – `animate-glow` only fades the opacity of a shadow layer (`::after`) in and out; elements using it must not have `overflow-hidden`, otherwise the glow is clipped. Animate only `opacity`/`transform`.
-- **Static files:** htmx (including the SSE extension), the generated Tailwind CSS, the fonts (Barlow Condensed and Roboto Condensed, Latin subset, each with its OFL license) and the favicon are committed in `common/static` and served via `go:embed`, no CDN (darts-o-mat should work without internet). The favicon (`favicon.svg`, used by darts-o-mat and darts-o-cam) is the board logo of the page header with the theme colors as hex (concentric red/green/cream/black like the header's radial gradient; its percentages refer to the distance to the element's corner, i.e. √2 × the radius: red to 31 %, green to 57 %, cream to 88 % of the disc's radius, the ring around it 1/10 of the total radius); `apple-touch-icon.png` (180×180, for iOS home screens, which don't take SVG) is rendered from the same rings – change both together.
-- **Database and ORM** (server only): PostgreSQL and SQLite with [Bun](https://bun.uptrace.dev), see [server](server/AGENTS.md#database).
-- **Camera/image processing** (darts-o-cam only): no external programs; so far pure Go without cgo, see [camera](cam/AGENTS.md) and [`cam/camera`](cam/camera/AGENTS.md). GoCV was planned, but there are no OpenCV packages for Intel Macs with macOS 26 (Homebrew would have to build OpenCV with 26 dependencies itself for hours); therefore deliberately rejected on 2026-10-11.
-  The desktop window uses [glaze](https://github.com/crgimenes/glaze) (system web view via purego, no cgo; user's choice 2026-10-13), see [camera](cam/AGENTS.md#app).
+- **Static files:** htmx (including the SSE extension), the generated Tailwind CSS, the fonts (Barlow Condensed and Roboto Condensed, Latin subset, each with its OFL license) and the favicon are committed in `internal/common/static` and served via `go:embed`, no CDN (darts-o-mat should work without internet). The favicon (`favicon.svg`, used by darts-o-mat and darts-o-cam) is the board logo of the page header with the theme colors as hex (concentric red/green/cream/black like the header's radial gradient; its percentages refer to the distance to the element's corner, i.e. √2 × the radius: red to 31 %, green to 57 %, cream to 88 % of the disc's radius, the ring around it 1/10 of the total radius); `apple-touch-icon.png` (180×180, for iOS home screens, which don't take SVG) is rendered from the same rings – change both together.
+- **Database and ORM** (server only): PostgreSQL and SQLite with [Bun](https://bun.uptrace.dev), see [server](internal/server/AGENTS.md#database).
+- **Camera/image processing** (darts-o-cam only): no external programs; so far pure Go without cgo, see [camera](internal/cam/AGENTS.md) and [`internal/cam/camera`](internal/cam/camera/AGENTS.md). GoCV was planned, but there are no OpenCV packages for Intel Macs with macOS 26 (Homebrew would have to build OpenCV with 26 dependencies itself for hours); therefore deliberately rejected on 2026-10-11.
+  The desktop window uses [glaze](https://github.com/crgimenes/glaze) (system web view via purego, no cgo; user's choice 2026-10-13), see [camera](internal/cam/AGENTS.md#app).
   **cgo** (user's decision, 2026-10-13): avoid it where a pure Go way is reasonable, but the option stays open for darts-o-cam when it clearly brings something (e.g. ONNX Runtime, OpenCV on Linux, a native desktop window). When proposing something that needs cgo, always name what it costs: build tools per system (Xcode command line tools on macOS, a C compiler and the library's headers on Linux, MinGW on Windows), no simple cross-compiling, no `CGO_ENABLED=0` build, and libraries the binary then needs at runtime. darts-o-mat (the server) stays without cgo.
 - **Messaging (optional):** [NATS](https://nats.io) may be added when needed, e.g. to transfer darts from the camera (`darts-o-cam`) to the server (`darts-o-mat`) or to distribute live updates across several server instances.
 
 ## Structure
 
-User's decision 2026-10-19 (after trying a module per program the same day, which cost more than it gave: no `go test ./...`, `go.work` and `replace`, a build that differs in the container and in CI): one Go module for the project, `server`, `cam` and `common` are folders in it. The only module besides it is `tools` (packaging with nFPM and its ~40 modules, own `go.mod`, which `replace`s the project with `..`). Because the compiler doesn't keep the programs apart, `common/layout_test.go` does: `common` imports neither `server` nor `cam`, `server` not `cam`, `cam` not `server`. `common` is what both programs share and must stay small and free of what only one needs; what only the server knows (the game's log entry `throw.Dart` with its database tags) stays in `server/domain/throw`, so the camera doesn't compile in the database library.
+User's decision 2026-10-19 (after trying a module per program the same day, which cost more than it gave: no `go test ./...`, `go.work` and `replace`, a build that differs in the container and in CI): one Go module for the project: the programs' `main` packages are in `cmd/` (`cmd/darts-o-mat`, `cmd/darts-o-cam`), everything else in `internal/` (nothing outside this repository may import it, which a `pkg/` would invite), split by who needs it: `internal/server`, `internal/cam` and `internal/common`. The only module besides it is `tools` (packaging with nFPM and its ~40 modules, own `go.mod`, which `replace`s the project with `..`). Because the compiler doesn't keep the programs apart, `internal/common/layout_test.go` does: `common` imports neither `server` nor `cam`, `server` not `cam`, `cam` not `server`. `common` is what both programs share and must stay small and free of what only one needs; what only the server knows (the game's log entry `throw.Dart` with its database tags) stays in `internal/server/domain/throw`, so the camera doesn't compile in the database library.
 
-- [`common`](common): what both programs share: `dartboard` (board geometry, `Segment` and `Hit`, the dart as the cameras report it), `i18n`, `notify`, `sse`, `buildinfo`, `update`, `static`
-- [`server`](server/AGENTS.md): the web server (`cmd/darts-o-mat`, `api`, `auth`, `captcha`, `service`, `store`, `domain`, `frontend`)
-- [`cam`](cam/AGENTS.md): the camera app (`cmd/darts-o-cam`, `camapp`, `camui`, `vision`, `camera`)
+- [`common`](internal/common): what both programs share: `dartboard` (board geometry, `Segment` and `Hit`, the dart as the cameras report it), `i18n`, `notify`, `sse`, `buildinfo`, `update`, `static`
+- [`server`](internal/server/AGENTS.md): the web server (main package in [`cmd/darts-o-mat`](cmd/darts-o-mat); `api`, `auth`, `captcha`, `service`, `store`, `domain`, `frontend`)
+- [`cam`](internal/cam/AGENTS.md): the camera app (main package in [`cmd/darts-o-cam`](cmd/darts-o-cam); `camapp`, `camui`, `vision`, `camera`)
 - [`tools`](tools): packaging and generators, see below
 
 In detail:
 
-- `server/api`: JSON API under `/api` (server)
-- `server/service`: application logic including permission checks (server)
-- `server/auth`: session cookie and middleware (server)
-- `server/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock, tournaments); `common/dartboard` (board geometry) is used by server and camera
-- `server/store`: persistence (server)
-- `common/update`: finds out whether a newer release exists (GitHub, once a day) for the footers of server and camera, see [the rule above](#from-the-home-server-to-saas) (server, camera)
-- `server/captcha`: the optional check that a registration comes from a person (Cloudflare Turnstile), see [server → captcha](server/AGENTS.md#captcha) (server)
-- `common/i18n`: language of the web interfaces (negotiation, request context), see [languages](#languages)
-- `common/notify`: tells subscribers about changes (`Signal`, `Hub` by key); `common/sse`: streams Server-Sent Events for htmx (`Stream`, with keepalive); both used by server and camera
-- `common/buildinfo`: the binary's version (git revision) and the project's URL, shown in the footers of both web interfaces
-- `server/frontend`: the server's web interface: controllers and templ views (`view`); the embedded static files are in `common/static`, shared with `cam/camui`
-- [`cam/camera`](cam/camera/AGENTS.md): camera access per operating system (macOS, Linux, Windows)
-- `cam/vision`: camera geometry and dart detection in pure Go (darts-o-cam)
-- `cam/camapp`: darts-o-cam at runtime: configuration, cameras, detection (darts-o-cam)
-- `cam/camui`: web interface of `darts-o-cam` (darts-o-cam)
+- `internal/server/api`: JSON API under `/api` (server)
+- `internal/server/service`: application logic including permission checks (server)
+- `internal/server/auth`: session cookie and middleware (server)
+- `internal/server/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock, tournaments); `internal/common/dartboard` (board geometry) is used by server and camera
+- `internal/server/store`: persistence (server)
+- `internal/common/update`: finds out whether a newer release exists (GitHub, once a day) for the footers of server and camera, see [the rule above](#from-the-home-server-to-saas) (server, camera)
+- `internal/server/captcha`: the optional check that a registration comes from a person (Cloudflare Turnstile), see [server → captcha](internal/server/AGENTS.md#captcha) (server)
+- `internal/common/i18n`: language of the web interfaces (negotiation, request context), see [languages](#languages)
+- `internal/common/notify`: tells subscribers about changes (`Signal`, `Hub` by key); `internal/common/sse`: streams Server-Sent Events for htmx (`Stream`, with keepalive); both used by server and camera
+- `internal/common/buildinfo`: the binary's version (git revision) and the project's URL, shown in the footers of both web interfaces
+- `internal/server/frontend`: the server's web interface: controllers and templ views (`view`); the embedded static files are in `internal/common/static`, shared with `internal/cam/camui`
+- [`internal/cam/camera`](internal/cam/camera/AGENTS.md): camera access per operating system (macOS, Linux, Windows)
+- `internal/cam/vision`: camera geometry and dart detection in pure Go (darts-o-cam)
+- `internal/cam/camapp`: darts-o-cam at runtime: configuration, cameras, detection (darts-o-cam)
+- `internal/cam/camui`: web interface of `darts-o-cam` (darts-o-cam)
 - `tools/tailwind`: downloads and runs the Tailwind CLI for `go generate`; `tools` is a module of its own for all its programs (user's decision 2026-10-19), so nFPM and winres stay out of the project's `go.mod`
-- `tools/macapp`: builds darts-o-cam as a macOS app bundle, see [camera → app](cam/AGENTS.md#app)
+- `tools/macapp`: builds darts-o-cam as a macOS app bundle, see [camera → app](internal/cam/AGENTS.md#app)
 - `tools/linuxpkg`: builds the Linux packages (.deb, .rpm, .tar.gz) of darts-o-cam and of the server, same place
 - `tools/winpkg`: builds darts-o-cam's Windows .zip (.exe with icon), same place
 - `site`: the project page for GitHub Pages (static HTML and a CSS file in the look of the app, English and German in `site/de`; no generator, user's decision 2026-10-18); `make site` puts it with the app's fonts and icons into `dist/site`, `.github/workflows/pages.yml` publishes it. Texts in both languages by hand, keep them in line with the [README](README.md)
-- `install.sh` (with `install_test.sh`): the one-line installer of darts-o-cam and, with `--server`, of the server, see [camera → installer](cam/AGENTS.md)
+- `install.sh` (with `install_test.sh`): the one-line installer of darts-o-cam and, with `--server`, of the server, see [camera → installer](internal/cam/AGENTS.md)
 - `Makefile`: `make macapp`, `make linux`, `make windows`, `make apps` (all), `make site`, `make generate` (templ and Tailwind CSS), `make tidy` (`go mod tidy` in both modules), `make clean`; only for these builds, the project page and what spans the modules, everything else is the go command
-- `deploy/helm/darts-o-mat`: Helm chart of the server, see [server → deployment](server/AGENTS.md#deployment)
-- `.github/workflows`: `ci.yml` (tests, chart lint), `release.yml` (a tag `vX.Y.Z` builds binaries, image, chart and the camera's packages, see [server → deployment](server/AGENTS.md#deployment)), `pages.yml` (project page)
-- `Containerfile`: image of the server, see [server → structure](server/AGENTS.md#structure)
+- `deploy/helm/darts-o-mat`: Helm chart of the server, see [server → deployment](internal/server/AGENTS.md#deployment)
+- `.github/workflows`: `ci.yml` (tests, chart lint), `release.yml` (a tag `vX.Y.Z` builds binaries, image, chart and the camera's packages, see [server → deployment](internal/server/AGENTS.md#deployment)), `pages.yml` (project page)
+- `Containerfile`: image of the server, see [server → structure](internal/server/AGENTS.md#structure)
 - `tools/internal/appicon`: the app icon for all of them, rendered from `favicon.svg`; `tools/internal/version`: the packages' version from git
 
-What the server packages do in detail is under [server → structure](server/AGENTS.md#structure), the camera packages under [camera → structure](cam/AGENTS.md#structure).
+What the server packages do in detail is under [server → structure](internal/server/AGENTS.md#structure), the camera packages under [camera → structure](internal/cam/AGENTS.md#structure).
 
 ## How server and camera work together
 
 - **The calibration stays with the client** (user's decision, 2026-10-11): the calibration lives on the computer with the cameras (darts-o-cam's configuration), never on the server – that way the same board works with different servers; server and token are set separately in darts-o-cam's settings.
-- **Connection:** one camera token per board, created on the server. darts-o-cam (token and server URL entered in its settings) uses it to send darts (with their position in mm) and the takeout to `POST /api/board/darts` and `/api/board/takeout`; the server enters them into the board's running game like darts typed in by hand. Server side: [server → camera connection](server/AGENTS.md#camera-connection), client side: [camera → connection to the game](cam/AGENTS.md#connection-to-the-game).
-- **Positions** are only sent to the server as the fused position in mm (origin at the bull, Y towards the 20, `common/dartboard`); no values per camera and nothing from the calibration. They are comparable across camera setups (heatmap). Darts-o-cam has to send correct positions itself; the server stores them for statistics and doesn't correct anything (user's decision, 2026-10-13), see [server → statistics](server/AGENTS.md#statistics).
+- **Connection:** one camera token per board, created on the server. darts-o-cam (token and server URL entered in its settings) uses it to send darts (with their position in mm) and the takeout to `POST /api/board/darts` and `/api/board/takeout`; the server enters them into the board's running game like darts typed in by hand. Server side: [server → camera connection](internal/server/AGENTS.md#camera-connection), client side: [camera → connection to the game](internal/cam/AGENTS.md#connection-to-the-game).
+- **Positions** are only sent to the server as the fused position in mm (origin at the bull, Y towards the 20, `internal/common/dartboard`); no values per camera and nothing from the calibration. They are comparable across camera setups (heatmap). Darts-o-cam has to send correct positions itself; the server stores them for statistics and doesn't correct anything (user's decision, 2026-10-13), see [server → statistics](internal/server/AGENTS.md#statistics).
 
 ## Testing
 
-- Everything without camera and browser: `go test ./...` (rules and service against in-memory SQLite, image processing against images in `cam/vision/testdata`, camera access without a camera).
-- Web interface with moli: see [server → testing](server/AGENTS.md#testing).
-- Camera and detection on the real board: see [camera → debugging](cam/AGENTS.md#debugging).
+- Everything without camera and browser: `go test ./...` (rules and service against in-memory SQLite, image processing against images in `internal/cam/vision/testdata`, camera access without a camera).
+- Web interface with moli: see [server → testing](internal/server/AGENTS.md#testing).
+- Camera and detection on the real board: see [camera → debugging](internal/cam/AGENTS.md#debugging).

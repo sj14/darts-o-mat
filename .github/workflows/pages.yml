@@ -8,7 +8,7 @@ on:
     paths:
       - site/**
       - Makefile
-      - common/static/**
+      - internal/common/static/**
       - .github/workflows/pages.yml
   workflow_dispatch:
 

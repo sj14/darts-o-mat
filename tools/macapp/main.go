@@ -56,8 +56,8 @@ func build(app string) error {
 		}
 	}
 
-	// No cgo: the window's web view is loaded at runtime (see cam/cmd/darts-o-cam/window.go).
-	goBuild := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", filepath.Join(contents, "MacOS", name), "./cam/cmd/"+name)
+	// No cgo: the window's web view is loaded at runtime (see cmd/darts-o-cam/window.go).
+	goBuild := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", filepath.Join(contents, "MacOS", name), "./cmd/"+name)
 	goBuild.Env = append(os.Environ(), "CGO_ENABLED=0")
 	if err := run(goBuild); err != nil {
 		return err

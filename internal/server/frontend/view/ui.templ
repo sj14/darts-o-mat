@@ -1,0 +1,84 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/sj14/darts-o-mat/internal/server/domain/board"
+)
+
+// Building blocks of the pages in the dark pub look.
+
+// panel is the dark card the pages are made of.
+templ panel(classes string) {
+	<section class={ "rounded-3xl border border-white/10 bg-pub-900 p-5 shadow-xl shadow-black/30", classes }>
+		{ children... }
+	</section>
+}
+
+// pageTitle is the big heading of a page with an optional line below.
+templ pageTitle(title, subtitle string) {
+	<div class="mb-6">
+		<h1 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl">{ title }</h1>
+		if subtitle != "" {
+			<p class="mt-1 max-w-2xl text-white/60">{ subtitle }</p>
+		}
+	</div>
+}
+
+// sectionTitle is the heading of a panel.
+templ sectionTitle(title string) {
+	<h2 class="mb-3 font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">{ title }</h2>
+}
+
+templ errorAlert(msg string) {
+	if msg != "" {
+		<div class="mb-4 animate-shake rounded-2xl border border-board-red/50 bg-board-red/15 px-4 py-3 text-red-200" role="alert">{ msg }</div>
+	}
+}
+
+templ notice(msg string) {
+	if msg != "" {
+		<div class="mb-4 rounded-2xl border border-board-green/50 bg-board-green/15 px-4 py-3 text-emerald-200" role="status">{ msg }</div>
+	}
+}
+
+// choice is an option of a group of chips (radio buttons).
+templ choice(name, value, label string, checked bool) {
+	<label class="cursor-pointer">
+		<input type="radio" name={ name } value={ value } checked?={ checked } class="peer sr-only"/>
+		<span class="block rounded-xl border border-white/10 bg-pub-800 px-4 py-2 font-semibold text-white/70 transition hover:border-white/30 peer-checked:border-board-cream peer-checked:bg-board-cream peer-checked:text-pub-950 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400">{ label }</span>
+	</label>
+}
+
+// boardSelect lets a player pick the board they throw on when joining or accepting; the
+// one they used last is preselected. It is left out for players without a board.
+templ boardSelect(boards []board.Board) {
+	if len(boards) > 0 {
+		{{ preselected := defaultBoard(boards) }}
+		<label class="flex items-center gap-2 text-sm text-white/70">
+			📷
+			<span class="sr-only">{ T(ctx).Board() }</span>
+			<select name="board_id" class={ inputClass, "w-auto! py-2!" }>
+				<option value="">{ T(ctx).NoBoard() }</option>
+				for _, b := range boards {
+					<option value={ strconv.FormatInt(b.ID, 10) } selected?={ b.ID == preselected }>{ b.Name }</option>
+				}
+			</select>
+		</label>
+	}
+}
+
+// checkbox is a checkbox with its label as children.
+templ checkbox(id, name, value string, checked bool) {
+	<label for={ id } class="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-white/5">
+		<input type="checkbox" id={ id } name={ name } value={ value } checked?={ checked } class="size-5 rounded accent-emerald-500"/>
+		<span>
+			{ children... }
+		</span>
+	</label>
+}
+
+// statusBadge is a small colored label, e.g. the state of a game.
+templ statusBadge(text, colors string) {
+	<span class={ "rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider", colors }>{ text }</span>
+}

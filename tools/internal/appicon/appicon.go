@@ -12,7 +12,7 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/sj14/darts-o-mat/common/static"
+	"github.com/sj14/darts-o-mat/internal/common/static"
 )
 
 // Render renders the icon with size×size pixels.

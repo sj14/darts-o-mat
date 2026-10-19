@@ -8,7 +8,7 @@
 // Per architecture a .zip (darts-o-cam_windows_<arch>.zip, no version in the name so the
 // links to the latest release's downloads stay the same) with darts-o-cam.exe and the license. The program is built
 // as a GUI program (-H windowsgui), so a double click opens no console window (started
-// from a terminal it logs there anyway, see cam/cmd/darts-o-cam/console_windows.go), and
+// from a terminal it logs there anyway, see cmd/darts-o-cam/console_windows.go), and
 // gets the app icon, version information and a manifest (sharp on high resolution
 // displays) as resources. No installer: unpack it anywhere and start the .exe. Runs on
 // any system.
@@ -85,7 +85,7 @@ func build(root, out, ver string) error {
 	for _, arch := range []string{"amd64", "arm64"} {
 		bin := filepath.Join(work, arch+".exe")
 		goBuild := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w -H windowsgui", "-o", bin, "./cmd/"+name)
-		goBuild.Dir = filepath.Join(root, "cam")
+		goBuild.Dir = root
 		goBuild.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=windows", "GOARCH="+arch)
 		goBuild.Stdout, goBuild.Stderr = os.Stdout, os.Stderr
 		if err := goBuild.Run(); err != nil {

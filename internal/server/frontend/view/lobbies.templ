@@ -1,0 +1,164 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/sj14/darts-o-mat/internal/server/domain/account"
+	"github.com/sj14/darts-o-mat/internal/server/domain/board"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game"
+	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
+	"github.com/sj14/darts-o-mat/internal/server/service"
+)
+
+type LobbiesModel struct {
+	Account account.Account
+	Lobbies []service.OpenLobby // those that pass the filter
+	Total   int                 // all open ones, with or without the filter
+	Filter  service.LobbyFilter
+	Boards  []service.BoardView
+	Error   string // why joining failed, if it did
+}
+
+// Lobbies is the page of the open games and tournaments to join, with filters to pick a
+// fitting one. Changing a filter reloads only the list via htmx (and keeps the filter in the
+// address); the list also refreshes itself, as others open and fill games all the time.
+// Without JavaScript the filter form is a plain GET form.
+templ Lobbies(m LobbiesModel) {
+	@layout(T(ctx).OpenGames(), m.Account.Username) {
+		@pageTitle(T(ctx).OpenGames(), T(ctx).LobbiesHint())
+		@errorAlert(m.Error)
+		@panel("mb-6") {
+			@lobbyFilter(m.Filter)
+		}
+		@lobbyList(m)
+	}
+}
+
+// lobbyFilter is the form with a choice per setting of a game; "any" leaves it out.
+templ lobbyFilter(f service.LobbyFilter) {
+	<form
+		id="lobby-filter"
+		method="get"
+		action="/lobbies"
+		hx-get="/lobbies"
+		hx-trigger="change"
+		hx-target="#lobby-list"
+		hx-select="#lobby-list"
+		hx-swap="outerHTML"
+		hx-push-url="true"
+	>
+		<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+			@filterSelect("format", T(ctx).GameFormat(), f.Format, []filterOption{
+				{service.FormatGame, T(ctx).SingleGame()},
+				{string(tournament.Knockout), "🏆 " + T(ctx).Knockout()},
+				{string(tournament.RoundRobin), "🏆 " + T(ctx).RoundRobin()},
+			})
+			@filterSelect("mode", T(ctx).GameMode(), string(f.Mode), []filterOption{
+				{string(game.ModeX01), "X01"},
+				{string(game.ModeAroundTheClock), T(ctx).AroundTheClock()},
+			})
+			@filterSelect("start_score", T(ctx).StartScore(), strconv.FormatUint(f.StartScore, 10), []filterOption{{"301", "301"}, {"501", "501"}, {"701", "701"}})
+			@filterSelect("out_mode", T(ctx).CheckOutWith(), outModeValue(f.OutMode), []filterOption{
+				{"single", T(ctx).AnyDart()},
+				{"double", T(ctx).Double()},
+				{"master", T(ctx).DoubleOrTriple()},
+			})
+			@filterSelect("legs", T(ctx).Legs(), filterValue(f.Legs), numberOptions(1, 5))
+			@filterSelect("sets", T(ctx).Sets(), filterValue(f.Sets), append([]filterOption{{"1", T(ctx).NoSets()}}, numberOptions(2, 5)...))
+			@filterSelect("bull_off", T(ctx).BullOff(), string(f.BullOff), []filterOption{
+				{string(service.Yes), T(ctx).FilterYes()},
+				{string(service.No), T(ctx).FilterNo()},
+			})
+			@filterSelect("turn_limit", T(ctx).TurnLimit(), string(f.TurnLimit), []filterOption{
+				{string(service.No), T(ctx).NoTurnLimit()},
+				{string(service.Yes), T(ctx).TurnLimited()},
+			})
+		</div>
+		<noscript><button type="submit" class={ btnSecondary, "mt-3" }>OK</button></noscript>
+	</form>
+}
+
+// filterSelect is a select with "any" first. "0" counts as none, so a start score that is 0
+// doesn't select anything.
+templ filterSelect(name, label, current string, options []filterOption) {
+	<label class="flex flex-col gap-1">
+		<span class="text-xs font-semibold uppercase tracking-widest text-white/50">{ label }</span>
+		<select name={ name } class={ inputClass, "py-2!" }>
+			<option value="" selected?={ current == "" || current == "0" }>{ T(ctx).FilterAny() }</option>
+			for _, o := range options {
+				<option value={ o.Value } selected?={ current == o.Value }>{ o.Label }</option>
+			}
+		</select>
+	</label>
+}
+
+// lobbyList is what the filter narrows down. It polls the page with the filter's values
+// every 20 seconds, unless the visitor is in the middle of choosing a board.
+templ lobbyList(m LobbiesModel) {
+	<div
+		id="lobby-list"
+		hx-get="/lobbies"
+		hx-trigger="every 20s [!document.querySelector('#lobby-list :focus')]"
+		hx-include="#lobby-filter"
+		hx-target="this"
+		hx-select="#lobby-list"
+		hx-swap="outerHTML"
+	>
+		if m.Filter.Active() && m.Total > 0 {
+			<p class="mb-3 flex flex-wrap items-center gap-x-4 text-sm text-white/60">
+				{ T(ctx).LobbiesShown(len(m.Lobbies), m.Total) }
+				<a href="/lobbies" class={ linkClass }>{ T(ctx).FilterReset() }</a>
+			</p>
+		}
+		@panel("") {
+			switch {
+				case m.Total == 0:
+					<p class="text-white/50">{ T(ctx).NoOpenGames() }</p>
+				case len(m.Lobbies) == 0:
+					<p class="text-white/50">{ T(ctx).NoMatchingGames() }</p>
+				default:
+					<ul class="divide-y divide-white/10">
+						for _, l := range m.Lobbies {
+							@lobbyRow(l, boardsOfViews(m.Boards))
+						}
+					</ul>
+			}
+		}
+	</div>
+}
+
+// lobbyRow is an open game or tournament with who is in, what is played, how long it is
+// still offered, and the way to join.
+templ lobbyRow(l service.OpenLobby, boards []board.Board) {
+	<li class="flex flex-wrap items-center justify-between gap-3 py-3">
+		<div>
+			<div class="font-display text-2xl font-semibold uppercase">
+				if l.Tournament {
+					🏆 { formatName(T(ctx), l.Format) }
+				} else {
+					{ modeLabel(T(ctx), l.Settings) }
+				}
+			</div>
+			<div class="text-sm text-white/50">
+				if l.Tournament {
+					{ modeLabel(T(ctx), l.Settings) } ·
+				}
+				{ lobbyPlayers(ctx, l) } · { T(ctx).PlayersOfSeats(len(l.Joined), l.Seats) } · { T(ctx).OpenForMinutes(minutesLeft(l)) }
+			</div>
+			if l.Settings.BullOff || l.Settings.TurnSeconds > 0 {
+				<div class="mt-1 flex flex-wrap gap-1.5">
+					if l.Settings.BullOff {
+						@statusBadge(T(ctx).BullOff(), "bg-board-red/25 text-red-300")
+					}
+					if l.Settings.TurnSeconds > 0 {
+						@statusBadge(T(ctx).TurnTime(l.Settings.TurnSeconds), "bg-white/10 text-white/60")
+					}
+				</div>
+			}
+		</div>
+		<form method="post" action={ templ.URL(joinURL(l)) } class="flex items-center gap-2">
+			@boardSelect(boards)
+			<button type="submit" class={ btnPrimary }>{ T(ctx).JoinLobby() }</button>
+		</form>
+	</li>
+}

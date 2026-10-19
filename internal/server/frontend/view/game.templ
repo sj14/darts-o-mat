@@ -1,0 +1,1006 @@
+package view
+
+import (
+	"strconv"
+	"time"
+
+	"github.com/sj14/darts-o-mat/internal/server/domain/game/aroundtheclock"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
+	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
+	"github.com/sj14/darts-o-mat/internal/server/service"
+	"github.com/sj14/darts-o-mat/internal/common/dartboard"
+)
+
+templ Game(user string, v service.GameView) {
+	@layout(modeLabel(T(ctx), v.Game.Settings), user) {
+		// The server pushes the board whenever the game changes (darts from the cameras or
+		// other devices, answered invitations); the board element swaps itself on "board".
+		<div hx-ext="sse" sse-connect={ gameURL(v.Game.ID, "/events") }>
+			@Board(v, "")
+		</div>
+	}
+}
+
+// Board is the part of the game page that htmx replaces after every dart.
+// Until all invited players have accepted, it shows the lobby instead.
+templ Board(v service.GameView, errMsg string) {
+	if !v.Ready && !v.Game.Aborted() {
+		@lobby(v, errMsg)
+	} else {
+		@scores(v, errMsg, nil, false)
+	}
+}
+
+// BoardEditing is the board with the keypad correcting an earlier dart.
+templ BoardEditing(v service.GameView, errMsg string, dart throw.Dart) {
+	@scores(v, errMsg, &dart, false)
+}
+
+// BoardAdding is the board with the keypad to enter a dart the cameras missed.
+templ BoardAdding(v service.GameView, errMsg string) {
+	@scores(v, errMsg, nil, true)
+}
+
+// gameTitle is the heading of the game with what belongs to it right now: the board, the
+// way out, the round, set and leg. On the game page it is the head of the left column
+// rather than a bar across the page: that column has room in height, while the board
+// beside it takes all of the right side, from the top.
+templ gameTitle(v service.GameView, p *progress) {
+	<div class="mb-3 flex flex-col gap-3">
+		<div>
+			<h1 class="font-display text-4xl font-extrabold uppercase tracking-wide text-board-cream sm:text-5xl lg:text-4xl xl:text-5xl">{ modeName(T(ctx), v.Game.Settings) }</h1>
+			if goal := modeGoal(T(ctx), v.Game.Settings); goal != "" {
+				<p class="font-display text-xl font-semibold uppercase tracking-wider text-white/50 sm:text-2xl lg:text-xl">{ goal }</p>
+			}
+		</div>
+		<div class="flex flex-wrap items-center gap-2 text-sm text-white/60">
+			// Who can still throw changes the board in a menu; for anyone else the board is
+			// only shown while it is played on, not in a game that is over.
+			if p != nil && p.running() && v.CanThrow && len(v.Boards) > 0 {
+				@boardMenu(v)
+			} else if name := sharedBoardName(v); name != "" && (p == nil || p.running()) {
+				<span class="rounded-full bg-white/10 px-3 py-1">📷 { name }</span>
+			}
+			if p != nil && v.CanThrow && p.running() && !p.BullingOff {
+				@leaveButton(v)
+			}
+			if p != nil && p.BullingOff && p.running() {
+				<span class="rounded-full bg-board-red/25 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider text-red-300">{ T(ctx).BullOff() }</span>
+			} else if p != nil && p.running() {
+				<span class="rounded-full bg-white/10 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider">{ T(ctx).RoundN(p.Round) }</span>
+				if v.Game.Sets > 1 {
+					<span class="rounded-full bg-sky-400/20 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider text-sky-300">{ T(ctx).SetN(p.Set) }</span>
+				}
+				if v.Game.Legs > 1 {
+					<span class="rounded-full bg-amber-400/20 px-3 py-1 font-display text-base font-semibold uppercase tracking-wider text-amber-300">{ T(ctx).LegN(p.Leg) }</span>
+				}
+			}
+			if v.Game.TournamentID != nil {
+				<a href={ templ.URL(tournamentURL(*v.Game.TournamentID, "")) } class="rounded-full bg-amber-400/20 px-3 py-1 font-semibold text-amber-300 hover:bg-amber-400/30">{ T(ctx).ToTournament() }</a>
+			}
+		</div>
+	</div>
+}
+
+// boardMenu is the board the viewer's players throw on, with a menu to change it or to take
+// them off it, e.g. when it broke: then the keypad takes over, as if they had played
+// without a board from the start. A <details> opens it without JavaScript; choosing swaps
+// the page's board, which closes it.
+templ boardMenu(v service.GameView) {
+	{{ current, name, on := myBoard(v) }}
+	<details class="relative">
+		<summary class="cursor-pointer list-none rounded-full border border-white/20 bg-white/10 px-3 py-1 hover:bg-white/15 [&::-webkit-details-marker]:hidden" title={ T(ctx).Board() }>
+			if on {
+				📷 { name }
+			} else {
+				📷 { T(ctx).NoBoard() }
+			}
+			<span class="text-white/40">▾</span>
+		</summary>
+		<div class="absolute left-0 z-20 mt-1 flex min-w-56 flex-col rounded-xl border border-white/15 bg-pub-900 p-1 shadow-xl shadow-black/40">
+			for _, b := range v.Boards {
+				<button
+					type="button"
+					class="flex flex-col rounded-lg px-3 py-2 text-left hover:bg-white/10 disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent"
+					title={ T(ctx).PlayOnBoard() }
+					disabled?={ on && b.ID == current }
+					hx-post={ gameURL(v.Game.ID, "/board") }
+					hx-vals={ boardVals(b.ID) }
+					hx-target="#board"
+					hx-swap="outerHTML"
+					if b.InUse {
+						hx-confirm={ T(ctx).BoardInUseConfirm() }
+					}
+				>
+					<span class="font-semibold">
+						📷 { b.Name }
+						if on && b.ID == current {
+							✓
+						}
+					</span>
+					if b.InUse {
+						<span class="text-xs text-white/50">{ T(ctx).BoardInUse() }</span>
+					}
+				</button>
+			}
+			if on {
+				<button
+					type="button"
+					class="rounded-lg border-t border-white/10 px-3 py-2 text-left text-red-300 hover:bg-board-red/20"
+					hx-post={ gameURL(v.Game.ID, "/board") }
+					hx-vals={ `{"board_id": ""}` }
+					hx-target="#board"
+					hx-swap="outerHTML"
+					hx-confirm={ T(ctx).RemoveBoardConfirm() }
+				>{ T(ctx).RemoveBoard() }</button>
+			}
+		</div>
+	</details>
+}
+
+// lobby turns into the board once everyone has accepted, pushed by the server.
+templ lobby(v service.GameView, errMsg string) {
+	<div id="board" sse-swap="board" hx-swap="outerHTML" data-sound={ soundKind(v) } data-sound-id={ soundID(v) }>
+		@gameTitle(v, nil)
+		@errorAlert(errMsg)
+		if v.Invited {
+			<div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-board-green/40 bg-board-green/15 px-4 py-3">
+				<span class="font-semibold">{ T(ctx).InvitedToGame() }</span>
+				<div class="flex gap-2">
+					<form method="post" action={ templ.URL(gameURL(v.Game.ID, "/accept")) } class="flex items-center gap-2">
+						@boardSelect(boardsOfChoices(v.Boards))
+						<button type="submit" class="rounded-xl bg-board-green px-4 py-2 font-semibold text-white hover:brightness-110">{ T(ctx).Accept() }</button>
+					</form>
+					<form method="post" action={ templ.URL(gameURL(v.Game.ID, "/decline")) }>
+						<button type="submit" class="rounded-xl border border-board-red/60 px-4 py-2 font-semibold text-red-300 hover:bg-board-red/20">{ T(ctx).Decline() }</button>
+					</form>
+				</div>
+			</div>
+		}
+		@panel("") {
+			<p class="mb-4 text-white/70">{ T(ctx).GameStartsWhenAccepted() }</p>
+			if !v.Game.Full(len(v.Game.Participants)) {
+				<p class="mb-4 font-semibold text-amber-300">{ T(ctx).WaitingForSeats(v.Game.Seats - len(v.Game.Participants)) }</p>
+			}
+			<ul class="divide-y divide-white/10">
+				for _, pl := range v.Players {
+					<li class="flex flex-wrap items-center justify-between gap-2 py-3">
+						<span class="font-display text-2xl font-semibold">
+							{ displayName(ctx, pl) }
+							if pl.IsGuest() {
+								<span class="font-sans text-sm font-normal text-white/50">{ T(ctx).GuestMark() }</span>
+							}
+							if name := playerBoardName(v, pl.ID); name != "" {
+								<span class="ml-1 font-sans text-sm font-normal text-white/50">📷 { name }</span>
+							}
+						</span>
+						if !v.Pending(pl.ID) {
+							<span class="rounded-full bg-board-green/20 px-3 py-1 text-sm text-emerald-300">{ T(ctx).Joined() }</span>
+						} else {
+								<span class="flex items-center gap-2">
+									<span class="animate-pulse rounded-full bg-amber-400/20 px-3 py-1 text-sm text-amber-300">{ T(ctx).Invited() }</span>
+									if !v.Invited {
+										<button
+											type="button"
+											class="rounded-lg border border-board-red/60 px-3 py-1 text-sm text-red-300 hover:bg-board-red/20"
+											hx-post={ gameURL(v.Game.ID, "/invitations/"+strconv.FormatInt(pl.ID, 10)+"/withdraw") }
+											hx-target="#board"
+											hx-swap="outerHTML"
+										>{ T(ctx).Uninvite() }</button>
+									}
+								</span>
+						}
+					</li>
+				}
+			</ul>
+		}
+		if !v.Invited {
+			<div class="mt-4">
+				@leaveButton(v)
+			</div>
+		}
+	</div>
+}
+
+// leaveButton lets the viewer leave the game with all their players, after asking. In a
+// game of one account alone that is what ending it means, and it says so. It is a form of
+// its own: afterwards the page shows the game, or the start page from the lobby.
+templ leaveButton(v service.GameView) {
+	<form method="post" action={ templ.URL(gameURL(v.Game.ID, "/leave")) } data-confirm={ leaveConfirm(T(ctx), v) } onsubmit="return confirm(this.dataset.confirm)">
+		<button type="submit" class="rounded-full border border-board-red/50 px-3 py-1 text-sm font-semibold text-red-300 transition hover:bg-board-red/20">{ leaveLabel(T(ctx), v) }</button>
+	</form>
+}
+
+// afterGame links on from a finished game to its tournament (user's wish 2026-10-18: no
+// "new game" button here; the logo in the header leads home).
+templ afterGame(v service.GameView, colors string) {
+	if v.Game.TournamentID != nil {
+		<a href={ templ.URL(tournamentURL(*v.Game.TournamentID, "")) } class={ "mt-4 inline-block rounded-xl px-5 py-2.5 font-semibold", colors }>{ T(ctx).ToTournament() }</a>
+	}
+}
+
+templ scores(v service.GameView, errMsg string, editing *throw.Dart, adding bool) {
+	{{ p := progressOf(v) }}
+	// The keypad takes the middle column when the viewer enters darts by hand, else the
+	// board gets the room: its darts come from cameras or from another account.
+	{{ keypad := editing != nil || adding || (p.running() && !p.WaitingForTakeout && handEntry(v, p)) }}
+	<div id="board" sse-swap="board" hx-swap="outerHTML" data-sound={ soundKind(v) } data-sound-id={ soundID(v) }>
+		@errorAlert(errMsg)
+		if v.HasLeft {
+			<div class="mb-4 rounded-2xl border border-white/15 bg-pub-800 px-4 py-3 text-white/70" role="status">{ T(ctx).YouLeft() }</div>
+		}
+		if p.GameOver {
+			<div class="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-amber-300 via-amber-400 to-orange-500 p-6 text-pub-950 shadow-2xl shadow-amber-500/30 animate-dart-in" role="status">
+				<div class="font-display text-5xl font-extrabold uppercase sm:text-6xl">{ T(ctx).WinsGame(playerName(ctx, v, *p.WinnerID)) }</div>
+				if d := p.Times.Game.Duration(); d > 0 {
+					<div class="mt-1 font-semibold tabular-nums">{ T(ctx).Duration(clock(d)) }</div>
+				}
+				if v.Completed {
+					<div class="mt-1 font-semibold">{ T(ctx).ResultConfirmed() }</div>
+				} else if !v.Invited && !v.HasLeft {
+					<div class="mt-1 text-sm">{ T(ctx).CompleteHint() }</div>
+				}
+				if !v.Completed && !v.Invited && !v.HasLeft {
+					<button
+						type="button"
+						class="mr-2 mt-4 rounded-xl bg-pub-950 px-5 py-2.5 font-semibold text-amber-300 hover:bg-pub-800"
+						hx-post={ gameURL(v.Game.ID, "/complete") }
+						hx-target="#board"
+						hx-swap="outerHTML"
+					>{ T(ctx).CompleteGame() }</button>
+				}
+				@afterGame(v, "bg-pub-950 text-amber-300 hover:bg-pub-800")
+			</div>
+		}
+		if p.Aborted {
+			<div class="mb-6 rounded-3xl border border-white/10 bg-pub-800 p-6" role="status">
+				<div class="font-display text-4xl font-extrabold uppercase text-white/80">{ T(ctx).GameAborted() }</div>
+				@afterGame(v, "bg-white/10 hover:bg-white/20")
+			</div>
+		}
+		@celebration(v, p)
+		// Desktop: the players (the current one with the darts of the visit), the keypad if
+		// the viewer enters darts by hand, and the board side by side, so a turn needs no
+		// scrolling; history and statistics follow below. Narrow screens stack them.
+		<div class={ "grid items-start gap-4 lg:gap-6", templ.KV("lg:grid-cols-[minmax(0,4fr)_minmax(0,5fr)_minmax(0,4fr)]", keypad), templ.KV("lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]", !keypad) }>
+			<div class="flex flex-col gap-2">
+				@gameTitle(v, &p)
+				for i, l := range playerLines(T(ctx), v, p) {
+					if i == 0 && (p.isCurrent(l.ID) || p.isWinner(l.ID)) {
+						@playerCard(v, p, l, keypad)
+						@turnControls(v, p)
+					} else {
+						@playerRow(v, p, l, i == 1 && p.CurrentPlayerID != nil)
+					}
+				}
+				if !keypad {
+					@inputPanel(v, p, editing, adding, keypad)
+				}
+			</div>
+			if keypad {
+				<div class="flex flex-col gap-4">
+					@inputPanel(v, p, editing, adding, keypad)
+				</div>
+			}
+			<div>
+				@dartboardView(v, p, !keypad)
+			</div>
+		</div>
+		switch st := v.State.(type) {
+			case x01.State:
+				if len(st.Turns) > 0 {
+					@x01History(v, st)
+				}
+			case aroundtheclock.State:
+				if len(st.Turns) > 0 {
+					@aroundTheClockHistory(v, st)
+				}
+		}
+		if hasTurns(v) {
+			@gameStats(v)
+		}
+	</div>
+}
+
+// inputPanel is what the viewer uses to enter or correct darts: the keypad to correct a
+// dart, the bull-off, or the keypad for the dart of the player who is up.
+templ inputPanel(v service.GameView, p progress, editing *throw.Dart, adding, keypad bool) {
+	if editing != nil && v.CanThrow {
+		@editPanel(v, *editing)
+	} else if p.BullingOff && p.running() {
+		@bullOffPanel(v, p, keypad)
+	} else if p.running() && v.CanThrow && keypad && !p.WaitingForTakeout {
+		if adding && !handEntry(v, p) {
+			@hideKeypadButton(v)
+		}
+		@dartInput(v, gameURL(v.Game.ID, "/darts"))
+	}
+}
+
+// dartTiles shows the three darts of the visit, with the way to finish where darts are
+// still to come. The next free place is a button for a dart the cameras missed.
+templ dartTiles(v service.GameView, p progress, keypad bool) {
+	{{ thrown, suggestion := turnDarts(v, p), checkoutSuggestion(v, p) }}
+	{{ addable := mayAddDart(v, p) && !keypad && !p.WaitingForTakeout }}
+	<div class="grid grid-cols-3 gap-2">
+		for i := range turn.DartsPerTurn {
+			if i < len(thrown) {
+				@dartTile(v, thrown[i])
+			} else if j := i - len(thrown); j < len(suggestion) {
+				// The way to finish, like Autodarts shows it.
+				@freeSlot(v, addable && j == 0, "@container flex h-14 flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-400/60 bg-amber-400/5 px-2 font-number text-amber-300 sm:h-16", T(ctx).CheckoutSuggestion()) {
+					@fitText(dartLabel(T(ctx), suggestion[j]), "1.75rem")
+					if j == 0 {
+						<span class="text-[0.6rem] font-semibold uppercase tracking-widest text-amber-300/60">{ T(ctx).Checkout() }</span>
+					}
+				}
+			} else {
+				@freeSlot(v, addable && j == 0, "flex h-14 items-center justify-center rounded-xl border-2 border-dashed border-white/15 font-number text-3xl text-white/20 sm:h-16", "") {
+					{ strconv.Itoa(i + 1) }
+				}
+			}
+		}
+	</div>
+}
+
+// turnControls are below the current player's card: what to do when the darts are to be
+// pulled out.
+templ turnControls(v service.GameView, p progress) {
+	if p.WaitingForTakeout {
+		<div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 [--glow-color:var(--color-amber-400)] animate-glow" role="status">
+			<span>
+				<span class="font-display text-2xl font-extrabold uppercase text-amber-300">{ T(ctx).PullDarts() }</span>
+				if p.SetOver {
+					<span class="block text-white/70">{ T(ctx).ThenSet(p.Set + 1) }</span>
+				} else if p.LegOver {
+					<span class="block text-white/70">{ T(ctx).ThenLeg(p.Leg + 1) }</span>
+				} else {
+					<span class="block text-white/70">{ T(ctx).ThenPlayer(nextPlayerName(ctx, v, p)) }</span>
+				}
+				if v.HasBoard() {
+					<span class="block text-sm text-white/50">{ T(ctx).CameraSeesTakeout() }</span>
+				}
+			</span>
+			if v.CanThrow {
+				<button
+					type="button"
+					class="rounded-xl bg-amber-400 px-5 py-3 font-display text-xl font-extrabold uppercase text-pub-950 transition hover:bg-amber-300 active:scale-95"
+					hx-post={ gameURL(v.Game.ID, "/takeout") }
+					hx-target="#board"
+					hx-swap="outerHTML"
+				>{ T(ctx).DartsPulled() }</button>
+			}
+		</div>
+	}
+	{{ elapsed, total, timed := turnClock(v, p) }}
+	if timed && !p.WaitingForTakeout {
+		<div class="h-1.5 overflow-hidden rounded-full bg-white/10" role="timer" aria-label={ T(ctx).TurnTimeLeft() }>
+			<div class="h-full origin-left rounded-full bg-amber-400 animate-turn" style={ turnClockStyle(elapsed, total) }></div>
+		</div>
+	}
+}
+
+// undoButton takes the last dart back, as a small button next to the darts of the visit.
+templ undoButton(v service.GameView) {
+	<button
+		type="button"
+		class="flex h-14 w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 text-2xl text-white/70 transition hover:bg-white/10 active:scale-95 disabled:opacity-30 sm:h-16"
+		title={ T(ctx).UndoLastDart() }
+		aria-label={ T(ctx).UndoLastDart() }
+		hx-post={ gameURL(v.Game.ID, "/undo") }
+		hx-target="#board"
+		hx-swap="outerHTML"
+		disabled?={ !v.MayUndo() }
+	>↶</button>
+}
+
+// celebration shows a big effect right after a special turn: 180 or busted.
+templ celebration(v service.GameView, p progress) {
+	if player, decided := bullOffDecided(v, p); decided {
+		<div class="mb-4 animate-dart-in rounded-2xl bg-gradient-to-r from-board-red to-board-green px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-board-cream shadow-lg">{ T(ctx).Starts(playerName(ctx, v, player)) }</div>
+	}
+	if p.SetWinner != nil {
+		<div class="mb-4 animate-dart-in rounded-2xl bg-gradient-to-r from-sky-300 to-sky-500 px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-pub-950 shadow-lg shadow-sky-500/30">{ T(ctx).SetTo(playerName(ctx, v, *p.SetWinner)) }</div>
+	} else if p.LegWinner != nil {
+		<div class="mb-4 animate-dart-in rounded-2xl bg-gradient-to-r from-amber-300 to-amber-500 px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-pub-950 shadow-lg shadow-amber-500/30">{ T(ctx).LegTo(playerName(ctx, v, *p.LegWinner)) }</div>
+	}
+	switch latestTurnEvent(v) {
+		case "180":
+			<div class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+				<div class="animate-celebrate font-display text-[10rem] font-extrabold leading-none text-amber-300 drop-shadow-[0_0_2rem_rgba(251,191,36,0.8)] sm:text-[16rem]">180!</div>
+			</div>
+		case "bust":
+			<div class="mb-4 animate-shake rounded-2xl bg-board-red px-4 py-3 text-center font-display text-3xl font-extrabold uppercase text-board-cream shadow-lg shadow-board-red/40">{ T(ctx).Bust() }</div>
+	}
+}
+
+// targetMark highlights the field to hit next in around the clock. A colored layer on
+// the field hardly showed on the cream fields (user, 2026-10-13), so the rest of the board
+// is dimmed instead: the field keeps its own colors, with a bright outline that pulses.
+templ targetMark(target uint8) {
+	<path d={ dimPath(target) } fill="#000" fill-opacity="0.6" fill-rule="evenodd" pointer-events="none"></path>
+	<path d={ targetPath(target) } fill="none" stroke={ boardTarget } stroke-width="4" stroke-linejoin="round" pointer-events="none"></path>
+	if target == dartboard.BullNumber {
+		// The bull is small on the board: a ring around it makes it easy to spot.
+		<circle cx="228" cy="228" r="26" fill="none" stroke={ boardTarget } stroke-width="4" pointer-events="none"></circle>
+	}
+	// A wide soft edge that lights up and fades.
+	<g class="animate-target" pointer-events="none">
+		<path d={ targetPath(target) } fill="none" stroke={ boardTarget } stroke-width="12" stroke-opacity="0.5" stroke-linejoin="round"></path>
+		if target == dartboard.BullNumber {
+			<circle cx="228" cy="228" r="26" fill="none" stroke={ boardTarget } stroke-width="12" stroke-opacity="0.5"></circle>
+		}
+	</g>
+}
+
+// dartboardView draws the board with the darts of the current turn and, in around the
+// clock, the field to hit next.
+templ dartboardView(v service.GameView, p progress, large bool) {
+	{{ target := boardTargetOf(v, p) }}
+	<div class={ "mx-auto aspect-square w-full rounded-full shadow-[0_1rem_2rem_rgba(0,0,0,0.6)]", templ.KV("max-w-md", !large), templ.KV("max-w-2xl", large) }>
+		<svg viewBox={ boardViewBox } class="h-full w-full" role="img" aria-label="Dartboard">
+			<circle cx="228" cy="228" r="226" fill="#0b0c0f" stroke="#2b2e35" stroke-width="3"></circle>
+			for _, s := range boardShapes {
+				<path d={ s.Path } fill={ s.Fill } stroke={ boardWire } stroke-width="0.8"></path>
+			}
+			<circle cx="228" cy="228" r={ strconv.FormatFloat(15.9, 'f', 1, 64) } fill={ boardGreen } stroke={ boardWire } stroke-width="0.8"></circle>
+			<circle cx="228" cy="228" r={ strconv.FormatFloat(6.35, 'f', 2, 64) } fill={ boardRed } stroke={ boardWire } stroke-width="0.8"></circle>
+			if target != 0 {
+				@targetMark(target)
+			}
+			for _, n := range boardNumbers {
+				if target != 0 && n.Text == strconv.Itoa(int(target)) {
+					<text x={ n.X } y={ n.Y } fill={ boardTarget } font-size="32" font-family="ui-sans-serif, system-ui, sans-serif" font-weight="800" text-anchor="middle" dominant-baseline="central">{ n.Text }</text>
+				} else {
+					<text x={ n.X } y={ n.Y } fill="#e9dcc0" font-size="24" font-family="ui-sans-serif, system-ui, sans-serif" font-weight="800" text-anchor="middle" dominant-baseline="central">{ n.Text }</text>
+				}
+			}
+			for _, d := range boardDarts(v, p) {
+				<g class={ templ.KV("opacity-40", d.Faded) }>
+					if d.Latest {
+						<circle cx={ d.X } cy={ d.Y } r="9" fill={ d.Fill } class="svg-center animate-ping"></circle>
+					}
+					<circle cx={ d.X } cy={ d.Y } r="9" fill={ d.Fill } stroke="#0b0c0f" stroke-width="2.5" class={ "svg-center", templ.KV("animate-dart-in", d.Latest) }></circle>
+					<text x={ d.X } y={ d.Y } fill="#0b0c0f" font-size="13" font-weight="800" text-anchor="middle" dominant-baseline="central">{ d.Label }</text>
+				</g>
+			}
+		</svg>
+	</div>
+}
+
+// gameStats shows the statistics of all players in this game.
+templ gameStats(v service.GameView) {
+	@panel("mt-6") {
+		<h2 class="mb-3 font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">{ T(ctx).Statistics() }</h2>
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm tabular-nums">
+				switch st := v.State.(type) {
+					case x01.State:
+						<thead class="text-left text-xs uppercase tracking-wider text-white/50">
+							<tr>
+								<th class="py-2 font-semibold">{ T(ctx).Player() }</th>
+								<th class="py-2 text-right font-semibold" title={ T(ctx).AverageHint() }>Ø</th>
+								<th class="py-2 text-right font-semibold">{ T(ctx).Darts() }</th>
+								<th class="py-2 text-right font-semibold">{ T(ctx).Highest() }</th>
+								<th class="py-2 text-right font-semibold">100+</th>
+								<th class="py-2 text-right font-semibold">140+</th>
+								<th class="py-2 text-right font-semibold">180</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-white/5">
+							for _, ps := range st.Players {
+								<tr>
+									<td class="py-2 font-semibold">{ playerName(ctx, v, ps.PlayerID) }</td>
+									<td class="py-2 text-right">{ T(ctx).Decimal(ps.Stats.Average) }</td>
+									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Darts) }</td>
+									<td class="py-2 text-right">{ strconv.FormatUint(ps.Stats.HighestTurn, 10) }</td>
+									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Turns100) }</td>
+									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Turns140) }</td>
+									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Turns180) }</td>
+								</tr>
+							}
+						</tbody>
+					case aroundtheclock.State:
+						<thead class="text-left text-xs uppercase tracking-wider text-white/50">
+							<tr>
+								<th class="py-2 font-semibold">{ T(ctx).Player() }</th>
+								<th class="py-2 text-right font-semibold">{ T(ctx).Darts() }</th>
+								<th class="py-2 text-right font-semibold">{ T(ctx).Hits() }</th>
+								<th class="py-2 text-right font-semibold">{ T(ctx).HitRate() }</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-white/5">
+							for _, ps := range st.Players {
+								<tr>
+									<td class="py-2 font-semibold">{ playerName(ctx, v, ps.PlayerID) }</td>
+									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Darts) }</td>
+									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Hits) }</td>
+									<td class="py-2 text-right">{ T(ctx).Percent(ps.Stats.HitRate) }</td>
+								</tr>
+							}
+						</tbody>
+				}
+			</table>
+		</div>
+		for _, id := range v.Game.PlayerIDs() {
+			if h := gameHeat(v, id); h.Darts > 0 {
+				<div class="mt-6">
+					<h3 class="font-display text-xl font-semibold uppercase tracking-wide">{ playerName(ctx, v, id) }</h3>
+					@heatmap(h)
+				</div>
+			}
+		}
+	}
+}
+
+// playerCard shows the player whose turn it is (or the winner) in large: the main value
+// (rest, target) and a second key figure next to it. With more than one leg or set to
+// win, it shows those won as dots.
+templ playerCard(v service.GameView, p progress, l playerLine, keypad bool) {
+	{{ winner := p.isWinner(l.ID) }}
+	{{ accent := playerAccent(v, l.ID) }}
+	<div
+		class={ "relative rounded-3xl border p-5 transition-colors duration-300",
+			templ.KV("bg-gradient-to-br to-pub-900 animate-glow "+accent.Card, !winner),
+			templ.KV("border-amber-400/80 bg-gradient-to-br from-amber-400/25 to-pub-900 [--glow-color:var(--color-amber-400)] animate-glow", winner) }
+	>
+		<div class="flex items-center justify-between gap-2">
+			<span class="truncate font-display text-2xl font-semibold uppercase tracking-wide">{ playerName(ctx, v, l.ID) }</span>
+			@playerBoardTag(v, l.ID)
+			@legDots(v, l)
+			if winner {
+				<span class="rounded-full bg-amber-400 px-3 py-0.5 font-display text-lg font-extrabold uppercase text-pub-950">{ T(ctx).Win() }</span>
+			} else {
+				<span class={ "rounded-full px-3 py-0.5 font-display text-lg font-extrabold uppercase text-board-cream", accent.Badge }>{ T(ctx).ToThrow() }</span>
+			}
+		</div>
+		<div class="mt-2 flex items-end justify-between gap-3">
+			<div>
+				<div class="font-number text-6xl leading-none font-extrabold tabular-nums sm:text-7xl">{ l.Value }</div>
+				<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ l.Caption }</div>
+			</div>
+			<div class="text-right">
+				<div class="font-number text-3xl leading-none font-semibold tabular-nums text-white/90">{ l.Stat }</div>
+				<div class="mt-1 text-xs uppercase tracking-widest text-white/50">{ l.StatCaption }</div>
+			</div>
+		</div>
+		{{ tiles := p.running() && !p.BullingOff && !winner }}
+		if tiles || v.CanThrow {
+			// The darts of the visit, with the way to take the last dart back next to them.
+			<div class="mt-4 flex items-center gap-2">
+				<div class="min-w-0 flex-1">
+					if tiles {
+						@dartTiles(v, p, keypad)
+					}
+				</div>
+				if v.CanThrow {
+					@undoButton(v)
+				}
+			</div>
+		}
+	</div>
+}
+
+// playerBoardTag shows the board a player throws on, in games where the players have
+// boards of their own.
+templ playerBoardTag(v service.GameView, id int64) {
+	if name := playerBoardName(v, id); name != "" {
+		<span class="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">📷 { name }</span>
+	}
+}
+
+// playerRow shows a player who waits, in one compact line; next marks who throws next.
+templ playerRow(v service.GameView, p progress, l playerLine, next bool) {
+	<div class={ "flex items-center gap-3 rounded-2xl border border-white/10 bg-pub-900/70 px-4 py-2", templ.KV("opacity-60", !next && p.running() && !l.Left), templ.KV("opacity-40", l.Left) }>
+		<div class="min-w-0 flex-1">
+			<div class="flex items-center gap-2">
+				<span class="truncate font-display text-xl font-semibold uppercase tracking-wide">{ playerName(ctx, v, l.ID) }</span>
+				@playerBoardTag(v, l.ID)
+				@legDots(v, l)
+			</div>
+			if l.Left {
+				<div class="text-xs font-semibold uppercase tracking-widest text-white/40">{ T(ctx).PlayerLeft() }</div>
+			} else if next {
+				<div class="text-xs font-semibold uppercase tracking-widest text-emerald-300/80">{ T(ctx).Next() }</div>
+			}
+			// The player's last turn, as part of their tile.
+			if t, ok := lastTurnOf(T(ctx), v, l.ID); ok {
+				<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+					@turnDartsList(v, t.Darts, true)
+					<span class={ "text-white/60", templ.KV("rounded-full bg-board-red/25 px-2 py-0.5 text-xs font-semibold text-red-300", t.Bust), templ.KV("font-number text-lg font-extrabold text-amber-300", t.Strong) }>{ t.Value }</span>
+				</div>
+			}
+		</div>
+		<div class="text-right lg:max-xl:hidden">
+			<div class="font-number text-xl leading-none font-semibold tabular-nums text-white/70">{ l.Stat }</div>
+			<div class="text-[0.65rem] uppercase tracking-widest text-white/40">{ l.StatCaption }</div>
+		</div>
+		<div class="w-20 text-right">
+			<div class="font-number text-4xl leading-none font-extrabold tabular-nums">{ l.Value }</div>
+			<div class="text-[0.65rem] uppercase tracking-widest text-white/40">{ l.Caption }</div>
+		</div>
+	</div>
+}
+
+// legDots shows the sets a player won (sky squares) and the legs of the current set
+// (amber dots), each with more than one to win.
+templ legDots(v service.GameView, l playerLine) {
+	if v.Game.Sets > 1 {
+		<span class="flex gap-1" title={ T(ctx).SetsWon(l.Sets) }>
+			for i := range v.Game.Sets {
+				<span class={ "size-3 rounded-sm", templ.KV("bg-sky-400 shadow shadow-sky-400/60", i < l.Sets), templ.KV("bg-white/15", i >= l.Sets) }></span>
+			}
+		</span>
+	}
+	if v.Game.Legs > 1 {
+		<span class="flex gap-1" title={ T(ctx).LegsWon(l.Legs) }>
+			for i := range v.Game.Legs {
+				<span class={ "size-3 rounded-full", templ.KV("bg-amber-400 shadow shadow-amber-400/60", i < l.Legs), templ.KV("bg-white/15", i >= l.Legs) }></span>
+			}
+		</span>
+	}
+}
+
+// keypad enters a dart (posted to action): choose single, double or triple, then tap the
+// number. The keys follow the chosen multiplier with CSS only: D1…D20 and Bullseye for
+// double, T1…T20 for triple, where the bull is greyed out (there is no triple bull).
+templ keypad(v service.GameView, action string) {
+	{{ target := currentTarget(v) }}
+	<form
+		hx-post={ action }
+		hx-target="#board"
+		hx-swap="outerHTML"
+		class="group/keypad flex flex-col gap-3"
+	>
+		<div class="grid grid-cols-3 gap-1 rounded-2xl bg-pub-800 p-1" role="group" aria-label={ T(ctx).Multiplier() }>
+			@segmentButton(dartboard.Single, T(ctx).Single(), true)
+			@segmentButton(dartboard.Double, T(ctx).Double(), false)
+			@segmentButton(dartboard.Triple, T(ctx).Triple(), false)
+		</div>
+		<div class="grid grid-cols-5 gap-2">
+			for n := 1; n <= 20; n++ {
+				<button
+					type="submit"
+					name="number"
+					value={ strconv.Itoa(n) }
+					class={ "h-14 rounded-xl font-number text-3xl font-semibold transition active:scale-90 sm:h-16 lg:h-12",
+						templ.KV("bg-board-green text-board-cream shadow-lg shadow-board-green/40 hover:brightness-110", uint8(n) == target),
+						templ.KV("bg-pub-700 text-board-cream hover:bg-pub-700/70", uint8(n) != target) }
+				><span class="hidden text-xl group-has-[[value='double']:checked]/keypad:inline">D</span><span class="hidden text-xl group-has-[[value='triple']:checked]/keypad:inline">T</span>{ strconv.Itoa(n) }</button>
+			}
+			<button
+				type="submit"
+				name="number"
+				value="25"
+				class={ "@container col-span-2 h-14 rounded-xl px-2 font-number font-extrabold uppercase text-board-cream transition active:scale-95 sm:h-16 lg:h-12",
+					templ.KV("bg-board-green shadow-lg shadow-board-green/40 ring-2 ring-white", target == dartboard.BullNumber),
+					templ.KV("bg-board-green/80 hover:bg-board-green", target != dartboard.BullNumber),
+					"group-has-[[value='triple']:checked]/keypad:pointer-events-none group-has-[[value='triple']:checked]/keypad:opacity-30" }
+			>
+				<span class="group-has-[[value='double']:checked]/keypad:hidden">@fitText(T(ctx).Bull(), "1.875rem")</span>
+				<span class="hidden group-has-[[value='double']:checked]/keypad:inline">@fitText(T(ctx).Bullseye(), "1.875rem")</span>
+			</button>
+			<button type="submit" name="miss" value="true" class="@container col-span-3 h-14 rounded-xl bg-board-red/85 px-2 font-number font-extrabold uppercase text-board-cream transition hover:bg-board-red active:scale-95 sm:h-16 lg:h-12">@fitText(T(ctx).Miss(), "1.875rem")</button>
+		</div>
+	</form>
+}
+
+// dartInput enters the next dart. In around the clock only hitting the target or not
+// matters, so there are buttons for that; the full keypad is folded away for the rare
+// case someone wants to enter the exact number.
+templ dartInput(v service.GameView, action string) {
+	{{ target := currentTarget(v) }}
+	if target == 0 {
+		@keypad(v, action)
+	} else {
+		{{ skips := v.Game.Rules.(*aroundtheclock.Settings).MultiplierSkips && target != dartboard.BullNumber }}
+		<div class="flex flex-col gap-3">
+			<div class={ "grid gap-2", templ.KV("grid-cols-2", !skips), templ.KV("grid-cols-3", skips) }>
+				@quickDart(action, target, dartboard.Single, T(ctx).Hit(), skips, "3rem", "h-24 bg-board-green shadow-board-green/40")
+				if skips {
+					@quickDart(action, target, dartboard.Double, "D"+targetLabel(T(ctx), target), false, "1.875rem", "h-16 bg-board-green/75 shadow-board-green/30")
+					@quickDart(action, target, dartboard.Triple, "T"+targetLabel(T(ctx), target), false, "1.875rem", "h-16 bg-board-green/75 shadow-board-green/30")
+				}
+				<form hx-post={ action } hx-target="#board" hx-swap="outerHTML">
+					<button type="submit" name="miss" value="true" class={ "@container w-full rounded-2xl bg-board-red/85 px-2 font-number font-extrabold uppercase text-board-cream shadow-lg shadow-board-red/30 transition hover:bg-board-red active:scale-95", templ.KV("h-24", !skips), templ.KV("h-16", skips) }>
+						if skips {
+							@fitText(T(ctx).Miss(), "1.875rem")
+						} else {
+							@fitText(T(ctx).Miss(), "3rem")
+						}
+					</button>
+				</form>
+			</div>
+			<details class="group">
+				<summary class="cursor-pointer list-none text-sm font-semibold text-white/50 hover:text-white/80">
+					<span class="group-open:hidden">▸ { T(ctx).OtherNumber() }</span>
+					<span class="hidden group-open:inline">▾ { T(ctx).OtherNumber() }</span>
+				</summary>
+				<div class="mt-3">
+					@keypad(v, action)
+				</div>
+			</details>
+		</div>
+	}
+}
+
+// quickDart is a button that enters a given field; wide spans the whole row, size is the
+// label's largest size (see fitText).
+templ quickDart(action string, number uint8, segment dartboard.Segment, label string, wide bool, size, classes string) {
+	<form hx-post={ action } hx-target="#board" hx-swap="outerHTML" class={ templ.KV("col-span-3", wide) }>
+		<input type="hidden" name="number" value={ strconv.Itoa(int(number)) }/>
+		<input type="hidden" name="segment" value={ segment.String() }/>
+		<button type="submit" class={ "@container w-full rounded-2xl px-2 font-number font-extrabold uppercase text-board-cream shadow-lg transition hover:brightness-110 active:scale-95", classes }>@fitText(label, size)</button>
+	</form>
+}
+
+// fitText is a label that shrinks to fit the width of its container (an element with
+// @container): the largest size is size, long labels like DANEBEN or BULLSEYE get
+// smaller, whatever the font and the screen.
+templ fitText(label, size string) {
+	<span class="text-fit" style={ fitStyle(label, size) }>{ label }</span>
+}
+
+// segmentButton is one option of the single/double/triple control. On the bull key,
+// single is the bull and double the bullseye (see controller.dartFromForm).
+templ segmentButton(segment dartboard.Segment, label string, checked bool) {
+	<label class="cursor-pointer">
+		<input type="radio" name="segment" value={ segment.String() } checked?={ checked } class="peer sr-only"/>
+		<span class="block rounded-xl py-2 text-center font-display text-xl font-semibold uppercase tracking-wide text-white/60 transition peer-checked:bg-board-cream peer-checked:text-pub-950 peer-checked:shadow peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400">{ label }</span>
+	</label>
+}
+
+// historyPanel is the frame of the turn history.
+templ historyPanel() {
+	@panel("mt-6") {
+		<h2 class="mb-3 font-display text-2xl font-extrabold uppercase tracking-wide text-board-cream">{ T(ctx).History() }</h2>
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm tabular-nums">
+				{ children... }
+			</table>
+		</div>
+	}
+}
+
+// x01History lists the turns, newest first, so everyone can see what was thrown
+// after the next player's turn started.
+templ x01History(v service.GameView, st x01.State) {
+	@historyPanel() {
+		<thead class="text-left text-xs uppercase tracking-wider text-white/50">
+			<tr>
+				<th class="py-2 font-semibold">{ T(ctx).Round() }</th>
+				<th class="py-2 font-semibold">{ T(ctx).Player() }</th>
+				<th class="py-2 font-semibold">{ T(ctx).Darts() }</th>
+				<th class="py-2 text-right font-semibold">{ T(ctx).Points() }</th>
+				<th class="py-2 text-right font-semibold">{ T(ctx).Remaining() }</th>
+			</tr>
+		</thead>
+		<tbody class="divide-y divide-white/5">
+			for i := len(st.Turns) - 1; i >= 0; i-- {
+				@legSeparator(v, st.Turns[i].Set, st.Turns[i].Leg, i == len(st.Turns)-1 || st.Turns[i+1].Set != st.Turns[i].Set || st.Turns[i+1].Leg != st.Turns[i].Leg, 5)
+				@x01HistoryRow(v, st.Turns[i])
+			}
+		</tbody>
+	}
+}
+
+templ x01HistoryRow(v service.GameView, t x01.Turn) {
+	<tr>
+		<td class="py-2 text-white/50">{ strconv.Itoa(t.Round) }</td>
+		<td class="py-2 font-semibold">{ playerName(ctx, v, t.PlayerID) }</td>
+		<td class="py-2">
+			@turnDartsList(v, t.Darts, t.Complete)
+		</td>
+		<td class="py-2 text-right">
+			if t.Bust {
+				<span class="rounded-full bg-board-red/25 px-2 py-0.5 text-xs font-semibold text-red-300">{ T(ctx).Busted() }</span>
+			} else {
+				<span class={ templ.KV("font-number text-lg font-extrabold text-amber-300", t.Points >= 100) }>{ strconv.FormatUint(t.Points, 10) }</span>
+			}
+		</td>
+		<td class="py-2 text-right">
+			if t.Checkout {
+				<span class="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-pub-950">✓ { T(ctx).Checkout() }</span>
+			} else {
+				{ strconv.FormatUint(t.Remaining, 10) }
+			}
+		</td>
+	</tr>
+}
+
+// turnDartsList lists the darts of a turn in the history.
+templ turnDartsList(v service.GameView, darts []throw.Dart, complete bool) {
+	<span class="inline-flex flex-wrap items-center gap-1.5">
+		for _, d := range darts {
+			@dartLink(v, d)
+		}
+		if !complete {
+			<span class="text-white/40">…</span>
+		}
+	</span>
+}
+
+// dartTile shows a dart of the current turn in large; players who may enter darts can tap it to correct it.
+// The dart just thrown flies in.
+templ dartTile(v service.GameView, d throw.Dart) {
+	if mayEditDart(v, d) {
+		<button type="button" class={ dartTileClasses(v, d), "hover:brightness-110 active:scale-95" } title={ T(ctx).Correct() } hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">@fitText(dartLabel(T(ctx), d), "2.25rem")</button>
+	} else {
+		<span class={ dartTileClasses(v, d) }>@fitText(dartLabel(T(ctx), d), "2.25rem")</span>
+	}
+}
+
+// dartLink shows a dart in the history; the player it belongs to can click it to correct it.
+// Misses are red, in around the clock darts that hit the target green.
+templ dartLink(v service.GameView, d throw.Dart) {
+	if mayEditDart(v, d) {
+		<a href="#" title={ T(ctx).Correct() } class={ "rounded-md px-1.5 py-0.5 font-semibold transition hover:ring-1 hover:ring-white/40", dartChipColors(v, d) } hx-get={ dartEditURL(v, d) } hx-target="#board" hx-swap="outerHTML">{ dartLabel(T(ctx), d) }</a>
+	} else {
+		<span class={ "rounded-md px-1.5 py-0.5 font-semibold", dartChipColors(v, d) }>{ dartLabel(T(ctx), d) }</span>
+	}
+}
+
+// freeSlot is a place of the visit that has no dart yet; with add it is the button that
+// shows the keypad for a dart the cameras missed.
+templ freeSlot(v service.GameView, add bool, classes, title string) {
+	if add {
+		<button type="button" class={ classes, "cursor-pointer transition hover:border-white/50 hover:text-white/50" } title={ T(ctx).EnterDart() } hx-get={ gameURL(v.Game.ID, "/keypad") } hx-target="#board" hx-swap="outerHTML">
+			{ children... }
+		</button>
+	} else {
+		<span class={ classes } title={ title }>
+			{ children... }
+		</span>
+	}
+}
+
+// addDartButton shows the keypad for a dart the cameras missed, where there is no free
+// place to click.
+templ addDartButton(v service.GameView) {
+	<button type="button" class={ btnSecondary, btnSmall } hx-get={ gameURL(v.Game.ID, "/keypad") } hx-target="#board" hx-swap="outerHTML">{ T(ctx).EnterDart() }</button>
+}
+
+// hideKeypadButton closes the keypad that was opened for a dart the cameras missed.
+templ hideKeypadButton(v service.GameView) {
+	<button type="button" class={ btnSecondary, btnSmall } hx-get={ gameURL(v.Game.ID, "/board") } hx-target="#board" hx-swap="outerHTML">{ T(ctx).HideKeypad() }</button>
+}
+
+// editPanel corrects an earlier dart with the keypad.
+templ editPanel(v service.GameView, d throw.Dart) {
+	<div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-400/50 bg-sky-400/10 px-4 py-3">
+		<span>
+			<span class="font-display text-xl font-extrabold uppercase text-sky-300">{ T(ctx).CorrectDart() }</span> { T(ctx).DartBy(dartLabel(T(ctx), d), dartThrower(ctx, v, d.ID)) }
+			<span class="block text-sm text-white/60">{ T(ctx).CorrectHint() }</span>
+		</span>
+		<button type="button" class="rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold hover:bg-white/10" hx-get={ gameURL(v.Game.ID, "/board") } hx-target="#board" hx-swap="outerHTML">{ T(ctx).Cancel() }</button>
+	</div>
+	@keypad(v, dartEditURL(v, d))
+}
+
+// aroundTheClockHistory lists the turns, newest first; dartLink colors hits and misses.
+templ aroundTheClockHistory(v service.GameView, st aroundtheclock.State) {
+	@historyPanel() {
+		<thead class="text-left text-xs uppercase tracking-wider text-white/50">
+			<tr>
+				<th class="py-2 font-semibold">{ T(ctx).Round() }</th>
+				<th class="py-2 font-semibold">{ T(ctx).Player() }</th>
+				<th class="py-2 font-semibold">{ T(ctx).Darts() }</th>
+				<th class="py-2 text-right font-semibold">{ T(ctx).Hits() }</th>
+				<th class="py-2 text-right font-semibold">{ T(ctx).Target() }</th>
+			</tr>
+		</thead>
+		<tbody class="divide-y divide-white/5">
+			for i := len(st.Turns) - 1; i >= 0; i-- {
+				@legSeparator(v, st.Turns[i].Set, st.Turns[i].Leg, i == len(st.Turns)-1 || st.Turns[i+1].Set != st.Turns[i].Set || st.Turns[i+1].Leg != st.Turns[i].Leg, 5)
+				@aroundTheClockHistoryRow(v, st.Turns[i])
+			}
+		</tbody>
+	}
+}
+
+templ aroundTheClockHistoryRow(v service.GameView, t aroundtheclock.Turn) {
+	<tr>
+		<td class="py-2 text-white/50">{ strconv.Itoa(t.Round) }</td>
+		<td class="py-2 font-semibold">{ playerName(ctx, v, t.PlayerID) }</td>
+		<td class="py-2">
+			@turnDartsList(v, t.Darts, t.Complete)
+		</td>
+		<td class="py-2 text-right">{ strconv.Itoa(countTrue(t.Hits)) }</td>
+		<td class="py-2 text-right">
+			if t.Target == 0 {
+				<span class="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-pub-950">{ T(ctx).Finished() }</span>
+			} else if t.Target != t.From {
+				<span class="text-white/40">{ targetLabel(T(ctx), t.From) } →</span> <span class="font-number text-lg font-extrabold text-emerald-300">{ targetLabel(T(ctx), t.Target) }</span>
+			} else {
+				{ targetLabel(T(ctx), t.Target) }
+			}
+		</td>
+	</tr>
+}
+
+// legSeparator heads the turns of a leg in the history (newest first), with more than one leg or set to win.
+templ legSeparator(v service.GameView, set, leg int, first bool, columns int) {
+	if (v.Game.Legs > 1 || v.Game.Sets > 1) && first {
+		<tr>
+			<td colspan={ strconv.Itoa(columns) } class="pt-4 pb-1 font-display text-lg font-extrabold uppercase tracking-wider text-amber-300">
+				{{ st := v.Common() }}
+				if v.Game.Sets > 1 {
+					<span class="text-sky-300">
+						{ T(ctx).SetN(set) }
+						@durationTag(setDuration(st, set, leg))
+					</span> ·
+				}
+				{ T(ctx).LegN(leg) }
+				@durationTag(st.Times.Leg(set, leg).Duration())
+			</td>
+		</tr>
+	}
+}
+
+// durationTag shows how long a finished leg or set took, nothing while it goes on.
+templ durationTag(d time.Duration) {
+	if d > 0 {
+		<span class="ml-1 font-number text-sm font-semibold normal-case tracking-normal text-white/50 tabular-nums" title={ T(ctx).Duration(clock(d)) }>⏱ { clock(d) }</span>
+	}
+}
+
+// bullOffPanel shows the bull-off: who throws, the darts so far and, for entering them by
+// hand, what counts (the bullseye beats the bull, which beats the rest). The cameras
+// enter the darts with their position, so the closest wins.
+templ bullOffPanel(v service.GameView, p progress, keypad bool) {
+	<div class="rounded-2xl border border-board-red/50 bg-board-red/10 px-4 py-3">
+		<div class="font-display text-2xl font-extrabold uppercase text-red-300">{ T(ctx).BullOff() }</div>
+		<div class="text-white/70">
+			{ T(ctx).BullOffRule(playerName(ctx, v, *p.CurrentPlayerID)) }
+		</div>
+		if darts := p.BullOff; len(darts) > 0 {
+			<ul class="mt-3 flex flex-col gap-1">
+				for i, b := range darts {
+					if b.Round > 0 && (i == 0 || darts[i-1].Round != b.Round) {
+						<li class="pt-1 text-xs font-semibold uppercase tracking-widest text-white/50">{ T(ctx).BullOffAgain() }</li>
+					}
+					<li class="flex items-center justify-between gap-2">
+						<span class="font-semibold">{ playerName(ctx, v, b.PlayerID) }</span>
+						<span class="flex items-center gap-2">
+							<span class="text-sm text-white/50">{ bullOffDistance(T(ctx), v.Darts[b.Entry]) }</span>
+							@dartLink(v, v.Darts[b.Entry])
+						</span>
+					</li>
+				}
+			</ul>
+		}
+	</div>
+	if tie := p.BullOffTie; len(tie) > 0 && v.CanThrow {
+		<div class="rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3">
+			<div class="font-semibold text-amber-200">{ T(ctx).BullOffTie() }</div>
+			<div class="mt-2 flex flex-wrap gap-2">
+				for _, id := range tie {
+					<button
+						type="button"
+						class={ btnAccent }
+						hx-post={ gameURL(v.Game.ID, "/bull-off/"+strconv.FormatInt(id, 10)) }
+						hx-target="#board"
+						hx-swap="outerHTML"
+					>{ T(ctx).WasCloser(playerName(ctx, v, id)) }</button>
+				}
+			</div>
+		</div>
+	}
+	if mayAddDart(v, p) && !keypad {
+		@addDartButton(v)
+	}
+	if v.CanThrow && keypad {
+		{{ action := gameURL(v.Game.ID, "/darts") }}
+		if !handEntry(v, p) {
+			@hideKeypadButton(v)
+		}
+		<div class="grid grid-cols-3 gap-2">
+			@quickDart(action, dartboard.BullNumber, dartboard.Bullseye, T(ctx).Bullseye(), false, "1.875rem", "h-20 bg-board-red shadow-board-red/40")
+			@quickDart(action, dartboard.BullNumber, dartboard.Bull, T(ctx).Bull(), false, "1.875rem", "h-20 bg-board-green shadow-board-green/40")
+			<form hx-post={ action } hx-target="#board" hx-swap="outerHTML">
+				<button type="submit" name="miss" value="true" class="@container h-20 w-full rounded-2xl bg-pub-700 px-2 font-number font-extrabold uppercase text-white/80 shadow-lg transition hover:bg-pub-700/70 active:scale-95">@fitText(T(ctx).Miss(), "1.875rem")</button>
+			</form>
+		</div>
+	}
+}

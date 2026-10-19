@@ -5,7 +5,7 @@
 //	go run ./tools/tailwind -i input.css -o tailwind.css --minify
 //
 // Only needed when styles change; the generated CSS is committed (see go:generate in
-// common/static).
+// internal/common/static).
 package main
 
 import (
