@@ -30,7 +30,7 @@ go run ./cmd/darts-o-cam
 On a desktop the web interface opens in a window of its own; closing the window stops darts-o-cam. `-ui browser` opens it in the browser instead (<http://localhost:8090>). Everything else happens there, while darts-o-cam keeps running:
 
 1. **Add the cameras:** under "Add camera" you see all cameras of this computer with a picture. Add the ones looking at the board. Not sure which is which? Hold a hand in front of one and take new pictures.
-2. **Calibrate** each camera once, with an empty board: click the marked wire crossings on the double ring. Rough clicks are enough, the fine-tuning happens automatically. The detection uses the camera right away.
+2. **Calibrate** each camera once, with an empty board: click once into the narrow outer ring (the double) of the field 20, the rest is found automatically. If that doesn't work, darts-o-cam says so and asks for the marked wire crossings on the double ring instead; rough clicks are enough, the fine-tuning happens automatically. The detection uses the camera right away.
 3. **Connect to darts-o-mat:** in darts-o-mat, create your board under "Boards" and click "Create camera token". Enter the server address and the token in darts-o-cam under "Settings".
 4. Select the board when starting a game. Darts now appear by themselves.
 

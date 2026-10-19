@@ -85,6 +85,7 @@ type CameraModel struct {
 
 type CalibrateModel struct {
 	Name      string
+	Auto      bool // the first click is the one on the double of the 20, not a wire crossing
 	Points    int // clicked so far
 	MinPoints int
 	Target    *[2]uint8 // the next point to click, nil when all were offered
@@ -364,45 +365,73 @@ templ Calibrate(m CalibrateModel) {
 	@layout(T(ctx).CalibrateTitle(m.Name)) {
 		@title(T(ctx).CalibrateHeading(m.Name))
 		@errorAlert(m.Error)
-		<div class="mb-4 rounded-2xl border border-sky-400/50 bg-sky-400/10 px-4 py-3">
-			if m.Target != nil {
-				<div class="font-semibold">
-					{ T(ctx).ClickBefore() }
-					<span class="rounded-md bg-board-cream px-2 font-display text-xl font-extrabold text-pub-950">{ strconv.Itoa(int(m.Target[0])) }</span> { T(ctx).And() }
-					<span class="rounded-md bg-board-cream px-2 font-display text-xl font-extrabold text-pub-950">{ strconv.Itoa(int(m.Target[1])) }</span>
-					{ T(ctx).ClickAfter() }
-				</div>
-				<div class="text-sm text-white/60">{ T(ctx).ClickHint() }</div>
-			} else {
-				<div class="font-semibold">{ T(ctx).AllPointsDone() }</div>
-			}
-			<div class="mt-1 text-sm text-white/60">{ T(ctx).PointsSet(m.Points, m.MinPoints) }</div>
-		</div>
-		<div class="mb-4 flex flex-wrap gap-2">
-			if m.Target != nil {
-				<form method="post" action={ templ.URL(camURL(m.Name, "/skip")) }>
-					<button type="submit" class={ btnSecondary }>{ T(ctx).Skip() }</button>
+		if m.Auto {
+			// One click on the double of the 20 is enough, the rest is found (vision.AutoCalibrate).
+			<div class="mb-4 rounded-2xl border border-sky-400/50 bg-sky-400/10 px-4 py-3">
+				<div class="font-semibold">{ T(ctx).AutoTap() }</div>
+				<div class="text-sm text-white/60">{ T(ctx).AutoTapHint() }</div>
+			</div>
+			<div class="mb-4 flex flex-wrap gap-2">
+				<form method="post" action={ templ.URL(camURL(m.Name, "/manual")) }>
+					<button type="submit" class={ btnSecondary }>{ T(ctx).ByHand() }</button>
 				</form>
-			}
-			<form method="post" action={ templ.URL(camURL(m.Name, "/finish")) }>
-				<button type="submit" class={ btnPrimary } disabled?={ m.Points < m.MinPoints }>{ T(ctx).FinishCalibration() }</button>
+				<form method="post" action={ templ.URL(camURL(m.Name, "/start")) }>
+					<button type="submit" class={ btnDanger }>{ T(ctx).StartOver() }</button>
+				</form>
+			</div>
+			// Shown in full size, so the click position the image input sends is in image pixels.
+			<form method="post" action={ templ.URL(camURL(m.Name, "/auto")) } class="overflow-auto rounded-2xl border border-white/10">
+				<input
+					type="image"
+					name="click"
+					src={ camURL(m.Name, "/clicked.jpg?n=0") }
+					width={ strconv.Itoa(m.Bounds.Dx()) }
+					height={ strconv.Itoa(m.Bounds.Dy()) }
+					class="max-w-none cursor-crosshair"
+					alt={ T(ctx).ClickImage() }
+				/>
 			</form>
-			<form method="post" action={ templ.URL(camURL(m.Name, "/start")) }>
-				<button type="submit" class={ btnDanger }>{ T(ctx).StartOver() }</button>
+		} else {
+			<div class="mb-4 rounded-2xl border border-sky-400/50 bg-sky-400/10 px-4 py-3">
+				if m.Target != nil {
+					<div class="font-semibold">
+						{ T(ctx).ClickBefore() }
+						<span class="rounded-md bg-board-cream px-2 font-display text-xl font-extrabold text-pub-950">{ strconv.Itoa(int(m.Target[0])) }</span> { T(ctx).And() }
+						<span class="rounded-md bg-board-cream px-2 font-display text-xl font-extrabold text-pub-950">{ strconv.Itoa(int(m.Target[1])) }</span>
+						{ T(ctx).ClickAfter() }
+					</div>
+					<div class="text-sm text-white/60">{ T(ctx).ClickHint() }</div>
+				} else {
+					<div class="font-semibold">{ T(ctx).AllPointsDone() }</div>
+				}
+				<div class="mt-1 text-sm text-white/60">{ T(ctx).PointsSet(m.Points, m.MinPoints) }</div>
+			</div>
+			<div class="mb-4 flex flex-wrap gap-2">
+				if m.Target != nil {
+					<form method="post" action={ templ.URL(camURL(m.Name, "/skip")) }>
+						<button type="submit" class={ btnSecondary }>{ T(ctx).Skip() }</button>
+					</form>
+				}
+				<form method="post" action={ templ.URL(camURL(m.Name, "/finish")) }>
+					<button type="submit" class={ btnPrimary } disabled?={ m.Points < m.MinPoints }>{ T(ctx).FinishCalibration() }</button>
+				</form>
+				<form method="post" action={ templ.URL(camURL(m.Name, "/start")) }>
+					<button type="submit" class={ btnDanger }>{ T(ctx).StartOver() }</button>
+				</form>
+			</div>
+			// Shown in full size, so the click position the image input sends is in image pixels.
+			<form method="post" action={ templ.URL(camURL(m.Name, "/point")) } class="overflow-auto rounded-2xl border border-white/10">
+				<input
+					type="image"
+					name="click"
+					src={ camURL(m.Name, "/clicked.jpg?n="+strconv.Itoa(m.Points)) }
+					width={ strconv.Itoa(m.Bounds.Dx()) }
+					height={ strconv.Itoa(m.Bounds.Dy()) }
+					class="max-w-none cursor-crosshair"
+					alt={ T(ctx).ClickImage() }
+				/>
 			</form>
-		</div>
-		// Shown in full size, so the click position the image input sends is in image pixels.
-		<form method="post" action={ templ.URL(camURL(m.Name, "/point")) } class="overflow-auto rounded-2xl border border-white/10">
-			<input
-				type="image"
-				name="click"
-				src={ camURL(m.Name, "/clicked.jpg?n="+strconv.Itoa(m.Points)) }
-				width={ strconv.Itoa(m.Bounds.Dx()) }
-				height={ strconv.Itoa(m.Bounds.Dy()) }
-				class="max-w-none cursor-crosshair"
-				alt={ T(ctx).ClickImage() }
-			/>
-		</form>
+		}
 	}
 }
 

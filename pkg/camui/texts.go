@@ -116,6 +116,10 @@ type Texts interface {
 	ErrTooFewPoints(min int) string
 	ErrPointsDontFit() string
 	ErrRefine(err error) string
+	AutoTap() string
+	AutoTapHint() string
+	ByHand() string
+	ErrAutoFailed() string
 
 	// Checking the grid.
 	CheckTitle(name string) string

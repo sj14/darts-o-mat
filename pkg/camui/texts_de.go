@@ -126,6 +126,16 @@ func (textsDE) ErrPointsDontFit() string {
 func (textsDE) ErrRefine(err error) string {
 	return "Feinkalibrierung fehlgeschlagen (" + err.Error() + "); ist das Board leer und gut zu sehen?"
 }
+func (textsDE) AutoTap() string {
+	return "Klicke einmal in den schmalen äußeren Ring (das Doppel) des Feldes 20."
+}
+func (textsDE) AutoTapHint() string {
+	return "Das Board muss leer sein. Wo genau im Ring, ist egal; alles Weitere wird automatisch gefunden."
+}
+func (textsDE) ByHand() string { return "Stattdessen Drahtkreuzungen von Hand anklicken" }
+func (textsDE) ErrAutoFailed() string {
+	return "Das Board wurde mit diesem Klick nicht automatisch gefunden. Bitte klicke stattdessen die Drahtkreuzungen von Hand an, oder beginne von vorn und klicke das Doppel der 20 noch einmal."
+}
 
 func (textsDE) CheckTitle(name string) string   { return "Raster prüfen: " + name }
 func (textsDE) CheckHeading(name string) string { return "Raster von " + name + " prüfen" }

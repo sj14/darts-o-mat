@@ -121,6 +121,16 @@ func (textsEN) ErrPointsDontFit() string { return "The points don't fit together
 func (textsEN) ErrRefine(err error) string {
 	return "Fine calibration failed (" + err.Error() + "); is the board empty and well visible?"
 }
+func (textsEN) AutoTap() string {
+	return "Click once into the narrow outer ring (the double) of the field 20."
+}
+func (textsEN) AutoTapHint() string {
+	return "The board has to be empty. Anywhere in that ring will do, everything else is found automatically."
+}
+func (textsEN) ByHand() string { return "Click wire crossings by hand instead" }
+func (textsEN) ErrAutoFailed() string {
+	return "The board wasn't found automatically from that click. Please click the wire crossings by hand instead, or start over and click the double of the 20 again."
+}
 
 func (textsEN) CheckTitle(name string) string   { return "Check the grid: " + name }
 func (textsEN) CheckHeading(name string) string { return "Check the grid of " + name }

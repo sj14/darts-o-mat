@@ -76,6 +76,10 @@ type session struct {
 	frame  *image.RGBA
 	points []vision.CalibrationPoint
 	target int
+	// manual is set once the user is to click the wire crossings, because they chose to
+	// or because the automatic calibration from one click on the double of the 20 failed;
+	// before that the first click is that one.
+	manual bool
 	err    error // of the last attempt to finish, see calibrationError
 }
 
@@ -104,6 +108,8 @@ func (ui *UI) Routes() http.Handler {
 	r.Get("/cam/{name}/calibrate", ui.calibratePage)
 	r.Get("/cam/{name}/clicked.jpg", ui.clickedImage)
 	r.Post("/cam/{name}/start", ui.start)
+	r.Post("/cam/{name}/auto", ui.auto)
+	r.Post("/cam/{name}/manual", ui.byHand)
 	r.Post("/cam/{name}/point", ui.point)
 	r.Post("/cam/{name}/skip", ui.skip)
 	r.Post("/cam/{name}/finish", ui.finish)
@@ -366,7 +372,7 @@ func (ui *UI) calibratePage(w http.ResponseWriter, r *http.Request) {
 		ui.start(w, r)
 		return
 	}
-	m := CalibrateModel{Name: c.Name, Points: len(s.points), MinPoints: MinPoints, Error: calibrationError(T(r.Context()), s.err), Bounds: s.frame.Bounds()}
+	m := CalibrateModel{Name: c.Name, Auto: !s.manual, Points: len(s.points), MinPoints: MinPoints, Error: calibrationError(T(r.Context()), s.err), Bounds: s.frame.Bounds()}
 	if s.target < len(Targets) {
 		m.Target = &Targets[s.target]
 	}
@@ -388,6 +394,53 @@ func (ui *UI) clickedImage(w http.ResponseWriter, r *http.Request) {
 		vision.DrawCross(out, p.Image, 10, color.RGBA{255, 0, 255, 255})
 	}
 	writeJPEG(w, out)
+}
+
+// auto calibrates from the one click on the double of the 20 (vision.AutoCalibrate) and
+// saves the result if the grid fits the image. If not, the user is told and gets the
+// wire crossings to click as before.
+func (ui *UI) auto(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	x, errX := strconv.ParseFloat(r.FormValue("click.x"), 64)
+	y, errY := strconv.ParseFloat(r.FormValue("click.y"), 64)
+	ui.mu.Lock()
+	s := ui.session[name]
+	ui.mu.Unlock()
+	if s == nil || s.manual || errX != nil || errY != nil {
+		http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
+		return
+	}
+
+	res, err := vision.AutoCalibrate(s.frame, dartboard.Point{X: x, Y: y})
+	if err == nil && res.FoundShare() < minFoundShare {
+		err = fmt.Errorf("found only %.0f %% of the board's features", res.FoundShare()*100)
+	}
+	if err == nil {
+		err = ui.store(name, res.Points, res.RefineResult, s.frame)
+	}
+	if err != nil {
+		log.Printf("%s: automatic calibration: %v", name, err)
+		ui.mu.Lock()
+		s.manual, s.err = true, errAutoFailed
+		ui.mu.Unlock()
+		http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
+		return
+	}
+	ui.mu.Lock()
+	delete(ui.session, name)
+	ui.mu.Unlock()
+	http.Redirect(w, r, "/cam/"+name+"/check", http.StatusSeeOther) // show the result
+}
+
+// byHand switches from the click on the double of the 20 to the wire crossings.
+func (ui *UI) byHand(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	ui.mu.Lock()
+	if s := ui.session[name]; s != nil {
+		s.manual, s.err = true, nil
+	}
+	ui.mu.Unlock()
+	http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
 }
 
 // point records a click on the image for the current target. The image input of the
@@ -465,6 +518,7 @@ func (ui *UI) refineAgain(w http.ResponseWriter, r *http.Request) {
 var (
 	errTooFewPoints  = fmt.Errorf("at least %d points needed", MinPoints)
 	errPointsDontFit = errors.New("the points don't fit together")
+	errAutoFailed    = errors.New("the board wasn't found automatically")
 )
 
 // refineError is a failed fine calibration.
@@ -484,6 +538,8 @@ func calibrationError(t Texts, err error) string {
 		return t.ErrTooFewPoints(MinPoints)
 	case errors.Is(err, errPointsDontFit):
 		return t.ErrPointsDontFit()
+	case errors.Is(err, errAutoFailed):
+		return t.ErrAutoFailed()
 	case errors.As(err, &refine):
 		return t.ErrRefine(refine.err)
 	}
@@ -503,6 +559,12 @@ func (ui *UI) refine(name string, points []vision.CalibrationPoint, img *image.R
 	if err != nil {
 		return refineError{err}
 	}
+	return ui.store(name, points, res, img)
+}
+
+// store saves a refined calibration with its rough points and remembers its result for the
+// check of the grid.
+func (ui *UI) store(name string, points []vision.CalibrationPoint, res vision.RefineResult, img *image.RGBA) error {
 	log.Printf("%s: %d board features, deviation %.2f px before, %.2f px after", name, res.Matches, res.RMSBefore, res.RMSAfter)
 	if err := ui.app.Calibrate(name, points, res.Mapping(), img); err != nil {
 		return err
