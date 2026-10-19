@@ -361,6 +361,26 @@ templ RemovePage(c CameraModel) {
 	}
 }
 
+// clickImage is the camera image to click on: the click goes to the server as the position
+// in the image's own pixels (click.x, click.y), whatever size the image is shown in. They
+// are worked out from the click and the image's position on the page rather than taken from
+// an image input, which in some web views gets them wrong with a scrolled or resized page.
+// The image has its full size, so the form scrolls instead.
+templ clickImage(action, src string, bounds image.Rectangle) {
+	<form id="frame" method="post" action={ templ.URL(action) } class="scroll-mt-48 overflow-auto rounded-2xl border border-white/10">
+		<input type="hidden" name="click.x"/>
+		<input type="hidden" name="click.y"/>
+		<img
+			src={ src }
+			width={ strconv.Itoa(bounds.Dx()) }
+			height={ strconv.Itoa(bounds.Dy()) }
+			class="max-w-none cursor-crosshair"
+			alt={ T(ctx).ClickImage() }
+			onclick="const r = this.getBoundingClientRect(), f = this.form || this.closest('form'); f.elements['click.x'].value = (event.clientX - r.left) * this.naturalWidth / r.width; f.elements['click.y'].value = (event.clientY - r.top) * this.naturalHeight / r.height; f.submit()"
+		/>
+	</form>
+}
+
 templ Calibrate(m CalibrateModel) {
 	@layout(T(ctx).CalibrateTitle(m.Name)) {
 		@title(T(ctx).CalibrateHeading(m.Name))
@@ -382,18 +402,7 @@ templ Calibrate(m CalibrateModel) {
 					<a href="/" class={ btnSecondary }>{ T(ctx).Cancel() }</a>
 				</div>
 			</div>
-			// Shown in full size, so the click position the image input sends is in image pixels.
-			<form id="frame" method="post" action={ templ.URL(camURL(m.Name, "/auto")) } class="scroll-mt-48 overflow-auto rounded-2xl border border-white/10">
-				<input
-					type="image"
-					name="click"
-					src={ camURL(m.Name, "/clicked.jpg?n=0") }
-					width={ strconv.Itoa(m.Bounds.Dx()) }
-					height={ strconv.Itoa(m.Bounds.Dy()) }
-					class="max-w-none cursor-crosshair"
-					alt={ T(ctx).ClickImage() }
-				/>
-			</form>
+			@clickImage(camURL(m.Name, "/auto"), camURL(m.Name, "/clicked.jpg?n=0"), m.Bounds)
 		} else {
 			<div class={ stickyBar }>
 			<div class="mb-3 rounded-2xl border border-sky-400/50 bg-sky-400/10 px-4 py-3">
@@ -425,18 +434,7 @@ templ Calibrate(m CalibrateModel) {
 				<a href="/" class={ btnSecondary }>{ T(ctx).Cancel() }</a>
 			</div>
 			</div>
-			// Shown in full size, so the click position the image input sends is in image pixels.
-			<form id="frame" method="post" action={ templ.URL(camURL(m.Name, "/point")) } class="scroll-mt-48 overflow-auto rounded-2xl border border-white/10">
-				<input
-					type="image"
-					name="click"
-					src={ camURL(m.Name, "/clicked.jpg?n="+strconv.Itoa(m.Points)) }
-					width={ strconv.Itoa(m.Bounds.Dx()) }
-					height={ strconv.Itoa(m.Bounds.Dy()) }
-					class="max-w-none cursor-crosshair"
-					alt={ T(ctx).ClickImage() }
-				/>
-			</form>
+			@clickImage(camURL(m.Name, "/point"), camURL(m.Name, "/clicked.jpg?n="+strconv.Itoa(m.Points)), m.Bounds)
 		}
 	}
 }

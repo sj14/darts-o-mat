@@ -16,6 +16,10 @@ Open tasks of the [camera](README.md). Tasks of the whole project: [TODO.md](../
 
 - The camera still compiles in `bun` (and its few dependencies): `common/throw.Dart` is the dart of the game log and also the database model (`bun:` tags, `bun.BaseModel`), and the camera uses it for its detections. Removing it means a separate row type in `server/store` with conversions at about six places (decided against for now, 2026-10-19: little gain – a few hundred KB of binary – for an extra mapping layer); worth doing when `throw` would otherwise get more database details.
 
+## Calibration
+
+- Check in the app's window (glaze, WKWebView on macOS) that clicking on the calibration image sends the right position after the window was resized and the image scrolled (2026-10-19): calibrating failed there (even by hand, with clicks far off the board), but not in Chromium, where `<input type="image">` also gave the right position, so the cause was not found. `camui.clickImage` now works out the position itself; if it still fails, the log has "click at x, y" for every click.
+
 ## Adding cameras
 
 - Adding a camera: check the adaptive exposure settling (2026-10-16, `vision.settle` waits until the brightness stops changing, up to 6 s) with the webcam whose snapshot was much too dark after the fixed 1 s. If it still is, find out why (e.g. the camera's own exposure takes longer, or the lock); a live video instead of the snapshot was rejected for now (keeps every device open and encodes JPEGs while the page is open, and would hide a dark locked image during detection).

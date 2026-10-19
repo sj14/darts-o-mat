@@ -403,6 +403,7 @@ func (ui *UI) auto(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 	x, errX := strconv.ParseFloat(r.FormValue("click.x"), 64)
 	y, errY := strconv.ParseFloat(r.FormValue("click.y"), 64)
+	log.Printf("%s: click on the double of the 20 at %.0f, %.0f", name, x, y)
 	ui.mu.Lock()
 	s := ui.session[name]
 	ui.mu.Unlock()
@@ -449,6 +450,7 @@ func (ui *UI) point(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 	x, errX := strconv.ParseFloat(r.FormValue("click.x"), 64)
 	y, errY := strconv.ParseFloat(r.FormValue("click.y"), 64)
+	log.Printf("%s: click at %.0f, %.0f", name, x, y)
 	ui.mu.Lock()
 	if s := ui.session[name]; s != nil && errX == nil && errY == nil && s.target < len(Targets) {
 		s.points = append(s.points, vision.CalibrationPoint{
