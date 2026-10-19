@@ -176,6 +176,14 @@ const (
 	ringBrightness = 12
 )
 
+// fringeWidth is the radius of the opening of the mask: colored lines up to 2·fringeWidth
+// pixels wide are removed. A camera with chromatic aberration colors the edges of the white
+// numbers and the silver wires red and green, one or two pixels wide; the ring pixels would
+// then reach over the wires into the triple ring and the numbers, and the ellipse would be
+// fitted around the board's rim (measured on a Winmau Blade 6 with a flat view and such a
+// camera: 15–40 % of the features found instead of 90 %). The double ring is wider.
+const fringeWidth = 1
+
 // redGreenMask marks the pixels that are red or green: the rings and the bull.
 func redGreenMask(img *image.RGBA) []bool {
 	w, h := img.Bounds().Dx(), img.Bounds().Dy()
@@ -187,7 +195,47 @@ func redGreenMask(img *image.RGBA) []bool {
 			mask[y*w+x] = l > ringBrightness && math.Abs(a) > ringChroma
 		}
 	}
-	return mask
+	return open(mask, w, h, fringeWidth)
+}
+
+// open removes from the mask what is thinner than 2r+1 pixels: erosion by a square of that
+// size, then dilation.
+func open(mask []bool, w, h, r int) []bool {
+	eroded := make([]bool, w*h)
+	for y := range h {
+		for x := range w {
+			eroded[y*w+x] = allSet(mask, w, h, x, y, r)
+		}
+	}
+	opened := make([]bool, w*h)
+	for y := range h {
+		for x := range w {
+			if !eroded[y*w+x] {
+				continue
+			}
+			for yy := max(0, y-r); yy <= min(h-1, y+r); yy++ {
+				for xx := max(0, x-r); xx <= min(w-1, x+r); xx++ {
+					opened[yy*w+xx] = true
+				}
+			}
+		}
+	}
+	return opened
+}
+
+// allSet reports whether the square of radius r around x, y lies in the image and is set.
+func allSet(mask []bool, w, h, x, y, r int) bool {
+	if x < r || y < r || x >= w-r || y >= h-r {
+		return false
+	}
+	for yy := y - r; yy <= y+r; yy++ {
+		for xx := x - r; xx <= x+r; xx++ {
+			if !mask[yy*w+xx] {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // ringPixels returns the red and green pixels of the double ring: the colored area that

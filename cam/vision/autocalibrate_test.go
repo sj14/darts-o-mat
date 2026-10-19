@@ -4,7 +4,9 @@ import (
 	"errors"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"math"
+	"os"
 	"testing"
 
 	"github.com/sj14/darts-o-mat/common/dartboard"
@@ -133,5 +135,47 @@ func TestAutoCalibrateSynthetic(t *testing.T) {
 	}
 	if dev := autoDeviation(res.Mapping(), truthToImage); dev > 0.5 {
 		t.Errorf("%.2f mm from the truth, want less than 0.5 mm", dev)
+	}
+}
+
+// A second board (Winmau Blade 6 again, but in another place), seen at a very flat angle by
+// three cameras whose lenses color the edges of the numbers and the wires red and green
+// (chromatic aberration): the colored pixels of the double ring then reach over the wires
+// and the numbers to the board's rim. The taps are in the double of the 20, which lies
+// left, right and below in the three pictures.
+func TestAutoCalibrateFlat(t *testing.T) {
+	for _, c := range []struct {
+		file string
+		tap  dartboard.Point
+	}{
+		{"testdata/flat-cam1.jpg", dartboard.Point{X: 345, Y: 210}},
+		{"testdata/flat-cam3.jpg", dartboard.Point{X: 846, Y: 188}},
+		{"testdata/flat-cam4.jpg", dartboard.Point{X: 600, Y: 448}},
+	} {
+		f, err := os.Open(c.file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		img, err := jpeg.Decode(f)
+		f.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := AutoCalibrate(img, c.tap)
+		if err != nil {
+			t.Errorf("%s: %v", c.file, err)
+			continue
+		}
+		if share := res.FoundShare(); share < 0.8 {
+			t.Errorf("%s: found %.0f %% of the features, want at least 80 %%", c.file, share*100)
+		}
+		// The 20 is where the tap was: the rotation is right, not one segment off.
+		at, err := res.Mapping().ToImage(dartboard.Polar(166, 0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d := math.Hypot(at.X-c.tap.X, at.Y-c.tap.Y); d > 30 {
+			t.Errorf("%s: the double of the 20 is %.0f px from the tap", c.file, d)
+		}
 	}
 }
