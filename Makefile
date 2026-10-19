@@ -1,6 +1,5 @@
-# Builds the apps of darts-o-cam and does what needs more than one command in the
-# project's several modules (generate, tidy). Everything else works with the go command
-# alone (go run, go test), see README.md.
+# Builds the apps of darts-o-cam and generates the code. Everything else works with the go command alone (go run,
+# go test), see README.md.
 
 # All apps; the macOS app only on macOS.
 .PHONY: apps
@@ -36,13 +35,14 @@ site:
 # (common/static, built from the classes the views use).
 .PHONY: generate
 generate:
-	for m in server cam; do (cd $$m && go tool templ generate); done
+	go tool templ generate
 	go generate ./common/...
 
-# go mod tidy in every module (needs the network).
+# go mod tidy in both modules (needs the network).
 .PHONY: tidy
 tidy:
-	for m in common server cam tools; do (cd $$m && go mod tidy); done
+	go mod tidy
+	go -C tools mod tidy
 
 .PHONY: clean
 clean:

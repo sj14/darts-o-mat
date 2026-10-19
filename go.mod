@@ -1,21 +1,21 @@
-module github.com/sj14/darts-o-mat/server
+module github.com/sj14/darts-o-mat
 
 go 1.27.2
 
 tool github.com/a-h/templ/cmd/templ
 
-replace github.com/sj14/darts-o-mat/common => ../common
-
 require (
 	github.com/a-h/templ v0.3.1070
+	github.com/crgimenes/glaze v0.0.81
+	github.com/ebitengine/purego v0.11.1
 	github.com/go-chi/chi v1.5.5
 	github.com/go-chi/chi/v5 v5.5.0
-	github.com/sj14/darts-o-mat/common v0.0.0
 	github.com/uptrace/bun v1.3.0
 	github.com/uptrace/bun/dialect/pgdialect v1.3.0
 	github.com/uptrace/bun/dialect/sqlitedialect v1.3.0
 	github.com/uptrace/bun/driver/pgdriver v1.3.0
 	golang.org/x/crypto v0.58.0
+	golang.org/x/sys v0.49.0
 	modernc.org/sqlite v1.60.1
 )
 
@@ -44,7 +44,6 @@ require (
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
 	mellium.im/sasl v0.3.2 // indirect
 	modernc.org/libc v1.79.0 // indirect

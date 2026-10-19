@@ -13,4 +13,4 @@ import "embed"
 //go:embed *.css *.js *.woff2 *.txt *.svg *.png
 var FS embed.FS
 
-//go:generate go run ../../tools/tailwind --input ../../server/frontend/view/tailwind.css --output tailwind.css --minify
+//go:generate go -C ../../tools run ./tailwind --input ../server/frontend/view/tailwind.css --output ../common/static/tailwind.css --minify

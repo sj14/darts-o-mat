@@ -3,7 +3,7 @@
 //	go -C tools/winpkg run .                     # into dist/ of the project
 //	go -C tools/winpkg run . -o /tmp/pkgs -version 1.2.3
 //
-// It is part of the tools module, so winres stays out of server and cam.
+// It is part of the tools module, so winres stays out of the project's go.mod.
 //
 // Per architecture a .zip (darts-o-cam_windows_<arch>.zip, no version in the name so the
 // links to the latest release's downloads stay the same) with darts-o-cam.exe and the license. The program is built

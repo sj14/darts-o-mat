@@ -42,7 +42,7 @@ Each player can throw at a board of their own, also when playing with friends or
 
 ## For developers
 
-Notes on architecture and decisions are in the `AGENTS.md` files: [project](AGENTS.md), [server](server/AGENTS.md), [camera](cam/AGENTS.md), [camera access](cam/camera/AGENTS.md). Run the tests with `go test ./common/... ./server/... ./cam/...`. Planned work: [project](TODO.md), [server](server/TODO.md), [camera](cam/TODO.md), [camera access](cam/camera/TODO.md).
+Notes on architecture and decisions are in the `AGENTS.md` files: [project](AGENTS.md), [server](server/AGENTS.md), [camera](cam/AGENTS.md), [camera access](cam/camera/AGENTS.md). Run the tests with `go test ./...`. Planned work: [project](TODO.md), [server](server/TODO.md), [camera](cam/TODO.md), [camera access](cam/camera/TODO.md).
 
 ## License
 

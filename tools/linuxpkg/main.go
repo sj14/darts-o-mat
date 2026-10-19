@@ -4,7 +4,7 @@
 //	go -C tools/linuxpkg run .                     # into dist/ of the project
 //	go -C tools/linuxpkg run . -o /tmp/pkgs -version 1.2.3
 //
-// It is part of the tools module, so nFPM and its dependencies stay out of server and cam.
+// It is part of the tools module, so nFPM and its dependencies stay out of the project's go.mod.
 //
 // darts-o-cam gets per architecture a .deb, an .rpm and a .tar.gz, each with the program,
 // a menu entry (darts-o-cam.desktop), icons and a systemd service for running it without
@@ -70,7 +70,7 @@ type asset struct {
 // program is one of the programs that get packages.
 type program struct {
 	name string
-	// module is the project's folder of the Go module that has the program in cmd/.
+	// module is the project's folder that has the program in cmd/.
 	module      string
 	description string
 	assets      []asset

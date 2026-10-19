@@ -2,11 +2,11 @@ module github.com/sj14/darts-o-mat/tools
 
 go 1.27.2
 
-replace github.com/sj14/darts-o-mat/common => ../common
+replace github.com/sj14/darts-o-mat => ..
 
 require (
 	github.com/goreleaser/nfpm/v2 v2.48.0
-	github.com/sj14/darts-o-mat/common v0.0.0
+	github.com/sj14/darts-o-mat v0.0.0
 	github.com/tc-hib/winres v0.3.1
 )
 
