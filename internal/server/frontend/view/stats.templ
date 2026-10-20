@@ -20,11 +20,11 @@ templ Stats(user string, summaries []stats.Summary, heatMode game.Mode) {
 							<span class="font-sans text-base font-normal normal-case text-white/40">{ T(ctx).GuestMark() }</span>
 						}
 					</h2>
-					if !(showMode(heatMode, game.ModeX01) && s.X01.Games > 0) && !(showMode(heatMode, game.ModeAroundTheClock) && s.AroundTheClock.Games > 0) {
+					if !(showMode(heatMode, game.ModeX01) && s.X01.Any()) && !(showMode(heatMode, game.ModeAroundTheClock) && s.AroundTheClock.Any()) {
 						<p class="text-white/50">{ T(ctx).NoFinishedGames() }</p>
 					}
 					<div class="grid gap-6 md:grid-cols-2">
-						if showMode(heatMode, game.ModeX01) && s.X01.Games > 0 {
+						if showMode(heatMode, game.ModeX01) && s.X01.Any() {
 							<div>
 								<h3 class={ labelClass }>X01</h3>
 								<div class="mb-3 grid grid-cols-3 gap-2">
@@ -46,10 +46,11 @@ templ Stats(user string, summaries []stats.Summary, heatMode game.Mode) {
 									@statRow(T(ctx).BestLeg(), orDash(s.X01.BestLeg > 0, T(ctx).NDarts(s.X01.BestLeg)))
 									@statRow(T(ctx).AvgLegTime(), orDash(s.X01.AvgLeg > 0, clock(s.X01.AvgLeg)))
 									@statRow(T(ctx).AvgGameTime(), orDash(s.X01.AvgGame > 0, clock(s.X01.AvgGame)))
+									@statRow(T(ctx).LeftEarly(), strconv.Itoa(s.X01.GamesLeft)+" / "+strconv.Itoa(s.X01.TournamentsLeft))
 								</dl>
 							</div>
 						}
-						if showMode(heatMode, game.ModeAroundTheClock) && s.AroundTheClock.Games > 0 {
+						if showMode(heatMode, game.ModeAroundTheClock) && s.AroundTheClock.Any() {
 							<div>
 								<h3 class={ labelClass }>{ T(ctx).AroundTheClock() }</h3>
 								<div class="mb-3 grid grid-cols-3 gap-2">
@@ -69,6 +70,7 @@ templ Stats(user string, summaries []stats.Summary, heatMode game.Mode) {
 									@statRow(T(ctx).BestLeg(), orDash(s.AroundTheClock.BestLeg > 0, T(ctx).NDarts(s.AroundTheClock.BestLeg)))
 									@statRow(T(ctx).AvgLegTime(), orDash(s.AroundTheClock.AvgLeg > 0, clock(s.AroundTheClock.AvgLeg)))
 									@statRow(T(ctx).AvgGameTime(), orDash(s.AroundTheClock.AvgGame > 0, clock(s.AroundTheClock.AvgGame)))
+									@statRow(T(ctx).LeftEarly(), strconv.Itoa(s.AroundTheClock.GamesLeft)+" / "+strconv.Itoa(s.AroundTheClock.TournamentsLeft))
 								</dl>
 							</div>
 						}

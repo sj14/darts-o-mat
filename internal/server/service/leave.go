@@ -6,7 +6,9 @@ import (
 	"fmt"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 )
@@ -49,7 +51,7 @@ func (s *Service) LeaveGame(ctx context.Context, acc account.Account, gameID int
 		if err != nil {
 			return GameView{}, err
 		}
-		if err := s.leaveTournament(ctx, acc, t); err != nil {
+		if err := s.leaveTournament(ctx, acc, t, true); err != nil {
 			return GameView{}, err
 		}
 		return s.Game(ctx, acc, gameID)
@@ -85,6 +87,9 @@ func (s *Service) leave(ctx context.Context, acc account.Account, v GameView) (G
 		if err := s.abortGame(ctx, &v.Game); err != nil {
 			return GameView{}, err
 		}
+		if err := s.recordQuits(ctx, v.Game.Mode, false, gameID, leaving); err != nil {
+			return GameView{}, err
+		}
 		return s.view(ctx, acc, v.Game)
 	}
 	entries := make([]throw.Dart, len(leaving))
@@ -103,6 +108,9 @@ func (s *Service) leave(ctx context.Context, acc account.Account, v GameView) (G
 		if err := s.store.AddDart(ctx, &entries[i]); err != nil {
 			return GameView{}, err
 		}
+	}
+	if err := s.recordQuits(ctx, v.Game.Mode, false, gameID, leaving); err != nil {
+		return GameView{}, err
 	}
 	s.notifyGame(v.Game)
 	return s.view(ctx, acc, v.Game)
@@ -130,7 +138,7 @@ func (s *Service) LeaveTournament(ctx context.Context, acc account.Account, id i
 	case v.State.Over:
 		return TournamentView{}, fmt.Errorf("%w: the tournament is over", ErrInvalid)
 	}
-	if err := s.leaveTournament(ctx, acc, t); err != nil {
+	if err := s.leaveTournament(ctx, acc, t, true); err != nil {
 		return TournamentView{}, err
 	}
 	// Read it again: leaving may have aborted it. From the lobby the account is no longer in
@@ -143,7 +151,9 @@ func (s *Service) LeaveTournament(ctx context.Context, acc account.Account, id i
 }
 
 // leaveTournament is the leaving of a tournament that isn't over. The caller holds s.mu.
-func (s *Service) leaveTournament(ctx context.Context, acc account.Account, t tournament.Tournament) error {
+// Only if the player chose to leave (voluntary) a running tournament counts as left in
+// their statistics, not when their account is deleted.
+func (s *Service) leaveTournament(ctx context.Context, acc account.Account, t tournament.Tournament, voluntary bool) error {
 	v, err := s.tournamentView(ctx, acc, t)
 	if err != nil {
 		return err
@@ -157,5 +167,20 @@ func (s *Service) leaveTournament(ctx context.Context, acc account.Account, t to
 		s.tournaments.Notify(t.ID)
 		return nil
 	}
-	return s.abortTournament(ctx, &t)
+	if err := s.abortTournament(ctx, &t); err != nil {
+		return err
+	}
+	if voluntary {
+		return s.recordQuits(ctx, t.Mode, true, t.ID, v.Mine)
+	}
+	return nil
+}
+
+// recordQuits stores that the players left a running game or tournament (stats.Quit).
+func (s *Service) recordQuits(ctx context.Context, mode game.Mode, isTournament bool, targetID int64, playerIDs []int64) error {
+	quits := make([]stats.Quit, len(playerIDs))
+	for i, id := range playerIDs {
+		quits[i] = stats.Quit{PlayerID: id, Tournament: isTournament, TargetID: targetID, Mode: mode}
+	}
+	return s.store.AddQuits(ctx, quits)
 }

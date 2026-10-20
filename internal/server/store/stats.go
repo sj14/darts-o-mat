@@ -65,3 +65,22 @@ func (store *Store) ListTournamentResults(ctx context.Context, playerIDs []int64
 	err := store.db.NewSelect().Model(&results).Where("player_id IN (?)", bun.In(playerIDs)).Scan(ctx)
 	return results, err
 }
+
+// AddQuits stores the games or tournaments players left; one that is stored already stays.
+func (store *Store) AddQuits(ctx context.Context, quits []stats.Quit) error {
+	if len(quits) == 0 {
+		return nil
+	}
+	_, err := store.db.NewInsert().Model(&quits).On("CONFLICT (player_id, tournament, target_id) DO NOTHING").Exec(ctx)
+	return err
+}
+
+// ListQuits returns the games and tournaments the players left.
+func (store *Store) ListQuits(ctx context.Context, playerIDs []int64) ([]stats.Quit, error) {
+	quits := []stats.Quit{}
+	if len(playerIDs) == 0 {
+		return quits, nil
+	}
+	err := store.db.NewSelect().Model(&quits).Where("player_id IN (?)", bun.In(playerIDs)).Scan(ctx)
+	return quits, err
+}

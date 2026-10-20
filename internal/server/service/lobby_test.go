@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"testing"
 	"time"
 
@@ -160,6 +161,13 @@ func TestLeaveTournamentViews(t *testing.T) {
 	running, err := s.LeaveTournament(ctx, carla, id)
 	if err != nil || !running.Tournament.Aborted() {
 		t.Errorf("leave a running tournament: aborted %v, %v; want it aborted and shown", running.Tournament.Aborted(), err)
+	}
+	// Only carla, who left, has it in her statistics; leaving the lobby earlier counted for nobody.
+	for name, want := range map[string]int{"anna": 0, "ben": 0, "carla": 1} {
+		acc := map[string]account.Account{"anna": anna, "ben": ben, "carla": carla}[name]
+		if got, _ := s.Stats(ctx, acc, ""); got[0].X01.TournamentsLeft != want || got[0].X01.GamesLeft != 0 {
+			t.Errorf("%s left %+v, want %d tournaments", name, got[0].X01, want)
+		}
 	}
 }
 

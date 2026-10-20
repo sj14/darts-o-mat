@@ -397,6 +397,7 @@ func (textsDE) StatsHint() string {
 func (textsDE) NoFinishedGames() string { return "Noch keine beendeten Spiele." }
 func (textsDE) Heatmap() string         { return "Wo deine Darts landen" }
 func (textsDE) AllModes() string        { return "Alle Modi" }
+func (textsDE) LeftEarly() string       { return "Vorzeitig verlassen (Spiele / Turniere)" }
 func (textsDE) BoardRequired() string   { return "Board nötig" }
 func (textsDE) BoardOnlyOption() string { return "Nur Spieler mit Board dürfen mitspielen" }
 func (textsDE) BoardOnlyHint() string {

@@ -152,7 +152,7 @@ func (s *Service) leaveEverything(ctx context.Context, a account.Account) error 
 				s.tournaments.Notify(t.ID)
 			}
 		default:
-			err = s.leaveTournament(ctx, a, t)
+			err = s.leaveTournament(ctx, a, t, false)
 		}
 		if err != nil {
 			return err

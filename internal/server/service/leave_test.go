@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"testing"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
@@ -153,5 +154,34 @@ func TestTheCreatorCanLeaveToo(t *testing.T) {
 	}
 	if _, err := s.AddDart(ctx, ben, v.Game.ID, t20); err != nil {
 		t.Errorf("ben throws: %v", err)
+	}
+}
+
+func TestLeavingCountsForWhoLeft(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
+	befriend(t, s, anna, ben)
+	befriend(t, s, anna, carla)
+	v, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben", "carla"})
+	id := v.Game.ID
+	_, _ = s.AcceptInvitation(ctx, ben, id, nil)
+	_, _ = s.AcceptInvitation(ctx, carla, id, nil)
+
+	left := func(acc account.Account) int {
+		got, err := s.Stats(ctx, acc, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got[0].X01.GamesLeft
+	}
+	if _, err := s.LeaveGame(ctx, ben, id); err != nil { // the others play on
+		t.Fatal(err)
+	}
+	if _, err := s.LeaveGame(ctx, carla, id); err != nil { // anna alone: the game is aborted
+		t.Fatal(err)
+	}
+	if a, b, c := left(anna), left(ben), left(carla); a != 0 || b != 1 || c != 1 {
+		t.Errorf("games left: anna %d, ben %d, carla %d; want 0, 1, 1", a, b, c)
 	}
 }

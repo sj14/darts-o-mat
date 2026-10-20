@@ -286,6 +286,7 @@ type Texts interface {
 	NoFinishedGames() string
 	Heatmap() string
 	AllModes() string
+	LeftEarly() string
 	BoardRequired() string
 	BoardOnlyOption() string
 	BoardOnlyHint() string

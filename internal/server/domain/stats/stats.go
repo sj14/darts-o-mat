@@ -22,6 +22,9 @@ type Record struct {
 	// Finished tournaments of the mode the player took part in, and won.
 	Tournaments    int `json:"tournaments"`
 	TournamentWins int `json:"tournament_wins"`
+	// Running games and tournaments of the mode the player left themselves (Quit).
+	GamesLeft       int `json:"games_left"`
+	TournamentsLeft int `json:"tournaments_left"`
 	// Averages of the games' and legs' durations (see turn.Times), zero without timed ones.
 	AvgGame time.Duration `json:"avg_game"`
 	AvgLeg  time.Duration `json:"avg_leg"`
@@ -234,4 +237,36 @@ func best(current, darts int) int {
 		return max(current, darts)
 	}
 	return min(current, darts)
+}
+
+// Quit is a running game or tournament a player left on their own (not because the time
+// for their turns ran out, or their account was deleted), counted for them alone and not
+// for the others in it. Leaving a game of a tournament counts as leaving the tournament,
+// leaving a lobby doesn't count. Stored in the table quits when it happens.
+type Quit struct {
+	bun.BaseModel `bun:"table:quits"`
+
+	PlayerID   int64     `bun:",pk"`
+	Tournament bool      `bun:",pk"` // TargetID is a tournament's, else a game's
+	TargetID   int64     `bun:",pk"`
+	Mode       game.Mode `bun:",notnull"`
+}
+
+// AddQuit adds a game or tournament the player left to the summary.
+func (s *Summary) AddQuit(q Quit) {
+	r := &s.X01.Record
+	if q.Mode == game.ModeAroundTheClock {
+		r = &s.AroundTheClock.Record
+	}
+	if q.Tournament {
+		r.TournamentsLeft++
+	} else {
+		r.GamesLeft++
+	}
+}
+
+// Any reports whether there is anything to show for the mode: a game played, or a game
+// or tournament left.
+func (r Record) Any() bool {
+	return r.Games > 0 || r.GamesLeft > 0 || r.TournamentsLeft > 0
 }

@@ -113,7 +113,7 @@ func Stats(user string, summaries []stats.Summary, heatMode game.Mode) templ.Com
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					if !(showMode(heatMode, game.ModeX01) && s.X01.Games > 0) && !(showMode(heatMode, game.ModeAroundTheClock) && s.AroundTheClock.Games > 0) {
+					if !(showMode(heatMode, game.ModeX01) && s.X01.Any()) && !(showMode(heatMode, game.ModeAroundTheClock) && s.AroundTheClock.Any()) {
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<p class=\"text-white/50\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
@@ -136,7 +136,7 @@ func Stats(user string, summaries []stats.Summary, heatMode game.Mode) templ.Com
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					if showMode(heatMode, game.ModeX01) && s.X01.Games > 0 {
+					if showMode(heatMode, game.ModeX01) && s.X01.Any() {
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<div>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
@@ -219,12 +219,16 @@ func Stats(user string, summaries []stats.Summary, heatMode game.Mode) templ.Com
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
+						templ_7745c5c3_Err = statRow(T(ctx).LeftEarly(), strconv.Itoa(s.X01.GamesLeft)+" / "+strconv.Itoa(s.X01.TournamentsLeft)).Render(ctx, templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</dl></div>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					if showMode(heatMode, game.ModeAroundTheClock) && s.AroundTheClock.Games > 0 {
+					if showMode(heatMode, game.ModeAroundTheClock) && s.AroundTheClock.Any() {
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
@@ -254,7 +258,7 @@ func Stats(user string, summaries []stats.Summary, heatMode game.Mode) templ.Com
 						var templ_7745c5c3_Var11 string
 						templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).AroundTheClock())
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 54, Col: 58}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 55, Col: 58}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 						if templ_7745c5c3_Err != nil {
@@ -309,6 +313,10 @@ func Stats(user string, summaries []stats.Summary, heatMode game.Mode) templ.Com
 							return templ_7745c5c3_Err
 						}
 						templ_7745c5c3_Err = statRow(T(ctx).AvgGameTime(), orDash(s.AroundTheClock.AvgGame > 0, clock(s.AroundTheClock.AvgGame))).Render(ctx, templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = statRow(T(ctx).LeftEarly(), strconv.Itoa(s.AroundTheClock.GamesLeft)+" / "+strconv.Itoa(s.AroundTheClock.TournamentsLeft)).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -375,7 +383,7 @@ func statTile(value, label string) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 86, Col: 85}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 88, Col: 85}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -388,7 +396,7 @@ func statTile(value, label string) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 87, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 89, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -430,7 +438,7 @@ func statRow(label, value string) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 93, Col: 35}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 95, Col: 35}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -443,7 +451,7 @@ func statRow(label, value string) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 94, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 96, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -509,7 +517,7 @@ func heatmap(h stats.Heat) templ.Component {
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).Heatmap())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 102, Col: 45}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 104, Col: 45}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 		if templ_7745c5c3_Err != nil {
@@ -527,7 +535,7 @@ func heatmap(h stats.Heat) templ.Component {
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).HeatmapNone())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 104, Col: 58}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 106, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
@@ -545,7 +553,7 @@ func heatmap(h stats.Heat) templ.Component {
 			var templ_7745c5c3_Var23 string
 			templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue(boardViewBox)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 107, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 109, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
 			if templ_7745c5c3_Err != nil {
@@ -558,7 +566,7 @@ func heatmap(h stats.Heat) templ.Component {
 			var templ_7745c5c3_Var24 string
 			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue(T(ctx).Heatmap())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 107, Col: 96}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 109, Col: 96}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 			if templ_7745c5c3_Err != nil {
@@ -576,7 +584,7 @@ func heatmap(h stats.Heat) templ.Component {
 				var templ_7745c5c3_Var25 string
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(s.Path)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 111, Col: 23}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 113, Col: 23}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
 				if templ_7745c5c3_Err != nil {
@@ -589,7 +597,7 @@ func heatmap(h stats.Heat) templ.Component {
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue(s.Fill)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 111, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 113, Col: 39}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
 				if templ_7745c5c3_Err != nil {
@@ -602,7 +610,7 @@ func heatmap(h stats.Heat) templ.Component {
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.ResolveAttributeValue(boardWire)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 111, Col: 60}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 113, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var27)
 				if templ_7745c5c3_Err != nil {
@@ -625,7 +633,7 @@ func heatmap(h stats.Heat) templ.Component {
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.X)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 115, Col: 19}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 117, Col: 19}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var28)
 				if templ_7745c5c3_Err != nil {
@@ -638,7 +646,7 @@ func heatmap(h stats.Heat) templ.Component {
 				var templ_7745c5c3_Var29 string
 				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.Y)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 115, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 117, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var29)
 				if templ_7745c5c3_Err != nil {
@@ -651,7 +659,7 @@ func heatmap(h stats.Heat) templ.Component {
 				var templ_7745c5c3_Var30 string
 				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue(boardTarget)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 115, Col: 71}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 117, Col: 71}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var30)
 				if templ_7745c5c3_Err != nil {
@@ -664,7 +672,7 @@ func heatmap(h stats.Heat) templ.Component {
 				var templ_7745c5c3_Var31 string
 				templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.Opacity)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 115, Col: 98}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 117, Col: 98}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var31)
 				if templ_7745c5c3_Err != nil {
@@ -683,7 +691,7 @@ func heatmap(h stats.Heat) templ.Component {
 				var templ_7745c5c3_Var32 string
 				templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.ResolveAttributeValue(n.X)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 118, Col: 19}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 120, Col: 19}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var32)
 				if templ_7745c5c3_Err != nil {
@@ -696,7 +704,7 @@ func heatmap(h stats.Heat) templ.Component {
 				var templ_7745c5c3_Var33 string
 				templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.ResolveAttributeValue(n.Y)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 118, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 120, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var33)
 				if templ_7745c5c3_Err != nil {
@@ -709,7 +717,7 @@ func heatmap(h stats.Heat) templ.Component {
 				var templ_7745c5c3_Var34 string
 				templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(n.Text)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 118, Col: 207}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 120, Col: 207}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 				if templ_7745c5c3_Err != nil {
@@ -727,7 +735,7 @@ func heatmap(h stats.Heat) templ.Component {
 			var templ_7745c5c3_Var35 string
 			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).HeatmapDarts(h.Darts))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 122, Col: 83}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 124, Col: 83}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 			if templ_7745c5c3_Err != nil {
@@ -775,7 +783,7 @@ func modeFilter(selected game.Mode) templ.Component {
 		var templ_7745c5c3_Var37 string
 		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.ResolveAttributeValue(T(ctx).NavStats())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 129, Col: 78}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 131, Col: 78}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var37)
 		if templ_7745c5c3_Err != nil {
@@ -840,7 +848,7 @@ func modeFilterLink(mode, selected game.Mode, label string) templ.Component {
 		var templ_7745c5c3_Var40 templ.SafeURL
 		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL("/stats?mode=" + string(mode)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 138, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 140, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 		if templ_7745c5c3_Err != nil {
@@ -853,7 +861,7 @@ func modeFilterLink(mode, selected game.Mode, label string) templ.Component {
 		var templ_7745c5c3_Var41 string
 		templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.ResolveAttributeValue("/stats?mode=" + string(mode))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 139, Col: 40}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 141, Col: 40}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var41)
 		if templ_7745c5c3_Err != nil {
@@ -889,7 +897,7 @@ func modeFilterLink(mode, selected game.Mode, label string) templ.Component {
 		var templ_7745c5c3_Var43 string
 		templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 150, Col: 9}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/stats.templ`, Line: 152, Col: 9}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 		if templ_7745c5c3_Err != nil {

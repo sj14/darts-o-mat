@@ -408,6 +408,7 @@ func (textsEN) StatsHint() string {
 func (textsEN) NoFinishedGames() string { return "No finished games yet." }
 func (textsEN) Heatmap() string         { return "Where your darts land" }
 func (textsEN) AllModes() string        { return "All modes" }
+func (textsEN) LeftEarly() string       { return "Left early (games / tournaments)" }
 func (textsEN) BoardRequired() string   { return "Board required" }
 func (textsEN) BoardOnlyOption() string { return "Only players with a board can take part" }
 func (textsEN) BoardOnlyHint() string {

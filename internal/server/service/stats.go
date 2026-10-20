@@ -13,7 +13,7 @@ import (
 const HeatDarts = 5000
 
 // Stats returns the statistics of the account's player and its guests over all completed
-// games and finished tournaments, and where their darts hit the board (heatMode narrows
+// games and finished tournaments, the ones they left themselves (stats.Quit), and where their darts hit the board (heatMode narrows
 // the latter down to the games of one mode, empty means all).
 //
 // Once a game is completed nothing about it changes anymore, so its result per player
@@ -35,6 +35,18 @@ func (s *Service) Stats(ctx context.Context, acc account.Account, heatMode game.
 			return nil, err
 		}
 		summaries[i].Heat = stats.NewHeat(points)
+	}
+
+	quits, err := s.store.ListQuits(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	for _, q := range quits {
+		for i := range summaries {
+			if summaries[i].Player.ID == q.PlayerID {
+				summaries[i].AddQuit(q)
+			}
+		}
 	}
 
 	results, err := s.store.ListResults(ctx, ids)
