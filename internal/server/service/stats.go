@@ -97,7 +97,7 @@ func (s *Service) Stats(ctx context.Context, acc account.Account, heatMode game.
 		}
 	}
 
-	// Finished tournaments: stored like the games, once their last match is completed.
+	// Finished tournaments: stored like the games, once all their matches are completed.
 	tournamentResults, err := s.store.ListTournamentResults(ctx, ids)
 	if err != nil {
 		return nil, err
@@ -118,7 +118,7 @@ func (s *Service) Stats(ctx context.Context, acc account.Account, heatMode game.
 		if err != nil {
 			return nil, err
 		}
-		if !v.State.Over {
+		if !v.State.Completed() {
 			continue
 		}
 		var added []stats.TournamentResult

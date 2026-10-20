@@ -9,10 +9,12 @@ import (
 // Result is what became of a match's game.
 type Result struct {
 	GameID int64 `json:"game_id"`
-	// Over is set once the game has a winner and its result is final (the game is
-	// completed); only then the winner goes on. Until then it is running or Unconfirmed.
+	// Over is set once the game has a winner; the winner goes on right away, also while
+	// the result can still be corrected (Unconfirmed).
 	Over bool `json:"over"`
-	// Unconfirmed is set when the game has a winner but the players can still correct it.
+	// Unconfirmed is set when the game is over but not completed yet: the players can
+	// still correct it, and the winner may change. Starting the next match of one of its
+	// players completes it.
 	Unconfirmed bool  `json:"unconfirmed,omitempty"`
 	WinnerID    int64 `json:"winner_id,omitempty"`
 	// Score is what each player of the match won: sets, or legs in a game without sets.
@@ -68,6 +70,12 @@ type State struct {
 	Standings []Standing `json:"standings,omitempty"`
 	Over      bool       `json:"over"`
 	WinnerID  *int64     `json:"winner_id,omitempty"`
+}
+
+// Completed reports whether the tournament is over and its result final: none of its
+// matches can be corrected anymore. Over alone may still change.
+func (st State) Completed() bool {
+	return st.Over && !slices.ContainsFunc(st.Matches, func(m Match) bool { return m.Result != nil && m.Result.Unconfirmed })
 }
 
 // Plan computes the schedule of a tournament with the given format and players (in

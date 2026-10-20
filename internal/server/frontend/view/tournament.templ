@@ -151,8 +151,6 @@ templ matchAction(v service.TournamentView, m tournament.Match) {
 			<form method="post" action={ templ.URL(tournamentURL(v.Tournament.ID, "/matches/"+strconv.Itoa(m.Index))) } class="mt-1">
 				<button type="submit" class={ btnPrimary, btnSmall, "w-full" }>{ T(ctx).StartGame() }</button>
 			</form>
-		case m.Result != nil && m.Result.Unconfirmed:
-			<a href={ templ.URL(gameURL(m.Result.GameID, "")) } class={ "mt-1 block text-center text-sm", linkClass }>{ T(ctx).AwaitingConfirmation() }</a>
 		case m.Result != nil && !m.Result.Over:
 			<a href={ templ.URL(gameURL(m.Result.GameID, "")) } class={ "mt-1 block text-center text-sm", linkClass }>{ T(ctx).RunningToGame() }</a>
 		case m.Result != nil:

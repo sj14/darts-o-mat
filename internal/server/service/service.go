@@ -32,7 +32,7 @@ var (
 	ErrAborted       = errors.New("the game was aborted")
 	// ErrCompleted means the result of the game is final, see game.Game.Completed.
 	ErrCompleted = errors.New("the game is completed, its result can't be changed anymore")
-	// ErrNotOver means the game can't be completed, it isn't over.
+	// ErrNotOver means the game isn't over yet, e.g. to rate its players.
 	ErrNotOver = fmt.Errorf("%w: the game isn't over", ErrInvalid)
 	// ErrChangesThrowers means a correction would change who threw later darts,
 	// e.g. a bust that ends a turn early: the later darts have to be taken back instead.
@@ -173,24 +173,6 @@ func (v GameView) MayUndo() bool {
 		}
 	}
 	return false
-}
-
-// LastThrower returns the player who threw the last dart of the log, 0 without one: the
-// one whose dart may have been recognised wrongly, so only they confirm the result.
-func (v GameView) LastThrower() int64 {
-	for _, d := range slices.Backward(v.Darts) {
-		if d.IsDart() {
-			return d.PlayerID
-		}
-	}
-	return 0
-}
-
-// MayComplete reports whether the viewer may confirm the result of the game: it is over
-// and not confirmed yet, and the last dart was thrown by one of the viewer's players
-// (not by one who left or has only an invitation).
-func (v GameView) MayComplete() bool {
-	return v.Common().GameOver && !v.Completed && !v.Invited && !v.HasLeft && v.IsMine(v.LastThrower())
 }
 
 // IsMine reports whether the player is one of the viewer's.
@@ -430,6 +412,9 @@ func (s *Service) AcceptInvitation(ctx context.Context, acc account.Account, gam
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.completeFinished(ctx, acc); err != nil {
+		return GameView{}, err
+	}
 	if err := s.store.AcceptInvitation(ctx, gameID, acc.PlayerID, boardID); err != nil {
 		return GameView{}, err
 	}

@@ -213,16 +213,6 @@ func (c *Controller) takeout(w http.ResponseWriter, r *http.Request) {
 	c.respondBoard(w, r, id, v, err)
 }
 
-// complete is called by htmx when a player confirms the result of the finished game.
-func (c *Controller) complete(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	v, err := c.svc.CompleteGame(r.Context(), auth.Account(r.Context()), id)
-	c.respondBoard(w, r, id, v, err)
-}
-
 // ratePlayer is called by htmx when a player gives another a thumb up (up=1) or down.
 func (c *Controller) ratePlayer(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")

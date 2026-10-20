@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
+	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
@@ -92,28 +93,25 @@ func TestRoundRobinTournament(t *testing.T) {
 			t.Fatalf("match %d: %v", m.Index, err)
 		}
 	}
-	// The results count once the players confirmed them; until then they can be corrected.
-	if v, err = s.Tournament(ctx, anna, id); err != nil || v.State.Over || !v.State.Matches[0].Result.Unconfirmed || v.State.Matches[0].Result.Over {
-		t.Fatalf("before the results are confirmed: over %v, %+v, %v; want running and unconfirmed", v.State.Over, v.State.Matches[0].Result, err)
+	// The tournament is over at once, but its result counts only once its games are
+	// completed: here by the players going on to another game.
+	if v, err = s.Tournament(ctx, anna, id); err != nil || !v.State.Over || v.State.Completed() || !v.State.Matches[0].Result.Unconfirmed {
+		t.Fatalf("after the last darts: over %v, completed %v, %+v, %v; want over, open to corrections", v.State.Over, v.State.Completed(), v.State.Matches[0].Result, err)
 	}
-	for _, m := range v.State.Matches {
-		// Whoever threw the last dart: anna, or ben if she has no player in the match or
-		// it was his.
-		if _, err := s.CompleteGame(ctx, anna, m.Result.GameID); errors.Is(err, ErrNotFound) || errors.Is(err, ErrForbidden) {
-			_, err = s.CompleteGame(ctx, ben, m.Result.GameID)
-			if err != nil {
-				t.Fatalf("ben confirms match %d: %v", m.Index, err)
-			}
-		} else if err != nil {
-			t.Fatalf("anna confirms match %d: %v", m.Index, err)
+	if sums, _ := s.Stats(ctx, anna, ""); sums[0].X01.Tournaments != 0 {
+		t.Errorf("a tournament that can still be corrected counts: %+v", sums[0].X01.Record)
+	}
+	for _, acc := range []account.Account{anna, ben} {
+		if _, err := s.CreateGame(ctx, acc, x01Game(acc.PlayerID), nil); err != nil {
+			t.Fatal(err)
 		}
 	}
 	v, err = s.Tournament(ctx, anna, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !v.State.Over || v.State.WinnerID == nil || *v.State.WinnerID != v.State.Standings[0].PlayerID {
-		t.Fatalf("over %v winner %v, want over with the leader of the table", v.State.Over, v.State.WinnerID)
+	if !v.State.Completed() || v.State.WinnerID == nil || *v.State.WinnerID != v.State.Standings[0].PlayerID {
+		t.Fatalf("completed %v winner %v, want completed with the leader of the table", v.State.Completed(), v.State.WinnerID)
 	}
 	played := 0
 	for _, s := range v.Stats {
@@ -179,16 +177,30 @@ func TestKnockoutTournament(t *testing.T) {
 	if _, err := s.AddDart(ctx, anna, semi.Game.ID, d20); err != nil {
 		t.Fatal(err)
 	}
-	// The winner goes on once the semi-final is confirmed, not before.
-	if _, err := s.StartMatch(ctx, anna, id, 2); !errors.Is(err, ErrInvalid) {
-		t.Errorf("starting the final before the semi-final is confirmed: %v, want ErrInvalid", err)
+	// The winner goes on at once. A correction before the final starts changes who it is.
+	semiWinner := func() int64 {
+		v, _ := s.Tournament(ctx, anna, id)
+		return v.State.Matches[2].PlayerIDs[1]
 	}
-	if _, err := s.CompleteGame(ctx, anna, semi.Game.ID); err != nil {
+	if got := semiWinner(); got != semi.Game.PlayerIDs()[0] {
+		t.Fatalf("final's second player %d, want the semi-final's winner %d", got, semi.Game.PlayerIDs()[0])
+	}
+	if _, err := s.UndoDart(ctx, anna, semi.Game.ID); err != nil {
 		t.Fatal(err)
 	}
+	if got := semiWinner(); got != 0 {
+		t.Errorf("after the correction the final has %d, want nobody yet", got)
+	}
+	if _, err := s.AddDart(ctx, anna, semi.Game.ID, d20); err != nil {
+		t.Fatal(err)
+	}
+	// Starting the final completes the semi-final.
 	final, err := s.StartMatch(ctx, anna, id, 2)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if gv, _ := s.Game(ctx, anna, semi.Game.ID); !gv.Completed || gv.Game.CompletedAt == nil {
+		t.Error("the semi-final isn't completed after the final started")
 	}
 	if final.Game.PlayerIDs()[0] != v.Tournament.PlayerIDs()[0] || final.Game.PlayerIDs()[1] != semi.Game.PlayerIDs()[0] {
 		t.Errorf("final between %v, want seed 1 and the winner of the semi-final", final.Game.PlayerIDs())
@@ -196,11 +208,25 @@ func TestKnockoutTournament(t *testing.T) {
 	if _, err := s.AddDart(ctx, anna, final.Game.ID, d20); err != nil {
 		t.Fatal(err)
 	}
-	if v, _ = s.Tournament(ctx, anna, id); v.State.Over {
-		t.Error("the tournament is over before its final is confirmed")
+	// The winner shows at once, and goes again if the last dart is taken back.
+	if v, _ = s.Tournament(ctx, anna, id); !v.State.Over || v.State.Completed() {
+		t.Errorf("after the final's last dart: over %v, completed %v; want over, open to corrections", v.State.Over, v.State.Completed())
 	}
-	if _, err := s.CompleteGame(ctx, anna, final.Game.ID); err != nil {
+	if _, err := s.UndoDart(ctx, anna, final.Game.ID); err != nil {
 		t.Fatal(err)
+	}
+	if v, _ = s.Tournament(ctx, anna, id); v.State.Over {
+		t.Error("the tournament is still over after the final's last dart was taken back")
+	}
+	if _, err := s.AddDart(ctx, anna, final.Game.ID, d20); err != nil {
+		t.Fatal(err)
+	}
+	// Going on to another tournament completes the final.
+	if _, err := s.CreateTournament(ctx, anna, quickTournament(tournament.Knockout, ids...), nil); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ = s.Tournament(ctx, anna, id); !v.State.Completed() {
+		t.Error("the tournament isn't completed after anna created another")
 	}
 	v, err = s.Tournament(ctx, anna, id)
 	if err != nil {

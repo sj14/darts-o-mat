@@ -84,6 +84,11 @@ func (s *Service) CreateTournament(ctx context.Context, acc account.Account, t t
 	if err := t.Validate(); err != nil {
 		return TournamentView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.completeFinished(ctx, acc); err != nil {
+		return TournamentView{}, err
+	}
 	if err := s.store.CreateTournament(ctx, &t); err != nil {
 		return TournamentView{}, err
 	}
@@ -149,6 +154,11 @@ func (s *Service) AcceptTournamentInvitation(ctx context.Context, acc account.Ac
 		return TournamentView{}, err
 	}
 	if err := s.checkTournamentBoard(ctx, acc, t, boardID); err != nil {
+		return TournamentView{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.completeFinished(ctx, acc); err != nil {
 		return TournamentView{}, err
 	}
 	if err := s.store.AcceptTournamentInvitation(ctx, id, acc.PlayerID, boardID); err != nil {
@@ -230,6 +240,9 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 	if err := s.completeFinished(ctx, acc); err != nil {
 		return GameView{}, err
 	}
+	if err := s.completePrevious(ctx, v.State, m); err != nil {
+		return GameView{}, err
+	}
 	if err := s.store.CreateGame(ctx, &g); err != nil {
 		return GameView{}, err
 	}
@@ -241,6 +254,26 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 	}
 	s.tournaments.Notify(id)
 	return s.Game(ctx, acc, g.ID)
+}
+
+// completePrevious completes the games of the tournament that are over but can still be
+// corrected and that one of the match's players played in: starting the next match accepts
+// them (user's decision 2026-10-20), also for the player who doesn't start it. Whoever won
+// them is in the match already. The caller holds s.mu.
+func (s *Service) completePrevious(ctx context.Context, st tournament.State, m tournament.Match) error {
+	for _, prev := range st.Matches {
+		if prev.Result == nil || !prev.Result.Unconfirmed || !slices.ContainsFunc(m.PlayerIDs[:], func(id int64) bool { return slices.Contains(prev.PlayerIDs[:], id) }) {
+			continue
+		}
+		g, err := s.store.GetGame(ctx, prev.Result.GameID)
+		if err != nil {
+			return err
+		}
+		if err := s.completeGame(ctx, &g); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // tournamentView builds the view of a tournament for an account, ErrNotFound if the
@@ -297,8 +330,8 @@ func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tou
 		v.Time = v.Time.Join(c.Times.Game)
 		if c.GameOver {
 			score := g.Score(state)
-			r.Over, r.WinnerID = g.Completed(darts, c, s.now()), *c.WinnerID
-			r.Unconfirmed = !r.Over
+			r.Over, r.WinnerID = true, *c.WinnerID
+			r.Unconfirmed = !g.Completed(darts, c, s.now())
 			r.Score = [2]int{score[g.PlayerIDs()[0]], score[g.PlayerIDs()[1]]}
 			for i := range v.Stats {
 				v.Stats[i].Add(state)

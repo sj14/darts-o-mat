@@ -66,7 +66,6 @@ func (a *API) Routes() http.Handler {
 		r.Delete("/games/{id}/darts/last", a.undoDart)
 		r.Put("/games/{id}/darts/{dartID}", a.editDart)
 		r.Post("/games/{id}/takeout", a.takeout)
-		r.Post("/games/{id}/complete", a.completeGame)
 		r.Post("/games/{id}/ratings", a.ratePlayer)
 		r.Post("/games/{id}/leave", a.leaveGame)
 		r.Post("/games/{id}/board", a.useBoard)
@@ -384,17 +383,6 @@ func (a *API) takeout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := a.svc.Takeout(r.Context(), auth.Account(r.Context()), id)
-	respond(w, http.StatusOK, v, err)
-}
-
-// completeGame confirms the result of the finished game: it can't be undone or corrected
-// anymore afterwards.
-func (a *API) completeGame(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	v, err := a.svc.CompleteGame(r.Context(), auth.Account(r.Context()), id)
 	respond(w, http.StatusOK, v, err)
 }
 

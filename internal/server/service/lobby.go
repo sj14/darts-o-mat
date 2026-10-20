@@ -191,6 +191,9 @@ func (s *Service) JoinTournament(ctx context.Context, acc account.Account, id in
 	if err := s.checkTournamentBoard(ctx, acc, t, boardID); err != nil {
 		return TournamentView{}, err
 	}
+	if err := s.completeFinished(ctx, acc); err != nil {
+		return TournamentView{}, err
+	}
 	if err := s.store.JoinTournament(ctx, id, acc.PlayerID, boardID); err != nil {
 		return TournamentView{}, err
 	}

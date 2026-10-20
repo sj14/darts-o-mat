@@ -226,20 +226,11 @@ func (textsDE) ErrEndsEarlier() string {
 func (textsDE) ErrNoBullOffTie() string { return "Gerade ist beim Ausbullen niemand gleichauf." }
 func (textsDE) ErrNoInvitation() string { return "Diese Einladung gibt es nicht mehr." }
 func (textsDE) ErrCompleted() string {
-	return "Das Ergebnis ist bestätigt, das Spiel kann nicht mehr geändert werden."
+	return "Das Ergebnis steht fest, das Spiel kann nicht mehr geändert werden."
 }
 func (textsDE) ErrNotOver() string               { return "Das Spiel ist noch nicht vorbei." }
-func (textsDE) CompleteGame() string             { return "Ergebnis bestätigen" }
 func (textsDE) NewVersion(version string) string { return "Version " + version + " verfügbar" }
-func (textsDE) CompleteHint() string {
-	return "Bis dahin kann der letzte Dart noch korrigiert werden. Nach einer Minute ohne Änderung bestätigt es sich selbst."
-}
-func (textsDE) WaitsForConfirmation(name string) string {
-	return "Wartet auf die Bestätigung von " + name + ": Der letzte Dart kann noch korrigiert werden. Nach einer Minute ohne Änderung bestätigt es sich selbst."
-}
-func (textsDE) ResultConfirmed() string      { return "✓ Ergebnis bestätigt" }
-func (textsDE) AwaitingConfirmation() string { return "Wartet auf Bestätigung → zum Spiel" }
-func (textsDE) ErrGameOver() string          { return "Das Spiel ist schon vorbei." }
+func (textsDE) ErrGameOver() string              { return "Das Spiel ist schon vorbei." }
 func (textsDE) ErrPullDartsFirst() string {
 	return "Erst die Pfeile ziehen, dann ist der Nächste dran."
 }

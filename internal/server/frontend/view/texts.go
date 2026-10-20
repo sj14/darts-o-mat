@@ -170,12 +170,7 @@ type Texts interface {
 	ErrGameOver() string
 	ErrCompleted() string
 	ErrNotOver() string
-	CompleteGame() string
 	NewVersion(version string) string
-	CompleteHint() string
-	WaitsForConfirmation(name string) string
-	ResultConfirmed() string
-	AwaitingConfirmation() string
 	ErrPullDartsFirst() string
 	ErrNotReady() string
 	ErrAborted() string

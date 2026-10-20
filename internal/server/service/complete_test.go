@@ -19,42 +19,29 @@ func quick(playerIDs ...int64) game.Game {
 	return g
 }
 
+// A finished game can be corrected until a player goes on to the next game, also the one
+// who lost it; then it can't be changed anymore.
 func TestCompleteGame(t *testing.T) {
 	ctx := context.Background()
 	s := newService(t)
-	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
+	anna, ben := register(t, s, "anna"), register(t, s, "ben")
 	befriend(t, s, anna, ben)
 	v, _ := s.CreateGame(ctx, anna, quick(anna.PlayerID), []string{"ben"})
 	id := v.Game.ID
 	_, _ = s.AcceptInvitation(ctx, ben, id, nil)
-
-	if _, err := s.CompleteGame(ctx, anna, id); !errors.Is(err, ErrNotOver) {
-		t.Errorf("complete a running game: got %v, want ErrNotOver", err)
-	}
-	if _, err := s.CompleteGame(ctx, carla, id); !errors.Is(err, ErrNotFound) {
-		t.Errorf("a stranger completes: got %v, want ErrNotFound", err)
-	}
 	if _, err := s.AddDart(ctx, anna, id, d20); err != nil {
 		t.Fatal(err)
 	}
 
-	// Until confirmed the last dart can be corrected, by the one who threw it.
+	// Until completed the last dart can be corrected, by the one who threw it.
 	if v, _ = s.Game(ctx, anna, id); !v.Common().GameOver || v.Completed || !v.MayUndo() {
 		t.Fatalf("after the last dart: over %v, completed %v, may undo %v; want over, open to corrections", v.Common().GameOver, v.Completed, v.MayUndo())
 	}
-	// Only the one who threw the last dart confirms, the others cannot.
-	if _, err := s.CompleteGame(ctx, ben, id); !errors.Is(err, ErrForbidden) {
-		t.Errorf("ben, who did not throw the last dart, confirms: got %v, want ErrForbidden", err)
+	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), nil); err != nil {
+		t.Fatal(err)
 	}
-	if bv, _ := s.Game(ctx, ben, id); bv.MayComplete() || bv.LastThrower() != anna.PlayerID {
-		t.Errorf("ben may complete %v, last thrower %d; want no, anna", bv.MayComplete(), bv.LastThrower())
-	}
-	v, err := s.CompleteGame(ctx, anna, id)
-	if err != nil || !v.Completed || v.Game.CompletedAt == nil {
-		t.Fatalf("anna confirms: completed %v, %v", v.Completed, err)
-	}
-	if _, err := s.CompleteGame(ctx, anna, id); err != nil {
-		t.Errorf("confirm twice: %v, want nothing to happen", err)
+	if v, _ = s.Game(ctx, anna, id); !v.Completed || v.Game.CompletedAt == nil {
+		t.Fatalf("after ben, who lost, started another game: completed %v, stored %v", v.Completed, v.Game.CompletedAt)
 	}
 	// Afterwards nothing can be changed.
 	if _, err := s.UndoDart(ctx, anna, id); !errors.Is(err, ErrCompleted) {
@@ -125,6 +112,34 @@ func TestStartingAGameCompletesTheFinishedOnes(t *testing.T) {
 	}
 }
 
+// Accepting an invitation to the next game accepts the result of the last one, also for
+// the one who lost it, so it is final before the next starts.
+func TestAcceptingAGameCompletesTheFinishedOne(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
+	befriend(t, s, anna, ben)
+	befriend(t, s, carla, ben)
+	v, _ := s.CreateGame(ctx, anna, quick(anna.PlayerID), []string{"ben"})
+	id := v.Game.ID
+	_, _ = s.AcceptInvitation(ctx, ben, id, nil)
+	_, _ = s.AddDart(ctx, anna, id, d20)
+
+	next, err := s.CreateGame(ctx, carla, x01Game(carla.PlayerID), []string{"ben"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, _ = s.Game(ctx, anna, id); v.Completed {
+		t.Fatal("completed by an invitation ben hasn't answered")
+	}
+	if _, err := s.AcceptInvitation(ctx, ben, next.Game.ID, nil); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ = s.Game(ctx, anna, id); !v.Completed || v.Game.CompletedAt == nil {
+		t.Error("the game isn't completed after ben, who lost it, accepted the next")
+	}
+}
+
 // Whoever left a game has no say in its result.
 func TestThoseWhoLeftCantComplete(t *testing.T) {
 	ctx := context.Background()
@@ -146,28 +161,20 @@ func TestThoseWhoLeftCantComplete(t *testing.T) {
 	if v, _ = s.Game(ctx, carla, id); !v.HasLeft || !v.Common().GameOver {
 		t.Fatalf("carla's view: left %v, over %v", v.HasLeft, v.Common().GameOver)
 	}
-	if _, err := s.CompleteGame(ctx, carla, id); !errors.Is(err, ErrForbidden) {
-		t.Errorf("carla completes a game she left: got %v, want ErrForbidden", err)
-	}
-	// Starting another game isn't confirming the result of that one either.
+	// Starting another game doesn't complete a game one has left.
 	if _, err := s.CreateGame(ctx, carla, x01Game(carla.PlayerID), nil); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ = s.Game(ctx, anna, id); v.Completed {
 		t.Error("a game was completed by someone who had left it")
 	}
-	if _, err := s.CompleteGame(ctx, ben, id); !errors.Is(err, ErrForbidden) {
-		t.Errorf("ben, who stayed but did not throw the last dart, completes: got %v, want ErrForbidden", err)
-	}
-	// Starting another game confirms only the games whose last dart was one's own.
+	// But whoever stayed accepts the result by starting another game, also without the
+	// last dart, so it is final before the next one.
 	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), nil); err != nil {
 		t.Fatal(err)
 	}
-	if v, _ = s.Game(ctx, anna, id); v.Completed {
-		t.Error("a game was completed by someone who did not throw its last dart")
-	}
-	if _, err := s.CompleteGame(ctx, anna, id); err != nil {
-		t.Errorf("anna, who threw the last dart, completes: %v", err)
+	if v, _ = s.Game(ctx, anna, id); !v.Completed || v.Game.CompletedAt == nil {
+		t.Error("the game isn't completed after ben, who stayed, started another")
 	}
 }
 

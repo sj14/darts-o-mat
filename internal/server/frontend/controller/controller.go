@@ -74,7 +74,6 @@ func (c *Controller) Routes() http.Handler {
 		r.Post("/games/{id}/darts/{dartID}", c.editDart)
 		r.Post("/games/{id}/undo", c.undoDart)
 		r.Post("/games/{id}/takeout", c.takeout)
-		r.Post("/games/{id}/complete", c.complete)
 		r.Post("/games/{id}/ratings/{playerID}", c.ratePlayer)
 		r.Post("/games/{id}/leave", c.leaveGame)
 		r.Post("/games/{id}/board", c.useBoard)

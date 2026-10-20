@@ -150,9 +150,9 @@ type Game struct {
 	// StartedAt is when the game became ready: everyone accepted and no seat is free. The
 	// first turn's time begins then. Nil while it waits in the lobby.
 	StartedAt *time.Time `bun:",nullzero" json:"started_at,omitempty"`
-	// CompletedAt is when a player confirmed the result of the finished game, or when a
-	// player of it started another game; after that it can't be undone or corrected
-	// anymore. Nil until then; see Completed for the other way a game gets completed.
+	// CompletedAt is when a player of the finished game went on to another game or
+	// tournament; after that it can't be undone or corrected anymore. Nil until then; see
+	// Completed for the other way a game gets completed.
 	CompletedAt *time.Time `bun:",nullzero" json:"completed_at,omitempty"`
 	// AbortedAt is set when the game ended without a winner, because too many players left
 	// it: it takes no more darts.
@@ -192,7 +192,7 @@ func (g Game) Ready() bool {
 const CompleteAfter = time.Minute
 
 // Completed reports whether the result of the game is final at the time: it was
-// confirmed (CompletedAt), or it is over and nothing happened for CompleteAfter. Until
+// completed by a player going on (CompletedAt), or it is over and nothing happened for CompleteAfter. Until
 // then the players can still correct it, e.g. a misdetected last dart. Nothing is stored
 // for the second case and no timer runs: it is worked out whenever the game is looked at.
 func (g Game) Completed(entries []throw.Dart, c turn.State, now time.Time) bool {
