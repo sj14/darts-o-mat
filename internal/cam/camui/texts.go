@@ -60,6 +60,8 @@ type Texts interface {
 	DartsPulledOut() string
 	NCameras(n int) string
 	NotReported(err string) string
+	Sending() string
+	Resending(err string) string
 	ReportedInGame(game string) string
 	Miss() string
 	DetectionTitle() string

@@ -29,9 +29,45 @@ type Event struct {
 	// Cameras are the names of the cameras by their index in the vision.Event.
 	Cameras []string
 	// Game is the game the server entered the dart in, 0 if it wasn't reported;
-	// ReportErr is why the server didn't take it.
+	// ReportErr is why the server didn't take it. While Sending, the server hasn't
+	// answered yet; ReportErr is then why the last try failed (see reporter).
 	Game      int64
 	ReportErr error
+	Sending   bool
+}
+
+// reportResult is what became of reporting an event, see setReport.
+type reportResult struct {
+	game    int64
+	err     error
+	sending bool
+}
+
+// newEventID returns the ID for a new detection, before AddEvent keeps it: its report is
+// sent at once and may be answered before.
+func (a *App) newEventID() int {
+	a.evMu.Lock()
+	defer a.evMu.Unlock()
+	a.nextID++
+	return a.nextID
+}
+
+// setReport records what became of reporting a detection (reporter.result) and tells the
+// pages showing it.
+func (a *App) setReport(r report, game int64, err error, sending bool) {
+	res := reportResult{game: game, err: err, sending: sending}
+	a.evMu.Lock()
+	if i := slices.IndexFunc(a.events, func(e Event) bool { return e.ID == r.event }); i >= 0 {
+		a.events[i].apply(res)
+	} else {
+		a.reports[r.event] = res // AddEvent is still saving its frames
+	}
+	a.evMu.Unlock()
+	a.newEvent.Notify()
+}
+
+func (e *Event) apply(r reportResult) {
+	e.Game, e.ReportErr, e.Sending = r.game, r.err, r.sending
 }
 
 // Events returns the latest detections at a board, newest first.
@@ -60,12 +96,12 @@ func (a *App) Event(id int) (Event, bool) {
 	return Event{}, false
 }
 
-// AddEvent saves a detection's frames and keeps the rest to show it. It returns its ID.
+// AddEvent saves a detection's frames and keeps the rest to show it. It returns its ID,
+// a new one unless e has one from newEventID.
 func (a *App) AddEvent(e Event) int {
-	a.evMu.Lock()
-	a.nextID++
-	e.ID = a.nextID
-	a.evMu.Unlock()
+	if e.ID == 0 {
+		e.ID = a.newEventID()
+	}
 	if e.Time.IsZero() {
 		e.Time = time.Now()
 	}
@@ -78,6 +114,10 @@ func (a *App) AddEvent(e Event) int {
 	e.Event = &withoutFrames
 
 	a.evMu.Lock()
+	if r, ok := a.reports[e.ID]; ok {
+		e.apply(r)
+		delete(a.reports, e.ID)
+	}
 	// Frames are saved in the background, a later detection may be done first.
 	i, _ := slices.BinarySearchFunc(a.events, e.ID, func(x Event, id int) int { return x.ID - id })
 	a.events = slices.Insert(a.events, i, e)

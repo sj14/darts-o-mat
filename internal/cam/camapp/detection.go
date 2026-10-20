@@ -7,6 +7,7 @@ import (
 	"image"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/sj14/darts-o-mat/internal/cam/vision"
 )
@@ -87,7 +88,7 @@ func (a *App) start(b *BoardConfig) {
 	}
 	d := detection{board: b.ID, name: b.Name, opts: b.Detection}
 	if b.Server != "" && b.Token != "" {
-		d.server = newServer(b.Server, b.Token)
+		d.report = newReporter(b.Name, newServer(b.Server, b.Token), a.setReport)
 	}
 	calib := a.calibration()
 	for _, c := range b.Cameras {
@@ -108,20 +109,23 @@ func (a *App) start(b *BoardConfig) {
 		d.empty = append(d.empty, empty)
 	}
 	if len(d.lives) == 0 {
-		a.setStatus(b.ID, Status{Err: ErrNoCalibratedCamera, Reporting: d.server != nil})
+		a.setStatus(b.ID, Status{Err: ErrNoCalibratedCamera, Reporting: d.report != nil})
 		return
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &run{cancel: cancel, done: make(chan struct{})}
 	a.runs[b.ID] = r
-	a.setStatus(b.ID, Status{Running: true, Cameras: len(d.lives), Reporting: d.server != nil})
+	a.setStatus(b.ID, Status{Running: true, Cameras: len(d.lives), Reporting: d.report != nil})
+	if d.report != nil {
+		go d.report.run(ctx)
+	}
 	go func() {
 		defer close(r.done)
 		err := a.detect(ctx, d)
 		if ctx.Err() == nil {
 			log.Printf("%s: detection stopped: %v", d.name, err)
-			a.setStatus(d.board, Status{Err: err, Reporting: d.server != nil})
+			a.setStatus(d.board, Status{Err: err, Reporting: d.report != nil})
 		}
 	}()
 }
@@ -135,7 +139,7 @@ type detection struct {
 	maps   []vision.Mapping
 	opts   vision.WatchOptions
 	empty  []*image.RGBA // nil entries for cameras without an image of the empty board
-	server *server       // nil: don't report
+	report *reporter     // nil: don't report
 }
 
 // detect watches the cameras and reports the events until ctx is done or a camera fails.
@@ -165,14 +169,15 @@ func (a *App) detect(ctx context.Context, d detection) error {
 			return ctx.Err()
 		}
 		if e := w.Feed(frames); e != nil {
-			a.handle(ctx, d, e)
+			a.handle(d, e)
 		}
 	}
 }
 
-// handle logs, reports and keeps an event.
-func (a *App) handle(ctx context.Context, d detection, e *vision.Event) {
-	ev := Event{BoardID: d.board, Event: e, Cameras: d.names}
+// handle logs, reports and keeps an event. The report is sent in the background (see
+// reporter), the event shows what became of it.
+func (a *App) handle(d detection, e *vision.Event) {
+	ev := Event{ID: a.newEventID(), BoardID: d.board, Time: time.Now(), Event: e, Cameras: d.names, Sending: d.report != nil}
 	switch e.Kind {
 	case vision.EventDart:
 		var cams strings.Builder
@@ -180,24 +185,19 @@ func (a *App) handle(ctx context.Context, d detection, e *vision.Event) {
 			fmt.Fprintf(&cams, " %s=%.0f,%.0f", d.names[i], p.X, p.Y)
 		}
 		log.Printf("%s: dart: %s at %.1f,%.1f mm (%d cameras:%s)", d.name, e.Dart.String(), e.Board.X, e.Board.Y, len(e.Cameras), cams.String())
-		if d.server != nil {
+		if d.report != nil {
 			// The position goes along for the statistics, if the cameras found it.
 			dart := e.Dart
 			if e.Located {
 				dart.X, dart.Y = &e.Board.X, &e.Board.Y
 			}
-			ev.Game, ev.ReportErr = d.server.dart(ctx, dart)
+			d.report.add(report{event: ev.ID, at: ev.Time, dart: dart})
 		}
 	case vision.EventTakeout:
 		log.Printf("%s: takeout", d.name)
-		if d.server != nil {
-			ev.Game, ev.ReportErr = d.server.takeout(ctx)
+		if d.report != nil {
+			d.report.add(report{event: ev.ID, at: ev.Time, takeout: true})
 		}
-	}
-	if ev.ReportErr != nil {
-		log.Printf("  not reported: %v", ev.ReportErr)
-	} else if ev.Game != 0 {
-		log.Printf("  entered in game %d", ev.Game)
 	}
 	// Saving the frames takes a moment: the detection goes on meanwhile.
 	go a.AddEvent(ev)

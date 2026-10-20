@@ -51,9 +51,11 @@ type EventModel struct {
 	Cameras []CameraPoint   // the cameras that found the dart
 	// AllCameras lists every camera, for the images.
 	AllCameras []CameraPoint
-	// Game is the game the server entered it in, ReportErr why it didn't.
+	// Game is the game the server entered it in, ReportErr why it didn't. While Sending
+	// the server hasn't answered yet, ReportErr is then why the last try failed.
 	Game      int64
 	ReportErr string
+	Sending   bool
 }
 
 type CameraPoint struct {
@@ -398,7 +400,11 @@ templ eventList(events []EventModel) {
 
 // reportResult shows what the server did with a detection.
 templ reportResult(e EventModel) {
-	if e.ReportErr != "" {
+	if e.Sending && e.ReportErr != "" {
+		<span class="text-sm text-amber-300">{ T(ctx).Resending(e.ReportErr) }</span>
+	} else if e.Sending {
+		<span class="text-sm text-white/50">{ T(ctx).Sending() }</span>
+	} else if e.ReportErr != "" {
 		<span class="text-sm text-red-300">{ T(ctx).NotReported(e.ReportErr) }</span>
 	} else if e.Game != 0 {
 		<span class="text-sm text-emerald-300">{ T(ctx).ReportedInGame(strconv.FormatInt(e.Game, 10)) }</span>

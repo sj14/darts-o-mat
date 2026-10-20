@@ -73,6 +73,8 @@ func (textsEN) NCameras(n int) string {
 }
 func (textsEN) NotReported(err string) string     { return "not entered: " + err }
 func (textsEN) ReportedInGame(game string) string { return "entered in game " + game }
+func (textsEN) Sending() string                   { return "sending …" }
+func (textsEN) Resending(err string) string       { return "trying again: " + err }
 func (textsEN) Miss() string                      { return "Miss" }
 func (textsEN) DetectionTitle() string            { return "Detection" }
 func (textsEN) UnlocatedNotice() string {

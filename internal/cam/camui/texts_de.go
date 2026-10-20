@@ -77,6 +77,8 @@ func (textsDE) NCameras(n int) string {
 }
 func (textsDE) NotReported(err string) string     { return "nicht eingetragen: " + err }
 func (textsDE) ReportedInGame(game string) string { return "eingetragen in Spiel " + game }
+func (textsDE) Sending() string                   { return "wird gesendet …" }
+func (textsDE) Resending(err string) string       { return "neuer Versuch: " + err }
 func (textsDE) Miss() string                      { return "Daneben" }
 func (textsDE) DetectionTitle() string            { return "Erkennung" }
 func (textsDE) UnlocatedNotice() string {

@@ -792,7 +792,7 @@ func (ui *UI) eventStream(w http.ResponseWriter, r *http.Request) {
 }
 
 func eventModel(t Texts, e camapp.Event) EventModel {
-	m := EventModel{ID: e.ID, BoardID: e.BoardID, Time: e.Time.Format("15:04:05"), Takeout: e.Kind == vision.EventTakeout, Game: e.Game}
+	m := EventModel{ID: e.ID, BoardID: e.BoardID, Time: e.Time.Format("15:04:05"), Takeout: e.Kind == vision.EventTakeout, Game: e.Game, Sending: e.Sending}
 	if e.ReportErr != nil {
 		m.ReportErr = e.ReportErr.Error()
 	}

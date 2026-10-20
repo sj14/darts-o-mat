@@ -86,3 +86,25 @@ func TestEventFramesKept(t *testing.T) {
 		t.Errorf("%d frames on disk, want all %d plus the old one", got, (maxEvents+2)*2*2)
 	}
 }
+
+// The report of a detection is sent at once and may be answered before the detection is
+// kept (its frames are still being saved): the answer is shown all the same, and later
+// ones replace it.
+func TestReportBeforeEventIsKept(t *testing.T) {
+	a, err := New(t.TempDir(), Options{FrameDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	e := event()
+	e.ID, e.Sending = a.newEventID(), true
+	a.setReport(report{event: e.ID}, 7, nil, false)
+	a.AddEvent(e)
+	if got, _ := a.Event(e.ID); got.Sending || got.Game != 7 {
+		t.Errorf("event %+v, want it entered in game 7", got)
+	}
+	a.setReport(report{event: e.ID}, 0, errStopped, false)
+	if got, _ := a.Event(e.ID); got.Game != 0 || got.ReportErr != errStopped {
+		t.Errorf("after another answer: game %d, %v", got.Game, got.ReportErr)
+	}
+}

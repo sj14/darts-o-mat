@@ -35,10 +35,11 @@ type App struct {
 	snapMu sync.Mutex
 	snaps  map[string]*snapshot // device ID → frame of a device that isn't a board camera
 
-	evMu     sync.Mutex // guards events, nextID and statuses
+	evMu     sync.Mutex // guards events, nextID, reports and statuses
 	events   []Event    // newest last, of all boards
 	nextID   int
-	statuses map[int]Status // by board
+	reports  map[int]reportResult // of events AddEvent doesn't keep yet, by ID
+	statuses map[int]Status       // by board
 	// newEvent is told about every new detection, see WatchEvents.
 	newEvent notify.Signal
 }
@@ -84,7 +85,7 @@ func New(dir string, opts Options) (*App, error) {
 	if err := os.MkdirAll(opts.FrameDir, 0o755); err != nil {
 		return nil, err
 	}
-	a := &App{dir: dir, opts: opts, cfg: cfg, cams: map[string]*boardCamera{}, runs: map[int]*run{}, snaps: map[string]*snapshot{}, statuses: map[int]Status{}}
+	a := &App{dir: dir, opts: opts, cfg: cfg, cams: map[string]*boardCamera{}, runs: map[int]*run{}, snaps: map[string]*snapshot{}, statuses: map[int]Status{}, reports: map[int]reportResult{}}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.openCameras(a.allBoards()...)
