@@ -287,6 +287,11 @@ type Texts interface {
 	NoFinishedGames() string
 	Heatmap() string
 	AllModes() string
+	RatePlayers() string
+	RatePlayersHint() string
+	ThumbUp() string
+	ThumbDown() string
+	RatingsReceived() string
 	LeftEarly() string
 	BoardRequired() string
 	BoardOnlyOption() string

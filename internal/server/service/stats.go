@@ -37,6 +37,13 @@ func (s *Service) Stats(ctx context.Context, acc account.Account, heatMode game.
 		summaries[i].Heat = stats.NewHeat(points)
 	}
 
+	reputations, err := s.store.Reputations(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	for i := range summaries {
+		summaries[i].Reputation = reputations[summaries[i].Player.ID]
+	}
 	quits, err := s.store.ListQuits(ctx, ids)
 	if err != nil {
 		return nil, err

@@ -710,8 +710,19 @@ func lobbyPlayers(ctx context.Context, l service.OpenLobby) string {
 	names := make([]string, len(l.Joined))
 	for i, p := range l.Joined {
 		names[i] = displayName(ctx, p)
+		if r, ok := l.Reputations[p.ID]; ok {
+			names[i] += " 👍 " + T(ctx).Percent(r.Share()) + " (" + strconv.Itoa(r.Total()) + ")"
+		}
 	}
 	return strings.Join(names, ", ")
+}
+
+// thumbValue is the form value of a thumb button.
+func thumbValue(up bool) string {
+	if up {
+		return `{"up":"1"}`
+	}
+	return `{"up":"0"}`
 }
 
 // minutesLeft is how many more minutes an open game or tournament is offered, at least one.

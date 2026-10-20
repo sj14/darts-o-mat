@@ -67,6 +67,7 @@ func (a *API) Routes() http.Handler {
 		r.Put("/games/{id}/darts/{dartID}", a.editDart)
 		r.Post("/games/{id}/takeout", a.takeout)
 		r.Post("/games/{id}/complete", a.completeGame)
+		r.Post("/games/{id}/ratings", a.ratePlayer)
 		r.Post("/games/{id}/leave", a.leaveGame)
 		r.Post("/games/{id}/board", a.useBoard)
 		r.Post("/games/{id}/bull-off", a.decideBullOff)
@@ -394,6 +395,23 @@ func (a *API) completeGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := a.svc.CompleteGame(r.Context(), auth.Account(r.Context()), id)
+	respond(w, http.StatusOK, v, err)
+}
+
+// ratePlayer gives another player of a finished game a thumb: {"player_id": 2, "up": true}.
+func (a *API) ratePlayer(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	var req struct {
+		PlayerID int64 `json:"player_id"`
+		Up       bool  `json:"up"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	v, err := a.svc.RatePlayer(r.Context(), auth.Account(r.Context()), id, req.PlayerID, req.Up)
 	respond(w, http.StatusOK, v, err)
 }
 

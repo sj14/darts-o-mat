@@ -59,6 +59,8 @@ type Summary struct {
 	AroundTheClock AroundTheClock `json:"around_the_clock"`
 	// Heat is where the player's darts hit the board; empty without camera darts.
 	Heat Heat `json:"heat"`
+	// Reputation is the thumbs the player got from others after games.
+	Reputation player.Reputation `json:"reputation"`
 }
 
 // Result is what one player got out of one game that is over: the building block of a

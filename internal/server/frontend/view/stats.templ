@@ -19,6 +19,9 @@ templ Stats(user string, summaries []stats.Summary, heatMode game.Mode) {
 						if i > 0 {
 							<span class="font-sans text-base font-normal normal-case text-white/40">{ T(ctx).GuestMark() }</span>
 						}
+						if s.Reputation.Total() > 0 {
+							<span class="ml-3 font-sans text-base font-normal normal-case text-white/60" title={ T(ctx).RatingsReceived() }>👍 { strconv.Itoa(s.Reputation.Up) } · 👎 { strconv.Itoa(s.Reputation.Down) }</span>
+						}
 					</h2>
 					if !(showMode(heatMode, game.ModeX01) && s.X01.Any()) && !(showMode(heatMode, game.ModeAroundTheClock) && s.AroundTheClock.Any()) {
 						<p class="text-white/50">{ T(ctx).NoFinishedGames() }</p>

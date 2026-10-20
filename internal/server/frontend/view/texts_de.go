@@ -400,6 +400,13 @@ func (textsDE) StatsHint() string {
 func (textsDE) NoFinishedGames() string { return "Noch keine beendeten Spiele." }
 func (textsDE) Heatmap() string         { return "Wo deine Darts landen" }
 func (textsDE) AllModes() string        { return "Alle Modi" }
+func (textsDE) RatePlayers() string     { return "Mitspieler bewerten" }
+func (textsDE) RatePlayersHint() string {
+	return "Andere sehen den Anteil der Daumen hoch ab 3 Bewertungen, zum Beispiel in der Liste der offenen Spiele."
+}
+func (textsDE) ThumbUp() string         { return "Guter Mitspieler" }
+func (textsDE) ThumbDown() string       { return "Schlechter Mitspieler" }
+func (textsDE) RatingsReceived() string { return "Daumen, die du von anderen Spielern bekommen hast" }
 func (textsDE) LeftEarly() string       { return "Vorzeitig verlassen (Spiele / Turniere)" }
 func (textsDE) BoardRequired() string   { return "Board nötig" }
 func (textsDE) BoardOnlyOption() string { return "Nur Spieler mit Board dürfen mitspielen" }

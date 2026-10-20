@@ -7,6 +7,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
+	"github.com/sj14/darts-o-mat/internal/server/domain/player"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/service"
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
@@ -260,6 +261,9 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart, adding bool
 				<div class="font-display text-4xl font-extrabold uppercase text-white/80">{ T(ctx).GameAborted() }</div>
 				@afterGame(v, "bg-white/10 hover:bg-white/20")
 			</div>
+		}
+		if rateable := v.Rateable(); len(rateable) > 0 {
+			@ratePlayers(v, rateable)
 		}
 		@celebration(v, p)
 		// Desktop: the players (the current one with the darts of the visit), the keypad if
@@ -1005,4 +1009,52 @@ templ bullOffPanel(v service.GameView, p progress, keypad bool) {
 			</form>
 		</div>
 	}
+}
+
+// ratePlayers lets the viewer give the other players of a finished game a thumb; the one
+// chosen is highlighted, choosing the other replaces it.
+templ ratePlayers(v service.GameView, players []player.Player) {
+	@panel("mb-6") {
+		<h3 class={ labelClass }>{ T(ctx).RatePlayers() }</h3>
+		<ul class="divide-y divide-white/5">
+			for _, p := range players {
+				{{ up, rated := v.Ratings[p.ID] }}
+				<li class="flex items-center justify-between gap-3 py-2">
+					<span class="font-semibold">{ displayName(ctx, p) }</span>
+					<span class="flex gap-2">
+						@thumbButton(v.Game.ID, p.ID, true, rated && up)
+						@thumbButton(v.Game.ID, p.ID, false, rated && !up)
+					</span>
+				</li>
+			}
+		</ul>
+		<p class={ hintClass }>{ T(ctx).RatePlayersHint() }</p>
+	}
+}
+
+templ thumbButton(gameID, playerID int64, up, chosen bool) {
+	<button
+		type="button"
+		class={ "rounded-xl border px-3 py-1.5 text-xl transition active:scale-95",
+			templ.KV("border-board-cream bg-board-cream/20", chosen),
+			templ.KV("border-white/10 bg-pub-800 hover:border-white/30", !chosen) }
+		hx-post={ gameURL(gameID, "/ratings/"+strconv.FormatInt(playerID, 10)) }
+		hx-vals={ thumbValue(up) }
+		hx-target="#board"
+		hx-swap="outerHTML"
+		aria-pressed={ strconv.FormatBool(chosen) }
+		if up {
+			title={ T(ctx).ThumbUp() }
+			aria-label={ T(ctx).ThumbUp() }
+		} else {
+			title={ T(ctx).ThumbDown() }
+			aria-label={ T(ctx).ThumbDown() }
+		}
+	>
+		if up {
+			👍
+		} else {
+			👎
+		}
+	</button>
 }

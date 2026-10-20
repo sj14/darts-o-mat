@@ -139,6 +139,11 @@ type GameView struct {
 	// Mine are the players of the account the view was created for that take part: its
 	// own player and its guests.
 	Mine []int64 `json:"-"`
+	// OwnPlayerID is the account's own player if it takes part in the game, else 0.
+	OwnPlayerID int64 `json:"-"`
+	// Ratings are the thumbs the account gave in this game, by rated player (true is up);
+	// only once the game is over.
+	Ratings map[int64]bool `json:"ratings,omitempty"`
 	// Boards are the boards the viewer can pick: its own and those the other players of
 	// the game throw on (friends at one board share it). Only for an invited player, to
 	// accept on one, and for a viewer who can still throw, to change the board or take
@@ -771,10 +776,25 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	if len(v.Mine) == 0 {
 		return GameView{}, ErrNotFound
 	}
+	if slices.Contains(v.Mine, acc.PlayerID) {
+		v.OwnPlayerID = acc.PlayerID
+	}
 	v.Invited = v.Pending(acc.PlayerID) && !g.Aborted()
 	v.CanThrow = accepted && !g.Aborted()
 	if !slices.ContainsFunc(v.Mine, func(id int64) bool { return !v.Common().Records[id].Left }) {
 		v.HasLeft, v.CanThrow = true, false
+	}
+	if v.Common().GameOver && v.OwnPlayerID != 0 {
+		ratings, err := s.store.ListRatingsBy(ctx, g.ID, v.OwnPlayerID)
+		if err != nil {
+			return GameView{}, err
+		}
+		for _, r := range ratings {
+			if v.Ratings == nil {
+				v.Ratings = map[int64]bool{}
+			}
+			v.Ratings[r.RatedID] = r.Up
+		}
 	}
 	if v.Invited || (v.CanThrow && !v.Common().GameOver) {
 		if v.Boards, err = s.boardChoices(ctx, acc, g); err != nil {

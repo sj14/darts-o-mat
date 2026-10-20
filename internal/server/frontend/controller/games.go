@@ -223,6 +223,20 @@ func (c *Controller) complete(w http.ResponseWriter, r *http.Request) {
 	c.respondBoard(w, r, id, v, err)
 }
 
+// ratePlayer is called by htmx when a player gives another a thumb up (up=1) or down.
+func (c *Controller) ratePlayer(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	playerID, ok := urlID(w, r, "playerID")
+	if !ok {
+		return
+	}
+	v, err := c.svc.RatePlayer(r.Context(), auth.Account(r.Context()), id, playerID, r.FormValue("up") == "1")
+	c.respondBoard(w, r, id, v, err)
+}
+
 // decideBullOff is called by htmx when the players decide who was closer in a bull-off tie.
 func (c *Controller) decideBullOff(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")

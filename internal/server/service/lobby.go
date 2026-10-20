@@ -41,7 +41,9 @@ type OpenLobby struct {
 	Joined     []player.Player   `json:"joined"`               // who is in already
 	Seats      int               `json:"seats"`                // how many it wants in total
 	BoardOnly  bool              `json:"board_only,omitempty"` // everyone needs a board
-	CreatedAt  time.Time         `json:"created_at"`
+	// Reputations are the thumbs of the players in Joined who got enough of them to show.
+	Reputations map[int64]player.Reputation `json:"reputations,omitempty"`
+	CreatedAt   time.Time                   `json:"created_at"`
 }
 
 // offered reports whether a lobby that was created at the time still takes players.
@@ -96,6 +98,27 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 		}
 		if players != nil {
 			lobbies = append(lobbies, OpenLobby{Tournament: true, ID: t.ID, Settings: t.Settings, Format: t.Format, Joined: players, Seats: t.Seats, BoardOnly: t.BoardOnly, CreatedAt: t.CreatedAt})
+		}
+	}
+	// The thumbs of whoever is in, if there are enough of them.
+	var ids []int64
+	for _, l := range lobbies {
+		for _, p := range l.Joined {
+			ids = append(ids, p.ID)
+		}
+	}
+	reputations, err := s.store.Reputations(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	for i, l := range lobbies {
+		for _, p := range l.Joined {
+			if r := reputations[p.ID]; r.Shown() {
+				if lobbies[i].Reputations == nil {
+					lobbies[i].Reputations = map[int64]player.Reputation{}
+				}
+				lobbies[i].Reputations[p.ID] = r
+			}
 		}
 	}
 	slices.SortStableFunc(lobbies, func(a, b OpenLobby) int { return b.CreatedAt.Compare(a.CreatedAt) })

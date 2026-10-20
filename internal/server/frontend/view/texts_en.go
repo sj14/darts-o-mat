@@ -411,6 +411,13 @@ func (textsEN) StatsHint() string {
 func (textsEN) NoFinishedGames() string { return "No finished games yet." }
 func (textsEN) Heatmap() string         { return "Where your darts land" }
 func (textsEN) AllModes() string        { return "All modes" }
+func (textsEN) RatePlayers() string     { return "Rate your opponents" }
+func (textsEN) RatePlayersHint() string {
+	return "Others see the share of thumbs up from 3 ratings on, e.g. in the list of open games."
+}
+func (textsEN) ThumbUp() string         { return "Good opponent" }
+func (textsEN) ThumbDown() string       { return "Bad opponent" }
+func (textsEN) RatingsReceived() string { return "Thumbs you got from other players" }
 func (textsEN) LeftEarly() string       { return "Left early (games / tournaments)" }
 func (textsEN) BoardRequired() string   { return "Board required" }
 func (textsEN) BoardOnlyOption() string { return "Only players with a board can take part" }
