@@ -173,6 +173,7 @@ type Texts interface {
 	CompleteGame() string
 	NewVersion(version string) string
 	CompleteHint() string
+	WaitsForConfirmation(name string) string
 	ResultConfirmed() string
 	AwaitingConfirmation() string
 	ErrPullDartsFirst() string

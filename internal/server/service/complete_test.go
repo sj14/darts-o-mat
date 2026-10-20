@@ -42,10 +42,16 @@ func TestCompleteGame(t *testing.T) {
 	if v, _ = s.Game(ctx, anna, id); !v.Common().GameOver || v.Completed || !v.MayUndo() {
 		t.Fatalf("after the last dart: over %v, completed %v, may undo %v; want over, open to corrections", v.Common().GameOver, v.Completed, v.MayUndo())
 	}
-	// Whoever is in the game confirms, not only the winner.
-	v, err := s.CompleteGame(ctx, ben, id)
+	// Only the one who threw the last dart confirms, the others cannot.
+	if _, err := s.CompleteGame(ctx, ben, id); !errors.Is(err, ErrForbidden) {
+		t.Errorf("ben, who did not throw the last dart, confirms: got %v, want ErrForbidden", err)
+	}
+	if bv, _ := s.Game(ctx, ben, id); bv.MayComplete() || bv.LastThrower() != anna.PlayerID {
+		t.Errorf("ben may complete %v, last thrower %d; want no, anna", bv.MayComplete(), bv.LastThrower())
+	}
+	v, err := s.CompleteGame(ctx, anna, id)
 	if err != nil || !v.Completed || v.Game.CompletedAt == nil {
-		t.Fatalf("ben confirms: completed %v, %v", v.Completed, err)
+		t.Fatalf("anna confirms: completed %v, %v", v.Completed, err)
 	}
 	if _, err := s.CompleteGame(ctx, anna, id); err != nil {
 		t.Errorf("confirm twice: %v, want nothing to happen", err)
@@ -150,8 +156,18 @@ func TestThoseWhoLeftCantComplete(t *testing.T) {
 	if v, _ = s.Game(ctx, anna, id); v.Completed {
 		t.Error("a game was completed by someone who had left it")
 	}
-	if _, err := s.CompleteGame(ctx, ben, id); err != nil {
-		t.Errorf("ben, who stayed, completes: %v", err)
+	if _, err := s.CompleteGame(ctx, ben, id); !errors.Is(err, ErrForbidden) {
+		t.Errorf("ben, who stayed but did not throw the last dart, completes: got %v, want ErrForbidden", err)
+	}
+	// Starting another game confirms only the games whose last dart was one's own.
+	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), nil); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ = s.Game(ctx, anna, id); v.Completed {
+		t.Error("a game was completed by someone who did not throw its last dart")
+	}
+	if _, err := s.CompleteGame(ctx, anna, id); err != nil {
+		t.Errorf("anna, who threw the last dart, completes: %v", err)
 	}
 }
 

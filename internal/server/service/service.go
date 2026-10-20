@@ -170,6 +170,24 @@ func (v GameView) MayUndo() bool {
 	return false
 }
 
+// LastThrower returns the player who threw the last dart of the log, 0 without one: the
+// one whose dart may have been recognised wrongly, so only they confirm the result.
+func (v GameView) LastThrower() int64 {
+	for _, d := range slices.Backward(v.Darts) {
+		if d.IsDart() {
+			return d.PlayerID
+		}
+	}
+	return 0
+}
+
+// MayComplete reports whether the viewer may confirm the result of the game: it is over
+// and not confirmed yet, and the last dart was thrown by one of the viewer's players
+// (not by one who left or has only an invitation).
+func (v GameView) MayComplete() bool {
+	return v.Common().GameOver && !v.Completed && !v.Invited && !v.HasLeft && v.IsMine(v.LastThrower())
+}
+
 // IsMine reports whether the player is one of the viewer's.
 func (v GameView) IsMine(playerID int64) bool {
 	return slices.Contains(v.Mine, playerID)

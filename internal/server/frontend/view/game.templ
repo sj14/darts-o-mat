@@ -238,10 +238,12 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart, adding bool
 				}
 				if v.Completed {
 					<div class="mt-1 font-semibold">{ T(ctx).ResultConfirmed() }</div>
-				} else if !v.Invited && !v.HasLeft {
+				} else if v.MayComplete() {
 					<div class="mt-1 text-sm">{ T(ctx).CompleteHint() }</div>
+				} else if !v.Invited && !v.HasLeft {
+					<div class="mt-1 text-sm">{ T(ctx).WaitsForConfirmation(playerName(ctx, v, v.LastThrower())) }</div>
 				}
-				if !v.Completed && !v.Invited && !v.HasLeft {
+				if v.MayComplete() {
 					<button
 						type="button"
 						class="mr-2 mt-4 rounded-xl bg-pub-950 px-5 py-2.5 font-semibold text-amber-300 hover:bg-pub-800"

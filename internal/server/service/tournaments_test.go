@@ -97,8 +97,9 @@ func TestRoundRobinTournament(t *testing.T) {
 		t.Fatalf("before the results are confirmed: over %v, %+v, %v; want running and unconfirmed", v.State.Over, v.State.Matches[0].Result, err)
 	}
 	for _, m := range v.State.Matches {
-		// Anna or ben, whoever has a player in the match.
-		if _, err := s.CompleteGame(ctx, anna, m.Result.GameID); errors.Is(err, ErrNotFound) {
+		// Whoever threw the last dart: anna, or ben if she has no player in the match or
+		// it was his.
+		if _, err := s.CompleteGame(ctx, anna, m.Result.GameID); errors.Is(err, ErrNotFound) || errors.Is(err, ErrForbidden) {
 			_, err = s.CompleteGame(ctx, ben, m.Result.GameID)
 			if err != nil {
 				t.Fatalf("ben confirms match %d: %v", m.Index, err)

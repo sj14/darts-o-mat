@@ -234,6 +234,9 @@ func (textsDE) NewVersion(version string) string { return "Version " + version +
 func (textsDE) CompleteHint() string {
 	return "Bis dahin kann der letzte Dart noch korrigiert werden. Nach einer Minute ohne Änderung bestätigt es sich selbst."
 }
+func (textsDE) WaitsForConfirmation(name string) string {
+	return "Wartet auf die Bestätigung von " + name + ": Der letzte Dart kann noch korrigiert werden. Nach einer Minute ohne Änderung bestätigt es sich selbst."
+}
 func (textsDE) ResultConfirmed() string      { return "✓ Ergebnis bestätigt" }
 func (textsDE) AwaitingConfirmation() string { return "Wartet auf Bestätigung → zum Spiel" }
 func (textsDE) ErrGameOver() string          { return "Das Spiel ist schon vorbei." }

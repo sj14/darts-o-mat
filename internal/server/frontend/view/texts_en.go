@@ -240,6 +240,9 @@ func (textsEN) NewVersion(version string) string { return "Version " + version +
 func (textsEN) CompleteHint() string {
 	return "Until then the last dart can still be corrected. It confirms itself after a minute without a change."
 }
+func (textsEN) WaitsForConfirmation(name string) string {
+	return "Waiting for " + name + " to confirm: the last dart may still be corrected. It confirms itself after a minute without a change."
+}
 func (textsEN) ResultConfirmed() string      { return "✓ Result confirmed" }
 func (textsEN) AwaitingConfirmation() string { return "Waiting for confirmation → game" }
 func (textsEN) ErrGameOver() string          { return "The game is already over." }
