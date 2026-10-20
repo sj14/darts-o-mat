@@ -73,6 +73,10 @@ templ lobbyFilter(f service.LobbyFilter) {
 				{string(service.No), T(ctx).NoTurnLimit()},
 				{string(service.Yes), T(ctx).TurnLimited()},
 			})
+			@filterSelect("board_only", T(ctx).BoardRequired(), string(f.BoardOnly), []filterOption{
+				{string(service.Yes), T(ctx).FilterYes()},
+				{string(service.No), T(ctx).FilterNo()},
+			})
 		</div>
 		<noscript><button type="submit" class={ btnSecondary, "mt-3" }>OK</button></noscript>
 	</form>
@@ -145,8 +149,11 @@ templ lobbyRow(l service.OpenLobby, boards []board.Board) {
 				}
 				{ lobbyPlayers(ctx, l) } · { T(ctx).PlayersOfSeats(len(l.Joined), l.Seats) } · { T(ctx).OpenForMinutes(minutesLeft(l)) }
 			</div>
-			if l.Settings.BullOff || l.Settings.TurnSeconds > 0 {
+			if l.BoardOnly || l.Settings.BullOff || l.Settings.TurnSeconds > 0 {
 				<div class="mt-1 flex flex-wrap gap-1.5">
+					if l.BoardOnly {
+						@statusBadge("📷 "+T(ctx).BoardRequired(), "bg-board-green/25 text-emerald-300")
+					}
 					if l.Settings.BullOff {
 						@statusBadge(T(ctx).BullOff(), "bg-board-red/25 text-red-300")
 					}
@@ -157,8 +164,12 @@ templ lobbyRow(l service.OpenLobby, boards []board.Board) {
 			}
 		</div>
 		<form method="post" action={ templ.URL(joinURL(l)) } class="flex items-center gap-2">
-			@boardSelect(boards)
-			<button type="submit" class={ btnPrimary }>{ T(ctx).JoinLobby() }</button>
+			if l.BoardOnly && len(boards) == 0 {
+				<span class="text-sm text-white/50">{ T(ctx).NeedsBoard() }</span>
+			} else {
+				@boardSelect(boards, l.BoardOnly)
+			}
+			<button type="submit" class={ btnPrimary } disabled?={ l.BoardOnly && len(boards) == 0 }>{ T(ctx).JoinLobby() }</button>
 		</form>
 	</li>
 }

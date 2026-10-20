@@ -765,7 +765,7 @@ func lobby(v service.GameView, errMsg string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = boardSelect(boardsOfChoices(v.Boards)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = boardSelect(boardsOfChoices(v.Boards), false).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

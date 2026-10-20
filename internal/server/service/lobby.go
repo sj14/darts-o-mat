@@ -20,14 +20,27 @@ const OpenFor = 30 * time.Minute
 // isn't offered anymore.
 var ErrNoSeat = fmt.Errorf("%w: no free seat", ErrInvalid)
 
+// ErrBoardRequired means the game or tournament is only for players with a board, and the
+// player has none.
+var ErrBoardRequired = fmt.Errorf("%w: a board is required", ErrInvalid)
+
+// needBoard checks the board of a player of a lobby that may be only for players with one.
+func needBoard(l game.Lobby, boardID *int64) error {
+	if l.BoardOnly && boardID == nil {
+		return ErrBoardRequired
+	}
+	return nil
+}
+
 // OpenLobby is a game or tournament strangers can join, as the list shows it.
 type OpenLobby struct {
 	Tournament bool              `json:"tournament"` // a tournament, else a game
 	ID         int64             `json:"id"`
 	Settings   game.Settings     `json:"settings"`
-	Format     tournament.Format `json:"format,omitempty"` // of a tournament
-	Joined     []player.Player   `json:"joined"`           // who is in already
-	Seats      int               `json:"seats"`            // how many it wants in total
+	Format     tournament.Format `json:"format,omitempty"`     // of a tournament
+	Joined     []player.Player   `json:"joined"`               // who is in already
+	Seats      int               `json:"seats"`                // how many it wants in total
+	BoardOnly  bool              `json:"board_only,omitempty"` // everyone needs a board
 	CreatedAt  time.Time         `json:"created_at"`
 }
 
@@ -70,7 +83,7 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 			return nil, err
 		}
 		if players != nil {
-			lobbies = append(lobbies, OpenLobby{ID: g.ID, Settings: g.Settings, Joined: players, Seats: g.Seats, CreatedAt: g.CreatedAt})
+			lobbies = append(lobbies, OpenLobby{ID: g.ID, Settings: g.Settings, Joined: players, Seats: g.Seats, BoardOnly: g.BoardOnly, CreatedAt: g.CreatedAt})
 		}
 	}
 	for _, t := range tournaments {
@@ -82,7 +95,7 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 			return nil, err
 		}
 		if players != nil {
-			lobbies = append(lobbies, OpenLobby{Tournament: true, ID: t.ID, Settings: t.Settings, Format: t.Format, Joined: players, Seats: t.Seats, CreatedAt: t.CreatedAt})
+			lobbies = append(lobbies, OpenLobby{Tournament: true, ID: t.ID, Settings: t.Settings, Format: t.Format, Joined: players, Seats: t.Seats, BoardOnly: t.BoardOnly, CreatedAt: t.CreatedAt})
 		}
 	}
 	slices.SortStableFunc(lobbies, func(a, b OpenLobby) int { return b.CreatedAt.Compare(a.CreatedAt) })
@@ -106,6 +119,9 @@ func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int6
 		return GameView{}, fmt.Errorf("%w: you are in this game already", ErrInvalid)
 	case !offered(g.Lobby, len(g.Participants), g.CreatedAt, g.Aborted()):
 		return GameView{}, ErrNoSeat
+	}
+	if err := needBoard(g.Lobby, boardID); err != nil {
+		return GameView{}, err
 	}
 	if err := s.checkGameBoard(ctx, acc, g, boardID); err != nil {
 		return GameView{}, err
@@ -145,6 +161,9 @@ func (s *Service) JoinTournament(ctx context.Context, acc account.Account, id in
 		return TournamentView{}, fmt.Errorf("%w: you are in this tournament already", ErrInvalid)
 	case !offered(t.Lobby, len(t.Participants), t.CreatedAt, t.Aborted()):
 		return TournamentView{}, ErrNoSeat
+	}
+	if err := needBoard(t.Lobby, boardID); err != nil {
+		return TournamentView{}, err
 	}
 	if err := s.checkTournamentBoard(ctx, acc, t, boardID); err != nil {
 		return TournamentView{}, err

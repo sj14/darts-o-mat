@@ -35,6 +35,9 @@ func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID int6
 	if err != nil {
 		return GameView{}, err
 	}
+	if err := needBoard(g.Lobby, boardID); err != nil {
+		return GameView{}, err
+	}
 	if err := s.checkGameBoard(ctx, acc, g, boardID); err != nil {
 		return GameView{}, err
 	}

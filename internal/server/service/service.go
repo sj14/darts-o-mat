@@ -245,6 +245,9 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 	}
 	for i := range g.Participants {
 		g.Participants[i].Status = game.InvitationAccepted
+		if err := needBoard(g.Lobby, g.Participants[i].BoardID); err != nil {
+			return GameView{}, err
+		}
 		if err := s.checkBoard(ctx, acc, g.Participants[i].BoardID); err != nil {
 			return GameView{}, err
 		}
@@ -386,6 +389,9 @@ func (s *Service) Invitations(ctx context.Context, acc account.Account) ([]GameV
 func (s *Service) AcceptInvitation(ctx context.Context, acc account.Account, gameID int64, boardID *int64) (GameView, error) {
 	g, err := s.store.GetGame(ctx, gameID)
 	if err != nil {
+		return GameView{}, err
+	}
+	if err := needBoard(g.Lobby, boardID); err != nil {
 		return GameView{}, err
 	}
 	if err := s.checkGameBoard(ctx, acc, g, boardID); err != nil {

@@ -66,6 +66,9 @@ func (s *Service) CreateTournament(ctx context.Context, acc account.Account, t t
 	}
 	for i := range t.Participants {
 		t.Participants[i].Status = game.InvitationAccepted
+		if err := needBoard(t.Lobby, t.Participants[i].BoardID); err != nil {
+			return TournamentView{}, err
+		}
 		if err := s.checkBoard(ctx, acc, t.Participants[i].BoardID); err != nil {
 			return TournamentView{}, err
 		}
@@ -140,6 +143,9 @@ func (s *Service) TournamentInvitations(ctx context.Context, acc account.Account
 func (s *Service) AcceptTournamentInvitation(ctx context.Context, acc account.Account, id int64, boardID *int64) (TournamentView, error) {
 	t, err := s.store.GetTournament(ctx, id)
 	if err != nil {
+		return TournamentView{}, err
+	}
+	if err := needBoard(t.Lobby, boardID); err != nil {
 		return TournamentView{}, err
 	}
 	if err := s.checkTournamentBoard(ctx, acc, t, boardID); err != nil {

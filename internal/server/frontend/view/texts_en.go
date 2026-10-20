@@ -408,6 +408,15 @@ func (textsEN) StatsHint() string {
 func (textsEN) NoFinishedGames() string { return "No finished games yet." }
 func (textsEN) Heatmap() string         { return "Where your darts land" }
 func (textsEN) AllModes() string        { return "All modes" }
+func (textsEN) BoardRequired() string   { return "Board required" }
+func (textsEN) BoardOnlyOption() string { return "Only players with a board can take part" }
+func (textsEN) BoardOnlyHint() string {
+	return "Everyone needs a board, you and invited friends too: the cameras report the darts, nobody has to type them in, and the game flows."
+}
+func (textsEN) NeedsBoard() string { return "You need a board to join." }
+func (textsEN) ErrBoardRequired() string {
+	return "This game is only for players with a board. Choose one."
+}
 func (textsEN) HeatmapDarts(n int) string {
 	return strconv.Itoa(n) + " darts seen by the camera"
 }

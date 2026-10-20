@@ -89,7 +89,7 @@ templ tournamentBadge(v service.TournamentView) {
 templ answerTournament(id int64, boards []board.Board) {
 	<div class="flex flex-wrap items-center gap-2">
 		<form method="post" action={ templ.URL(tournamentURL(id, "/accept")) } class="flex items-center gap-2">
-			@boardSelect(boards)
+			@boardSelect(boards, false)
 			<button type="submit" class={ btnPrimary }>{ T(ctx).Accept() }</button>
 		</form>
 		<form method="post" action={ templ.URL(tournamentURL(id, "/decline")) }>

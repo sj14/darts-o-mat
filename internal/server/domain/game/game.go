@@ -79,6 +79,9 @@ const MaxSeats = 8
 // Strangers see it in the list of open games until then, see service.OpenLobbies.
 type Lobby struct {
 	Seats int `bun:",notnull,default:0" json:"seats,omitempty"`
+	// BoardOnly lets only players with a board take part, everyone: the creator, invited
+	// friends and strangers. Their darts then come from cameras, not typed in by hand.
+	BoardOnly bool `bun:",notnull,default:false" json:"board_only,omitempty"`
 }
 
 // Open reports whether strangers can join.
@@ -98,6 +101,8 @@ func (l Lobby) Validate(players, min, max int) error {
 	switch {
 	case l.Seats < 0:
 		return errors.New("seats must not be negative")
+	case l.BoardOnly && !l.Open():
+		return errors.New("only players with a board can be asked for in a game open for strangers")
 	case !l.Open():
 		return nil
 	case l.Seats < min || l.Seats > max:

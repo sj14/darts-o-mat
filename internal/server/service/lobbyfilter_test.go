@@ -25,6 +25,8 @@ func TestLobbyFilterMatch(t *testing.T) {
 		lobby  OpenLobby
 		want   bool
 	}{
+		{"board only, wanted", LobbyFilter{BoardOnly: Yes}, OpenLobby{Settings: x501, BoardOnly: true}, true},
+		{"board only, not wanted", LobbyFilter{BoardOnly: No}, OpenLobby{Settings: x501, BoardOnly: true}, false},
 		{"empty filter", LobbyFilter{}, lobbyOf(x501, false, ""), true},
 		{"single games only, a game", LobbyFilter{Format: FormatGame}, lobbyOf(x501, false, ""), true},
 		{"single games only, a tournament", LobbyFilter{Format: FormatGame}, lobbyOf(x501, true, tournament.Knockout), false},

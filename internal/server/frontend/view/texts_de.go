@@ -397,6 +397,15 @@ func (textsDE) StatsHint() string {
 func (textsDE) NoFinishedGames() string { return "Noch keine beendeten Spiele." }
 func (textsDE) Heatmap() string         { return "Wo deine Darts landen" }
 func (textsDE) AllModes() string        { return "Alle Modi" }
+func (textsDE) BoardRequired() string   { return "Board nötig" }
+func (textsDE) BoardOnlyOption() string { return "Nur Spieler mit Board dürfen mitspielen" }
+func (textsDE) BoardOnlyHint() string {
+	return "Alle brauchen ein Board, auch du und eingeladene Freunde: Die Kameras melden die Darts, niemand muss sie eintippen, und das Spiel läuft durch."
+}
+func (textsDE) NeedsBoard() string { return "Du brauchst ein Board, um beizutreten." }
+func (textsDE) ErrBoardRequired() string {
+	return "Dieses Spiel ist nur für Spieler mit Board. Wähle eins."
+}
 func (textsDE) HeatmapDarts(n int) string {
 	return strconv.Itoa(n) + " von der Kamera erkannte Darts"
 }

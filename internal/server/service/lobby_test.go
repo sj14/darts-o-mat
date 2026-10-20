@@ -73,9 +73,10 @@ func TestOpenGameValidation(t *testing.T) {
 	anna := register(t, s, "anna")
 
 	for name, tt := range map[string]game.Lobby{
-		"no seat is free": {Seats: 1},
-		"too many seats":  {Seats: game.MaxSeats + 1},
-		"negative seats":  {Seats: -1},
+		"no seat is free":      {Seats: 1},
+		"too many seats":       {Seats: game.MaxSeats + 1},
+		"negative seats":       {Seats: -1},
+		"board only, not open": {BoardOnly: true},
 	} {
 		g := x01Game(anna.PlayerID)
 		g.Lobby = tt
@@ -159,5 +160,35 @@ func TestLeaveTournamentViews(t *testing.T) {
 	running, err := s.LeaveTournament(ctx, carla, id)
 	if err != nil || !running.Tournament.Aborted() {
 		t.Errorf("leave a running tournament: aborted %v, %v; want it aborted and shown", running.Tournament.Aborted(), err)
+	}
+}
+
+func TestBoardOnlyGame(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben := register(t, s, "anna"), register(t, s, "ben")
+	annas, _ := s.CreateBoard(ctx, anna, "Annas")
+	bens, _ := s.CreateBoard(ctx, ben, "Bens")
+
+	g := x01Game(anna.PlayerID)
+	g.Lobby = game.Lobby{Seats: 2, BoardOnly: true}
+	if _, err := s.CreateGame(ctx, anna, g, nil); !errors.Is(err, ErrBoardRequired) {
+		t.Fatalf("create without a board: got %v, want ErrBoardRequired", err)
+	}
+	v, err := s.CreateGame(ctx, anna, withBoard(g, annas.ID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l, _ := s.OpenLobbies(ctx, ben); len(l) != 1 || !l[0].BoardOnly {
+		t.Fatalf("ben's open games = %+v, want the one that needs a board", l)
+	}
+	if _, err := s.JoinGame(ctx, ben, v.Game.ID, nil); !errors.Is(err, ErrBoardRequired) {
+		t.Errorf("join without a board: got %v, want ErrBoardRequired", err)
+	}
+	if _, err := s.UseBoard(ctx, anna, v.Game.ID, nil); !errors.Is(err, ErrBoardRequired) {
+		t.Errorf("take the board away: got %v, want ErrBoardRequired", err)
+	}
+	if v, err = s.JoinGame(ctx, ben, v.Game.ID, &bens.ID); err != nil || !v.Ready {
+		t.Errorf("join with a board: ready %v, %v; want ready", v.Ready, err)
 	}
 }

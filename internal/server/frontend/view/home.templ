@@ -96,7 +96,7 @@ templ tournamentInvitations(views []service.TournamentView) {
 templ answerInvitation(gameID int64, boards []board.Board) {
 	<div class="flex flex-wrap items-center gap-2">
 		<form method="post" action={ templ.URL(gameURL(gameID, "/accept")) } class="flex items-center gap-2">
-			@boardSelect(boards)
+			@boardSelect(boards, false)
 			<button type="submit" class={ btnPrimary }>{ T(ctx).Accept() }</button>
 		</form>
 		<form method="post" action={ templ.URL(gameURL(gameID, "/decline")) }>
@@ -274,7 +274,13 @@ templ participants(m HomeModel) {
 			{ T(ctx).StrangerSeats() }
 			<input type="number" name="seats" min="2" max="32" value="2" class={ inputClass, "w-24!" }/>
 		</label>
+		<div class="mt-2">
+			@checkbox("board-only", "board_only", "on", false) {
+				{ T(ctx).BoardOnlyOption() }
+			}
+		</div>
 		<p class={ hintClass }>{ T(ctx).StrangersHint() }</p>
+		<p class={ hintClass }>{ T(ctx).BoardOnlyHint() }</p>
 	}
 	if len(m.Boards) > 0 {
 		@fieldset(T(ctx).Board()) {

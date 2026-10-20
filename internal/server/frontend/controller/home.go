@@ -193,6 +193,8 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case len(g.Participants) == 0:
 		msg = texts.ErrChoosePlayer()
+	case errors.Is(err, service.ErrBoardRequired):
+		msg = texts.ErrBoardRequired()
 	case errors.Is(err, tournament.ErrPlayerCount):
 		msg = texts.ErrTournamentPlayers(tournament.MinPlayers, tournament.MaxPlayers)
 	case errors.As(err, &unknown):
@@ -228,6 +230,7 @@ func gameFromForm(r *http.Request) (game.Game, []string, error) {
 			return g, nil, fmt.Errorf("%w: invalid number of players", service.ErrInvalid)
 		}
 		g.Seats = seats
+		g.BoardOnly = r.FormValue("board_only") != ""
 	}
 
 	if s := r.FormValue("legs"); s != "" {

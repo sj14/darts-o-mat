@@ -286,6 +286,11 @@ type Texts interface {
 	NoFinishedGames() string
 	Heatmap() string
 	AllModes() string
+	BoardRequired() string
+	BoardOnlyOption() string
+	BoardOnlyHint() string
+	NeedsBoard() string
+	ErrBoardRequired() string
 	HeatmapDarts(n int) string
 	HeatmapNone() string
 	Count180() string

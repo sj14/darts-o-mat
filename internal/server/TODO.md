@@ -19,7 +19,7 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
   - Against: club or pub use – one account couldn't run guest-only games on two boards at the same time.
   - If done: starting a new game while one runs offers "continue it" or "abort it and start the new one" instead of just refusing; invitations stay open until the current game is finished or aborted.
 - Allow others to watch games if they know the link.
-- Play with strangers, what is left (open games, a board per player, leaving, the optional captcha and the limit on failed logins are built, see [AGENTS.md → open games](AGENTS.md#open-games)): quick match (join the oldest open game with default rules or open one and wait), rate limits for creating open games.
+- Play with strangers, what is left (open games, a board per player, leaving, the optional captcha and the limit on failed logins are built, see [AGENTS.md → open games](AGENTS.md#open-games)): board-only lobbies (built 2026-10-20) still let a board be taken by a newer game and don't pass the rule on to a tournament's games, see [AGENTS.md → open games](AGENTS.md#open-games), quick match (join the oldest open game with default rules or open one and wait), rate limits for creating open games.
 - Time per turn (built 2026-10-18, see [AGENTS.md → game state](AGENTS.md#game-state)): show skipped turns and players who left because of it in the history (today a skipped turn has no row, or a "…" after its darts); needs a `Skipped` field per turn in each mode. Maybe a warning on the player's card after the first skipped turn.
 
 ## Tournaments

@@ -36,6 +36,7 @@ type LobbyFilter struct {
 	Sets       int         // how many sets win, 1 is no sets
 	BullOff    Choice
 	TurnLimit  Choice
+	BoardOnly  Choice // everyone needs a board
 }
 
 // Active reports whether the filter leaves anything out.
@@ -60,6 +61,8 @@ func (f LobbyFilter) Match(l OpenLobby) bool {
 	case !f.BullOff.matches(s.BullOff):
 		return false
 	case !f.TurnLimit.matches(s.TurnSeconds > 0):
+		return false
+	case !f.BoardOnly.matches(l.BoardOnly):
 		return false
 	}
 	if f.StartScore != 0 || f.OutMode != 0 {
@@ -87,7 +90,7 @@ func (f LobbyFilter) Apply(lobbies []OpenLobby) []OpenLobby {
 }
 
 // LobbyFilterFromQuery reads the filter from the query of a request: format, mode,
-// start_score, out_mode, legs, sets, bull_off and turn_limit (yes or no). A value that
+// start_score, out_mode, legs, sets, bull_off, turn_limit and board_only (yes or no). A value that
 // means nothing is left out rather than refused, so an old link still shows a list.
 func LobbyFilterFromQuery(q url.Values) LobbyFilter {
 	var f LobbyFilter
@@ -118,6 +121,7 @@ func LobbyFilterFromQuery(q url.Values) LobbyFilter {
 	}
 	f.BullOff = choiceFrom(q.Get("bull_off"))
 	f.TurnLimit = choiceFrom(q.Get("turn_limit"))
+	f.BoardOnly = choiceFrom(q.Get("board_only"))
 	return f
 }
 

@@ -51,15 +51,18 @@ templ choice(name, value, label string, checked bool) {
 }
 
 // boardSelect lets a player pick the board they throw on when joining or accepting; the
-// one they used last is preselected. It is left out for players without a board.
-templ boardSelect(boards []board.Board) {
+// one they used last is preselected. It is left out for players without a board. With
+// required there is no "no board" to choose.
+templ boardSelect(boards []board.Board, required bool) {
 	if len(boards) > 0 {
 		{{ preselected := defaultBoard(boards) }}
 		<label class="flex items-center gap-2 text-sm text-white/70">
 			📷
 			<span class="sr-only">{ T(ctx).Board() }</span>
 			<select name="board_id" class={ inputClass, "w-auto! py-2!" }>
-				<option value="">{ T(ctx).NoBoard() }</option>
+				if !required {
+					<option value="">{ T(ctx).NoBoard() }</option>
+				}
 				for _, b := range boards {
 					<option value={ strconv.FormatInt(b.ID, 10) } selected?={ b.ID == preselected }>{ b.Name }</option>
 				}

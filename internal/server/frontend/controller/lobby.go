@@ -90,6 +90,9 @@ func boardFromForm(r *http.Request) (*int64, error) {
 // joinFailed answers a failed join or accept, if it failed: the page it came from with
 // the message, the open games for a join, else the start page.
 func (c *Controller) joinFailed(w http.ResponseWriter, r *http.Request, err error, msg string, fromLobbies bool) bool {
+	if errors.Is(err, service.ErrBoardRequired) {
+		msg = view.T(r.Context()).ErrBoardRequired()
+	}
 	switch {
 	case err == nil:
 		return false
