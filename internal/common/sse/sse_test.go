@@ -2,7 +2,10 @@ package sse
 
 import (
 	"bufio"
+	"context"
 	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -49,5 +52,26 @@ func TestStream(t *testing.T) {
 	changes <- struct{}{}
 	if rest, _ := r.ReadString('\n'); rest != "" {
 		t.Errorf("sent %q after render failed, want the stream to end", rest)
+	}
+}
+
+// A stream ends when the server shuts down, so http.Server.Shutdown doesn't wait for it.
+func TestStreamEndsOnShutdown(t *testing.T) {
+	done := make(chan struct{})
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Stream(w, r, "board", nil, func() (string, error) { return "", nil })
+	}))
+	srv.Config.BaseContext = func(net.Listener) context.Context { return WithShutdown(context.Background(), done) }
+	srv.Start()
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	close(done)
+	if _, err := io.ReadAll(resp.Body); err != nil {
+		t.Errorf("stream after shutdown: %v, want it to end", err)
 	}
 }

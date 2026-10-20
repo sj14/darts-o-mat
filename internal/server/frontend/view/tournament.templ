@@ -15,8 +15,9 @@ import (
 templ Tournament(user string, v service.TournamentView, errMsg string) {
 	@layout(tournamentLabel(T(ctx), v.Tournament), user) {
 		// The server pushes the tournament whenever it or one of its games changes; the
-		// element swaps itself on "tournament".
-		<div hx-ext="sse" sse-connect={ tournamentURL(v.Tournament.ID, "/events") }>
+		// element swaps itself on "tournament". After a lost connection connection.js fetches
+		// it again (data-refresh).
+		<div hx-ext="sse" sse-connect={ tournamentURL(v.Tournament.ID, "/events") } data-refresh="#tournament">
 			@TournamentBody(v, errMsg)
 		</div>
 	}

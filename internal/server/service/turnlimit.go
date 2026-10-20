@@ -49,8 +49,8 @@ func (s *Service) watchTurn(g game.Game) {
 	if g.Aborted() {
 		return
 	}
-	if deadline, ok := g.TurnDeadline(v.Darts, v.Common()); ok {
-		s.timers[g.ID] = time.AfterFunc(time.Until(deadline), func() { s.endTurn(g.ID) })
+	if v.TurnDeadline != nil {
+		s.timers[g.ID] = time.AfterFunc(time.Until(*v.TurnDeadline), func() { s.endTurn(g.ID) })
 	}
 }
 
@@ -72,8 +72,7 @@ func (s *Service) endTurn(gameID int64) {
 		log.Printf("end the turn of game %d: %v", gameID, err)
 		return
 	}
-	deadline, ok := g.TurnDeadline(v.Darts, v.Common())
-	if g.Aborted() || !ok || v.Common().CurrentPlayerID == nil || s.now().Before(deadline) {
+	if g.Aborted() || v.TurnDeadline == nil || v.Common().CurrentPlayerID == nil || s.now().Before(*v.TurnDeadline) {
 		s.watchTurn(g) // the game moved on while the timer waited for the lock
 		return
 	}

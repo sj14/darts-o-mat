@@ -25,6 +25,7 @@ type Texts interface {
 	ColorName(color string) string
 	Logout() string
 	Language() string
+	Offline() string
 	SoundOn() string
 	SoundOff() string
 	SoundBlocked() string

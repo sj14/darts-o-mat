@@ -2,13 +2,19 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
+	"github.com/sj14/darts-o-mat/internal/common/sse"
 	"github.com/sj14/darts-o-mat/internal/common/update"
 	"github.com/sj14/darts-o-mat/internal/server/api"
 	"github.com/sj14/darts-o-mat/internal/server/captcha"
@@ -31,7 +37,9 @@ func main() {
 	)
 	flag.Parse()
 
-	ctx := context.Background()
+	// SIGTERM is how a container or systemd stops the server, Ctrl-C in a terminal.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	update.Start(ctx)
 
 	r := chi.NewRouter()
@@ -69,5 +77,36 @@ func main() {
 	r.Mount("/api", api.New(svc).Routes())
 	r.Mount("/", controller.New(svc).Routes())
 
-	log.Fatal(http.ListenAndServe(*addr, r))
+	serve(ctx, *addr, r)
+}
+
+// shutdownTimeout is how long the requests that are running when the server stops get to
+// finish, e.g. a dart on its way to the database.
+const shutdownTimeout = 10 * time.Second
+
+// serve serves the handler until ctx is done, then stops taking requests, lets the
+// running ones finish and ends the live streams (the pages connect again by themselves).
+func serve(ctx context.Context, addr string, h http.Handler) {
+	streams := make(chan struct{})
+	srv := &http.Server{
+		Addr:        addr,
+		Handler:     h,
+		BaseContext: func(net.Listener) context.Context { return sse.WithShutdown(context.Background(), streams) },
+	}
+	srv.RegisterOnShutdown(func() { close(streams) })
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		<-ctx.Done()
+		log.Print("stopping: finishing the running requests")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("stop the server: %v", err)
+		}
+	}()
+	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
+	<-stopped
 }

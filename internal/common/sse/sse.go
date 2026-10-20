@@ -2,6 +2,7 @@
 package sse
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,16 @@ import (
 
 // keepalive is how often a comment is sent on an idle stream, so proxies don't close it.
 const keepalive = 25 * time.Second
+
+type shutdownKey struct{}
+
+// WithShutdown returns a context after which the streams of its requests end once done is
+// closed. A server passes it as its BaseContext and closes done when it shuts down
+// (http.Server.RegisterOnShutdown): Shutdown waits for every open request, and a stream
+// stays open until the browser leaves. The browser connects again by itself.
+func WithShutdown(ctx context.Context, done <-chan struct{}) context.Context {
+	return context.WithValue(ctx, shutdownKey{}, done)
+}
 
 // Stream sends the event whenever changes receives a value, until the request ends:
 // render returns its data, e.g. a rendered fragment of the page; an error ends the
@@ -27,11 +38,14 @@ func Stream(w http.ResponseWriter, r *http.Request, event string, changes <-chan
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
+	shutdown, _ := r.Context().Value(shutdownKey{}).(<-chan struct{}) // nil blocks forever
 	tick := time.NewTicker(keepalive)
 	defer tick.Stop()
 	for {
 		select {
 		case <-r.Context().Done():
+			return
+		case <-shutdown:
 			return
 		case <-tick.C:
 			fmt.Fprint(w, ": keepalive\n\n")

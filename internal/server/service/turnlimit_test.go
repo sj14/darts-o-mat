@@ -82,6 +82,39 @@ func TestTurnLimit(t *testing.T) {
 	}
 }
 
+// The time the server was down doesn't cost a turn: after a start every turn has its whole
+// time again.
+func TestTurnLimitAfterRestart(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	offset := time.Duration(0)
+	s.now = func() time.Time { return time.Now().Add(offset) }
+	g := x01Game(anna.PlayerID)
+	g.TurnSeconds = 60
+	v, err := s.CreateGame(ctx, anna, g, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Game.ID
+
+	// The server was down for five minutes and starts again.
+	offset = 5 * time.Minute
+	s.started = s.now()
+	if v, _ = s.Game(ctx, anna, id); v.TurnDeadline == nil || !v.TurnDeadline.Equal(s.started.Add(time.Minute)) {
+		t.Fatalf("deadline after the start %v, want a minute after it (%v)", v.TurnDeadline, s.started.Add(time.Minute))
+	}
+	s.endTurn(id)
+	if v, _ = s.Game(ctx, anna, id); len(v.Darts) != 0 {
+		t.Fatalf("the turn ended right after the start: %d entries", len(v.Darts))
+	}
+	offset += 2 * time.Minute
+	s.endTurn(id)
+	if v, _ = s.Game(ctx, anna, id); len(v.Darts) != 1 || !v.Darts[0].Skip {
+		t.Errorf("a minute after the start: %+v, want the turn skipped", v.Darts)
+	}
+}
+
 func TestSkippedTurnsCantBeTakenBack(t *testing.T) {
 	ctx := context.Background()
 	s := newService(t)

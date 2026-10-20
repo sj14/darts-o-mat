@@ -388,12 +388,11 @@ func targetResult(v service.GameView, d throw.Dart) (hit, counted bool) {
 // turnClock returns how many seconds of the time for the turn are gone and how many it
 // has in total, if the turn is timed.
 func turnClock(v service.GameView, p progress) (elapsed, total float64, ok bool) {
-	deadline, ok := v.Game.TurnDeadline(v.Darts, v.Common())
-	if !ok || !p.running() {
+	if v.TurnDeadline == nil || !p.running() {
 		return 0, 0, false
 	}
 	total = float64(v.Game.TurnSeconds)
-	return min(max(total-time.Until(deadline).Seconds(), 0), total), total, true
+	return min(max(total-time.Until(*v.TurnDeadline).Seconds(), 0), total), total, true
 }
 
 // turnClockStyle makes the bar of the turn clock start where the clock is: its animation

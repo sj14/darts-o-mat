@@ -17,7 +17,8 @@ templ Game(user string, v service.GameView) {
 	@layout(modeLabel(T(ctx), v.Game.Settings), user) {
 		// The server pushes the board whenever the game changes (darts from the cameras or
 		// other devices, answered invitations); the board element swaps itself on "board".
-		<div hx-ext="sse" sse-connect={ gameURL(v.Game.ID, "/events") }>
+		// After a lost connection connection.js fetches the board again (data-refresh).
+		<div hx-ext="sse" sse-connect={ gameURL(v.Game.ID, "/events") } data-refresh="#board">
 			@Board(v, "")
 		</div>
 	}

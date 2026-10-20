@@ -234,6 +234,9 @@ func (textsEN) ErrNoInvitation() string { return "This invitation doesn't exist 
 func (textsEN) ErrCompleted() string {
 	return "The result is final, the game can't be changed anymore."
 }
+func (textsEN) Offline() string {
+	return "No connection to the server – try again in a moment."
+}
 func (textsEN) ErrNotOver() string               { return "The game isn't over yet." }
 func (textsEN) NewVersion(version string) string { return "Version " + version + " available" }
 func (textsEN) ErrGameOver() string              { return "The game is already over." }

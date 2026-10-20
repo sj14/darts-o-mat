@@ -228,6 +228,9 @@ func (textsDE) ErrNoInvitation() string { return "Diese Einladung gibt es nicht 
 func (textsDE) ErrCompleted() string {
 	return "Das Ergebnis steht fest, das Spiel kann nicht mehr geändert werden."
 }
+func (textsDE) Offline() string {
+	return "Keine Verbindung zum Server – gleich noch einmal versuchen."
+}
 func (textsDE) ErrNotOver() string               { return "Das Spiel ist noch nicht vorbei." }
 func (textsDE) NewVersion(version string) string { return "Version " + version + " verfügbar" }
 func (textsDE) ErrGameOver() string              { return "Das Spiel ist schon vorbei." }

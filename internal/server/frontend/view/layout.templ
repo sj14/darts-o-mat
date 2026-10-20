@@ -28,6 +28,7 @@ templ layout(title, user string) {
 			<script src="/static/htmx.min.js"></script>
 			<script src="/static/htmx-ext-sse.min.js"></script>
 			<script src="/static/sounds.js" defer></script>
+			<script src="/static/connection.js" defer></script>
 		</head>
 		<body class="min-h-screen text-white antialiased">
 			<header class="border-b border-white/10 bg-pub-950/80">
@@ -60,6 +61,8 @@ templ layout(title, user string) {
 					}
 				</div>
 			</header>
+			// Shown by connection.js while the server can't be reached.
+			<div id="offline" hidden class="sticky top-0 z-50 border-b border-amber-400/40 bg-amber-950 px-4 py-2 text-center text-sm font-semibold text-amber-200" role="alert">{ T(ctx).Offline() }</div>
 			<main class="mx-auto max-w-6xl px-4 py-6 pb-16">
 				{ children... }
 			</main>

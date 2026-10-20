@@ -103,10 +103,13 @@ type Service struct {
 	timersMu sync.Mutex
 	// now is the time, replaced in tests.
 	now func() time.Time
+	// started is when the server started: no turn ends earlier than its time after it
+	// (see GameView.TurnDeadline).
+	started time.Time
 }
 
 func New(store *store.Store, opts Options) *Service {
-	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, now: time.Now}
+	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, now: time.Now, started: time.Now()}
 	s.limitLogins(opts.MaxLoginFailures)
 	return s
 }
@@ -129,6 +132,11 @@ type GameView struct {
 	Ready bool `json:"ready"`
 	// BoardNames are the names of the boards the players throw on, by player.
 	BoardNames map[int64]string `json:"board_names,omitempty"`
+	// TurnDeadline is when the turn of the player who is up ends, nil without a limit
+	// (game.Game.TurnDeadline). It is never earlier than the turn's time after the server
+	// started (user's wish 2026-10-20): the time it was down for a restart or an update
+	// doesn't cost anyone a turn.
+	TurnDeadline *time.Time `json:"turn_deadline,omitempty"`
 
 	// The following fields depend on the account the view was created for.
 	CanThrow bool `json:"can_throw"` // may enter and undo darts (once the game is ready, never after it was aborted)
@@ -725,6 +733,12 @@ func (s *Service) build(ctx context.Context, g game.Game) (GameView, error) {
 		return GameView{}, err
 	}
 	v.Completed = g.Completed(v.Darts, v.Common(), s.now())
+	if d, ok := g.TurnDeadline(v.Darts, v.Common()); ok {
+		if earliest := s.started.Add(time.Duration(g.TurnSeconds) * time.Second); d.Before(earliest) {
+			d = earliest
+		}
+		v.TurnDeadline = &d
+	}
 	if v.Players, err = s.store.GetPlayers(ctx, g.PlayerIDs()); err != nil {
 		return GameView{}, err
 	}
