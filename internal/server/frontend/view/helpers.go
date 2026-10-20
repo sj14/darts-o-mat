@@ -748,3 +748,9 @@ func numberOptions(from, to int) []filterOption {
 	}
 	return options
 }
+
+// showMode tells whether the statistics of a mode are shown when the page is narrowed down
+// to selected, which is empty for all modes.
+func showMode(selected, m game.Mode) bool {
+	return selected == "" || selected == m
+}

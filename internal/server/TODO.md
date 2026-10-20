@@ -30,7 +30,7 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
 
 ## Statistics
 
-- Heatmap: choose game mode or period, a finer drawing (smooth instead of squares), and the hits per field as numbers; maybe also show which fields were corrected (position and field differ, see [statistics](AGENTS.md#statistics)).
+- Heatmap: choose a period (game mode since 2026-10-20), a finer drawing (smooth instead of squares), and the hits per field as numbers; maybe also show which fields were corrected (position and field differ, see [statistics](AGENTS.md#statistics)).
 - Statistics at the end: the game page shows the statistics of the whole game below the history (table, and a heatmap per player for camera darts, since 2026-10-18; a separate statistics page was rejected as it would repeat the table). Still open: the statistics of a single leg after it, and a comparison of the players leg by leg.
 - `service.Stats` loads every game's and tournament's participants (`ListGames`, `ListTournaments`) on each visit; a query only for those without stored results would do.
 - Statistics from the table (`game_stats`) allow trends over time (average per week, last 30 days): not built, needs a date per result (`games.completed_at` or the game's start).

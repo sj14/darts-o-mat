@@ -407,6 +407,7 @@ func (textsEN) StatsHint() string {
 }
 func (textsEN) NoFinishedGames() string { return "No finished games yet." }
 func (textsEN) Heatmap() string         { return "Where your darts land" }
+func (textsEN) AllModes() string        { return "All modes" }
 func (textsEN) HeatmapDarts(n int) string {
 	return strconv.Itoa(n) + " darts seen by the camera"
 }

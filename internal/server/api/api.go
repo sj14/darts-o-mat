@@ -327,7 +327,7 @@ func (a *API) undoDart(w http.ResponseWriter, r *http.Request) {
 
 // stats returns the statistics of the account's player and its guests over all finished games.
 func (a *API) stats(w http.ResponseWriter, r *http.Request) {
-	summaries, err := a.svc.Stats(r.Context(), auth.Account(r.Context()))
+	summaries, err := a.svc.Stats(r.Context(), auth.Account(r.Context()), "")
 	respond(w, http.StatusOK, summaries, err)
 }
 

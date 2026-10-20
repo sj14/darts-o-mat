@@ -285,6 +285,7 @@ type Texts interface {
 	StatsHint() string
 	NoFinishedGames() string
 	Heatmap() string
+	AllModes() string
 	HeatmapDarts(n int) string
 	HeatmapNone() string
 	Count180() string

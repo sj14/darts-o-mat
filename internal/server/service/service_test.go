@@ -457,7 +457,7 @@ func TestStats(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	summaries, err := s.Stats(ctx, anna)
+	summaries, err := s.Stats(ctx, anna, "")
 	if err != nil {
 		t.Fatal(err)
 	}

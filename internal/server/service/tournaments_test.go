@@ -123,7 +123,7 @@ func TestRoundRobinTournament(t *testing.T) {
 	}
 
 	// Each of anna's players took part in one finished tournament.
-	summaries, err := s.Stats(ctx, anna)
+	summaries, err := s.Stats(ctx, anna, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestRoundRobinTournament(t *testing.T) {
 	if rs, _ := s.store.ListTournamentResults(ctx, []int64{anna.PlayerID, ben.PlayerID}); len(rs) != 2 {
 		t.Errorf("stored tournament results = %+v, want one per player", rs)
 	}
-	again, _ := s.Stats(ctx, anna)
+	again, _ := s.Stats(ctx, anna, "")
 	if again[0].X01.Tournaments != 1 || again[0].X01.TournamentWins != summaries[0].X01.TournamentWins {
 		t.Errorf("second read: %+v, first %+v", again[0].X01.Record, summaries[0].X01.Record)
 	}

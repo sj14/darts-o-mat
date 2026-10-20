@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/uptrace/bun"
@@ -30,12 +31,15 @@ func (store *Store) ListResults(ctx context.Context, playerIDs []int64) ([]stats
 }
 
 // ListPositions returns where the cameras saw the player's most recent darts, at most
-// limit of them.
-func (store *Store) ListPositions(ctx context.Context, playerID int64, limit int64) ([]dartboard.Point, error) {
+// limit of them; with a mode only those of games of that mode.
+func (store *Store) ListPositions(ctx context.Context, playerID int64, mode game.Mode, limit int64) ([]dartboard.Point, error) {
 	var darts []throw.Dart
-	err := store.db.NewSelect().Model(&darts).Column("x", "y").
-		Where("player_id = ?", playerID).Where("x IS NOT NULL").Where("y IS NOT NULL").
-		Order("id DESC").Limit(limit).Scan(ctx)
+	q := store.db.NewSelect().Model(&darts).Column("x", "y").
+		Where("player_id = ?", playerID).Where("x IS NOT NULL").Where("y IS NOT NULL")
+	if mode != "" {
+		q = q.Where("game_id IN (SELECT id FROM games WHERE mode = ?)", mode)
+	}
+	err := q.Order("id DESC").Limit(limit).Scan(ctx)
 	points := make([]dartboard.Point, len(darts))
 	for i, d := range darts {
 		points[i] = dartboard.Point{X: *d.X, Y: *d.Y}

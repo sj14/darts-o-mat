@@ -4,20 +4,23 @@ import (
 	"context"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 )
 
-// HeatDarts is how many of a player's most recent camera darts the heatmap shows.
+// HeatDarts is how many of a player's most recent camera darts the heatmap shows (of one
+// mode, if the heatmap is narrowed down to it).
 const HeatDarts = 5000
 
 // Stats returns the statistics of the account's player and its guests over all completed
-// games and finished tournaments, and where their darts hit the board.
+// games and finished tournaments, and where their darts hit the board (heatMode narrows
+// the latter down to the games of one mode, empty means all).
 //
 // Once a game is completed nothing about it changes anymore, so its result per player
 // is stored (stats.Result) the first time it is seen here and added up from then on;
 // only games that aren't stored yet are replayed. Games that are over but not completed
 // (a dart could still be corrected) don't count yet.
-func (s *Service) Stats(ctx context.Context, acc account.Account) ([]stats.Summary, error) {
+func (s *Service) Stats(ctx context.Context, acc account.Account, heatMode game.Mode) ([]stats.Summary, error) {
 	players, err := s.store.ListPlayers(ctx, acc.ID, acc.PlayerID)
 	if err != nil {
 		return nil, err
@@ -27,7 +30,7 @@ func (s *Service) Stats(ctx context.Context, acc account.Account) ([]stats.Summa
 	for i, p := range players {
 		summaries[i].Player = p
 		ids[i] = p.ID
-		points, err := s.store.ListPositions(ctx, p.ID, HeatDarts)
+		points, err := s.store.ListPositions(ctx, p.ID, heatMode, HeatDarts)
 		if err != nil {
 			return nil, err
 		}

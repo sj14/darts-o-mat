@@ -172,7 +172,7 @@ func TestStatsOfCompletedGames(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := s.Stats(ctx, anna)
+	got, err := s.Stats(ctx, anna, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,10 +182,16 @@ func TestStatsOfCompletedGames(t *testing.T) {
 	if got[0].Heat.Darts != 1 {
 		t.Errorf("heat = %+v, want the one camera dart", got[0].Heat)
 	}
+	if got, err = s.Stats(ctx, anna, game.ModeX01); err != nil || got[0].Heat.Darts != 1 {
+		t.Errorf("heat of x01 = %+v, %v, want the one camera dart", got[0].Heat, err)
+	}
+	if got, err = s.Stats(ctx, anna, game.ModeAroundTheClock); err != nil || got[0].Heat.Darts != 0 {
+		t.Errorf("heat of around the clock = %+v, %v, want no dart", got[0].Heat, err)
+	}
 
 	offset = game.CompleteAfter + time.Second
 	for range 2 { // the second time it is read from the table
-		if got, err = s.Stats(ctx, anna); err != nil {
+		if got, err = s.Stats(ctx, anna, ""); err != nil {
 			t.Fatal(err)
 		}
 		if got[0].X01.Games != 1 || got[0].X01.Wins != 1 || got[0].X01.Darts != 1 {

@@ -396,6 +396,7 @@ func (textsDE) StatsHint() string {
 }
 func (textsDE) NoFinishedGames() string { return "Noch keine beendeten Spiele." }
 func (textsDE) Heatmap() string         { return "Wo deine Darts landen" }
+func (textsDE) AllModes() string        { return "Alle Modi" }
 func (textsDE) HeatmapDarts(n int) string {
 	return strconv.Itoa(n) + " von der Kamera erkannte Darts"
 }

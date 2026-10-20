@@ -3,13 +3,15 @@ package view
 import (
 	"strconv"
 
+	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 )
 
-templ Stats(user string, summaries []stats.Summary) {
+templ Stats(user string, summaries []stats.Summary, heatMode game.Mode) {
 	@layout(T(ctx).NavStats(), user) {
 		@pageTitle(T(ctx).NavStats(), T(ctx).StatsHint())
-		<div class="flex flex-col gap-6">
+		<div id="stats" class="flex flex-col gap-6">
+			@modeFilter(heatMode)
 			for i, s := range summaries {
 				@panel("") {
 					<h2 class="mb-4 font-display text-3xl font-extrabold uppercase tracking-wide text-board-cream">
@@ -18,11 +20,11 @@ templ Stats(user string, summaries []stats.Summary) {
 							<span class="font-sans text-base font-normal normal-case text-white/40">{ T(ctx).GuestMark() }</span>
 						}
 					</h2>
-					if s.X01.Games == 0 && s.AroundTheClock.Games == 0 {
+					if !(showMode(heatMode, game.ModeX01) && s.X01.Games > 0) && !(showMode(heatMode, game.ModeAroundTheClock) && s.AroundTheClock.Games > 0) {
 						<p class="text-white/50">{ T(ctx).NoFinishedGames() }</p>
 					}
 					<div class="grid gap-6 md:grid-cols-2">
-						if s.X01.Games > 0 {
+						if showMode(heatMode, game.ModeX01) && s.X01.Games > 0 {
 							<div>
 								<h3 class={ labelClass }>X01</h3>
 								<div class="mb-3 grid grid-cols-3 gap-2">
@@ -47,7 +49,7 @@ templ Stats(user string, summaries []stats.Summary) {
 								</dl>
 							</div>
 						}
-						if s.AroundTheClock.Games > 0 {
+						if showMode(heatMode, game.ModeAroundTheClock) && s.AroundTheClock.Games > 0 {
 							<div>
 								<h3 class={ labelClass }>{ T(ctx).AroundTheClock() }</h3>
 								<div class="mb-3 grid grid-cols-3 gap-2">
@@ -120,4 +122,30 @@ templ heatmap(h stats.Heat) {
 			<p class="mt-2 text-center text-sm text-white/50">{ T(ctx).HeatmapDarts(h.Darts) }</p>
 		}
 	</div>
+}
+
+// modeFilter narrows the statistics and the heatmaps down to the games of one mode.
+templ modeFilter(selected game.Mode) {
+	<nav class="flex flex-wrap items-center gap-2" aria-label={ T(ctx).NavStats() }>
+		@modeFilterLink("", selected, T(ctx).AllModes())
+		@modeFilterLink(game.ModeX01, selected, "X01")
+		@modeFilterLink(game.ModeAroundTheClock, selected, T(ctx).AroundTheClock())
+	</nav>
+}
+
+templ modeFilterLink(mode, selected game.Mode, label string) {
+	<a
+		href={ templ.URL("/stats?mode=" + string(mode)) }
+		hx-get={ "/stats?mode=" + string(mode) }
+		hx-target="#stats"
+		hx-select="#stats"
+		hx-swap="outerHTML"
+		hx-push-url="true"
+		class={ "rounded-xl border px-4 py-2 font-semibold transition",
+			templ.KV("border-board-cream bg-board-cream text-pub-950", mode == selected),
+			templ.KV("border-white/10 bg-pub-800 text-white/70 hover:border-white/30", mode != selected) }
+		if mode == selected {
+			aria-current="true"
+		}
+	>{ label }</a>
 }
