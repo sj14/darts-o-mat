@@ -193,6 +193,8 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case len(g.Participants) == 0:
 		msg = texts.ErrChoosePlayer()
+	case errors.Is(err, service.ErrBoardBusy):
+		msg = texts.ErrBoardBusy()
 	case errors.Is(err, service.ErrBoardRequired):
 		msg = texts.ErrBoardRequired()
 	case errors.Is(err, tournament.ErrPlayerCount):

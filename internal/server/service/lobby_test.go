@@ -189,6 +189,16 @@ func TestBoardOnlyGame(t *testing.T) {
 		t.Errorf("take the board away: got %v, want ErrBoardRequired", err)
 	}
 	if v, err = s.JoinGame(ctx, ben, v.Game.ID, &bens.ID); err != nil || !v.Ready {
-		t.Errorf("join with a board: ready %v, %v; want ready", v.Ready, err)
+		t.Fatalf("join with a board: ready %v, %v; want ready", v.Ready, err)
+	}
+
+	// Running, the game keeps its boards: a newer game cannot take one.
+	if _, err := s.CreateGame(ctx, anna, withBoard(x01Game(anna.PlayerID), annas.ID), nil); !errors.Is(err, ErrBoardBusy) {
+		t.Errorf("new game on a board in a board-only game: got %v, want ErrBoardBusy", err)
+	}
+	if g, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil); err != nil {
+		t.Errorf("new game without a board: %v", err)
+	} else if _, err := s.UseBoard(ctx, anna, g.Game.ID, &annas.ID); !errors.Is(err, ErrBoardBusy) {
+		t.Errorf("move another game to the board: got %v, want ErrBoardBusy", err)
 	}
 }

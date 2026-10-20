@@ -406,6 +406,9 @@ func (textsDE) NeedsBoard() string { return "Du brauchst ein Board, um beizutret
 func (textsDE) ErrBoardRequired() string {
 	return "Dieses Spiel ist nur für Spieler mit Board. Wähle eins."
 }
+func (textsDE) ErrBoardBusy() string {
+	return "Dieses Board ist in einem laufenden Spiel, das es braucht, und kann nicht weggenommen werden."
+}
 func (textsDE) HeatmapDarts(n int) string {
 	return strconv.Itoa(n) + " von der Kamera erkannte Darts"
 }

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -72,6 +73,27 @@ func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID int6
 	}
 	s.notifyGame(g)
 	return s.view(ctx, acc, g)
+}
+
+// ErrBoardBusy means the board is in a running game that is only for players with a
+// board: it can't be taken from it.
+var ErrBoardBusy = fmt.Errorf("%w: the board is in a game that needs it", ErrInvalid)
+
+// checkBoardFree checks that taking the board for the game keep (0 for a game that isn't
+// stored yet) wouldn't take it from a running game that needs its boards (game.Lobby.BoardOnly).
+func (s *Service) checkBoardFree(ctx context.Context, boardID, keep int64) error {
+	b, err := s.store.GetBoard(ctx, boardID)
+	if err != nil {
+		return err
+	}
+	active, err := s.activeGames(ctx, b)
+	if err != nil {
+		return err
+	}
+	if slices.ContainsFunc(active, func(o GameView) bool { return o.Game.ID != keep && o.Game.BoardOnly }) {
+		return ErrBoardBusy
+	}
+	return nil
 }
 
 // freeBoard takes the board from the players of the running games on it, except the game

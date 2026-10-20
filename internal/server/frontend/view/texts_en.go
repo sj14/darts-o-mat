@@ -417,6 +417,9 @@ func (textsEN) NeedsBoard() string { return "You need a board to join." }
 func (textsEN) ErrBoardRequired() string {
 	return "This game is only for players with a board. Choose one."
 }
+func (textsEN) ErrBoardBusy() string {
+	return "This board is in a running game that needs it, so it cannot be taken."
+}
 func (textsEN) HeatmapDarts(n int) string {
 	return strconv.Itoa(n) + " darts seen by the camera"
 }

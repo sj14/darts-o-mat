@@ -325,6 +325,8 @@ func (c *Controller) respondBoard(w http.ResponseWriter, r *http.Request, id int
 // handleGameError responds to errors shared by the actions on a game.
 func (c *Controller) handleGameError(w http.ResponseWriter, r *http.Request, id int64, err error) {
 	switch {
+	case errors.Is(err, service.ErrBoardBusy):
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrBoardBusy())
 	case errors.Is(err, service.ErrBoardRequired):
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrBoardRequired())
 	case errors.Is(err, turn.ErrGameOver):

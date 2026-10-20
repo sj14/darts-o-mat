@@ -219,6 +219,14 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 	if err := g.Validate(); err != nil {
 		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
+	for _, p := range g.Participants {
+		if p.BoardID == nil {
+			continue
+		}
+		if err := s.checkBoardFree(ctx, *p.BoardID, 0); err != nil {
+			return GameView{}, err
+		}
+	}
 	if err := s.completeFinished(ctx, acc); err != nil {
 		return GameView{}, err
 	}

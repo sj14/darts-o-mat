@@ -291,6 +291,7 @@ type Texts interface {
 	BoardOnlyHint() string
 	NeedsBoard() string
 	ErrBoardRequired() string
+	ErrBoardBusy() string
 	HeatmapDarts(n int) string
 	HeatmapNone() string
 	Count180() string
