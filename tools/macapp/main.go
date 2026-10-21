@@ -1,7 +1,7 @@
 // Command macapp builds darts-o-cam as a macOS app bundle:
 //
-//	go run ./tools/macapp            # darts-o-cam.app in the current directory
-//	go run ./tools/macapp -o ~/Applications/darts-o-cam.app
+//	go -C tools run ./macapp # darts-o-cam.app in the project's directory
+//	go -C tools run ./macapp -o ~/Applications/darts-o-cam.app
 //
 // Started from the bundle (double click or `open`), macOS treats darts-o-cam as an app
 // of its own: it asks for camera access for "darts-o-cam" with the explanation in
@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/sj14/darts-o-mat/tools/internal/appicon"
+	"github.com/sj14/darts-o-mat/tools/internal/project"
 )
 
 const (
@@ -34,18 +35,27 @@ const (
 
 func main() {
 	log.SetFlags(0)
-	out := flag.String("o", name+".app", "path of the app bundle to create (replaced if it exists)")
-	flag.Parse()
 	if runtime.GOOS != "darwin" {
 		log.Fatal("macapp: builds a macOS app bundle and needs macOS (iconutil, codesign)")
 	}
-	if err := build(*out); err != nil {
+	root, err := project.Dir()
+	if err != nil {
 		log.Fatalf("macapp: %v", err)
 	}
-	log.Printf("built %s: start it with a double click or `open %s`", *out, *out)
+	out := flag.String("o", filepath.Join(root, name+".app"), "path of the app bundle to create (replaced if it exists)")
+	flag.Parse()
+	// go build runs in the project, the rest here: both need the same path.
+	app, err := filepath.Abs(*out)
+	if err != nil {
+		log.Fatalf("macapp: %v", err)
+	}
+	if err := build(root, app); err != nil {
+		log.Fatalf("macapp: %v", err)
+	}
+	log.Printf("built %s: start it with a double click or `open %s`", app, app)
 }
 
-func build(app string) error {
+func build(root, app string) error {
 	if err := os.RemoveAll(app); err != nil {
 		return err
 	}
@@ -58,11 +68,11 @@ func build(app string) error {
 
 	// No cgo: the window's web view is loaded at runtime (see cmd/darts-o-cam/window.go).
 	goBuild := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", filepath.Join(contents, "MacOS", name), "./cmd/"+name)
-	goBuild.Env = append(os.Environ(), "CGO_ENABLED=0")
+	goBuild.Dir, goBuild.Env = root, append(os.Environ(), "CGO_ENABLED=0")
 	if err := run(goBuild); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(contents, "Info.plist"), []byte(infoPlist(version())), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(contents, "Info.plist"), []byte(infoPlist(version(root))), 0o644); err != nil {
 		return err
 	}
 	if err := icon(filepath.Join(contents, "Resources", "AppIcon.icns")); err != nil {
@@ -79,9 +89,11 @@ func run(cmd *exec.Cmd) error {
 	return nil
 }
 
-// version is the git description of the checkout, e.g. v0.1.0-3-gabc1234, or "dev".
-func version() string {
-	v, err := exec.Command("git", "describe", "--tags", "--always", "--dirty").Output()
+// version is the git description of the checkout in root, e.g. v0.1.0-3-gabc1234, or "dev".
+func version(root string) string {
+	describe := exec.Command("git", "describe", "--tags", "--always", "--dirty")
+	describe.Dir = root
+	v, err := describe.Output()
 	if err != nil {
 		return "dev"
 	}

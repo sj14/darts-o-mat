@@ -5,10 +5,10 @@
 .PHONY: apps
 apps: linux windows $(if $(filter Darwin,$(shell uname -s)),macapp)
 
-# darts-o-cam.app (macOS only, see tools/macapp).
-.PHONY: macapp 
+# darts-o-cam.app in the project's directory (macOS only, see tools/macapp).
+.PHONY: macapp
 macapp:
-	go run ./tools/macapp
+	go -C tools run ./macapp
 
 # The Linux packages of darts-o-cam and of the server for amd64 and arm64 in dist/: .deb,
 # .rpm and .tar.gz each (see tools/linuxpkg). The version comes from

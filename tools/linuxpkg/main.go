@@ -44,6 +44,7 @@ import (
 	_ "github.com/goreleaser/nfpm/v2/rpm"
 
 	"github.com/sj14/darts-o-mat/tools/internal/appicon"
+	"github.com/sj14/darts-o-mat/tools/internal/project"
 	"github.com/sj14/darts-o-mat/tools/internal/version"
 )
 
@@ -121,7 +122,7 @@ var programs = []program{
 
 func main() {
 	log.SetFlags(0)
-	root, err := projectDir()
+	root, err := project.Dir()
 	if err != nil {
 		log.Fatalf("linuxpkg: %v", err)
 	}
@@ -131,16 +132,6 @@ func main() {
 	if err := build(root, *out, strings.TrimPrefix(*ver, "v")); err != nil {
 		log.Fatalf("linuxpkg: %v", err)
 	}
-}
-
-// projectDir returns the project's directory: the parent of the tools module, which this
-// one replaces with .. (see go.mod).
-func projectDir() (string, error) {
-	dir, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/sj14/darts-o-mat/tools").Output()
-	if err != nil {
-		return "", fmt.Errorf("find the project: %w", err)
-	}
-	return filepath.Dir(strings.TrimSpace(string(dir))), nil
 }
 
 func build(root, out, version string) error {

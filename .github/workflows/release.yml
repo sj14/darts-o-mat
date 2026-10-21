@@ -108,8 +108,10 @@ jobs:
           go-version-file: go.mod
       - name: Build the app
         run: |
-          go build -o macapp ./tools/macapp
-          GOARCH=${{ matrix.goarch }} ./macapp -o darts-o-cam.app
+          # Built for the runner, run in the tools module (it finds the project from there);
+          # GOARCH only applies to the darts-o-cam it builds.
+          go -C tools build -o ../macapp ./macapp
+          (cd tools && GOARCH=${{ matrix.goarch }} ../macapp -o ../darts-o-cam.app)
           mkdir -p dist
           ditto -c -k --keepParent darts-o-cam.app "dist/darts-o-cam_macos_${{ matrix.goarch }}.zip"
       - uses: actions/upload-artifact@v4
