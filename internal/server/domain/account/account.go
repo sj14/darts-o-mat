@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sj14/darts-o-mat/internal/server/domain/player"
 	"github.com/uptrace/bun"
 )
 
@@ -107,4 +108,10 @@ func (f Friendship) Other(accountID int64) int64 {
 		return f.AddresseeID
 	}
 	return f.RequesterID
+}
+
+// Controls reports whether the player is the account's: its own player or one of its
+// guests. An account takes part in a game or tournament through the players it controls.
+func (a Account) Controls(p player.Player) bool {
+	return p.ID == a.PlayerID || (p.GuestOf != nil && *p.GuestOf == a.ID)
 }

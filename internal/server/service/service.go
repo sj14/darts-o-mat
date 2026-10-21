@@ -705,6 +705,34 @@ func (s *Service) build(ctx context.Context, g game.Game) (GameView, error) {
 	return v, nil
 }
 
+// participation is how an account takes part in a game or tournament: through the
+// players it controls (account.Account.Controls).
+type participation struct {
+	mine    []int64 // the account's players that take part
+	invited bool    // its own player hasn't answered the invitation yet
+	canPlay bool    // one of its players accepted: it may throw, or start matches
+}
+
+// participationOf works out how the account takes part, from the players of a game or
+// tournament and whose invitation is pending; ErrNotFound if it takes no part, so the
+// game's existence isn't revealed. Nothing can be done in one that was aborted.
+func participationOf(acc account.Account, players []player.Player, pending func(playerID int64) bool, aborted bool) (participation, error) {
+	var pt participation
+	accepted := false
+	for _, p := range players {
+		if acc.Controls(p) {
+			pt.mine = append(pt.mine, p.ID)
+			accepted = accepted || !pending(p.ID)
+		}
+	}
+	if len(pt.mine) == 0 {
+		return participation{}, ErrNotFound
+	}
+	pt.invited = pending(acc.PlayerID) && !aborted
+	pt.canPlay = accepted && !aborted
+	return pt, nil
+}
+
 // view builds the view of a game for an account, ErrNotFound if the account takes no part
 // in it: no player of the account (its own or a guest) is a participant.
 func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (GameView, error) {
@@ -712,21 +740,14 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	if err != nil {
 		return GameView{}, err
 	}
-	accepted := false
-	for _, p := range v.Players {
-		if p.ID == acc.PlayerID || (p.GuestOf != nil && *p.GuestOf == acc.ID) {
-			v.Mine = append(v.Mine, p.ID)
-			accepted = accepted || !v.Pending(p.ID)
-		}
+	pt, err := participationOf(acc, v.Players, v.Pending, g.Aborted())
+	if err != nil {
+		return GameView{}, err
 	}
-	if len(v.Mine) == 0 {
-		return GameView{}, ErrNotFound
-	}
+	v.Mine, v.Invited, v.CanThrow = pt.mine, pt.invited, pt.canPlay
 	if slices.Contains(v.Mine, acc.PlayerID) {
 		v.OwnPlayerID = acc.PlayerID
 	}
-	v.Invited = v.Pending(acc.PlayerID) && !g.Aborted()
-	v.CanThrow = accepted && !g.Aborted()
 	if !slices.ContainsFunc(v.Mine, func(id int64) bool { return !v.Common().Records[id].Left }) {
 		v.HasLeft, v.CanThrow = true, false
 	}

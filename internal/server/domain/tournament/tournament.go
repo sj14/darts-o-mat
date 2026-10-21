@@ -8,6 +8,7 @@ package tournament
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
@@ -83,6 +84,12 @@ func (t Tournament) Participant(playerID int64) (Participant, bool) {
 		}
 	}
 	return Participant{}, false
+}
+
+// Ready reports whether no seat is free and no invitation is pending: only then its
+// games can start, like game.Game.Ready.
+func (t Tournament) Ready() bool {
+	return t.Full(len(t.Participants)) && !slices.ContainsFunc(t.Participants, func(p Participant) bool { return p.Status == game.InvitationPending })
 }
 
 // Aborted reports whether the tournament ended without a winner.

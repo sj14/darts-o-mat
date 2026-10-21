@@ -266,23 +266,16 @@ func (s *Service) completePrevious(ctx context.Context, st tournament.State, m t
 // participant.
 func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tournament.Tournament) (TournamentView, error) {
 	v := TournamentView{Tournament: t}
-	v.Ready = t.Full(len(t.Participants)) && !slices.ContainsFunc(t.Participants, func(p tournament.Participant) bool { return p.Status == game.InvitationPending })
+	v.Ready = t.Ready()
 	var err error
 	if v.Players, err = s.store.GetPlayers(ctx, t.PlayerIDs()); err != nil {
 		return TournamentView{}, err
 	}
-	accepted := false
-	for _, p := range v.Players {
-		if p.ID == acc.PlayerID || (p.GuestOf != nil && *p.GuestOf == acc.ID) {
-			v.Mine = append(v.Mine, p.ID)
-			accepted = accepted || !v.Pending(p.ID)
-		}
+	pt, err := participationOf(acc, v.Players, v.Pending, t.Aborted())
+	if err != nil {
+		return TournamentView{}, err
 	}
-	if len(v.Mine) == 0 {
-		return TournamentView{}, ErrNotFound
-	}
-	v.Invited = v.Pending(acc.PlayerID) && !t.Aborted()
-	v.CanPlay = accepted && !t.Aborted()
+	v.Mine, v.Invited, v.CanPlay = pt.mine, pt.invited, pt.canPlay
 	if v.Invited {
 		if v.Boards, err = s.tournamentBoardChoices(ctx, acc, t); err != nil {
 			return TournamentView{}, err

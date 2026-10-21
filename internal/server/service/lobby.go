@@ -58,7 +58,7 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 		if err != nil {
 			return nil, err
 		}
-		if slices.ContainsFunc(players, func(p player.Player) bool { return p.ID == acc.PlayerID || (p.GuestOf != nil && *p.GuestOf == acc.ID) }) {
+		if slices.ContainsFunc(players, acc.Controls) {
 			return nil, nil
 		}
 		return players, nil
