@@ -126,7 +126,7 @@ func (ui *UI) Routes() http.Handler {
 	r.Get("/event/{id}/trace", ui.tracePage)
 	r.Get("/event/{id}/trace/{i}.jpg", ui.traceImage)
 	r.Get("/event/{id}/trace/{i}/zoom.jpg", ui.traceZoom)
-	return r
+	return protect(r)
 }
 
 // board returns the board named in the URL, writing 404 if there is none.
