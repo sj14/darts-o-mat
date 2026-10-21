@@ -125,9 +125,10 @@ func (s *Service) activeGame(ctx context.Context, b board.Board) (GameView, erro
 }
 
 // activeGames returns the games with a player on the board that accept darts, newest
-// first.
+// first. Only the games the store can't rule out are replayed: usually just the one on
+// the board.
 func (s *Service) activeGames(ctx context.Context, b board.Board) ([]GameView, error) {
-	games, err := s.store.ListGamesByBoard(ctx, b.ID, 10)
+	games, err := s.store.ListUnfinishedGamesByBoard(ctx, b.ID)
 	if err != nil {
 		return nil, err
 	}

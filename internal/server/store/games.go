@@ -106,11 +106,15 @@ func (store *Store) ListGames(ctx context.Context, accountID, playerID int64, li
 	return store.scanGames(ctx, q)
 }
 
-// ListGamesByBoard returns the most recent games a player throws on the board in, newest
-// first.
-func (store *Store) ListGamesByBoard(ctx context.Context, boardID int64, limit int64) ([]game.Game, error) {
+// ListUnfinishedGamesByBoard returns the games a player throws on the board in that may
+// still be running, newest first: started (ready), not aborted and not completed. Whether
+// one is over only its replay tells, so the caller still checks that; this only leaves
+// out the games that can't be running, without replaying them.
+func (store *Store) ListUnfinishedGamesByBoard(ctx context.Context, boardID int64) ([]game.Game, error) {
 	on := store.db.NewSelect().Model((*game.Participant)(nil)).Column("game_id").Where("board_id = ?", boardID)
-	return store.scanGames(ctx, store.db.NewSelect().Where("id IN (?)", on).Order("id DESC").Limit(limit))
+	return store.scanGames(ctx, store.db.NewSelect().Where("id IN (?)", on).
+		Where("started_at IS NOT NULL").Where("aborted_at IS NULL").Where("completed_at IS NULL").
+		Order("id DESC"))
 }
 
 // ListInvitedGames returns the games a player was invited to and hasn't answered yet,
