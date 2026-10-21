@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/sj14/darts-o-mat/internal/server/auth"
-	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/frontend/view"
 	"github.com/sj14/darts-o-mat/internal/server/service"
 )
@@ -36,30 +35,33 @@ func (c *Controller) setColor(w http.ResponseWriter, r *http.Request) {
 
 // setEmail changes the email of the account.
 func (c *Controller) setEmail(w http.ResponseWriter, r *http.Request) {
-	switch _, err := c.svc.SetEmail(r.Context(), auth.Account(r.Context()), r.FormValue("email")); {
-	case err == nil:
-		http.Redirect(w, r, "/settings", http.StatusSeeOther)
-	case errors.Is(err, service.ErrEmailTaken):
-		c.renderSettings(w, r, http.StatusConflict, view.T(r.Context()).ErrEmailTaken())
-	case errors.Is(err, account.ErrInvalidEmail):
-		c.renderSettings(w, r, http.StatusBadRequest, view.T(r.Context()).ErrInvalidEmail())
-	default:
-		serverError(w, err)
-	}
+	_, err := c.svc.SetEmail(r.Context(), auth.Account(r.Context()), r.FormValue("email"))
+	c.respondSettings(w, r, err)
 }
 
 // deleteAccount deletes the account after its password was entered again, and logs out.
 func (c *Controller) deleteAccount(w http.ResponseWriter, r *http.Request) {
-	switch err := c.svc.DeleteAccount(r.Context(), auth.Account(r.Context()), r.FormValue("password")); {
-	case err == nil:
-		if err := auth.Logout(w, r, c.svc); err != nil {
-			serverError(w, err)
-			return
-		}
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-	case errors.Is(err, service.ErrWrongPassword):
-		c.renderSettings(w, r, http.StatusForbidden, view.T(r.Context()).ErrWrongPassword())
-	default:
-		serverError(w, err)
+	if err := c.svc.DeleteAccount(r.Context(), auth.Account(r.Context()), r.FormValue("password")); err != nil {
+		c.respondSettings(w, r, err)
+		return
 	}
+	if err := auth.Logout(w, r, c.svc); err != nil {
+		serverError(w, err)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// respondSettings answers a change on the settings page: back to it, with the message of
+// the error if it failed.
+func (c *Controller) respondSettings(w http.ResponseWriter, r *http.Request, err error) {
+	if err == nil {
+		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+		return
+	}
+	if msg, ok := errorText(view.T(r.Context()), err); ok {
+		c.renderSettings(w, r, http.StatusBadRequest, msg)
+		return
+	}
+	serverError(w, err)
 }

@@ -81,16 +81,11 @@ func (c *Controller) addDart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v, err := c.svc.AddDart(r.Context(), auth.Account(r.Context()), id, d)
-	switch {
-	case err == nil:
-		render(w, r, http.StatusOK, view.Board(v, ""))
-	case d.Number == dartboard.BullNumber && d.Segment == dartboard.Triple:
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrTripleBull())
-	case errors.Is(err, dartboard.ErrInvalid):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrNoSuchField())
-	default:
-		c.handleGameError(w, r, id, err)
+	if err != nil {
+		c.handleDartError(w, r, id, d, err)
+		return
 	}
+	render(w, r, http.StatusOK, view.Board(v, ""))
 }
 
 func (c *Controller) undoDart(w http.ResponseWriter, r *http.Request) {
@@ -190,16 +185,10 @@ func (c *Controller) editDart(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err == nil:
 		render(w, r, http.StatusOK, view.Board(v, ""))
-	case errors.Is(err, service.ErrChangesThrowers):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrChangesThrowers())
 	case errors.Is(err, turn.ErrGameOver):
 		c.renderBoard(w, r, id, view.T(r.Context()).ErrEndsEarlier())
-	case d.Number == dartboard.BullNumber && d.Segment == dartboard.Triple:
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrTripleBull())
-	case errors.Is(err, dartboard.ErrInvalid):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrNoSuchField())
 	default:
-		c.handleGameError(w, r, id, err)
+		c.handleDartError(w, r, id, d, err)
 	}
 }
 
@@ -328,35 +317,29 @@ func (c *Controller) respondBoard(w http.ResponseWriter, r *http.Request, id int
 
 // handleGameError responds to errors shared by the actions on a game.
 func (c *Controller) handleGameError(w http.ResponseWriter, r *http.Request, id int64, err error) {
-	switch {
-	case errors.Is(err, service.ErrBoardBusy):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrBoardBusy())
-	case errors.Is(err, service.ErrBoardRequired):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrBoardRequired())
-	case errors.Is(err, turn.ErrGameOver):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrGameOver())
-	case errors.Is(err, turn.ErrWaitingForTakeout):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrPullDartsFirst())
-	case errors.Is(err, service.ErrNotReady):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrNotReady())
-	case errors.Is(err, service.ErrAborted):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrAborted())
-	case errors.Is(err, service.ErrCompleted):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrCompleted())
-	case errors.Is(err, service.ErrNotOver):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrNotOver())
-	case errors.Is(err, service.ErrNothingToUndo):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrNothingToUndo())
-	case errors.Is(err, service.ErrCantLeave):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrCantLeave())
-	case errors.Is(err, service.ErrForbidden):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrForbidden())
+	t := view.T(r.Context())
+	switch msg, ok := errorText(t, err); {
+	case ok:
+		c.renderBoard(w, r, id, msg)
 	case errors.Is(err, service.ErrInvalid):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrInput())
+		c.renderBoard(w, r, id, t.ErrInput())
 	case isNotFound(err):
 		http.NotFound(w, r)
 	default:
 		serverError(w, err)
+	}
+}
+
+// handleDartError is handleGameError for entering or correcting the dart d: why the
+// field doesn't exist.
+func (c *Controller) handleDartError(w http.ResponseWriter, r *http.Request, id int64, d throw.Dart, err error) {
+	switch {
+	case d.Number == dartboard.BullNumber && d.Segment == dartboard.Triple:
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrTripleBull())
+	case errors.Is(err, dartboard.ErrInvalid):
+		c.renderBoard(w, r, id, view.T(r.Context()).ErrNoSuchField())
+	default:
+		c.handleGameError(w, r, id, err)
 	}
 }
 

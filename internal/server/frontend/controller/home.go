@@ -67,16 +67,12 @@ func (c *Controller) createGuest(w http.ResponseWriter, r *http.Request) {
 		c.renderPlayers(w, r, err, guest.ID, 0)
 		return
 	}
-	if errors.Is(err, service.ErrGuestNameTaken) {
-		c.renderHome(w, r, http.StatusBadRequest, "", view.T(r.Context()).ErrGuestNameTaken())
-		return
-	}
-	if errors.Is(err, service.ErrInvalid) {
-		c.renderHome(w, r, http.StatusBadRequest, "", view.T(r.Context()).ErrEnterName())
-		return
-	}
 	if err != nil {
-		serverError(w, err)
+		if msg, ok := guestErrorText(view.T(r.Context()), err); ok {
+			c.renderHome(w, r, http.StatusBadRequest, "", msg)
+		} else {
+			serverError(w, err)
+		}
 		return
 	}
 	http.Redirect(w, r, homeURL(r), http.StatusSeeOther)
@@ -98,11 +94,25 @@ func (c *Controller) deleteGuest(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, homeURL(r), http.StatusSeeOther)
 	case isNotFound(err):
 		http.NotFound(w, r)
-	case errors.Is(err, service.ErrGuestBusy):
-		c.renderHome(w, r, http.StatusConflict, "", view.T(r.Context()).ErrGuestBusy())
 	default:
-		serverError(w, err)
+		if msg, ok := guestErrorText(view.T(r.Context()), err); ok {
+			c.renderHome(w, r, http.StatusConflict, "", msg)
+		} else {
+			serverError(w, err)
+		}
 	}
+}
+
+// guestErrorText is errorText for adding or deleting a guest: a plain service.ErrInvalid
+// is a missing name.
+func guestErrorText(t view.Texts, err error) (string, bool) {
+	if msg, ok := errorText(t, err); ok {
+		return msg, true
+	}
+	if errors.Is(err, service.ErrInvalid) {
+		return t.ErrEnterName(), true
+	}
+	return "", false
 }
 
 // isHTMX reports whether htmx sent the request, which then wants a part of the page.
@@ -117,17 +127,13 @@ func (c *Controller) renderPlayers(w http.ResponseWriter, r *http.Request, err e
 	ctx := r.Context()
 	t := view.T(ctx)
 	m := view.PlayersModel{Selected: map[int64]bool{}}
-	switch {
-	case err == nil:
-	case errors.Is(err, service.ErrGuestNameTaken):
-		m.Error = t.ErrGuestNameTaken()
-	case errors.Is(err, service.ErrGuestBusy):
-		m.Error = t.ErrGuestBusy()
-	case errors.Is(err, service.ErrInvalid):
-		m.Error = t.ErrEnterName()
-	default:
-		serverError(w, err)
-		return
+	if err != nil {
+		msg, ok := guestErrorText(t, err)
+		if !ok {
+			serverError(w, err)
+			return
+		}
+		m.Error = msg
 	}
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -188,23 +194,10 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 	}
 	texts := view.T(r.Context())
 	msg := texts.ErrGameNotStarted()
-	var unknown service.UnknownUserError
-	var notFriend service.NotFriendError
-	switch {
-	case len(g.Participants) == 0:
+	if len(g.Participants) == 0 {
 		msg = texts.ErrChoosePlayer()
-	case errors.Is(err, service.ErrBoardBusy):
-		msg = texts.ErrBoardBusy()
-	case errors.Is(err, service.ErrBoardRequired):
-		msg = texts.ErrBoardRequired()
-	case errors.Is(err, tournament.ErrPlayerCount):
-		msg = texts.ErrTournamentPlayers(tournament.MinPlayers, tournament.MaxPlayers)
-	case errors.As(err, &unknown):
-		msg = texts.ErrUnknownUser(unknown.Username)
-	case errors.As(err, &notFriend):
-		msg = texts.ErrNotFriend(notFriend.Username)
-	case errors.Is(err, service.ErrInviteSelf):
-		msg = texts.ErrInviteSelf()
+	} else if text, ok := errorText(texts, err); ok {
+		msg = text
 	}
 	c.renderHome(w, r, http.StatusBadRequest, game.Mode(r.FormValue("mode")), msg)
 }

@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/sj14/darts-o-mat/internal/server/auth"
-	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/frontend/view"
 	"github.com/sj14/darts-o-mat/internal/server/service"
 )
@@ -56,19 +55,12 @@ func (c *Controller) register(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		_, err = c.svc.Register(r.Context(), m.Username, m.Email, m.Name, password)
 	}
-	switch {
-	case errors.Is(err, service.ErrCaptcha):
-		m.Error = view.T(r.Context()).ErrCaptcha()
-	case errors.Is(err, service.ErrUsernameTaken):
-		m.Error = view.T(r.Context()).ErrUsernameTaken()
-	case errors.Is(err, service.ErrEmailTaken):
-		m.Error = view.T(r.Context()).ErrEmailTaken()
-	case errors.Is(err, account.ErrInvalidEmail):
-		m.Error = view.T(r.Context()).ErrInvalidEmail()
+	t := view.T(r.Context())
+	switch msg, ok := errorText(t, err); {
+	case ok:
+		m.Error = msg
 	case errors.Is(err, service.ErrInvalid):
-		m.Error = view.T(r.Context()).ErrRegisterInput()
-	case errors.Is(err, service.ErrRegistrationClosed):
-		m.Error = view.T(r.Context()).RegistrationClosed()
+		m.Error = t.ErrRegisterInput()
 	case err != nil:
 		serverError(w, err)
 		return

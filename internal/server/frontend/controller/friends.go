@@ -25,16 +25,14 @@ func (c *Controller) renderFriends(w http.ResponseWriter, r *http.Request, statu
 
 func (c *Controller) requestFriend(w http.ResponseWriter, r *http.Request) {
 	err := c.svc.RequestFriend(r.Context(), auth.Account(r.Context()), r.FormValue("username"))
-	var unknown service.UnknownUserError
-	switch {
+	t := view.T(r.Context())
+	switch msg, ok := errorText(t, err); {
 	case err == nil:
 		http.Redirect(w, r, "/friends", http.StatusSeeOther)
-	case errors.As(err, &unknown):
-		c.renderFriends(w, r, http.StatusBadRequest, view.T(r.Context()).ErrUnknownUser(unknown.Username), "")
-	case errors.Is(err, service.ErrAlreadyFriends):
-		c.renderFriends(w, r, http.StatusConflict, view.T(r.Context()).ErrAlreadyFriends(), "")
+	case ok:
+		c.renderFriends(w, r, http.StatusBadRequest, msg, "")
 	case errors.Is(err, service.ErrInvalid):
-		c.renderFriends(w, r, http.StatusBadRequest, view.T(r.Context()).ErrFriendSelf(), "")
+		c.renderFriends(w, r, http.StatusBadRequest, t.ErrFriendSelf(), "")
 	default:
 		serverError(w, err)
 	}
