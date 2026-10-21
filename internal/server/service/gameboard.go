@@ -32,19 +32,9 @@ type BoardChoice struct {
 // it broke: from then on they enter their darts by hand, as if they had played without a
 // board from the start (the game stops waiting for takeouts if no one else has a board).
 func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID int64, boardID *int64) (GameView, error) {
-	g, err := s.store.GetGame(ctx, gameID)
-	if err != nil {
-		return GameView{}, err
-	}
-	if err := needBoard(g.Lobby, boardID); err != nil {
-		return GameView{}, err
-	}
-	if err := s.checkGameBoard(ctx, acc, g, boardID); err != nil {
-		return GameView{}, err
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	v, err := s.view(ctx, acc, g)
+	v, err := s.Game(ctx, acc, gameID)
 	if err != nil {
 		return GameView{}, err
 	}
@@ -55,6 +45,9 @@ func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID int6
 		return GameView{}, turn.ErrGameOver
 	case !v.CanThrow:
 		return GameView{}, ErrForbidden
+	}
+	if err := s.checkSeatBoard(ctx, acc, gameSeat(v.Game), boardID); err != nil {
+		return GameView{}, err
 	}
 	now := time.Now()
 	for _, id := range v.Mine {
@@ -68,7 +61,8 @@ func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID int6
 	if err := s.takeBoard(ctx, boardID, gameID); err != nil {
 		return GameView{}, err
 	}
-	if g, err = s.store.GetGame(ctx, gameID); err != nil {
+	g, err := s.store.GetGame(ctx, gameID)
+	if err != nil {
 		return GameView{}, err
 	}
 	s.notifyGame(g)
@@ -78,6 +72,67 @@ func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID int6
 // ErrBoardBusy means the board is in a running game that is only for players with a
 // board: it can't be taken from it.
 var ErrBoardBusy = fmt.Errorf("%w: the board is in a game that needs it", ErrInvalid)
+
+// ErrBoardRequired means the game or tournament is only for players with a board, and the
+// player has none.
+var ErrBoardRequired = fmt.Errorf("%w: a board is required", ErrInvalid)
+
+// seat is the game or tournament a player takes a seat in, as checkSeatBoard sees it.
+type seat struct {
+	lobby game.Lobby
+	// shared are the boards the other players throw on: friends at one board share it.
+	shared []int64
+	// game is the game that takes the board, 0 for one that isn't stored yet. A tournament
+	// takes no board (holdsBoards false), only the games of its matches do.
+	game        int64
+	holdsBoards bool
+}
+
+// gameSeat is a seat in a stored game.
+func gameSeat(g game.Game) seat {
+	st := seat{lobby: g.Lobby, game: g.ID, holdsBoards: true}
+	for _, p := range g.Participants {
+		if p.BoardID != nil {
+			st.shared = append(st.shared, *p.BoardID)
+		}
+	}
+	return st
+}
+
+// tournamentSeat is a seat in a stored tournament.
+func tournamentSeat(t tournament.Tournament) seat {
+	st := seat{lobby: t.Lobby}
+	for _, p := range t.Participants {
+		if p.BoardID != nil {
+			st.shared = append(st.shared, *p.BoardID)
+		}
+	}
+	return st
+}
+
+// checkSeatBoard checks the board a player takes a seat on, nil for none: a lobby only
+// for players with a board needs one (ErrBoardRequired); it is one the other players
+// throw on or one of the account's; and a game can't take it from a running game that
+// needs its boards (ErrBoardBusy).
+func (s *Service) checkSeatBoard(ctx context.Context, acc account.Account, st seat, boardID *int64) error {
+	if boardID == nil {
+		if st.lobby.BoardOnly {
+			return ErrBoardRequired
+		}
+		return nil
+	}
+	if slices.Contains(st.shared, *boardID) {
+		return nil
+	}
+	b, err := s.store.GetBoard(ctx, *boardID)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && b.AccountID != acc.ID) {
+		return fmt.Errorf("%w: unknown board", ErrInvalid)
+	}
+	if err != nil || !st.holdsBoards {
+		return err
+	}
+	return s.checkBoardFree(ctx, *boardID, st.game)
+}
 
 // checkBoardFree checks that taking the board for the game keep (0 for a game that isn't
 // stored yet) wouldn't take it from a running game that needs its boards (game.Lobby.BoardOnly).

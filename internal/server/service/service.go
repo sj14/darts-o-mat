@@ -253,21 +253,15 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 	if len(g.Participants) == 0 {
 		return GameView{}, fmt.Errorf("%w: choose at least one of your players", ErrInvalid)
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.checkOwnPlayers(ctx, acc, g.PlayerIDs()); err != nil {
 		return GameView{}, err
 	}
-	for i := range g.Participants {
+	for i, p := range g.Participants {
 		g.Participants[i].Status = game.InvitationAccepted
-		if err := needBoard(g.Lobby, g.Participants[i].BoardID); err != nil {
+		if err := s.checkSeatBoard(ctx, acc, seat{lobby: g.Lobby, holdsBoards: true}, p.BoardID); err != nil {
 			return GameView{}, err
-		}
-		if err := s.checkBoard(ctx, acc, g.Participants[i].BoardID); err != nil {
-			return GameView{}, err
-		}
-		if b := g.Participants[i].BoardID; b != nil {
-			if err := s.checkBoardFree(ctx, *b, 0); err != nil {
-				return GameView{}, err
-			}
 		}
 	}
 	invited, err := s.invitedPlayers(ctx, acc, inviteUsernames)
@@ -281,8 +275,6 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 	if err := g.Validate(); err != nil {
 		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := s.completeFinished(ctx, acc); err != nil {
 		return GameView{}, err
 	}
@@ -343,35 +335,6 @@ func (s *Service) invitedPlayers(ctx context.Context, acc account.Account, usern
 	return invited, nil
 }
 
-// checkBoard checks that the board, if any, is one of the account's.
-func (s *Service) checkBoard(ctx context.Context, acc account.Account, boardID *int64) error {
-	if boardID == nil {
-		return nil
-	}
-	b, err := s.store.GetBoard(ctx, *boardID)
-	if errors.Is(err, store.ErrNotFound) || (err == nil && b.AccountID != acc.ID) {
-		return fmt.Errorf("%w: unknown board", ErrInvalid)
-	}
-	return err
-}
-
-// checkGameBoard is checkBoard for a player of a game: also a board the other players of
-// the game throw on will do, so friends at one board can share it.
-func (s *Service) checkGameBoard(ctx context.Context, acc account.Account, g game.Game, boardID *int64) error {
-	if boardID == nil {
-		return nil
-	}
-	for _, p := range g.Participants {
-		if p.BoardID != nil && *p.BoardID == *boardID {
-			return nil
-		}
-	}
-	if err := s.checkBoard(ctx, acc, boardID); err != nil {
-		return err
-	}
-	return s.checkBoardFree(ctx, *boardID, g.ID)
-}
-
 func (s *Service) Game(ctx context.Context, acc account.Account, id int64) (GameView, error) {
 	g, err := s.store.GetGame(ctx, id)
 	if err != nil {
@@ -408,18 +371,18 @@ func (s *Service) Invitations(ctx context.Context, acc account.Account) ([]GameV
 // one is given, one of the account's or one the others throw on; its cameras then report
 // their darts.
 func (s *Service) AcceptInvitation(ctx context.Context, acc account.Account, gameID int64, boardID *int64) (GameView, error) {
-	g, err := s.store.GetGame(ctx, gameID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	v, err := s.Game(ctx, acc, gameID)
 	if err != nil {
 		return GameView{}, err
 	}
-	if err := needBoard(g.Lobby, boardID); err != nil {
+	if !v.Invited {
+		return GameView{}, ErrNotFound
+	}
+	if err := s.checkSeatBoard(ctx, acc, gameSeat(v.Game), boardID); err != nil {
 		return GameView{}, err
 	}
-	if err := s.checkGameBoard(ctx, acc, g, boardID); err != nil {
-		return GameView{}, err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := s.completeFinished(ctx, acc); err != nil {
 		return GameView{}, err
 	}
@@ -438,6 +401,8 @@ func (s *Service) AcceptInvitation(ctx context.Context, acc account.Account, gam
 
 // DeclineInvitation removes the account's player from a game it was invited to.
 func (s *Service) DeclineInvitation(ctx context.Context, acc account.Account, gameID int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	v, err := s.Game(ctx, acc, gameID)
 	if err != nil {
 		return err
@@ -445,9 +410,6 @@ func (s *Service) DeclineInvitation(ctx context.Context, acc account.Account, ga
 	if !v.Invited {
 		return ErrNotFound
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := s.store.RemoveParticipant(ctx, gameID, acc.PlayerID); err != nil {
 		return err
 	}
@@ -461,6 +423,8 @@ func (s *Service) DeclineInvitation(ctx context.Context, acc account.Account, ga
 // WithdrawInvitation lets a player of the game remove an invited player who hasn't
 // accepted yet. Returns ErrNotFound if the game was deleted because no player is left.
 func (s *Service) WithdrawInvitation(ctx context.Context, acc account.Account, gameID, playerID int64) (GameView, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	v, err := s.Game(ctx, acc, gameID)
 	if err != nil {
 		return GameView{}, err
@@ -471,14 +435,10 @@ func (s *Service) WithdrawInvitation(ctx context.Context, acc account.Account, g
 	if !v.Pending(playerID) {
 		return GameView{}, fmt.Errorf("%w: player %d has no pending invitation", ErrInvalid, playerID)
 	}
-
-	s.mu.Lock()
-	err = s.store.RemoveParticipant(ctx, gameID, playerID)
-	if err == nil {
-		err = s.startGame(ctx, gameID)
+	if err := s.store.RemoveParticipant(ctx, gameID, playerID); err != nil {
+		return GameView{}, err
 	}
-	s.mu.Unlock()
-	if err != nil {
+	if err := s.startGame(ctx, gameID); err != nil {
 		return GameView{}, err
 	}
 	s.notify(gameID)
@@ -543,14 +503,6 @@ func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64
 		if cur := v.Common().CurrentPlayerID; cur != nil && !v.IsMine(*cur) {
 			return ErrForbidden
 		}
-		return s.storeDart(ctx, g, v, d)
-	})
-}
-
-// addDart registers a dart of a board's cameras for whoever is up, on behalf of the
-// account the board belongs to.
-func (s *Service) addDart(ctx context.Context, acc account.Account, gameID int64, d throw.Dart) (GameView, error) {
-	return s.changeGame(ctx, acc, gameID, func(g *game.Game, v GameView) error {
 		return s.storeDart(ctx, g, v, d)
 	})
 }
@@ -650,18 +602,13 @@ func (s *Service) storeTakeout(ctx context.Context, g *game.Game, v GameView) er
 // subscribers. Changes are applied one at a time, so change sees the current darts in
 // v and two darts can't both pass the replay check against the same state.
 func (s *Service) changeGame(ctx context.Context, acc account.Account, gameID int64, change func(g *game.Game, v GameView) error) (GameView, error) {
-	g, err := s.throwableGame(ctx, acc, gameID)
-	if err != nil {
-		return GameView{}, err
-	}
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	v, err := s.view(ctx, acc, g)
+	v, err := s.throwableGame(ctx, acc, gameID)
 	if err != nil {
 		return GameView{}, err
 	}
+	g := v.Game
 	if err := change(&g, v); err != nil {
 		return GameView{}, err
 	}
@@ -689,23 +636,23 @@ func (s *Service) changeByCameras(ctx context.Context, gameID int64, change func
 	return s.build(ctx, g)
 }
 
-// throwableGame returns the game if the account may enter darts right now.
-// A game only gets ready once, invitations can't be added later.
-func (s *Service) throwableGame(ctx context.Context, acc account.Account, gameID int64) (game.Game, error) {
+// throwableGame returns the view of the game if the account may enter darts right now.
+// The caller holds s.mu.
+func (s *Service) throwableGame(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
 	v, err := s.Game(ctx, acc, gameID)
 	if err != nil {
-		return game.Game{}, err
+		return GameView{}, err
 	}
 	if v.Game.Aborted() {
-		return game.Game{}, ErrAborted
+		return GameView{}, ErrAborted
 	}
 	if !v.CanThrow {
-		return game.Game{}, ErrForbidden
+		return GameView{}, ErrForbidden
 	}
 	if !v.Ready {
-		return game.Game{}, ErrNotReady
+		return GameView{}, ErrNotReady
 	}
-	return v.Game, nil
+	return v, nil
 }
 
 func (s *Service) views(ctx context.Context, acc account.Account, games []game.Game) ([]GameView, error) {

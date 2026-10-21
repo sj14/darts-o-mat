@@ -63,6 +63,8 @@ The documents are split by area and link to each other. The READMEs of the two p
 
 Simple, elegant, idiomatic code matters to the user.
 
+- **Don't repeat yourself:** a rule or a check lives in one place, and every way in calls it. When the same condition, check or sequence of steps shows up a second time, move it into one function (in the domain if it is a rule of the game, in the service if it needs the store) instead of copying it; a copy drifts apart, and then one of the ways in behaves differently. Examples: `service.checkSeatBoard` is the one check of the board a player takes part with; the API maps errors to status codes in one place (`writeError`).
+
 - If a change of the intended behaviour (not only of the code) would make an implementation considerably simpler, ask the user before building the complex version: name the simpler behaviour and what it gives up, and put it first as the recommended option. TODO entries describe a wish, not a fixed specification.
 - Don't implement every feature blindly: if something brings little benefit but makes the code considerably more complicated or worse, first state the effort and the consequences for the code, propose a simpler alternative or advise against it.
 

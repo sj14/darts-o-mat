@@ -20,18 +20,6 @@ const OpenFor = 30 * time.Minute
 // isn't offered anymore.
 var ErrNoSeat = fmt.Errorf("%w: no free seat", ErrInvalid)
 
-// ErrBoardRequired means the game or tournament is only for players with a board, and the
-// player has none.
-var ErrBoardRequired = fmt.Errorf("%w: a board is required", ErrInvalid)
-
-// needBoard checks the board of a player of a lobby that may be only for players with one.
-func needBoard(l game.Lobby, boardID *int64) error {
-	if l.BoardOnly && boardID == nil {
-		return ErrBoardRequired
-	}
-	return nil
-}
-
 // OpenLobby is a game or tournament strangers can join, as the list shows it.
 type OpenLobby struct {
 	Tournament bool              `json:"tournament"` // a tournament, else a game
@@ -143,10 +131,7 @@ func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int6
 	case !offered(g.Lobby, len(g.Participants), g.CreatedAt, g.Aborted()):
 		return GameView{}, ErrNoSeat
 	}
-	if err := needBoard(g.Lobby, boardID); err != nil {
-		return GameView{}, err
-	}
-	if err := s.checkGameBoard(ctx, acc, g, boardID); err != nil {
+	if err := s.checkSeatBoard(ctx, acc, gameSeat(g), boardID); err != nil {
 		return GameView{}, err
 	}
 	if err := s.completeFinished(ctx, acc); err != nil {
@@ -185,10 +170,7 @@ func (s *Service) JoinTournament(ctx context.Context, acc account.Account, id in
 	case !offered(t.Lobby, len(t.Participants), t.CreatedAt, t.Aborted()):
 		return TournamentView{}, ErrNoSeat
 	}
-	if err := needBoard(t.Lobby, boardID); err != nil {
-		return TournamentView{}, err
-	}
-	if err := s.checkTournamentBoard(ctx, acc, t, boardID); err != nil {
+	if err := s.checkSeatBoard(ctx, acc, tournamentSeat(t), boardID); err != nil {
 		return TournamentView{}, err
 	}
 	if err := s.completeFinished(ctx, acc); err != nil {

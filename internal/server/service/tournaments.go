@@ -61,15 +61,14 @@ func (s *Service) CreateTournament(ctx context.Context, acc account.Account, t t
 	if len(t.Participants) == 0 {
 		return TournamentView{}, fmt.Errorf("%w: choose at least one of your players", ErrInvalid)
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.checkOwnPlayers(ctx, acc, t.PlayerIDs()); err != nil {
 		return TournamentView{}, err
 	}
-	for i := range t.Participants {
+	for i, p := range t.Participants {
 		t.Participants[i].Status = game.InvitationAccepted
-		if err := needBoard(t.Lobby, t.Participants[i].BoardID); err != nil {
-			return TournamentView{}, err
-		}
-		if err := s.checkBoard(ctx, acc, t.Participants[i].BoardID); err != nil {
+		if err := s.checkSeatBoard(ctx, acc, seat{lobby: t.Lobby}, p.BoardID); err != nil {
 			return TournamentView{}, err
 		}
 	}
@@ -84,8 +83,6 @@ func (s *Service) CreateTournament(ctx context.Context, acc account.Account, t t
 	if err := t.Validate(); err != nil {
 		return TournamentView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := s.completeFinished(ctx, acc); err != nil {
 		return TournamentView{}, err
 	}
@@ -146,18 +143,18 @@ func (s *Service) TournamentInvitations(ctx context.Context, acc account.Account
 // on the board if one is given (one of the account's, or one other players throw on), in
 // all the matches they play.
 func (s *Service) AcceptTournamentInvitation(ctx context.Context, acc account.Account, id int64, boardID *int64) (TournamentView, error) {
-	t, err := s.store.GetTournament(ctx, id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	v, err := s.Tournament(ctx, acc, id)
 	if err != nil {
 		return TournamentView{}, err
 	}
-	if err := needBoard(t.Lobby, boardID); err != nil {
+	if !v.Invited {
+		return TournamentView{}, ErrNotFound
+	}
+	if err := s.checkSeatBoard(ctx, acc, tournamentSeat(v.Tournament), boardID); err != nil {
 		return TournamentView{}, err
 	}
-	if err := s.checkTournamentBoard(ctx, acc, t, boardID); err != nil {
-		return TournamentView{}, err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := s.completeFinished(ctx, acc); err != nil {
 		return TournamentView{}, err
 	}
@@ -171,6 +168,8 @@ func (s *Service) AcceptTournamentInvitation(ctx context.Context, acc account.Ac
 // DeclineTournamentInvitation removes the account's player from a tournament it was
 // invited to. Its games only start once everyone accepted, so it has none yet.
 func (s *Service) DeclineTournamentInvitation(ctx context.Context, acc account.Account, id int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	v, err := s.Tournament(ctx, acc, id)
 	if err != nil {
 		return err
@@ -183,20 +182,6 @@ func (s *Service) DeclineTournamentInvitation(ctx context.Context, acc account.A
 	}
 	s.tournaments.Notify(id)
 	return nil
-}
-
-// checkTournamentBoard is checkBoard for a player of a tournament: also a board the other
-// players throw on will do.
-func (s *Service) checkTournamentBoard(ctx context.Context, acc account.Account, t tournament.Tournament, boardID *int64) error {
-	if boardID == nil {
-		return nil
-	}
-	for _, p := range t.Participants {
-		if p.BoardID != nil && *p.BoardID == *boardID {
-			return nil
-		}
-	}
-	return s.checkBoard(ctx, acc, boardID)
 }
 
 // StartMatch starts the game of a match whose players are known. An account with a

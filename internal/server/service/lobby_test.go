@@ -210,3 +210,34 @@ func TestBoardOnlyGame(t *testing.T) {
 		t.Errorf("move another game to the board: got %v, want ErrBoardBusy", err)
 	}
 }
+
+// Whoever takes no part in a game learns nothing about it, not even that it needs a
+// board, and a refused request changes nothing of theirs.
+func TestOutsiderIsRefusedFirst(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna, carl := register(t, s, "anna"), register(t, s, "carl")
+	annas, _ := s.CreateBoard(ctx, anna, "Annas")
+	g := withBoard(x01Game(anna.PlayerID), annas.ID)
+	g.Lobby = game.Lobby{Seats: 2, BoardOnly: true}
+	v, err := s.CreateGame(ctx, anna, g, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// carl just finished a game of his own: it can still be corrected.
+	own, _ := s.CreateGame(ctx, carl, quick(carl.PlayerID), nil)
+	if _, err := s.AddDart(ctx, carl, own.Game.ID, d20); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.UseBoard(ctx, carl, v.Game.ID, nil); !errors.Is(err, ErrNotFound) {
+		t.Errorf("an outsider takes a board away: got %v, want ErrNotFound", err)
+	}
+	if _, err := s.AcceptInvitation(ctx, carl, v.Game.ID, &annas.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("an outsider accepts without an invitation: got %v, want ErrNotFound", err)
+	}
+	if own, _ = s.Game(ctx, carl, own.Game.ID); own.Completed {
+		t.Error("a refused accept completed the outsider's own game")
+	}
+}
