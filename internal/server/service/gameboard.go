@@ -197,8 +197,8 @@ func (s *Service) takeBoards(ctx context.Context, g game.Game) error {
 	return nil
 }
 
-// boardChoices lists the boards an account can pick in a game: its own and those other
-// players of the game throw on.
+// boardChoices lists the boards an account can pick in a game: its own, marked if another
+// running game is on them, and those other players of the game throw on.
 func (s *Service) boardChoices(ctx context.Context, acc account.Account, g game.Game) ([]BoardChoice, error) {
 	boards, err := s.store.ListBoards(ctx, acc.ID)
 	if err != nil {
@@ -213,20 +213,7 @@ func (s *Service) boardChoices(ctx context.Context, acc account.Account, g game.
 		inUse := slices.ContainsFunc(active, func(o GameView) bool { return o.Game.ID != g.ID })
 		choices = append(choices, BoardChoice{Board: b, InUse: inUse})
 	}
-	for _, p := range g.Participants {
-		if p.BoardID == nil || slices.ContainsFunc(choices, func(c BoardChoice) bool { return c.ID == *p.BoardID }) {
-			continue
-		}
-		b, err := s.store.GetBoard(ctx, *p.BoardID)
-		if errors.Is(err, store.ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		choices = append(choices, BoardChoice{Board: b, Others: true})
-	}
-	return choices, nil
+	return s.withSharedBoards(ctx, choices, gameSeat(g).shared)
 }
 
 // tournamentBoardChoices lists the boards an account can pick in a tournament: its own and
@@ -240,11 +227,17 @@ func (s *Service) tournamentBoardChoices(ctx context.Context, acc account.Accoun
 	for _, b := range boards {
 		choices = append(choices, BoardChoice{Board: b})
 	}
-	for _, p := range t.Participants {
-		if p.BoardID == nil || slices.ContainsFunc(choices, func(c BoardChoice) bool { return c.ID == *p.BoardID }) {
+	return s.withSharedBoards(ctx, choices, tournamentSeat(t).shared)
+}
+
+// withSharedBoards adds the boards other players throw on (seat.shared) to the account's
+// choices, unless they are among them already.
+func (s *Service) withSharedBoards(ctx context.Context, choices []BoardChoice, shared []int64) ([]BoardChoice, error) {
+	for _, id := range shared {
+		if slices.ContainsFunc(choices, func(c BoardChoice) bool { return c.ID == id }) {
 			continue
 		}
-		b, err := s.store.GetBoard(ctx, *p.BoardID)
+		b, err := s.store.GetBoard(ctx, id)
 		if errors.Is(err, store.ErrNotFound) {
 			continue
 		}
