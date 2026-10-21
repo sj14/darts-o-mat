@@ -83,6 +83,40 @@ type session struct {
 	err    error // of the last attempt to finish, see calibrationError
 }
 
+// sessionOf returns a copy of the calibration in progress of a camera, false if there is
+// none; requests may change the session meanwhile, the copy doesn't change.
+func (ui *UI) sessionOf(name string) (session, bool) {
+	ui.mu.Lock()
+	defer ui.mu.Unlock()
+	s := ui.session[name]
+	if s == nil {
+		return session{}, false
+	}
+	c := *s
+	c.points = slices.Clone(s.points)
+	return c, true
+}
+
+// changeSession changes the calibration in progress of a camera, if there is one.
+func (ui *UI) changeSession(name string, change func(s *session)) {
+	ui.mu.Lock()
+	defer ui.mu.Unlock()
+	if s := ui.session[name]; s != nil {
+		change(s)
+	}
+}
+
+// setSession starts a calibration of a camera, or ends it with nil.
+func (ui *UI) setSession(name string, s *session) {
+	ui.mu.Lock()
+	defer ui.mu.Unlock()
+	if s == nil {
+		delete(ui.session, name)
+	} else {
+		ui.session[name] = s
+	}
+}
+
 // New serves the web interface of the app.
 func New(app *camapp.App) *UI {
 	return &UI{app: app, session: map[string]*session{}, checks: map[string]check{}}
@@ -496,9 +530,7 @@ func (ui *UI) start(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ui.mu.Lock()
-	ui.session[c.Name] = &session{frame: img}
-	ui.mu.Unlock()
+	ui.setSession(c.Name, &session{frame: img})
 	http.Redirect(w, r, calibrateURL(c.Name), http.StatusSeeOther)
 }
 
@@ -507,10 +539,8 @@ func (ui *UI) calibratePage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ui.mu.Lock()
-	s := ui.session[c.Name]
-	ui.mu.Unlock()
-	if s == nil {
+	s, ok := ui.sessionOf(c.Name)
+	if !ok {
 		ui.start(w, r)
 		return
 	}
@@ -523,10 +553,8 @@ func (ui *UI) calibratePage(w http.ResponseWriter, r *http.Request) {
 
 // clickedImage serves the frame being calibrated with the clicked points marked.
 func (ui *UI) clickedImage(w http.ResponseWriter, r *http.Request) {
-	ui.mu.Lock()
-	s := ui.session[chi.URLParam(r, "name")]
-	ui.mu.Unlock()
-	if s == nil {
+	s, ok := ui.sessionOf(chi.URLParam(r, "name"))
+	if !ok {
 		http.NotFound(w, r)
 		return
 	}
@@ -546,10 +574,8 @@ func (ui *UI) auto(w http.ResponseWriter, r *http.Request) {
 	x, errX := strconv.ParseFloat(r.FormValue("click.x"), 64)
 	y, errY := strconv.ParseFloat(r.FormValue("click.y"), 64)
 	log.Printf("%s: click on the double of the 20 at %.0f, %.0f", name, x, y)
-	ui.mu.Lock()
-	s := ui.session[name]
-	ui.mu.Unlock()
-	if s == nil || s.manual || errX != nil || errY != nil {
+	s, ok := ui.sessionOf(name)
+	if !ok || s.manual || errX != nil || errY != nil {
 		http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
 		return
 	}
@@ -563,38 +589,32 @@ func (ui *UI) auto(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		log.Printf("%s: automatic calibration: %v", name, err)
-		ui.mu.Lock()
-		s.manual, s.err = true, errAutoFailed
-		ui.mu.Unlock()
+		ui.changeSession(name, func(s *session) { s.manual, s.err = true, errAutoFailed })
 		http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
 		return
 	}
-	ui.mu.Lock()
-	delete(ui.session, name)
-	ui.mu.Unlock()
+	ui.setSession(name, nil)
 	http.Redirect(w, r, "/cam/"+name+"/check", http.StatusSeeOther) // show the result
 }
 
 // byHand switches from the click on the double of the 20 to the wire crossings.
 func (ui *UI) byHand(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
-	ui.mu.Lock()
-	if s := ui.session[name]; s != nil {
-		s.manual, s.err = true, nil
-	}
-	ui.mu.Unlock()
+	ui.changeSession(name, func(s *session) { s.manual, s.err = true, nil })
 	http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
 }
 
-// point records a click on the image for the current target. The image input of the
-// form sends the click position in pixels of the image, which is shown in full size.
+// point records a click on the image for the current target. The page (clickImage)
+// sends the click position in pixels of the image.
 func (ui *UI) point(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 	x, errX := strconv.ParseFloat(r.FormValue("click.x"), 64)
 	y, errY := strconv.ParseFloat(r.FormValue("click.y"), 64)
 	log.Printf("%s: click at %.0f, %.0f", name, x, y)
-	ui.mu.Lock()
-	if s := ui.session[name]; s != nil && errX == nil && errY == nil && s.target < len(Targets) {
+	ui.changeSession(name, func(s *session) {
+		if errX != nil || errY != nil || s.target >= len(Targets) {
+			return
+		}
 		s.points = append(s.points, vision.CalibrationPoint{
 			Image:   dartboard.Point{X: x, Y: y},
 			Between: Targets[s.target],
@@ -602,42 +622,31 @@ func (ui *UI) point(w http.ResponseWriter, r *http.Request) {
 		})
 		s.target++
 		s.err = nil
-	}
-	ui.mu.Unlock()
+	})
 	http.Redirect(w, r, calibrateURL(name)+"#frame", http.StatusSeeOther) // back to the image, not the top of the page
 }
 
 // skip moves on to the next target, e.g. when the point is hidden by a dart.
 func (ui *UI) skip(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
-	ui.mu.Lock()
-	if s := ui.session[name]; s != nil && s.target < len(Targets) {
-		s.target++
-	}
-	ui.mu.Unlock()
+	ui.changeSession(name, func(s *session) { s.target = min(s.target+1, len(Targets)) })
 	http.Redirect(w, r, calibrateURL(name)+"#frame", http.StatusSeeOther) // back to the image, not the top of the page
 }
 
 // finish refines the clicked calibration on the frame and saves it.
 func (ui *UI) finish(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
-	ui.mu.Lock()
-	s := ui.session[name]
-	ui.mu.Unlock()
-	if s == nil {
+	s, ok := ui.sessionOf(name)
+	if !ok {
 		http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
 		return
 	}
 	if err := ui.refine(name, s.points, s.frame); err != nil {
-		ui.mu.Lock()
-		s.err = err
-		ui.mu.Unlock()
+		ui.changeSession(name, func(s *session) { s.err = err })
 		http.Redirect(w, r, calibrateURL(name), http.StatusSeeOther)
 		return
 	}
-	ui.mu.Lock()
-	delete(ui.session, name)
-	ui.mu.Unlock()
+	ui.setSession(name, nil)
 	http.Redirect(w, r, "/cam/"+name+"/check", http.StatusSeeOther) // show the result
 }
 

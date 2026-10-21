@@ -1,6 +1,7 @@
 package camapp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"image"
@@ -158,7 +159,7 @@ func (a *App) allBoards() []*BoardConfig {
 // start reads the opened camera in the background.
 func (c *boardCamera) start(cam *camera.Camera) {
 	c.live = vision.StartLive(cam)
-	if img, _, err := c.live.Next(0); err == nil {
+	if img, _, err := c.live.Next(context.Background(), 0); err == nil {
 		c.width, c.height = img.Bounds().Dx(), img.Bounds().Dy()
 	}
 }
@@ -456,12 +457,11 @@ func (a *App) SetBoard(s Board) error {
 	if err := a.save(); err != nil {
 		return err
 	}
-	a.stopBoard(b.ID)
 	if reopen {
-		a.closeBoardCameras(b)
-		a.openCameras(b)
+		a.reopenBoard(b, false)
+	} else {
+		a.restartBoard(b)
 	}
-	a.start(b)
 	return nil
 }
 
@@ -517,11 +517,18 @@ func (a *App) Reconnect(board int) error {
 	if b == nil {
 		return ErrNoBoard
 	}
+	a.reopenBoard(b, false)
+	return nil
+}
+
+// reopenBoard opens the cameras of a board again and starts its detection over;
+// reconnected tells the detection it starts after a failure (see startRun). a.mu must be
+// held.
+func (a *App) reopenBoard(b *BoardConfig, reconnected bool) {
 	a.stopBoard(b.ID)
 	a.closeBoardCameras(b)
 	a.openCameras(b)
-	a.start(b)
-	return nil
+	a.startRun(b, reconnected)
 }
 
 // MaxTipShift limits DetectOptions.TipShift (mm): more than a few millimetres is no

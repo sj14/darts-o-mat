@@ -167,10 +167,7 @@ func (a *App) reconnectFailed(board int, r *run) {
 		return
 	}
 	log.Printf("%s: reconnecting the cameras", b.Name)
-	a.stopBoard(board) // r is done: this only forgets it
-	a.closeBoardCameras(b)
-	a.openCameras(b)
-	a.startRun(b, true)
+	a.reopenBoard(b, true) // r is done: stopping it only forgets it
 }
 
 // detection is what a run of the detection works with; it doesn't change while it runs.
@@ -204,12 +201,12 @@ func (a *App) detect(ctx context.Context, d detection) error {
 		// Analyze every frame once: wait for a new one of each camera.
 		for i, l := range d.lives {
 			var err error
-			if frames[i], seq[i], err = l.Next(seq[i]); err != nil {
+			if frames[i], seq[i], err = l.Next(ctx, seq[i]); err != nil {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
 				return fmt.Errorf("camera %s: %w", d.names[i], err)
 			}
-		}
-		if ctx.Err() != nil {
-			return ctx.Err()
 		}
 		if e := w.Feed(frames); e != nil {
 			a.handle(d, e)

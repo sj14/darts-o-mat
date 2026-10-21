@@ -2,6 +2,7 @@ package vision
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"image"
 	"math"
@@ -270,12 +271,23 @@ func (l *Live) Latest() (*image.RGBA, error) {
 	return l.latest, l.err
 }
 
-// Next waits for a frame newer than the one numbered after and returns it with its number.
-func (l *Live) Next(after uint64) (*image.RGBA, uint64, error) {
+// Next waits for a frame newer than the one numbered after and returns it with its
+// number. It stops waiting when ctx is done, with ctx's error: stopping a detection
+// doesn't have to wait for a camera that delivers no frame.
+func (l *Live) Next(ctx context.Context, after uint64) (*image.RGBA, uint64, error) {
+	stop := context.AfterFunc(ctx, func() {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		l.cond.Broadcast()
+	})
+	defer stop()
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	for l.seq <= after && l.err == nil {
+	for l.seq <= after && l.err == nil && ctx.Err() == nil {
 		l.cond.Wait()
+	}
+	if l.seq <= after && l.err == nil {
+		return nil, l.seq, ctx.Err()
 	}
 	return l.latest, l.seq, l.err
 }
