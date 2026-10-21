@@ -305,11 +305,20 @@ func (a *App) usedDevices() map[string]string {
 // ErrNoBoard means there is no board with the given ID.
 var ErrNoBoard = errors.New("no such board")
 
+// DeviceInUseError means a device is a board's camera already.
+type DeviceInUseError struct {
+	Camera string // its name
+}
+
+func (e DeviceInUseError) Error() string {
+	return "device is already camera " + e.Camera
+}
+
 // AddCamera adds the device with the given ID to a board as a new camera, which then
 // needs to be calibrated. It returns the camera's name.
 func (a *App) AddCamera(board int, id string) (string, error) {
 	if name := a.usedDevices()[id]; name != "" {
-		return "", fmt.Errorf("device is already camera %s", name)
+		return "", DeviceInUseError{Camera: name}
 	}
 	a.mu.Lock()
 	var opts camera.Options
@@ -397,8 +406,20 @@ func (a *App) Boards() []Board {
 	return boards
 }
 
-// ErrInvalidSettings is returned for settings that can't be used.
-var ErrInvalidSettings = errors.New("invalid settings")
+// Why settings can't be used; they all wrap ErrInvalidSettings. The web interface says
+// them in the user's language.
+var (
+	ErrInvalidSettings = errors.New("invalid settings")
+	ErrNoBoardName     = fmt.Errorf("%w: a board needs a name", ErrInvalidSettings)
+	ErrBoardNameTaken  = fmt.Errorf("%w: another board has this name", ErrInvalidSettings)
+	ErrServerAddress   = fmt.Errorf("%w: the server must be an address like http://localhost:3000", ErrInvalidSettings)
+	ErrFrameSettings   = fmt.Errorf("%w: size or frame rate out of range", ErrInvalidSettings)
+	ErrColorDifference = fmt.Errorf("%w: color differences must be at least 1", ErrInvalidSettings)
+	ErrWeakAboveStrong = fmt.Errorf("%w: the weak color difference must not be above the strong one", ErrInvalidSettings)
+	ErrDetectionSizes  = fmt.Errorf("%w: sizes of the dart detection out of range", ErrInvalidSettings)
+	ErrTipShift        = fmt.Errorf("%w: the tip may be moved by at most %g mm", ErrInvalidSettings, MaxTipShift)
+	ErrMotionSettings  = fmt.Errorf("%w: motion settings out of range (the takeout area must be above the motion area)", ErrInvalidSettings)
+)
 
 // SetBoard changes the settings of the board with s.ID. Its cameras are opened again for
 // a new size or frame rate (a camera calibrated on another size needs a new calibration
@@ -407,18 +428,18 @@ func (a *App) SetBoard(s Board) error {
 	s.Name, s.Token = strings.TrimSpace(s.Name), strings.TrimSpace(s.Token)
 	s.Server = strings.TrimSuffix(strings.TrimSpace(s.Server), "/")
 	if s.Name == "" {
-		return fmt.Errorf("%w: a board needs a name", ErrInvalidSettings)
+		return ErrNoBoardName
 	}
 	if s.Server != "" {
 		if u, err := url.Parse(s.Server); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			return fmt.Errorf("%w: the server must be an address like http://localhost:3000", ErrInvalidSettings)
+			return ErrServerAddress
 		}
 	}
 	if s.Width <= 0 || s.Height <= 0 || s.FPS < 1 || s.FPS > 60 {
-		return fmt.Errorf("%w: size or frame rate out of range", ErrInvalidSettings)
+		return ErrFrameSettings
 	}
 	if err := validDetection(s.Detection); err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidSettings, err)
+		return err
 	}
 
 	a.mu.Lock()
@@ -428,7 +449,7 @@ func (a *App) SetBoard(s Board) error {
 		return ErrNoBoard
 	}
 	if slices.ContainsFunc(a.cfg.Boards, func(o BoardConfig) bool { return o.ID != s.ID && o.Name == s.Name }) {
-		return fmt.Errorf("%w: another board is called %q", ErrInvalidSettings, s.Name)
+		return ErrBoardNameTaken
 	}
 	reopen := s.Width != b.Width || s.Height != b.Height || s.FPS != b.FPS
 	b.Board = s
@@ -503,9 +524,9 @@ func (a *App) Reconnect(board int) error {
 	return nil
 }
 
-// maxTipShift limits DetectOptions.TipShift (mm): more than a few millimetres is no
+// MaxTipShift limits DetectOptions.TipShift (mm): more than a few millimetres is no
 // longer a correction of the tip, but moves darts into other fields.
-const maxTipShift = 5.0
+const MaxTipShift = 5.0
 
 // validDetection checks that the thresholds can work: sizes are positive, the weak
 // threshold is below the strong one.
@@ -513,15 +534,15 @@ func validDetection(o vision.WatchOptions) error {
 	d := o.Detect
 	switch {
 	case d.DiffThreshold == 0 || d.WeakThreshold == 0 || o.MotionThreshold == 0:
-		return errors.New("color differences must be at least 1")
+		return ErrColorDifference
 	case d.WeakThreshold > d.DiffThreshold:
-		return errors.New("the weak color difference must not be above the strong one")
+		return ErrWeakAboveStrong
 	case d.Blur < 0 || d.Gap < 0 || d.AxisDistance <= 0 || d.MinArea <= 0 || d.MinSpeck < 0 || d.MinElongation < 1:
-		return errors.New("sizes of the dart detection out of range")
-	case math.Abs(d.TipShift) > maxTipShift:
-		return fmt.Errorf("the tip may be moved by at most %g mm", maxTipShift)
+		return ErrDetectionSizes
+	case math.Abs(d.TipShift) > MaxTipShift:
+		return ErrTipShift
 	case o.SampleStep <= 0 || o.MotionArea <= 0 || o.TakeoutArea <= o.MotionArea || o.StableFrames < 1:
-		return errors.New("motion settings out of range (the takeout area must be above the motion area)")
+		return ErrMotionSettings
 	}
 	return nil
 }

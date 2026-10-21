@@ -145,6 +145,7 @@ type Texts interface {
 	OnBoardAs(name string) string
 	AddDevice() string
 	ErrAddCamera(err string) string
+	ErrDeviceInUse(camera string) string
 
 	// Settings.
 	Saved() string
@@ -166,7 +167,15 @@ type Texts interface {
 	AdvancedHint() string
 	Defaults() string
 	Save() string
-	ErrInvalidSettings(err string) string
+	ErrNoBoardName() string
+	ErrBoardNameTaken(name string) string
+	ErrServerAddress() string
+	ErrFrameSettings() string
+	ErrColorDifference() string
+	ErrWeakAboveStrong() string
+	ErrDetectionSizes() string
+	ErrTipShift(max string) string
+	ErrMotionSettings() string
 	LengthToWidth() string
 	Frames() string
 	DiffThreshold() string

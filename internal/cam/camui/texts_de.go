@@ -177,6 +177,9 @@ func (textsDE) AddDevice() string            { return "Hinzufügen" }
 func (textsDE) ErrAddCamera(err string) string {
 	return "Kamera konnte nicht hinzugefügt werden: " + err
 }
+func (textsDE) ErrDeviceInUse(camera string) string {
+	return "Diese Kamera ist schon an einem Board, als " + camera + "."
+}
 
 func (textsDE) Saved() string { return "Gespeichert und übernommen." }
 func (textsDE) ServerHint() string {
@@ -203,12 +206,36 @@ func (textsDE) Advanced() string { return "Erkennung (für Fortgeschrittene)" }
 func (textsDE) AdvancedHint() string {
 	return "Größen sind in Millimetern auf dem Board angegeben; darts-o-cam rechnet sie für jede Kamera nach ihrer Auflösung und ihrem Abstand in Bildpunkte um. Die Standardwerte stammen von einem Board mit drei Kameras bei 1280 × 720."
 }
-func (textsDE) Defaults() string                     { return "Standardwerte" }
-func (textsDE) Save() string                         { return "Speichern" }
-func (textsDE) ErrInvalidSettings(err string) string { return "Ungültige Einstellungen: " + err }
-func (textsDE) LengthToWidth() string                { return "Länge : Breite" }
-func (textsDE) Frames() string                       { return "Bilder" }
-func (textsDE) DiffThreshold() string                { return "Farbunterschied" }
+func (textsDE) Defaults() string       { return "Standardwerte" }
+func (textsDE) Save() string           { return "Speichern" }
+func (textsDE) ErrNoBoardName() string { return "Gib dem Board einen Namen." }
+func (textsDE) ErrBoardNameTaken(name string) string {
+	return "Ein anderes Board heißt schon „" + name + "“. Wähle einen anderen Namen."
+}
+func (textsDE) ErrServerAddress() string {
+	return "Gib die Adresse des Servers mit http:// oder https:// an, z. B. http://192.168.1.10:3000."
+}
+func (textsDE) ErrFrameSettings() string {
+	return "Wähle eine Bildgröße und 1 bis 60 Bilder pro Sekunde."
+}
+func (textsDE) ErrColorDifference() string {
+	return "Die Farbunterschiede müssen mindestens 1 sein."
+}
+func (textsDE) ErrWeakAboveStrong() string {
+	return "Der schwache Farbunterschied darf nicht über dem Farbunterschied liegen."
+}
+func (textsDE) ErrDetectionSizes() string {
+	return "Eine Größe der Pfeilerkennung liegt außerhalb des erlaubten Bereichs: Sie darf nicht negativ sein, und Länge : Breite muss mindestens 1 sein."
+}
+func (textsDE) ErrTipShift(max string) string {
+	return "Die Spitze kann um höchstens " + max + " mm zurückgesetzt werden."
+}
+func (textsDE) ErrMotionSettings() string {
+	return "Eine Einstellung der Bewegung liegt außerhalb des erlaubten Bereichs: Sie muss über 0 liegen, und „Herausziehen ab“ über „Bewegung ab“."
+}
+func (textsDE) LengthToWidth() string { return "Länge : Breite" }
+func (textsDE) Frames() string        { return "Bilder" }
+func (textsDE) DiffThreshold() string { return "Farbunterschied" }
 func (textsDE) DiffThresholdHint() string {
 	return "Ab diesem Unterschied gilt ein Bildpunkt als verändert."
 }

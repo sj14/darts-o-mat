@@ -3,6 +3,7 @@ package camui
 import (
 	"bufio"
 	"errors"
+	"html"
 	"image"
 	_ "image/jpeg"
 	"io"
@@ -199,11 +200,20 @@ func TestSettings(t *testing.T) {
 		t.Errorf("overview doesn't show the server")
 	}
 
-	if _, body := post(url.Values{"server": {"darts.local"}, "size": {"640x480"}, "fps": {"15"}}); !strings.Contains(body, "Invalid settings") {
-		t.Errorf("server without scheme: no error shown")
-	}
-	if _, body := post(url.Values{"size": {"640x480"}, "fps": {"15"}, "weak_threshold": {"30"}}); !strings.Contains(body, "Invalid settings") {
-		t.Errorf("weak threshold above the strong one: no error shown")
+	// Each mistake is told in words of the page, in the user's language.
+	for _, tt := range []struct {
+		name   string
+		values url.Values
+		want   string
+	}{
+		{"server without scheme", url.Values{"server": {"darts.local"}, "size": {"640x480"}, "fps": {"15"}}, textsEN{}.ErrServerAddress()},
+		{"weak threshold above the strong one", url.Values{"size": {"640x480"}, "fps": {"15"}, "weak_threshold": {"30"}}, textsEN{}.ErrWeakAboveStrong()},
+		{"tip moved too far", url.Values{"size": {"640x480"}, "fps": {"15"}, "tip_shift": {"9"}}, textsEN{}.ErrTipShift("5")},
+		{"no name", url.Values{"name": {" "}, "size": {"640x480"}, "fps": {"15"}}, textsEN{}.ErrNoBoardName()},
+	} {
+		if _, body := post(tt.values); !strings.Contains(body, html.EscapeString(tt.want)) {
+			t.Errorf("%s: %q not shown", tt.name, tt.want)
+		}
 	}
 	if got := app.Boards()[0]; got != want {
 		t.Errorf("invalid settings were stored: %+v", got)

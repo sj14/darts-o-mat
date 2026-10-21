@@ -168,6 +168,9 @@ func (textsEN) ImageUnavailable(name string) string { return "Image of " + name 
 func (textsEN) OnBoardAs(name string) string        { return "on the board as " + name }
 func (textsEN) AddDevice() string                   { return "Add" }
 func (textsEN) ErrAddCamera(err string) string      { return "The camera couldn't be added: " + err }
+func (textsEN) ErrDeviceInUse(camera string) string {
+	return "This camera is already on a board, as " + camera + "."
+}
 
 func (textsEN) Saved() string { return "Saved and applied." }
 func (textsEN) ServerHint() string {
@@ -196,12 +199,34 @@ func (textsEN) Advanced() string { return "Detection (advanced)" }
 func (textsEN) AdvancedHint() string {
 	return "Sizes are in millimetres on the board; darts-o-cam converts them to pixels for each camera by its resolution and distance. The defaults come from a board with three cameras at 1280 × 720."
 }
-func (textsEN) Defaults() string                     { return "Defaults" }
-func (textsEN) Save() string                         { return "Save" }
-func (textsEN) ErrInvalidSettings(err string) string { return "Invalid settings: " + err }
-func (textsEN) LengthToWidth() string                { return "length : width" }
-func (textsEN) Frames() string                       { return "frames" }
-func (textsEN) DiffThreshold() string                { return "Color difference" }
+func (textsEN) Defaults() string       { return "Defaults" }
+func (textsEN) Save() string           { return "Save" }
+func (textsEN) ErrNoBoardName() string { return "Give the board a name." }
+func (textsEN) ErrBoardNameTaken(name string) string {
+	return "Another board is called “" + name + "” already. Choose another name."
+}
+func (textsEN) ErrServerAddress() string {
+	return "Enter the server's address with http:// or https://, e.g. http://192.168.1.10:3000."
+}
+func (textsEN) ErrFrameSettings() string { return "Choose a frame size and 1 to 60 frames per second." }
+func (textsEN) ErrColorDifference() string {
+	return "The color differences must be at least 1."
+}
+func (textsEN) ErrWeakAboveStrong() string {
+	return "The weak color difference must not be above the color difference."
+}
+func (textsEN) ErrDetectionSizes() string {
+	return "A size of the dart detection is out of range: they must not be negative, and the length : width at least 1."
+}
+func (textsEN) ErrTipShift(max string) string {
+	return "The tip can be moved back by at most " + max + " mm."
+}
+func (textsEN) ErrMotionSettings() string {
+	return "A motion setting is out of range: they must be above 0, and “Takeout from” above “Motion from”."
+}
+func (textsEN) LengthToWidth() string { return "length : width" }
+func (textsEN) Frames() string        { return "frames" }
+func (textsEN) DiffThreshold() string { return "Color difference" }
 func (textsEN) DiffThresholdHint() string {
 	return "From this difference on, a pixel counts as changed."
 }

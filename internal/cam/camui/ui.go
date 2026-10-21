@@ -312,14 +312,36 @@ func detectionForm(r *http.Request) vision.WatchOptions {
 func (ui *UI) applySettings(w http.ResponseWriter, r *http.Request, s camapp.Board) {
 	if err := ui.app.SetBoard(s); err != nil {
 		m := ui.settingsModel(s)
-		m.Error = err.Error()
-		if errors.Is(err, camapp.ErrInvalidSettings) {
-			m.Error = T(r.Context()).ErrInvalidSettings(err.Error())
-		}
+		m.Error = settingsError(T(r.Context()), s, err)
 		render(w, r, SettingsPage(m))
 		return
 	}
 	http.Redirect(w, r, boardURL(s.ID)+"/settings?saved", http.StatusSeeOther)
+}
+
+// settingsError is the message of an error from saving the settings s of a board.
+func settingsError(t Texts, s camapp.Board, err error) string {
+	switch {
+	case errors.Is(err, camapp.ErrNoBoardName):
+		return t.ErrNoBoardName()
+	case errors.Is(err, camapp.ErrBoardNameTaken):
+		return t.ErrBoardNameTaken(s.Name)
+	case errors.Is(err, camapp.ErrServerAddress):
+		return t.ErrServerAddress()
+	case errors.Is(err, camapp.ErrFrameSettings):
+		return t.ErrFrameSettings()
+	case errors.Is(err, camapp.ErrColorDifference):
+		return t.ErrColorDifference()
+	case errors.Is(err, camapp.ErrWeakAboveStrong):
+		return t.ErrWeakAboveStrong()
+	case errors.Is(err, camapp.ErrDetectionSizes):
+		return t.ErrDetectionSizes()
+	case errors.Is(err, camapp.ErrTipShift):
+		return t.ErrTipShift(t.Number(camapp.MaxTipShift, 0))
+	case errors.Is(err, camapp.ErrMotionSettings):
+		return t.ErrMotionSettings()
+	}
+	return err.Error() // e.g. the configuration couldn't be written
 }
 
 // addBoard adds a board and goes on to its settings, to name it and connect it.
@@ -391,7 +413,12 @@ func (ui *UI) addCamera(w http.ResponseWriter, r *http.Request) {
 	name, err := ui.app.AddCamera(board, r.FormValue("id"))
 	if err != nil {
 		m := ui.devicesModel(board)
-		m.Error = T(r.Context()).ErrAddCamera(err.Error())
+		var inUse camapp.DeviceInUseError
+		if errors.As(err, &inUse) {
+			m.Error = T(r.Context()).ErrDeviceInUse(inUse.Camera)
+		} else {
+			m.Error = T(r.Context()).ErrAddCamera(err.Error())
+		}
 		render(w, r, Devices(m))
 		return
 	}
