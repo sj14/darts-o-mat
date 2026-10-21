@@ -73,24 +73,10 @@ func (s *Service) leave(ctx context.Context, acc account.Account, v GameView) (G
 	}
 
 	var leaving []int64
-	others := 0
-	for _, id := range v.Game.PlayerIDs() {
-		switch {
-		case v.Common().Records[id].Left:
-		case v.IsMine(id):
+	for _, id := range v.Mine {
+		if !v.Common().Records[id].Left {
 			leaving = append(leaving, id)
-		default:
-			others++
 		}
-	}
-	if others < 2 {
-		if err := s.abortGame(ctx, &v.Game); err != nil {
-			return GameView{}, err
-		}
-		if err := s.recordQuits(ctx, v.Game.Mode, false, gameID, leaving); err != nil {
-			return GameView{}, err
-		}
-		return s.view(ctx, acc, v.Game)
 	}
 	entries := make([]throw.Dart, len(leaving))
 	log := v.Darts
@@ -98,10 +84,18 @@ func (s *Service) leave(ctx context.Context, acc account.Account, v GameView) (G
 		entries[i] = throw.Dart{GameID: gameID, PlayerID: id, Leave: true}
 		log = append(log, entries[i])
 	}
-	if _, err := v.Game.Play(log); err != nil {
-		if errors.Is(err, turn.ErrCantLeave) {
+	switch _, err := v.Game.Play(log); {
+	case errors.Is(err, turn.ErrTooFewLeft):
+		if err := s.abortGame(ctx, &v.Game); err != nil {
 			return GameView{}, err
 		}
+		if err := s.recordQuits(ctx, v.Game.Mode, false, gameID, leaving); err != nil {
+			return GameView{}, err
+		}
+		return s.view(ctx, acc, v.Game)
+	case errors.Is(err, turn.ErrCantLeave):
+		return GameView{}, err
+	case err != nil:
 		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 	for i := range entries {

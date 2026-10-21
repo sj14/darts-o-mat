@@ -38,7 +38,13 @@ var (
 	// ErrCantLeave means a player can't leave the game now: while bulling off, or when
 	// that would leave fewer than two players.
 	ErrCantLeave = errors.New("the player can't leave the game now")
+	// ErrTooFewLeft means leaving would leave fewer than MinPlayers in the game: it ends
+	// instead, which is up to the caller (the service aborts it). It wraps ErrCantLeave.
+	ErrTooFewLeft = fmt.Errorf("%w: it would leave fewer than %d players", ErrCantLeave, MinPlayers)
 )
+
+// MinPlayers is how many players a game needs to go on after players left it.
+const MinPlayers = 2
 
 // Log is what happened in a game, the input to replay it.
 type Log struct {
@@ -300,13 +306,15 @@ func (t *Turn) nextActive(i int) int {
 // sets they won stay theirs; a starter who left still counts for the order in which the
 // legs and sets are started (the next one after them starts). If they were up, their turn is over (the darts they threw
 // count); while the turn waits for the takeout, the next step moves on from them. It is
-// refused while bulling off, after the game is over, and when fewer than two players
-// would be left (the game ends then, which is up to the caller).
+// refused after the game is over, when fewer than MinPlayers would be left
+// (ErrTooFewLeft: the game ends then, which is up to the caller, also while bulling off)
+// and while bulling off. This is the one place of the rule: the service tries the leaving
+// and aborts the game on ErrTooFewLeft.
 func (t *Turn) Leave(i int) error {
-	active := 0
+	staying := -1 // without i
 	for _, r := range t.Records {
 		if !r.Left {
-			active++
+			staying++
 		}
 	}
 	switch {
@@ -314,10 +322,10 @@ func (t *Turn) Leave(i int) error {
 		return fmt.Errorf("%w: not a player of the game", ErrCantLeave)
 	case t.over:
 		return ErrGameOver
+	case staying < MinPlayers:
+		return ErrTooFewLeft
 	case t.BullingOff():
 		return fmt.Errorf("%w: the players are bulling off", ErrCantLeave)
-	case active <= 2:
-		return fmt.Errorf("%w: it would leave fewer than two players", ErrCantLeave)
 	}
 	t.Records[i].Left = true
 	if t.Player == i && !t.Waiting() {

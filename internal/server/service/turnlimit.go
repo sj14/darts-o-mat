@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log"
 	"slices"
 	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 )
 
@@ -79,23 +81,15 @@ func (s *Service) endTurn(gameID int64) {
 	player := *v.Common().CurrentPlayerID
 	entry := throw.Dart{GameID: gameID, PlayerID: player}
 	leaves := skippedInARow(v.Darts, player)+1 >= game.MaxSkips
-	if leaves {
-		active := 0
-		for _, left := range v.Common().Records {
-			if !left.Left {
-				active++
-			}
-		}
-		if active <= 2 {
-			err = s.endGameOf(ctx, g)
-			if err != nil {
-				log.Printf("end game %d: %v", gameID, err)
-			}
-			return
-		}
-	}
 	entry.Leave, entry.Skip = leaves, !leaves
-	if _, err = g.Play(append(v.Darts, entry)); err == nil {
+	_, err = g.Play(append(v.Darts, entry))
+	if errors.Is(err, turn.ErrTooFewLeft) {
+		if err := s.endGameOf(ctx, g); err != nil {
+			log.Printf("end game %d: %v", gameID, err)
+		}
+		return
+	}
+	if err == nil {
 		err = s.store.AddDart(ctx, &entry)
 	}
 	if err != nil {

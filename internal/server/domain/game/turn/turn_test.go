@@ -287,8 +287,8 @@ func TestLeave(t *testing.T) {
 		t.Errorf("after a lap: player %d round %d, want player 1 in round 2", tr.Player, tr.Round)
 	}
 	// With two players left the game can't go on without one of them.
-	if err := tr.Leave(1); !errors.Is(err, ErrCantLeave) {
-		t.Errorf("leaving with two players: got %v, want ErrCantLeave", err)
+	if err := tr.Leave(1); !errors.Is(err, ErrTooFewLeft) {
+		t.Errorf("leaving with two players: got %v, want ErrTooFewLeft", err)
 	}
 
 	// A player who isn't up leaves; the starter of the leg leaves and the next one starts.
