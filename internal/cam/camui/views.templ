@@ -38,6 +38,8 @@ type OverviewModel struct {
 	// Cameras and Events are the board's own.
 	Cameras []CameraModel
 	Events  []EventModel // newest first
+	// Error is why the last action on the board failed, e.g. the fine calibration.
+	Error string
 }
 
 type EventModel struct {
@@ -276,6 +278,7 @@ templ Overview(m OverviewModel) {
 	@layout(T(ctx).NavCameras(), m.Current) {
 		@boardTabs(m.Boards, m.Current, "")
 		@title(T(ctx).NavCameras())
+		@errorAlert(m.Error)
 		<div class="mb-6 flex max-w-3xl flex-col gap-3 rounded-3xl border border-white/10 bg-pub-900/80 p-4">
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<span class={ templ.KV("text-emerald-300", m.Status.Running), templ.KV("text-amber-300", !m.Status.Running) }>{ statusText(T(ctx), m.Status) }</span>

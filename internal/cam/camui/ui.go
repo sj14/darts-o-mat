@@ -174,12 +174,29 @@ func (ui *UI) overview(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	m := OverviewModel{boardNav: ui.nav(b.ID), Dir: ui.app.Dir(), Status: ui.app.Status(b.ID)}
-	for _, c := range ui.app.Cameras(b.ID) {
+	ui.renderOverview(w, r, b.ID, "")
+}
+
+// renderOverview shows the overview of a board, with errMsg if an action on it failed;
+// it doesn't fail silently, the user may have no terminal to see the log.
+func (ui *UI) renderOverview(w http.ResponseWriter, r *http.Request, board int, errMsg string) {
+	m := OverviewModel{boardNav: ui.nav(board), Dir: ui.app.Dir(), Status: ui.app.Status(board), Error: errMsg}
+	for _, c := range ui.app.Cameras(board) {
 		m.Cameras = append(m.Cameras, cameraModel(T(r.Context()), c))
 	}
-	m.Events = ui.events(T(r.Context()), b.ID)
+	m.Events = ui.events(T(r.Context()), board)
 	render(w, r, Overview(m))
+}
+
+// doneOnBoard answers an action on a board: back to its overview, or the overview with
+// why it failed.
+func (ui *UI) doneOnBoard(w http.ResponseWriter, r *http.Request, board int, err error) {
+	if err != nil {
+		log.Printf("board %d: %v", board, err)
+		ui.renderOverview(w, r, board, calibrationError(T(r.Context()), err))
+		return
+	}
+	http.Redirect(w, r, boardURL(board), http.StatusSeeOther)
 }
 
 func cameraModel(t Texts, c camapp.CameraState) CameraModel {
@@ -214,10 +231,7 @@ func (ui *UI) setDetect(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := ui.app.SetDetect(b.ID, r.FormValue("on") == "true"); err != nil {
-		log.Printf("detection: %v", err)
-	}
-	http.Redirect(w, r, boardURL(b.ID), http.StatusSeeOther)
+	ui.doneOnBoard(w, r, b.ID, ui.app.SetDetect(b.ID, r.FormValue("on") == "true"))
 }
 
 // reconnect opens the cameras of the board again.
@@ -226,10 +240,7 @@ func (ui *UI) reconnect(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := ui.app.Reconnect(b.ID); err != nil {
-		log.Printf("reconnect: %v", err)
-	}
-	http.Redirect(w, r, boardURL(b.ID), http.StatusSeeOther)
+	ui.doneOnBoard(w, r, b.ID, ui.app.Reconnect(b.ID))
 }
 
 func (ui *UI) settingsPage(w http.ResponseWriter, r *http.Request) {
@@ -641,10 +652,7 @@ func (ui *UI) refineAgain(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := ui.refine(c.Name, c.Points, img); err != nil {
-		log.Printf("refine %s: %v", c.Name, err)
-	}
-	http.Redirect(w, r, boardURL(c.BoardID), http.StatusSeeOther)
+	ui.doneOnBoard(w, r, c.BoardID, ui.refine(c.Name, c.Points, img))
 }
 
 // Why finishing a calibration failed; calibrationError says it in the user's language.

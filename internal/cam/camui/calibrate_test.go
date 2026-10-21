@@ -2,6 +2,8 @@ package camui
 
 import (
 	"encoding/json"
+	"errors"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -134,5 +136,24 @@ func TestCalibrateByHandOnRequest(t *testing.T) {
 	}
 	if strings.Contains(body, "wasn&#39;t found automatically") {
 		t.Error("an error is shown although nothing failed")
+	}
+}
+
+// A failed action on a board, e.g. refining a calibration again, is shown on the board's
+// overview instead of only in the log: the user may have no terminal.
+func TestFailureShownOnOverview(t *testing.T) {
+	ui, _, _, _ := calibrationFixture(t)
+	failed := refineError{errors.New("too few features")}
+
+	w := httptest.NewRecorder()
+	ui.doneOnBoard(w, httptest.NewRequest("POST", "/cam/cam1/refine", nil), 1, failed)
+	if want := html.EscapeString(textsEN{}.ErrRefine(failed.err)); !strings.Contains(w.Body.String(), want) {
+		t.Errorf("the overview doesn't say %q:\n%s", want, w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	ui.doneOnBoard(w, httptest.NewRequest("POST", "/board/1/reconnect", nil), 1, nil)
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/board/1" {
+		t.Errorf("success: %d to %q, want a redirect to the overview", w.Code, w.Header().Get("Location"))
 	}
 }
