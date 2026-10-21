@@ -45,41 +45,48 @@ func (s *Service) DeleteGuest(ctx context.Context, acc account.Account, playerID
 }
 
 // inRunningGame reports whether the player takes part in a game or tournament of the
-// account that isn't over or aborted.
+// account that isn't finished.
 func (s *Service) inRunningGame(ctx context.Context, acc account.Account, playerID int64) (bool, error) {
-	games, err := s.store.ListGames(ctx, acc.ID, acc.PlayerID, 0)
+	games, tournaments, err := s.unfinished(ctx, acc)
 	if err != nil {
 		return false, err
 	}
+	return slices.ContainsFunc(games, func(v GameView) bool { return slices.Contains(v.Game.PlayerIDs(), playerID) }) ||
+		slices.ContainsFunc(tournaments, func(v TournamentView) bool { return slices.Contains(v.Tournament.PlayerIDs(), playerID) }), nil
+}
+
+// unfinished returns the views of the account's games and tournaments that aren't
+// finished: neither over nor aborted.
+func (s *Service) unfinished(ctx context.Context, acc account.Account) ([]GameView, []TournamentView, error) {
+	games, err := s.store.ListGames(ctx, acc.ID, acc.PlayerID, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	var gameViews []GameView
 	for _, g := range games {
-		if g.Aborted() || !slices.Contains(g.PlayerIDs(), playerID) {
-			continue
-		}
 		v, err := s.view(ctx, acc, g)
 		if err != nil {
-			return false, err
+			return nil, nil, err
 		}
-		if !v.Common().GameOver {
-			return true, nil
+		if !v.Finished() {
+			gameViews = append(gameViews, v)
 		}
 	}
 	tournaments, err := s.store.ListTournaments(ctx, acc.ID, acc.PlayerID, 0)
 	if err != nil {
-		return false, err
+		return nil, nil, err
 	}
+	var tournamentViews []TournamentView
 	for _, t := range tournaments {
-		if t.Aborted() || !slices.Contains(t.PlayerIDs(), playerID) {
-			continue
-		}
 		v, err := s.tournamentView(ctx, acc, t)
 		if err != nil {
-			return false, err
+			return nil, nil, err
 		}
-		if !v.State.Over {
-			return true, nil
+		if !v.Finished() {
+			tournamentViews = append(tournamentViews, v)
 		}
 	}
-	return false, nil
+	return gameViews, tournamentViews, nil
 }
 
 // DeleteAccount deletes the account after checking its password: its login, sessions,
@@ -105,20 +112,14 @@ func (s *Service) DeleteAccount(ctx context.Context, acc account.Account, passwo
 }
 
 func (s *Service) leaveEverything(ctx context.Context, a account.Account) error {
-	games, err := s.store.ListGames(ctx, a.ID, a.PlayerID, 0)
+	games, tournaments, err := s.unfinished(ctx, a)
 	if err != nil {
 		return err
 	}
-	for _, g := range games {
-		if g.Aborted() || g.TournamentID != nil { // tournaments below
-			continue
-		}
-		v, err := s.view(ctx, a, g)
-		if err != nil {
-			return err
-		}
+	for _, v := range games {
+		g := v.Game
 		switch {
-		case v.Common().GameOver:
+		case g.TournamentID != nil: // left with its tournament below
 		case v.Invited:
 			if err = s.store.RemoveParticipant(ctx, g.ID, a.PlayerID); err == nil {
 				s.notifyGame(g)
@@ -132,26 +133,13 @@ func (s *Service) leaveEverything(ctx context.Context, a account.Account) error 
 			return err
 		}
 	}
-
-	tournaments, err := s.store.ListTournaments(ctx, a.ID, a.PlayerID, 0)
-	if err != nil {
-		return err
-	}
-	for _, t := range tournaments {
-		if t.Aborted() {
-			continue
-		}
-		v, err := s.tournamentView(ctx, a, t)
-		if err != nil {
-			return err
-		}
-		switch {
-		case v.State.Over:
-		case v.Invited:
+	for _, v := range tournaments {
+		t := v.Tournament
+		if v.Invited {
 			if err = s.store.RemoveTournamentParticipant(ctx, t.ID, a.PlayerID); err == nil {
 				s.tournaments.Notify(t.ID)
 			}
-		default:
+		} else {
 			err = s.leaveTournament(ctx, a, t, false)
 		}
 		if err != nil {
@@ -173,14 +161,11 @@ func (s *Service) abortTournament(ctx context.Context, t *tournament.Tournament)
 		return err
 	}
 	for _, g := range games {
-		if g.Aborted() {
-			continue
-		}
 		v, err := s.build(ctx, g)
 		if err != nil {
 			return err
 		}
-		if !v.Common().GameOver {
+		if !v.Finished() {
 			if err := s.abortGame(ctx, &g); err != nil {
 				return err
 			}

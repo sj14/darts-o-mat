@@ -133,14 +133,11 @@ func (s *Service) activeGames(ctx context.Context, b board.Board) ([]GameView, e
 	}
 	var active []GameView
 	for _, g := range games {
-		if g.Aborted() {
-			continue
-		}
 		v, err := s.build(ctx, g)
 		if err != nil {
 			return nil, err
 		}
-		if v.Ready && !v.Common().GameOver {
+		if v.Ready && !v.Finished() {
 			active = append(active, v)
 		}
 	}

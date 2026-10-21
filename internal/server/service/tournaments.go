@@ -45,6 +45,12 @@ func (v TournamentView) CanStart(m tournament.Match) bool {
 	return v.CanPlay && v.Ready && m.Ready() && (slices.Contains(v.Mine, m.PlayerIDs[0]) || slices.Contains(v.Mine, m.PlayerIDs[1]))
 }
 
+// Finished reports whether nothing happens in the tournament anymore: it is over or was
+// aborted.
+func (v TournamentView) Finished() bool {
+	return v.Tournament.Aborted() || v.State.Over
+}
+
 // Pending reports whether the player hasn't answered the invitation to the tournament yet.
 func (v TournamentView) Pending(playerID int64) bool {
 	p, ok := v.Tournament.Participant(playerID)

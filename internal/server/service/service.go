@@ -222,6 +222,12 @@ func (v GameView) OnlyMine() bool {
 	return len(v.Mine) == len(v.Game.Participants)
 }
 
+// Finished reports whether nothing happens in the game anymore: it is over or was
+// aborted. A game that isn't finished is running, or waiting in the lobby (Ready).
+func (v GameView) Finished() bool {
+	return v.Game.Aborted() || v.Common().GameOver
+}
+
 // Common returns the part of the game's state that is the same for all modes.
 func (v GameView) Common() turn.State {
 	if v.State == nil {
