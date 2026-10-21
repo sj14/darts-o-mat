@@ -43,6 +43,21 @@ func (a *App) setStatus(board int, s Status) {
 type run struct {
 	cancel context.CancelFunc
 	done   chan struct{}
+	// started is when it started; reconnected is set if it was started by reconnecting
+	// the cameras after a failure (see reconnectAfter).
+	started     time.Time
+	reconnected bool
+}
+
+// reconnectWithin is how long a detection started by reconnecting the cameras has to
+// run before it may reconnect again: a camera that fails again right away stays failed
+// until the user reconnects, instead of the board reopening its cameras in a loop.
+const reconnectWithin = time.Minute
+
+// reconnectAfter reports whether the cameras are reconnected after the detection failed
+// at the time: once, unless it was started by reconnecting and failed again soon.
+func (r *run) reconnectAfter(failed time.Time) bool {
+	return !r.reconnected || failed.Sub(r.started) >= reconnectWithin
 }
 
 // stopBoard ends the running detection of a board, if any. a.mu must be held.
@@ -82,6 +97,12 @@ func (a *App) restartBoard(b *BoardConfig) {
 // start starts the detection of a board, if it is switched on. a.mu must be held, the
 // board's detection stopped.
 func (a *App) start(b *BoardConfig) {
+	a.startRun(b, false)
+}
+
+// startRun is start; reconnected is set when it starts after the cameras were reconnected
+// because the detection failed.
+func (a *App) startRun(b *BoardConfig, reconnected bool) {
 	if !b.Detect {
 		a.setStatus(b.ID, Status{})
 		return
@@ -114,20 +135,42 @@ func (a *App) start(b *BoardConfig) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &run{cancel: cancel, done: make(chan struct{})}
+	r := &run{cancel: cancel, done: make(chan struct{}), started: time.Now(), reconnected: reconnected}
 	a.runs[b.ID] = r
 	a.setStatus(b.ID, Status{Running: true, Cameras: len(d.lives), Reporting: d.report != nil})
 	if d.report != nil {
 		go d.report.run(ctx)
 	}
 	go func() {
-		defer close(r.done)
 		err := a.detect(ctx, d)
-		if ctx.Err() == nil {
+		stopped := ctx.Err() != nil // by the app: nothing went wrong
+		if !stopped {
 			log.Printf("%s: detection stopped: %v", d.name, err)
 			a.setStatus(d.board, Status{Err: err, Reporting: d.report != nil})
 		}
+		close(r.done) // before reconnecting: that takes a.mu, which stopBoard holds while it waits for done
+		if !stopped && r.reconnectAfter(time.Now()) {
+			a.reconnectFailed(d.board, r)
+		}
 	}()
+}
+
+// reconnectFailed opens the cameras of a board again after its detection r failed, e.g.
+// a camera dropped off the USB for a moment, and starts the detection again, so a game
+// goes on without the user noticing. Nothing happens if the detection was stopped or
+// started again meanwhile.
+func (a *App) reconnectFailed(board int, r *run) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	b := a.cfg.board(board)
+	if b == nil || a.runs[board] != r {
+		return
+	}
+	log.Printf("%s: reconnecting the cameras", b.Name)
+	a.stopBoard(board) // r is done: this only forgets it
+	a.closeBoardCameras(b)
+	a.openCameras(b)
+	a.startRun(b, true)
 }
 
 // detection is what a run of the detection works with; it doesn't change while it runs.
