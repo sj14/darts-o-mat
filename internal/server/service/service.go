@@ -249,12 +249,7 @@ func (v GameView) Pending(playerID int64) bool {
 // others.
 func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Game, inviteUsernames []string) (GameView, error) {
 	g.ID = 0
-	if g.Legs == 0 {
-		g.Legs = 1 // a single leg unless asked otherwise
-	}
-	if g.Sets == 0 {
-		g.Sets = 1 // no sets unless asked otherwise
-	}
+	g.Settings = g.Settings.WithDefaults()
 
 	if len(g.Participants) == 0 {
 		return GameView{}, fmt.Errorf("%w: choose at least one of your players", ErrInvalid)
@@ -464,7 +459,7 @@ func (s *Service) startGame(ctx context.Context, gameID int64) error {
 	if err != nil || g.StartedAt != nil || !g.Ready() {
 		return err
 	}
-	now := time.Now()
+	now := s.now()
 	g.StartedAt = &now
 	if err := s.store.StartGame(ctx, &g); err != nil {
 		return err
@@ -475,7 +470,7 @@ func (s *Service) startGame(ctx context.Context, gameID int64) error {
 
 // abortGame marks the game as aborted and tells its subscribers. The caller holds s.mu.
 func (s *Service) abortGame(ctx context.Context, g *game.Game) error {
-	now := time.Now()
+	now := s.now()
 	g.AbortedAt = &now
 	if err := s.store.AbortGame(ctx, g); err != nil {
 		return err

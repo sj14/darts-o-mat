@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
@@ -151,7 +150,7 @@ func (s *Service) leaveEverything(ctx context.Context, a account.Account) error 
 
 // abortTournament aborts a tournament and the games of it that are still running.
 func (s *Service) abortTournament(ctx context.Context, t *tournament.Tournament) error {
-	now := time.Now()
+	now := s.now()
 	t.AbortedAt = &now
 	if err := s.store.AbortTournament(ctx, t); err != nil {
 		return err

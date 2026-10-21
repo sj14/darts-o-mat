@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/board"
@@ -49,7 +48,7 @@ func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID int6
 	if err := s.checkSeatBoard(ctx, acc, gameSeat(v.Game), boardID); err != nil {
 		return GameView{}, err
 	}
-	now := time.Now()
+	now := s.now()
 	for _, id := range v.Mine {
 		if v.Common().Records[id].Left {
 			continue

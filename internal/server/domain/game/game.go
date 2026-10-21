@@ -57,6 +57,17 @@ type Settings struct {
 	Rules Rules `bun:"-" json:"rules"`
 }
 
+// WithDefaults fills in what wasn't given: a single leg and no sets.
+func (s Settings) WithDefaults() Settings {
+	if s.Legs == 0 {
+		s.Legs = 1
+	}
+	if s.Sets == 0 {
+		s.Sets = 1
+	}
+	return s
+}
+
 func (s Settings) Validate() error {
 	if s.Legs < 1 || s.Legs > MaxLegs {
 		return fmt.Errorf("legs must be between 1 and %d", MaxLegs)

@@ -35,14 +35,14 @@ type OpenLobby struct {
 }
 
 // offered reports whether a lobby that was created at the time still takes players.
-func offered(l game.Lobby, players int, createdAt time.Time, aborted bool) bool {
-	return l.Open() && !l.Full(players) && !aborted && time.Since(createdAt) < OpenFor
+func (s *Service) offered(l game.Lobby, players int, createdAt time.Time, aborted bool) bool {
+	return l.Open() && !l.Full(players) && !aborted && s.now().Sub(createdAt) < OpenFor
 }
 
 // OpenLobbies lists the games and tournaments of others the account's player could join,
 // newest first. Those with a player of the account (its own or a guest) aren't others'.
 func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenLobby, error) {
-	since := time.Now().Add(-OpenFor)
+	since := s.now().Add(-OpenFor)
 	games, err := s.store.ListOpenGames(ctx, since)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 	}
 	var lobbies []OpenLobby
 	for _, g := range games {
-		if !offered(g.Lobby, len(g.Participants), g.CreatedAt, g.Aborted()) || g.TournamentID != nil {
+		if !s.offered(g.Lobby, len(g.Participants), g.CreatedAt, g.Aborted()) || g.TournamentID != nil {
 			continue
 		}
 		players, err := joined(g.PlayerIDs())
@@ -77,7 +77,7 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 		}
 	}
 	for _, t := range tournaments {
-		if !offered(t.Lobby, len(t.Participants), t.CreatedAt, t.Aborted()) {
+		if !s.offered(t.Lobby, len(t.Participants), t.CreatedAt, t.Aborted()) {
 			continue
 		}
 		players, err := joined(t.PlayerIDs())
@@ -128,7 +128,7 @@ func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int6
 		return GameView{}, ErrNotFound
 	case slices.Contains(g.PlayerIDs(), acc.PlayerID):
 		return GameView{}, fmt.Errorf("%w: you are in this game already", ErrInvalid)
-	case !offered(g.Lobby, len(g.Participants), g.CreatedAt, g.Aborted()):
+	case !s.offered(g.Lobby, len(g.Participants), g.CreatedAt, g.Aborted()):
 		return GameView{}, ErrNoSeat
 	}
 	if err := s.checkSeatBoard(ctx, acc, gameSeat(g), boardID); err != nil {
@@ -167,7 +167,7 @@ func (s *Service) JoinTournament(ctx context.Context, acc account.Account, id in
 		return TournamentView{}, ErrNotFound
 	case slices.Contains(t.PlayerIDs(), acc.PlayerID):
 		return TournamentView{}, fmt.Errorf("%w: you are in this tournament already", ErrInvalid)
-	case !offered(t.Lobby, len(t.Participants), t.CreatedAt, t.Aborted()):
+	case !s.offered(t.Lobby, len(t.Participants), t.CreatedAt, t.Aborted()):
 		return TournamentView{}, ErrNoSeat
 	}
 	if err := s.checkSeatBoard(ctx, acc, tournamentSeat(t), boardID); err != nil {

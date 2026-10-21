@@ -63,7 +63,7 @@ func (v TournamentView) Pending(playerID int64) bool {
 // the bracket.
 func (s *Service) CreateTournament(ctx context.Context, acc account.Account, t tournament.Tournament, inviteUsernames []string) (TournamentView, error) {
 	t.ID = 0
-	t.Settings.Legs, t.Settings.Sets = max(t.Settings.Legs, 1), max(t.Settings.Sets, 1)
+	t.Settings = t.Settings.WithDefaults()
 	if len(t.Participants) == 0 {
 		return TournamentView{}, fmt.Errorf("%w: choose at least one of your players", ErrInvalid)
 	}

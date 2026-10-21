@@ -88,14 +88,15 @@ func TestOpenGameValidation(t *testing.T) {
 }
 
 func TestOfferedOnlyForAWhile(t *testing.T) {
+	s := &Service{now: time.Now}
 	open := game.Lobby{Seats: 2}
-	if !offered(open, 1, time.Now(), false) {
+	if !s.offered(open, 1, time.Now(), false) {
 		t.Error("a new open game isn't offered")
 	}
-	if offered(open, 1, time.Now().Add(-OpenFor-time.Minute), false) {
+	if s.offered(open, 1, time.Now().Add(-OpenFor-time.Minute), false) {
 		t.Error("an old open game is still offered")
 	}
-	if offered(open, 2, time.Now(), false) || offered(open, 1, time.Now(), true) || offered(game.Lobby{}, 1, time.Now(), false) {
+	if s.offered(open, 2, time.Now(), false) || s.offered(open, 1, time.Now(), true) || s.offered(game.Lobby{}, 1, time.Now(), false) {
 		t.Error("a full, aborted or closed game is offered")
 	}
 }

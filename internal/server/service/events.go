@@ -15,7 +15,10 @@ func (s *Service) SubscribeTournament(id int64) (<-chan struct{}, func()) {
 	return s.tournaments.Subscribe(id)
 }
 
-// notify tells the game's subscribers that it changed.
+// notify tells the game's subscribers that it changed. It is notifyGame for a change in
+// the lobby (an invitation answered or withdrawn), where the caller doesn't have the
+// changed game: a game in the lobby has no tournament (matches need no invitations), and
+// startGame sets the timer of its first turn.
 func (s *Service) notify(gameID int64) {
 	s.games.Notify(gameID)
 }
