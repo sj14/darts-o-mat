@@ -45,6 +45,7 @@ type Texts interface {
 	Calibrated() string
 	NotCalibrated() string
 	CalibratedForOtherSize(size string) string
+	SmallFrames(size string) string
 	Recalibrate() string
 	Calibrate() string
 	CheckGrid() string

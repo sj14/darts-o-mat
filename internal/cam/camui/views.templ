@@ -110,6 +110,7 @@ type CameraModel struct {
 	Problem     string
 	Scale       string // pixels per board millimetre, if calibrated
 	Size        string // of its frames, if it is open
+	Small       bool   // its frames are much smaller than the wanted size
 }
 
 type CalibrateModel struct {
@@ -341,6 +342,9 @@ templ Overview(m OverviewModel) {
 						</div>
 						if c.Problem != "" {
 							<p class="text-sm text-red-300">{ c.Problem }</p>
+						}
+						if c.Small {
+							<p class="text-sm text-amber-300">{ T(ctx).SmallFrames(c.Size) }</p>
 						}
 						if c.OtherSize != "" {
 							<p class="text-sm text-amber-300">{ T(ctx).CalibratedForOtherSize(c.OtherSize) }</p>

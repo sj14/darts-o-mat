@@ -54,6 +54,9 @@ func (textsDE) NotCalibrated() string      { return "nicht kalibriert" }
 func (textsDE) CalibratedForOtherSize(size string) string {
 	return "Kalibriert für " + size + ", die Kamera liefert gerade eine andere Größe: bitte neu kalibrieren."
 }
+func (t textsDE) SmallFrames(size string) string {
+	return "Die Kamera liefert nur " + size + ", viel weniger als die gewünschte Größe. Oft ist ihre USB-Verbindung zu langsam: steck sie an einen anderen USB-Anschluss oder direkt an den Rechner oder nimm ein anderes Kabel und klicke dann auf „" + t.Reconnect() + "“."
+}
 func (textsDE) Recalibrate() string      { return "Neu kalibrieren" }
 func (textsDE) Calibrate() string        { return "Kalibrieren" }
 func (textsDE) CheckGrid() string        { return "Raster prüfen" }

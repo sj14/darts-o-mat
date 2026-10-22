@@ -50,6 +50,9 @@ func (textsEN) NotCalibrated() string      { return "not calibrated" }
 func (textsEN) CalibratedForOtherSize(size string) string {
 	return "Calibrated for " + size + ", but the camera delivers another size now: please calibrate again."
 }
+func (t textsEN) SmallFrames(size string) string {
+	return "The camera only delivers " + size + ", much less than the wanted size. Often its USB connection is too slow: plug it into another USB port or directly into the computer, or try another cable, then click “" + t.Reconnect() + "”."
+}
 func (textsEN) Recalibrate() string      { return "Calibrate again" }
 func (textsEN) Calibrate() string        { return "Calibrate" }
 func (textsEN) CheckGrid() string        { return "Check the grid" }

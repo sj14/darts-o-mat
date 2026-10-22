@@ -194,16 +194,22 @@ type CameraState struct {
 	Live    *vision.Live // nil if it isn't open
 	// Frame is the size of its frames, zero if it isn't open.
 	Frame image.Point
+	// Small is whether its frames are much smaller than the board's wanted size: the
+	// camera can't do more, often because its USB connection is too slow.
+	Small bool
 	// Calibrated is whether it is calibrated for the size of its frames.
 	Calibrated bool
 	// Problem is why it isn't open, or that its view doesn't match its reference image.
 	Problem error
 }
 
-// state returns the state of the camera c of the board. a.mu must be held.
-func (a *App) state(board int, c vision.CameraCalibration) CameraState {
+// state returns the state of the camera c of the board b. a.mu must be held.
+func (a *App) state(b *BoardConfig, c vision.CameraCalibration) CameraState {
 	bc := a.cams[c.Name]
-	s := CameraState{CameraCalibration: c, BoardID: board, Live: bc.live, Frame: image.Pt(bc.width, bc.height), Problem: bc.problem, Calibrated: c.Calibrated(bc.width, bc.height)}
+	s := CameraState{CameraCalibration: c, BoardID: b.ID, Live: bc.live, Frame: image.Pt(bc.width, bc.height), Problem: bc.problem, Calibrated: c.Calibrated(bc.width, bc.height)}
+	// Less than half the wanted width: a camera that can only do 640×480 of a wanted
+	// 1280×720 isn't small, one that falls back to 160×120 on a slow connection is.
+	s.Small = bc.width > 0 && 2*bc.width < b.Width
 	if bc.live != nil {
 		if _, err := bc.live.Latest(); err != nil {
 			s.Problem = err // e.g. unplugged
@@ -222,7 +228,7 @@ func (a *App) Cameras(board int) []CameraState {
 	}
 	states := make([]CameraState, len(b.Cameras))
 	for i, c := range b.Cameras {
-		states[i] = a.state(board, c)
+		states[i] = a.state(b, c)
 	}
 	return states
 }
@@ -235,7 +241,7 @@ func (a *App) Camera(name string) (CameraState, bool) {
 	if b == nil {
 		return CameraState{}, false
 	}
-	return a.state(b.ID, b.Cameras[i]), true
+	return a.state(b, b.Cameras[i]), true
 }
 
 // Calibrate stores a camera's new calibration, made on frame, an image of the empty

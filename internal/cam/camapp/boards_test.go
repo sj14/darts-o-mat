@@ -126,3 +126,22 @@ func TestBoardSettingsAreSeparate(t *testing.T) {
 		t.Errorf("board 2 = %+v, want %+v", got, second)
 	}
 }
+
+func TestSmallFrames(t *testing.T) {
+	b := newBoard(1, "Board") // wants 1280×720
+	for _, tc := range []struct {
+		width, height int
+		small         bool
+	}{
+		{0, 0, false}, // not open
+		{160, 120, true},
+		{320, 240, true},
+		{640, 480, false},
+		{1280, 720, false},
+	} {
+		a := &App{cams: map[string]*boardCamera{"cam1": {width: tc.width, height: tc.height}}}
+		if got := a.state(&b, vision.CameraCalibration{Name: "cam1"}).Small; got != tc.small {
+			t.Errorf("%d×%d: small %v, want %v", tc.width, tc.height, got, tc.small)
+		}
+	}
+}

@@ -243,6 +243,7 @@ func cameraModel(t Texts, c camapp.CameraState) CameraModel {
 		if c.Frame.X > 0 {
 			m.Size = fmt.Sprintf("%d×%d", c.Frame.X, c.Frame.Y)
 		}
+		m.Small = c.Small
 		if !c.Calibrated && c.Width != 0 {
 			// Calibrated, but on frames of another size.
 			m.OtherSize = fmt.Sprintf("%d×%d", c.Width, c.Height)
