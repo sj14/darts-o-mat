@@ -65,6 +65,9 @@ type Tournament struct {
 	CreatedAt    time.Time     `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 	// AbortedAt is set when the tournament ended without a winner, because a player left it.
 	AbortedAt *time.Time `bun:",nullzero" json:"aborted_at,omitempty"`
+	// CompletedAt is set once the tournament was seen completed: over, and all its games
+	// completed (State.Completed); then nothing about it can change anymore.
+	CompletedAt *time.Time `bun:",nullzero" json:"completed_at,omitempty"`
 }
 
 // PlayerIDs returns the players in the order of the draw.

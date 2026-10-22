@@ -86,13 +86,13 @@ func (store *Store) ListTournaments(ctx context.Context, accountID, playerID int
 }
 
 // ListUnfinishedTournamentsByPlayer returns the tournaments the player took a seat in
-// (accepted) that aren't aborted, newest first. Whether one is over its games tell, so the
-// caller still checks that.
+// (accepted) that are neither aborted nor completed, newest first. Whether one is over its
+// games tell, so the caller still checks that.
 func (store *Store) ListUnfinishedTournamentsByPlayer(ctx context.Context, playerID int64) ([]tournament.Tournament, error) {
 	seated := store.db.NewSelect().Model((*tournament.Participant)(nil)).Column("tournament_id").
 		Where("player_id = ?", playerID).Where("status = ?", game.InvitationAccepted)
 	return store.scanTournaments(ctx, store.db.NewSelect().Where("id IN (?)", seated).
-		Where("aborted_at IS NULL").Order("id DESC"))
+		Where("aborted_at IS NULL").Where("completed_at IS NULL").Order("id DESC"))
 }
 
 // ListInvitedTournaments returns the tournaments a player was invited to and hasn't
@@ -159,6 +159,12 @@ func (store *Store) RemoveTournamentParticipant(ctx context.Context, tournamentI
 		}
 		return deleteSettings(ctx, tx, t.Settings)
 	})
+}
+
+// CompleteTournament stores when a tournament was completed, unless that is stored already.
+func (store *Store) CompleteTournament(ctx context.Context, t *tournament.Tournament) error {
+	_, err := store.db.NewUpdate().Model(t).Column("completed_at").WherePK().Where("completed_at IS NULL").Exec(ctx)
+	return err
 }
 
 // AbortTournament marks a tournament as aborted.

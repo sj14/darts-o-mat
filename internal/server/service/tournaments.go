@@ -345,5 +345,14 @@ func (s *Service) buildTournament(ctx context.Context, t tournament.Tournament) 
 	if t.Full(len(t.Participants)) { // the schedule needs all players
 		v.State = tournament.Plan(t.Format, t.PlayerIDs(), results)
 	}
+	// A completed tournament can't change anymore: whoever looks at it first stores that,
+	// like the statistics of a game, so later lookups leave it out in SQL.
+	if t.CompletedAt == nil && !t.Aborted() && v.State.Completed() {
+		now := s.now()
+		v.Tournament.CompletedAt = &now
+		if err := s.store.CompleteTournament(ctx, &v.Tournament); err != nil {
+			return TournamentView{}, err
+		}
+	}
 	return v, nil
 }

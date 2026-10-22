@@ -125,6 +125,14 @@ func TestRoundRobinTournament(t *testing.T) {
 	if !v.State.Completed() || v.State.WinnerID == nil || *v.State.WinnerID != v.State.Standings[0].PlayerID {
 		t.Fatalf("completed %v winner %v, want completed with the leader of the table", v.State.Completed(), v.State.WinnerID)
 	}
+	// Looking at it stored that it is completed, so the check of a player's seat leaves it
+	// out in SQL.
+	if stored, _ := s.store.GetTournament(ctx, id); stored.CompletedAt == nil {
+		t.Error("the completed tournament has no completed_at")
+	}
+	if left, _ := s.store.ListUnfinishedTournamentsByPlayer(ctx, anna.PlayerID); len(left) != 0 {
+		t.Errorf("anna's unfinished tournaments = %d, want none", len(left))
+	}
 	played := 0
 	for _, s := range v.Stats {
 		played += s.X01.Games
