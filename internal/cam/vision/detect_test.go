@@ -417,6 +417,32 @@ func TestFuseTipsWeighted(t *testing.T) {
 	}
 }
 
+// Two cameras on opposite sides of the bull don't make a mean neither of them saw: the
+// third dart into a group in the 14 (2026-10-22, event 211, the tips as darts-o-cam
+// found them live). cam1 saw the 17, cam2 only the upper part of the dart, and cam3's
+// tip, the right one, ended on an earlier dart; without it the result was a 16.
+func TestFuseTipsDisagreeingPair(t *testing.T) {
+	tips := []Tip{
+		{Point: dartboard.Point{X: 8.2, Y: -23.5}, Radial: 1.0, Tangential: 1.6},
+		{Point: dartboard.Point{X: -63.2, Y: 28.9}, Radial: 1.0, Tangential: 1.5},
+		{Point: dartboard.Point{X: -31.1, Y: 11.4}, Radial: 1.7, Tangential: 1.0, Hidden: true},
+	}
+	p, err := FuseTips(tips)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := dartboard.Score(p); got != (dartboard.Hit{Number: 14, Segment: dartboard.Inner}) {
+		t.Errorf("fused %.1f,%.1f (%.1f mm) scored %+v, want S14", p.X, p.Y, p.Radius(), got)
+	}
+
+	// Two cameras that agree well enough still leave the hidden one out (event 37 above,
+	// cam1 and cam2 1.3 mm apart).
+	tips[1].Point = dartboard.Point{X: 8.0, Y: -2.0}
+	if p, _ := FuseTips(tips); p.X < 0 {
+		t.Errorf("fused %.1f,%.1f, want between the two visible cameras", p.X, p.Y)
+	}
+}
+
 // TestBlur compares the running-sum blur with averaging each neighborhood directly.
 func TestBlur(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 13, 9))
@@ -515,6 +541,36 @@ func TestDetectDartBesideMovedDart(t *testing.T) {
 	}
 	if d.Hidden {
 		t.Error("the tip is free next to the earlier dart, not hidden by it")
+	}
+}
+
+// The third dart into a group in the 14 (2026-10-22, events 209–211, cam3): its point
+// ends on the earlier darts, so the tip found is right but counts as hidden; see
+// TestFuseTipsDisagreeingPair for why it still decides.
+func TestDetectDartBesideHiddenInGroup(t *testing.T) {
+	frames := func(n string) (*image.RGBA, *image.RGBA) {
+		return loadRGBA(t, "testdata/throws/"+n+"-cam3-before.jpg"), loadRGBA(t, "testdata/throws/"+n+"-cam3-after.jpg")
+	}
+	var earlier []image.Point
+	for _, n := range []string{"209", "210"} {
+		before, after := frames(n)
+		_, area, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier)
+		if err != nil {
+			t.Fatalf("event %s: %v", n, err)
+		}
+		earlier = append(earlier, area...)
+	}
+	before, after := frames("211")
+	d, _, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := dartboard.Point{X: 670, Y: 309} // where the point enters the board
+	if dist(d.Tip, want) > 4 {
+		t.Errorf("tip at %.0f,%.0f px, want %.0f,%.0f", d.Tip.X, d.Tip.Y, want.X, want.Y)
+	}
+	if !d.Hidden {
+		t.Error("the tip ends on the earlier darts, want it hidden")
 	}
 }
 
