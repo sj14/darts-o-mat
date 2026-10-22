@@ -12,10 +12,6 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 )
 
-// OpenFor is how long a game or tournament open for strangers is offered, from its
-// creation; so lobbies nobody started don't pile up.
-const OpenFor = 30 * time.Minute
-
 // ErrNoSeat means the game or tournament has no free seat for the account's player, or
 // isn't offered anymore.
 var ErrNoSeat = fmt.Errorf("%w: no free seat", ErrInvalid)
@@ -34,20 +30,21 @@ type OpenLobby struct {
 	CreatedAt   time.Time                   `json:"created_at"`
 }
 
-// offered reports whether a lobby that was created at the time still takes players.
-func (s *Service) offered(l game.Lobby, players int, createdAt time.Time, aborted bool) bool {
-	return l.Open() && !l.Full(players) && !aborted && s.now().Sub(createdAt) < OpenFor
+// offered reports whether a lobby still takes players. It does as long as someone is in
+// it: one who has a seat can't take another (checkPlayersFree), so lobbies don't pile up,
+// and one that everybody left is deleted.
+func offered(l game.Lobby, players int, aborted bool) bool {
+	return l.Open() && !l.Full(players) && !aborted
 }
 
 // OpenLobbies lists the games and tournaments of others the account's player could join,
 // newest first. Those with a player of the account (its own or a guest) aren't others'.
 func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenLobby, error) {
-	since := s.now().Add(-OpenFor)
-	games, err := s.store.ListOpenGames(ctx, since)
+	games, err := s.store.ListOpenGames(ctx)
 	if err != nil {
 		return nil, err
 	}
-	tournaments, err := s.store.ListOpenTournaments(ctx, since)
+	tournaments, err := s.store.ListOpenTournaments(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +62,7 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 	}
 	var lobbies []OpenLobby
 	for _, g := range games {
-		if !s.offered(g.Lobby, len(g.Participants), g.CreatedAt, g.Aborted()) || g.TournamentID != nil {
+		if !offered(g.Lobby, len(g.Participants), g.Aborted()) || g.TournamentID != nil {
 			continue
 		}
 		players, err := joined(g.PlayerIDs())
@@ -77,7 +74,7 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 		}
 	}
 	for _, t := range tournaments {
-		if !s.offered(t.Lobby, len(t.Participants), t.CreatedAt, t.Aborted()) {
+		if !offered(t.Lobby, len(t.Participants), t.Aborted()) {
 			continue
 		}
 		players, err := joined(t.PlayerIDs())
@@ -128,13 +125,13 @@ func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int6
 		return GameView{}, ErrNotFound
 	case slices.Contains(g.PlayerIDs(), acc.PlayerID):
 		return GameView{}, fmt.Errorf("%w: you are in this game already", ErrInvalid)
-	case !s.offered(g.Lobby, len(g.Participants), g.CreatedAt, g.Aborted()):
+	case !offered(g.Lobby, len(g.Participants), g.Aborted()):
 		return GameView{}, ErrNoSeat
 	}
 	if err := s.checkSeatBoard(ctx, acc, gameSeat(g), boardID); err != nil {
 		return GameView{}, err
 	}
-	if err := s.checkPlayersFree(ctx, acc, []int64{acc.PlayerID}); err != nil {
+	if err := s.checkPlayersFree(ctx, acc, []int64{acc.PlayerID}, 0); err != nil {
 		return GameView{}, err
 	}
 	if err := s.completeFinished(ctx, acc); err != nil {
@@ -170,10 +167,13 @@ func (s *Service) JoinTournament(ctx context.Context, acc account.Account, id in
 		return TournamentView{}, ErrNotFound
 	case slices.Contains(t.PlayerIDs(), acc.PlayerID):
 		return TournamentView{}, fmt.Errorf("%w: you are in this tournament already", ErrInvalid)
-	case !s.offered(t.Lobby, len(t.Participants), t.CreatedAt, t.Aborted()):
+	case !offered(t.Lobby, len(t.Participants), t.Aborted()):
 		return TournamentView{}, ErrNoSeat
 	}
 	if err := s.checkSeatBoard(ctx, acc, tournamentSeat(t), boardID); err != nil {
+		return TournamentView{}, err
+	}
+	if err := s.checkPlayersFree(ctx, acc, []int64{acc.PlayerID}, 0); err != nil {
 		return TournamentView{}, err
 	}
 	if err := s.completeFinished(ctx, acc); err != nil {

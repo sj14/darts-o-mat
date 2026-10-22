@@ -63,7 +63,9 @@ type Texts interface {
 	LobbiesHint() string
 	LobbiesShown(shown, total int) string
 	NoMatchingGames() string
-	OpenForMinutes(n int) string
+	WaitingMinutes(n int) string
+	WaitingHours(n int) string
+	WaitingDays(n int) string
 	GameMode() string
 	FilterAny() string
 	FilterYes() string

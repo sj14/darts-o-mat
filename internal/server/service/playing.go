@@ -9,26 +9,31 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
 )
 
-// PlayerBusyError means a player can't take part in a game because they play in another
-// running one: a person throws in one game at a time.
+// PlayerBusyError means a player can't take a seat in a game or tournament because they
+// have one in another: a person plays one at a time.
 type PlayerBusyError struct {
 	Player string
-	// GameID is the running game, 0 if the account takes no part in it (it stays hidden).
-	GameID int64
+	// GameID or TournamentID is where the player has their seat, 0 if the account takes no
+	// part in it (it stays hidden).
+	GameID       int64
+	TournamentID int64
 }
 
 func (e PlayerBusyError) Error() string {
-	return fmt.Sprintf("%v: %q plays in another game", ErrInvalid, e.Player)
+	return fmt.Sprintf("%v: %q is in another game or tournament", ErrInvalid, e.Player)
 }
 
 func (e PlayerBusyError) Unwrap() error {
 	return ErrInvalid
 }
 
-// checkPlayersFree checks that none of the players takes part in a running game: started,
-// neither over nor aborted, and not left by them. A lobby doesn't count, nor does a
-// tournament between its matches. The caller holds s.mu.
-func (s *Service) checkPlayersFree(ctx context.Context, acc account.Account, playerIDs []int64) error {
+// checkPlayersFree checks that none of the players has a seat in a game or tournament
+// that isn't finished: a lobby they are in (accepted, not just invited), a running game
+// they didn't leave, or a tournament that is neither over nor aborted, also between its
+// matches. The tournament keep (0 for none) doesn't count: StartMatch starts its matches.
+// A game that is over doesn't count though it can still be corrected (going on completes
+// it). The caller holds s.mu.
+func (s *Service) checkPlayersFree(ctx context.Context, acc account.Account, playerIDs []int64, keep int64) error {
 	for _, id := range playerIDs {
 		games, err := s.store.ListUnfinishedGamesByPlayer(ctx, id)
 		if err != nil {
@@ -42,15 +47,41 @@ func (s *Service) checkPlayersFree(ctx context.Context, acc account.Account, pla
 			if v.Finished() || v.Common().Records[id].Left {
 				continue
 			}
-			busy := PlayerBusyError{}
-			if i := slices.IndexFunc(v.Players, func(p player.Player) bool { return p.ID == id }); i >= 0 {
-				busy.Player = v.Players[i].Name
-			}
+			busy := PlayerBusyError{Player: playerName(v.Players, id)}
 			if _, err := participationOf(acc, v.Players, v.Pending, false); err == nil {
 				busy.GameID = g.ID
 			}
 			return busy
 		}
+		tournaments, err := s.store.ListUnfinishedTournamentsByPlayer(ctx, id)
+		if err != nil {
+			return err
+		}
+		for _, t := range tournaments {
+			if t.ID == keep {
+				continue
+			}
+			v, err := s.buildTournament(ctx, t)
+			if err != nil {
+				return err
+			}
+			if v.Finished() {
+				continue
+			}
+			busy := PlayerBusyError{Player: playerName(v.Players, id)}
+			if _, err := participationOf(acc, v.Players, v.Pending, false); err == nil {
+				busy.TournamentID = t.ID
+			}
+			return busy
+		}
 	}
 	return nil
+}
+
+// playerName is the name of the player among the players.
+func playerName(players []player.Player, id int64) string {
+	if i := slices.IndexFunc(players, func(p player.Player) bool { return p.ID == id }); i >= 0 {
+		return players[i].Name
+	}
+	return ""
 }

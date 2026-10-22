@@ -85,6 +85,16 @@ func (store *Store) ListTournaments(ctx context.Context, accountID, playerID int
 	return store.scanTournaments(ctx, q)
 }
 
+// ListUnfinishedTournamentsByPlayer returns the tournaments the player took a seat in
+// (accepted) that aren't aborted, newest first. Whether one is over its games tell, so the
+// caller still checks that.
+func (store *Store) ListUnfinishedTournamentsByPlayer(ctx context.Context, playerID int64) ([]tournament.Tournament, error) {
+	seated := store.db.NewSelect().Model((*tournament.Participant)(nil)).Column("tournament_id").
+		Where("player_id = ?", playerID).Where("status = ?", game.InvitationAccepted)
+	return store.scanTournaments(ctx, store.db.NewSelect().Where("id IN (?)", seated).
+		Where("aborted_at IS NULL").Order("id DESC"))
+}
+
 // ListInvitedTournaments returns the tournaments a player was invited to and hasn't
 // answered yet, newest first.
 func (store *Store) ListInvitedTournaments(ctx context.Context, playerID int64) ([]tournament.Tournament, error) {
@@ -117,21 +127,38 @@ func (store *Store) AcceptTournamentInvitation(ctx context.Context, tournamentID
 }
 
 // RemoveTournamentParticipant removes a player from a tournament that hasn't started
-// (declined or left in the lobby).
+// (declined, withdrawn or left in the lobby). A tournament that nobody accepted is deleted
+// with its invitations, like a game (RemoveParticipant).
 func (store *Store) RemoveTournamentParticipant(ctx context.Context, tournamentID, playerID int64) error {
-	res, err := store.db.NewDelete().Model((*tournament.Participant)(nil)).
-		Where("tournament_id = ?", tournamentID).
-		Where("player_id = ?", playerID).
-		Exec(ctx)
-	if err != nil {
-		return err
-	}
-	if n, err := res.RowsAffected(); err != nil {
-		return err
-	} else if n == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		res, err := tx.NewDelete().Model((*tournament.Participant)(nil)).
+			Where("tournament_id = ?", tournamentID).
+			Where("player_id = ?", playerID).
+			Exec(ctx)
+		if err != nil {
+			return err
+		}
+		if n, err := res.RowsAffected(); err != nil {
+			return err
+		} else if n == 0 {
+			return ErrNotFound
+		}
+		accepted, err := tx.NewSelect().Model((*tournament.Participant)(nil)).Where("tournament_id = ?", tournamentID).Where("status = ?", game.InvitationAccepted).Count(ctx)
+		if err != nil || accepted > 0 {
+			return err
+		}
+		if _, err := tx.NewDelete().Model((*tournament.Participant)(nil)).Where("tournament_id = ?", tournamentID).Exec(ctx); err != nil {
+			return err
+		}
+		var t tournament.Tournament
+		if err := tx.NewSelect().Model(&t).Column("mode", "settings_id").Where("id = ?", tournamentID).Scan(ctx); err != nil {
+			return err
+		}
+		if _, err = tx.NewDelete().Model((*tournament.Tournament)(nil)).Where("id = ?", tournamentID).Exec(ctx); err != nil {
+			return err
+		}
+		return deleteSettings(ctx, tx, t.Settings)
+	})
 }
 
 // AbortTournament marks a tournament as aborted.
@@ -176,12 +203,14 @@ func (store *Store) JoinTournament(ctx context.Context, tournamentID, playerID i
 	})
 }
 
-// ListOpenTournaments returns the tournaments open for strangers that were created
-// since the time, newest first, including full and aborted ones, which the caller sorts out.
-func (store *Store) ListOpenTournaments(ctx context.Context, since time.Time) ([]tournament.Tournament, error) {
+// ListOpenTournaments returns the tournaments open for strangers with a free seat, newest
+// first.
+func (store *Store) ListOpenTournaments(ctx context.Context) ([]tournament.Tournament, error) {
+	taken := store.db.NewSelect().Model((*tournament.Participant)(nil)).ColumnExpr("count(*)").
+		Where("participant.tournament_id = tournament.id")
 	return store.scanTournaments(ctx, store.db.NewSelect().
 		Where("seats > 0").
-		Where("created_at > ?", since).
+		Where("seats > (?)", taken).
 		Where("aborted_at IS NULL").
 		Order("id DESC"))
 }

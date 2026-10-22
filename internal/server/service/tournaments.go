@@ -78,6 +78,7 @@ func (s *Service) CreateTournament(ctx context.Context, acc account.Account, t t
 			return TournamentView{}, err
 		}
 	}
+	own := t.PlayerIDs()
 	invited, err := s.invitedPlayers(ctx, acc, inviteUsernames)
 	if err != nil {
 		return TournamentView{}, err
@@ -88,6 +89,9 @@ func (s *Service) CreateTournament(ctx context.Context, acc account.Account, t t
 	rand.Shuffle(len(t.Participants), func(i, j int) { t.Participants[i], t.Participants[j] = t.Participants[j], t.Participants[i] })
 	if err := t.Validate(); err != nil {
 		return TournamentView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	if err := s.checkPlayersFree(ctx, acc, own, 0); err != nil {
+		return TournamentView{}, err
 	}
 	if err := s.completeFinished(ctx, acc); err != nil {
 		return TournamentView{}, err
@@ -161,6 +165,9 @@ func (s *Service) AcceptTournamentInvitation(ctx context.Context, acc account.Ac
 	if err := s.checkSeatBoard(ctx, acc, tournamentSeat(v.Tournament), boardID); err != nil {
 		return TournamentView{}, err
 	}
+	if err := s.checkPlayersFree(ctx, acc, []int64{acc.PlayerID}, 0); err != nil {
+		return TournamentView{}, err
+	}
 	if err := s.completeFinished(ctx, acc); err != nil {
 		return TournamentView{}, err
 	}
@@ -228,7 +235,7 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 			return GameView{}, err
 		}
 	}
-	if err := s.checkPlayersFree(ctx, acc, m.PlayerIDs[:]); err != nil {
+	if err := s.checkPlayersFree(ctx, acc, m.PlayerIDs[:], id); err != nil {
 		return GameView{}, err
 	}
 	if err := s.completeFinished(ctx, acc); err != nil {
@@ -274,10 +281,8 @@ func (s *Service) completePrevious(ctx context.Context, st tournament.State, m t
 // account takes no part in it: no player of the account (its own or a guest) is a
 // participant.
 func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tournament.Tournament) (TournamentView, error) {
-	v := TournamentView{Tournament: t}
-	v.Ready = t.Ready()
-	var err error
-	if v.Players, err = s.store.GetPlayers(ctx, t.PlayerIDs()); err != nil {
+	v, err := s.buildTournament(ctx, t)
+	if err != nil {
 		return TournamentView{}, err
 	}
 	pt, err := participationOf(acc, v.Players, v.Pending, t.Aborted())
@@ -289,6 +294,17 @@ func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tou
 		if v.Boards, err = s.tournamentBoardChoices(ctx, acc, t); err != nil {
 			return TournamentView{}, err
 		}
+	}
+	return v, nil
+}
+
+// buildTournament computes everything of a tournament's view that doesn't depend on who
+// looks at it, like build for a game.
+func (s *Service) buildTournament(ctx context.Context, t tournament.Tournament) (TournamentView, error) {
+	v := TournamentView{Tournament: t, Ready: t.Ready()}
+	var err error
+	if v.Players, err = s.store.GetPlayers(ctx, t.PlayerIDs()); err != nil {
+		return TournamentView{}, err
 	}
 	for _, p := range v.Players {
 		v.Stats = append(v.Stats, stats.Summary{Player: p})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
+	"strconv"
 	"testing"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
@@ -79,13 +80,19 @@ func TestDeleteGuest(t *testing.T) {
 func TestDeleteAccount(t *testing.T) {
 	ctx := context.Background()
 	s := newService(t)
-	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")
+	anna, ben, cara, dora := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara"), register(t, s, "dora")
 	befriend(t, s, anna, ben)
 	befriend(t, s, ben, cara)
 	befriend(t, s, anna, cara)
+	befriend(t, s, ben, dora)
 	keller, _ := s.CreateBoard(ctx, ben, "Keller")
 	bensGuest, _ := s.CreateGuest(ctx, ben, "Bens Gast")
-	// A player plays one game at a time: the running games below are each of other players.
+	// A player is in one game or tournament at a time: those below are each of other players.
+	bensOthers := make([]int64, 2)
+	for i := range bensOthers {
+		g, _ := s.CreateGuest(ctx, ben, "Bens Gast "+strconv.Itoa(i+2))
+		bensOthers[i] = g.ID
+	}
 	annasGuest, _ := s.CreateGuest(ctx, anna, "Annas Gast")
 	carasGuest, _ := s.CreateGuest(ctx, cara, "Caras Gast")
 
@@ -107,12 +114,9 @@ func TestDeleteAccount(t *testing.T) {
 	_, _ = s.AcceptInvitation(ctx, anna, bens.Game.ID, nil)
 	// An invitation of ben's that nobody answered: declined.
 	invited, _ := s.CreateGame(ctx, cara, x01Game(carasGuest.ID), []string{"ben"})
-	// A tournament of cara with ben in it: aborted.
-	tr := quickTournament(tournament.RoundRobin, cara.PlayerID)
-	tr.Seats = 3
-	tv, _ := s.CreateTournament(ctx, cara, tr, nil)
-	_, _ = s.JoinTournament(ctx, ben, tv.Tournament.ID, nil)
-	_, _ = s.JoinTournament(ctx, anna, tv.Tournament.ID, nil)
+	// A tournament of ben's guests with dora: aborted.
+	tv, _ := s.CreateTournament(ctx, ben, quickTournament(tournament.RoundRobin, bensOthers...), []string{"dora"})
+	_, _ = s.AcceptTournamentInvitation(ctx, dora, tv.Tournament.ID, nil)
 
 	if err := s.DeleteAccount(ctx, ben, "wrong password"); !errors.Is(err, ErrWrongPassword) {
 		t.Fatalf("wrong password: got %v, want ErrWrongPassword", err)
@@ -147,7 +151,7 @@ func TestDeleteAccount(t *testing.T) {
 	if v, _ := s.Game(ctx, cara, invited.Game.ID); len(v.Game.Participants) != 1 {
 		t.Errorf("the open invitation: players %v; want it withdrawn", v.Game.PlayerIDs())
 	}
-	if v, _ := s.Tournament(ctx, cara, tv.Tournament.ID); !v.Tournament.Aborted() {
+	if v, _ := s.Tournament(ctx, dora, tv.Tournament.ID); !v.Tournament.Aborted() {
 		t.Error("the tournament ben took part in wasn't aborted")
 	}
 	after, _ := s.Stats(ctx, anna, "")

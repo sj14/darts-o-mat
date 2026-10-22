@@ -41,6 +41,9 @@ templ alert(a Alert) {
 			if a.Game != 0 {
 				{ " " }
 				<a href={ templ.URL(gameURL(a.Game, "")) } class={ linkClass }>{ T(ctx).ToGame() }</a>
+			} else if a.Tournament != 0 {
+				{ " " }
+				<a href={ templ.URL(tournamentURL(a.Tournament, "")) } class={ linkClass }>{ T(ctx).ToTournament() }</a>
 			}
 		</div>
 	}

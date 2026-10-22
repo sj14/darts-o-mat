@@ -60,6 +60,8 @@ func TestReputationInOpenGames(t *testing.T) {
 	ctx := context.Background()
 	s := newService(t)
 	ben, erik := register(t, s, "ben"), register(t, s, "erik")
+	lobby := x01Game(ben.PlayerID)
+	lobby.Seats = 2
 	for _, name := range []string{"anna", "carla", "dora"} {
 		rater := register(t, s, name)
 		befriend(t, s, rater, ben)
@@ -73,15 +75,21 @@ func TestReputationInOpenGames(t *testing.T) {
 			t.Fatal(err)
 		}
 		if name == "carla" { // two thumbs are too few to show
-			g := x01Game(ben.PlayerID)
-			g.Seats = 2
-			if _, err := s.CreateGame(ctx, ben, g, nil); err != nil {
+			v, err := s.CreateGame(ctx, ben, lobby, nil)
+			if err != nil {
 				t.Fatal(err)
 			}
 			if l, _ := s.OpenLobbies(ctx, erik); len(l) != 1 || len(l[0].Reputations) != 0 {
 				t.Fatalf("with two thumbs: %+v, want none shown", l)
 			}
+			// Ben leaves it to play with dora.
+			if _, err := s.LeaveGame(ctx, ben, v.Game.ID); err != nil {
+				t.Fatal(err)
+			}
 		}
+	}
+	if _, err := s.CreateGame(ctx, ben, lobby, nil); err != nil {
+		t.Fatal(err)
 	}
 	l, _ := s.OpenLobbies(ctx, erik)
 	if len(l) != 1 || l[0].Reputations[ben.PlayerID].Up != 2 || l[0].Reputations[ben.PlayerID].Down != 1 {

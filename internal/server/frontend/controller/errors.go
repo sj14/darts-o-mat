@@ -71,9 +71,9 @@ func errorText(t view.Texts, err error) (string, bool) {
 	return "", false
 }
 
-// busyGame is the running game a player of err plays in, if err is a
-// service.PlayerBusyError the account may look into; else 0.
-func busyGame(err error) int64 {
+// alertOf is the alert for err with the message msg: a service.PlayerBusyError links the
+// game or tournament the player is in, if the account may look into it.
+func alertOf(err error, msg string) view.Alert {
 	busy, _ := errors.AsType[service.PlayerBusyError](err)
-	return busy.GameID
+	return view.Alert{Text: msg, Game: busy.GameID, Tournament: busy.TournamentID}
 }

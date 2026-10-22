@@ -147,7 +147,7 @@ templ lobbyRow(l service.OpenLobby, boards []board.Board) {
 				if l.Tournament {
 					{ modeLabel(T(ctx), l.Settings) } ·
 				}
-				{ lobbyPlayers(ctx, l) } · { T(ctx).PlayersOfSeats(len(l.Joined), l.Seats) } · { T(ctx).OpenForMinutes(minutesLeft(l)) }
+				{ lobbyPlayers(ctx, l) } · { T(ctx).PlayersOfSeats(len(l.Joined), l.Seats) } · { waiting(T(ctx), l) }
 			</div>
 			if l.BoardOnly || l.Settings.BullOff || l.Settings.TurnSeconds > 0 {
 				<div class="mt-1 flex flex-wrap gap-1.5">

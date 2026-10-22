@@ -724,10 +724,17 @@ func thumbValue(up bool) string {
 	return `{"up":"0"}`
 }
 
-// minutesLeft is how many more minutes an open game or tournament is offered, at least one.
-func minutesLeft(l service.OpenLobby) int {
-	left := service.OpenFor - time.Since(l.CreatedAt)
-	return max(1, int((left+time.Minute-1)/time.Minute))
+// waiting is how long an open game or tournament has been waiting for players: minutes
+// (at least one) for the first hour, hours for the first two days, then days.
+func waiting(t Texts, l service.OpenLobby) string {
+	d := time.Since(l.CreatedAt)
+	switch {
+	case d < time.Hour:
+		return t.WaitingMinutes(max(1, int(d/time.Minute)))
+	case d < 48*time.Hour:
+		return t.WaitingHours(int(d / time.Hour))
+	}
+	return t.WaitingDays(int(d / (24 * time.Hour)))
 }
 
 // filterValue is a number as the filter form has it: empty for none.

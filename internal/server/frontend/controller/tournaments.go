@@ -91,7 +91,7 @@ func (c *Controller) startMatch(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 	case busy:
 		msg, _ := errorText(view.T(r.Context()), err)
-		c.renderTournament(w, r, http.StatusConflict, view.Alert{Text: msg, Game: busyGame(err)})
+		c.renderTournament(w, r, http.StatusConflict, alertOf(err, msg))
 	case errors.Is(err, service.ErrInvalid), errors.Is(err, service.ErrForbidden), errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrAborted):
 		c.renderTournament(w, r, http.StatusConflict, view.Alert{Text: view.T(r.Context()).ErrMatchNotStartable()})
 	default:

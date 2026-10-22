@@ -99,9 +99,9 @@ func (c *Controller) joinFailed(w http.ResponseWriter, r *http.Request, err erro
 	case isNotFound(err):
 		http.NotFound(w, r)
 	case errors.Is(err, service.ErrInvalid) && fromLobbies:
-		c.renderLobbies(w, r, http.StatusConflict, view.Alert{Text: msg, Game: busyGame(err)})
+		c.renderLobbies(w, r, http.StatusConflict, alertOf(err, msg))
 	case errors.Is(err, service.ErrInvalid):
-		c.renderHome(w, r, http.StatusConflict, "", view.Alert{Text: msg, Game: busyGame(err)})
+		c.renderHome(w, r, http.StatusConflict, "", alertOf(err, msg))
 	default:
 		serverError(w, err)
 	}

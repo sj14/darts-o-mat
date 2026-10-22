@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"testing"
-	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
@@ -87,16 +86,12 @@ func TestOpenGameValidation(t *testing.T) {
 	}
 }
 
-func TestOfferedOnlyForAWhile(t *testing.T) {
-	s := &Service{now: time.Now}
+func TestOffered(t *testing.T) {
 	open := game.Lobby{Seats: 2}
-	if !s.offered(open, 1, time.Now(), false) {
-		t.Error("a new open game isn't offered")
+	if !offered(open, 1, false) {
+		t.Error("an open game with a free seat isn't offered")
 	}
-	if s.offered(open, 1, time.Now().Add(-OpenFor-time.Minute), false) {
-		t.Error("an old open game is still offered")
-	}
-	if s.offered(open, 2, time.Now(), false) || s.offered(open, 1, time.Now(), true) || s.offered(game.Lobby{}, 1, time.Now(), false) {
+	if offered(open, 2, false) || offered(open, 1, true) || offered(game.Lobby{}, 1, false) {
 		t.Error("a full, aborted or closed game is offered")
 	}
 }

@@ -199,7 +199,7 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 	} else if text, ok := errorText(texts, err); ok {
 		msg = text
 	}
-	c.renderHome(w, r, http.StatusBadRequest, game.Mode(r.FormValue("mode")), view.Alert{Text: msg, Game: busyGame(err)})
+	c.renderHome(w, r, http.StatusBadRequest, game.Mode(r.FormValue("mode")), alertOf(err, msg))
 }
 
 // gameFromForm reads the new game and the usernames to invite from the form.

@@ -114,7 +114,9 @@ func (textsDE) LobbiesShown(shown, total int) string {
 	return strconv.Itoa(shown) + " von " + strconv.Itoa(total) + " offenen Spielen"
 }
 func (textsDE) NoMatchingGames() string     { return "Kein offenes Spiel passt zu diesen Filtern." }
-func (textsDE) OpenForMinutes(n int) string { return "noch " + strconv.Itoa(n) + " Min. offen" }
+func (textsDE) WaitingMinutes(n int) string { return "wartet seit " + strconv.Itoa(n) + " Min." }
+func (textsDE) WaitingHours(n int) string   { return "wartet seit " + strconv.Itoa(n) + " Std." }
+func (textsDE) WaitingDays(n int) string    { return "wartet seit " + strconv.Itoa(n) + " Tagen" }
 func (textsDE) GameMode() string            { return "Spielmodus" }
 func (textsDE) FilterAny() string           { return "Egal" }
 func (textsDE) FilterYes() string           { return "Ja" }
@@ -441,7 +443,7 @@ func (textsDE) ErrBoardBusy() string {
 	return "Dieses Board ist in einem laufenden Spiel, das es braucht, und kann nicht weggenommen werden."
 }
 func (textsDE) ErrPlayerBusy(name string) string {
-	return name + " spielt gerade noch ein anderes Spiel."
+	return name + " ist schon in einem anderen Spiel oder Turnier."
 }
 func (textsDE) HeatmapDarts(n int) string {
 	return strconv.Itoa(n) + " von der Kamera erkannte Darts"

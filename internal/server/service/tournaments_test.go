@@ -261,19 +261,21 @@ func TestSubscribeTournament(t *testing.T) {
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
+	// A player is in one tournament at a time: the other is of other players.
 	ids := []int64{anna.PlayerID}
-	for _, name := range []string{"B", "C"} {
+	for _, name := range []string{"B", "C", "D", "E", "F"} {
 		g, err := s.CreateGuest(ctx, anna, name)
 		if err != nil {
 			t.Fatal(err)
 		}
 		ids = append(ids, g.ID)
 	}
+	ids, others := ids[:3], ids[3:]
 	v, err := s.CreateTournament(ctx, anna, quickTournament(tournament.RoundRobin, ids...), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := s.CreateTournament(ctx, anna, quickTournament(tournament.RoundRobin, ids...), nil)
+	other, err := s.CreateTournament(ctx, anna, quickTournament(tournament.RoundRobin, others...), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

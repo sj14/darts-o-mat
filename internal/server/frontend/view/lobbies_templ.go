@@ -626,9 +626,9 @@ func lobbyRow(l service.OpenLobby, boards []board.Board) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var29 string
-		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).OpenForMinutes(minutesLeft(l)))
+		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(waiting(T(ctx), l))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/lobbies.templ`, Line: 150, Col: 124}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/lobbies.templ`, Line: 150, Col: 105}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 		if templ_7745c5c3_Err != nil {
