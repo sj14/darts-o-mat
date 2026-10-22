@@ -144,6 +144,10 @@ jobs:
             type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
       # Built on the runner's platform for both targets (see the Containerfile), no QEMU.
       - uses: docker/build-push-action@v6
+        env:
+          # No build record artifact: the release job downloads all artifacts of the run
+          # into the release.
+          DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: .
           file: Containerfile
