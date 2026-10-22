@@ -48,16 +48,13 @@ func (textsDE) RoundN(n int) string   { return "Runde " + strconv.Itoa(n) }
 func (textsDE) InvitedToGame() string { return "Du bist zu diesem Spiel eingeladen." }
 func (textsDE) Accept() string        { return "Zusagen" }
 func (textsDE) Decline() string       { return "Absagen" }
-func (textsDE) GameStartsWhenAccepted() string {
-	return "Das Spiel beginnt, sobald alle Eingeladenen zugesagt haben."
-}
-func (textsDE) GuestMark() string  { return "(Gast)" }
-func (textsDE) Joined() string     { return "dabei" }
-func (textsDE) Accepted() string   { return "zugesagt" }
-func (textsDE) Invited() string    { return "eingeladen" }
-func (textsDE) Uninvite() string   { return "Ausladen" }
-func (textsDE) AbortGame() string  { return "Spiel abbrechen" }
-func (textsDE) BoardInUse() string { return "belegt, das andere Spiel verliert es" }
+func (textsDE) GuestMark() string     { return "(Gast)" }
+func (textsDE) Joined() string        { return "dabei" }
+func (textsDE) Accepted() string      { return "zugesagt" }
+func (textsDE) Invited() string       { return "eingeladen" }
+func (textsDE) Uninvite() string      { return "Ausladen" }
+func (textsDE) AbortGame() string     { return "Spiel abbrechen" }
+func (textsDE) BoardInUse() string    { return "belegt, das andere Spiel verliert es" }
 func (textsDE) LandingLead() string {
 	return "Ein freier Open-Source-Darts-Zähler, den du selbst betreibst. Gib deine Würfe ein oder lass Kameras sie erkennen – die Punkte zählt das Programm."
 }
@@ -328,7 +325,6 @@ func (textsDE) TurnLimitHint(skips int) string {
 }
 func (textsDE) TurnTimeLeft() string    { return "Verbleibende Zeit für den Zug" }
 func (textsDE) Players() string         { return "Mitspieler" }
-func (textsDE) Me(name string) string   { return "Ich (" + name + ")" }
 func (textsDE) InviteFriends() string   { return "Freunde einladen" }
 func (textsDE) NoFriendsBefore() string { return "Füge unter " }
 func (textsDE) NoFriendsAfter() string  { return " andere Accounts hinzu, um sie einzuladen." }
@@ -442,6 +438,25 @@ func (textsDE) ErrBoardRequired() string {
 func (textsDE) ErrBoardBusy() string {
 	return "Dieses Board ist in einem laufenden Spiel, das es braucht, und kann nicht weggenommen werden."
 }
+func (textsDE) ErrStarted() string { return "Es hat schon angefangen." }
+func (textsDE) LobbyHint() string {
+	return "Füge deine Spieler hinzu und lade Freunde ein, dann starte. Wer anfängt, wird beim Start ausgelost."
+}
+func (textsDE) FirstPlayerHint() string {
+	return "Wer zuerst in der Lobby sitzt; weitere Spieler und Freunde kommen dort dazu."
+}
+func (textsDE) StartsWhenFull() string {
+	return "Offen für Fremde: Es startet von selbst, sobald alle Plätze besetzt sind."
+}
+func (textsDE) StartTournament() string { return "Turnier starten" }
+func (textsDE) AddGuest() string        { return "Gast hinzufügen" }
+func (textsDE) Invite() string          { return "Einladen" }
+func (textsDE) RemoveFromLobby() string { return "Entfernen" }
+func (textsDE) Save() string            { return "Speichern" }
+func (textsDE) Guests() string          { return "Gäste" }
+func (textsDE) NoGuests() string {
+	return "Noch keine Gäste. Du legst sie in der Lobby eines Spiels an."
+}
 func (textsDE) ErrPlayerBusy(name string) string {
 	return name + " ist schon in einem anderen Spiel oder Turnier."
 }
@@ -462,10 +477,7 @@ func (textsDE) Games() string          { return "Spiele" }
 func (textsDE) DartsHits() string      { return "Darts / Treffer" }
 
 func (textsDE) InvitedToTournament() string {
-	return "Du bist zu diesem Turnier eingeladen. Die Spiele beginnen, sobald alle zugesagt haben."
-}
-func (textsDE) WaitingFor(names string) string {
-	return "Wartet auf die Zusage von " + names + ". Danach können die Spiele beginnen."
+	return "Du bist zu diesem Turnier eingeladen."
 }
 func (textsDE) WinsTournament(name string) string { return "🏆 " + name + " gewinnt das Turnier!" }
 func (textsDE) LeaveTournament() string           { return "Turnier verlassen" }
@@ -511,9 +523,6 @@ func (textsDE) ErrGuestNameTaken() string {
 }
 func (textsDE) ErrGameNotStarted() string {
 	return "Das Spiel konnte nicht gestartet werden. Bitte die Einstellungen prüfen."
-}
-func (textsDE) ErrChoosePlayer() string {
-	return "Bitte mindestens einen Mitspieler auswählen oder einladen."
 }
 func (textsDE) ErrTournamentPlayers(min, max int) string {
 	return "Ein Turnier braucht " + strconv.Itoa(min) + " bis " + strconv.Itoa(max) + " Spieler: dich, Gäste und eingeladene Freunde."

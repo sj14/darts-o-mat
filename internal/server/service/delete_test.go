@@ -24,14 +24,14 @@ func TestDeleteGuest(t *testing.T) {
 		g.Rules.(*x01.Settings).StartScore = 40
 		return g
 	}
-	done, err := s.CreateGame(ctx, anna, quick(anna.PlayerID, papa.ID), nil)
+	done, err := createGame(ctx, s, anna, quick(anna.PlayerID, papa.ID), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AddDart(ctx, anna, done.Game.ID, d20); err != nil {
 		t.Fatal(err)
 	}
-	running, _ := s.CreateGame(ctx, anna, quick(anna.PlayerID, oma.ID), nil)
+	running, _ := createGame(ctx, s, anna, quick(anna.PlayerID, oma.ID), nil)
 
 	if err := s.DeleteGuest(ctx, ben, papa.ID); !errors.Is(err, ErrNotFound) {
 		t.Errorf("ben deletes anna's guest: got %v, want ErrNotFound", err)
@@ -102,21 +102,21 @@ func TestDeleteAccount(t *testing.T) {
 		return g
 	}
 	// A finished game of ben and anna, kept as it was.
-	done, _ := s.CreateGame(ctx, anna, quick(anna.PlayerID), []string{"ben"})
-	_, _ = s.AcceptInvitation(ctx, ben, done.Game.ID, nil)
+	done, _ := createGame(ctx, s, anna, quick(anna.PlayerID), []string{"ben"})
+	_, _ = acceptGame(ctx, s, ben, done.Game.ID, nil)
 	_, _ = s.AddDart(ctx, anna, done.Game.ID, d20)
 	// A running game of anna's guest with ben and cara: ben leaves it, it goes on.
-	three, _ := s.CreateGame(ctx, anna, x01Game(annasGuest.ID), []string{"ben", "cara"})
-	_, _ = s.AcceptInvitation(ctx, ben, three.Game.ID, nil)
-	_, _ = s.AcceptInvitation(ctx, cara, three.Game.ID, nil)
+	three, _ := createGame(ctx, s, anna, x01Game(annasGuest.ID), []string{"ben", "cara"})
+	_, _ = acceptGame(ctx, s, ben, three.Game.ID, nil)
+	_, _ = acceptGame(ctx, s, cara, three.Game.ID, nil)
 	// A running game of ben's guest, with anna: it is aborted.
-	bens, _ := s.CreateGame(ctx, ben, x01Game(bensGuest.ID), []string{"anna"})
-	_, _ = s.AcceptInvitation(ctx, anna, bens.Game.ID, nil)
+	bens, _ := createGame(ctx, s, ben, x01Game(bensGuest.ID), []string{"anna"})
+	_, _ = acceptGame(ctx, s, anna, bens.Game.ID, nil)
 	// An invitation of ben's that nobody answered: declined.
-	invited, _ := s.CreateGame(ctx, cara, x01Game(carasGuest.ID), []string{"ben"})
+	invited, _ := createGame(ctx, s, cara, x01Game(carasGuest.ID), []string{"ben"})
 	// A tournament of ben's guests with dora: aborted.
-	tv, _ := s.CreateTournament(ctx, ben, quickTournament(tournament.RoundRobin, bensOthers...), []string{"dora"})
-	_, _ = s.AcceptTournamentInvitation(ctx, dora, tv.Tournament.ID, nil)
+	tv, _ := createTournament(ctx, s, ben, quickTournament(tournament.RoundRobin, bensOthers...), []string{"dora"})
+	_, _ = acceptTournament(ctx, s, dora, tv.Tournament.ID, nil)
 
 	if err := s.DeleteAccount(ctx, ben, "wrong password"); !errors.Is(err, ErrWrongPassword) {
 		t.Fatalf("wrong password: got %v, want ErrWrongPassword", err)

@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"math/rand"
 	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
@@ -178,34 +177,48 @@ func (store *Store) ListTournamentGames(ctx context.Context, tournamentID int64)
 	return store.scanGames(ctx, store.db.NewSelect().Where("tournament_id = ?", tournamentID).Order("id"))
 }
 
-// JoinTournament adds a player to a tournament with an accepted invitation. The player
-// that takes the last seat completes the draw: the players are shuffled, as when a
-// tournament that isn't open is created.
-func (store *Store) JoinTournament(ctx context.Context, tournamentID, playerID int64, boardID *int64) error {
+// AddTournamentParticipant adds a player to a tournament in the lobby, invited or accepted
+// (p.Status), as the last so far, on the board if one is given.
+func (store *Store) AddTournamentParticipant(ctx context.Context, tournamentID int64, p tournament.Participant) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		var t tournament.Tournament
-		if err := tx.NewSelect().Model(&t).Where("id = ?", tournamentID).Scan(ctx); err != nil {
-			return notFound(err)
-		}
-		var rows []tournament.Participant
-		if err := tx.NewSelect().Model(&rows).Where("tournament_id = ?", tournamentID).OrderExpr("place").Scan(ctx); err != nil {
+		var last int
+		if err := tx.NewSelect().Model((*tournament.Participant)(nil)).ColumnExpr("COALESCE(MAX(place), -1)").Where("tournament_id = ?", tournamentID).Scan(ctx, &last); err != nil {
 			return err
 		}
-		joined := tournament.Participant{TournamentID: tournamentID, PlayerID: playerID, Position: len(rows), Status: game.InvitationAccepted, BoardID: boardID}
-		if _, err := tx.NewInsert().Model(&joined).Exec(ctx); err != nil {
+		p.TournamentID, p.Position = tournamentID, last+1
+		if _, err := tx.NewInsert().Model(&p).Exec(ctx); err != nil {
 			return err
 		}
-		rows = append(rows, joined)
-		if t.Full(len(rows)) {
-			rand.Shuffle(len(rows), func(i, j int) { rows[i], rows[j] = rows[j], rows[i] })
-			for i := range rows {
-				rows[i].Position = i
-				if _, err := tx.NewUpdate().Model(&rows[i]).Column("place").WherePK().Exec(ctx); err != nil {
-					return err
-				}
+		return markBoardUsed(ctx, tx, p.BoardID, time.Now())
+	})
+}
+
+// StartTournament stores when the tournament started and the order of its players as
+// drawn (t.Participants), the seeds of the bracket.
+func (store *Store) StartTournament(ctx context.Context, t *tournament.Tournament) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewUpdate().Model(t).Column("started_at").WherePK().Exec(ctx); err != nil {
+			return err
+		}
+		for i := range t.Participants {
+			t.Participants[i].Position = i
+			if _, err := tx.NewUpdate().Model(&t.Participants[i]).Column("place").WherePK().Exec(ctx); err != nil {
+				return err
 			}
 		}
-		return markBoardUsed(ctx, tx, boardID, time.Now())
+		return nil
+	})
+}
+
+// SetTournamentParticipantBoard puts a player of a tournament on a board, or takes them off
+// one with a nil board, like SetParticipantBoard.
+func (store *Store) SetTournamentParticipantBoard(ctx context.Context, tournamentID, playerID int64, boardID *int64, at time.Time) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewUpdate().Model((*tournament.Participant)(nil)).Set("board_id = ?", boardID).
+			Where("tournament_id = ?", tournamentID).Where("player_id = ?", playerID).Exec(ctx); err != nil {
+			return err
+		}
+		return markBoardUsed(ctx, tx, boardID, at)
 	})
 }
 

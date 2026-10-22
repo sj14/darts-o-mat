@@ -21,7 +21,9 @@ func newService(t *testing.T) *Service {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(st, Options{Registration: true})
+	s := New(st, Options{Registration: true})
+	s.shuffle = func(int, func(i, j int)) {} // the order the players took their seats
+	return s
 }
 
 func register(t *testing.T, s *Service, username string) account.Account {
@@ -179,16 +181,24 @@ func TestGuestsBelongToTheirAccount(t *testing.T) {
 		t.Errorf("anna's players = %+v, want herself followed by her guest", players)
 	}
 
-	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID, guest.ID), nil); !errors.Is(err, ErrInvalid) {
-		t.Errorf("ben uses anna's guest: got %v, want ErrInvalid", err)
+	if _, err := s.CreateGame(ctx, ben, x01Game(), guest.ID, nil); !errors.Is(err, ErrInvalid) {
+		t.Errorf("ben begins with anna's guest: got %v, want ErrInvalid", err)
 	}
-	if _, err := s.CreateGame(ctx, ben, x01Game(anna.PlayerID), nil); !errors.Is(err, ErrInvalid) {
+	v, err := s.CreateGame(ctx, ben, x01Game(), 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lobby := GameLobby(v.Game.ID)
+	if err := s.AddPlayer(ctx, ben, lobby, guest.ID, nil); !errors.Is(err, ErrInvalid) {
+		t.Errorf("ben adds anna's guest: got %v, want ErrInvalid", err)
+	}
+	if err := s.AddPlayer(ctx, ben, lobby, anna.PlayerID, nil); !errors.Is(err, ErrInvalid) {
 		t.Errorf("ben adds anna without invitation: got %v, want ErrInvalid", err)
 	}
-	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), []string{"nobody"}); !isError[UnknownUserError](err) || !errors.Is(err, ErrInvalid) {
+	if err := s.Invite(ctx, ben, lobby, "nobody"); !isError[UnknownUserError](err) || !errors.Is(err, ErrInvalid) {
 		t.Errorf("invite unknown user: got %v, want UnknownUserError wrapping ErrInvalid", err)
 	}
-	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), []string{"Ben"}); !errors.Is(err, ErrInviteSelf) {
+	if err := s.Invite(ctx, ben, lobby, "Ben"); !errors.Is(err, ErrInviteSelf) {
 		t.Errorf("invite yourself: got %v, want ErrInviteSelf", err)
 	}
 }
@@ -200,7 +210,7 @@ func TestInvitationFlow(t *testing.T) {
 	guest, _ := s.CreateGuest(ctx, anna, "Papa")
 	befriend(t, s, anna, ben)
 
-	v, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID, guest.ID), []string{"Ben"})
+	v, err := createGame(ctx, s, anna, x01Game(anna.PlayerID, guest.ID), []string{"Ben"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +218,7 @@ func TestInvitationFlow(t *testing.T) {
 	if want := []int64{anna.PlayerID, guest.ID, ben.PlayerID}; !slices.Equal(v.Game.PlayerIDs(), want) {
 		t.Errorf("player order = %v, want %v", v.Game.PlayerIDs(), want)
 	}
-	if v.Ready {
+	if v.Started {
 		t.Error("game is ready although ben hasn't accepted")
 	}
 
@@ -227,15 +237,15 @@ func TestInvitationFlow(t *testing.T) {
 		t.Errorf("dart by pending invitee: got %v, want ErrForbidden", err)
 	}
 
-	v, err = s.AcceptInvitation(ctx, ben, id, nil)
+	v, err = acceptGame(ctx, s, ben, id, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !v.Ready || !v.CanThrow {
-		t.Errorf("after accepting: ready=%v canThrow=%v, want both", v.Ready, v.CanThrow)
+	if !v.Started || !v.CanThrow {
+		t.Errorf("after accepting: ready=%v canThrow=%v, want both", v.Started, v.CanThrow)
 	}
-	if _, err := s.AcceptInvitation(ctx, ben, id, nil); !errors.Is(err, ErrNotFound) {
-		t.Errorf("accepting twice: got %v, want ErrNotFound", err)
+	if _, err := acceptGame(ctx, s, ben, id, nil); !errors.Is(err, ErrStarted) {
+		t.Errorf("accepting twice: got %v, want ErrStarted", err)
 	}
 
 	if _, err := s.AddDart(ctx, anna, id, t20); err != nil {
@@ -278,29 +288,29 @@ func TestDeclineAndWithdraw(t *testing.T) {
 	befriend(t, s, anna, ben)
 	befriend(t, s, cara, anna)
 
-	v, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben", "cara"})
+	v, err := createGame(ctx, s, anna, x01Game(anna.PlayerID), []string{"ben", "cara"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	id := v.Game.ID
 
-	if _, err := s.WithdrawInvitation(ctx, ben, id, cara.PlayerID); !errors.Is(err, ErrForbidden) {
+	if _, err := withdrawGame(ctx, s, ben, id, cara.PlayerID); !errors.Is(err, ErrForbidden) {
 		t.Errorf("withdraw by a player who didn't answer yet: got %v, want ErrForbidden", err)
 	}
 
-	if err := s.DeclineInvitation(ctx, ben, id); err != nil {
+	if err := s.Decline(ctx, ben, GameLobby(id)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.Game(ctx, ben, id); !errors.Is(err, ErrNotFound) {
 		t.Errorf("ben after declining: got %v, want ErrNotFound", err)
 	}
 
-	v, err = s.WithdrawInvitation(ctx, anna, id, cara.PlayerID)
+	v, err = withdrawGame(ctx, s, anna, id, cara.PlayerID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(v.Game.PlayerIDs(), []int64{anna.PlayerID}) || !v.Ready {
-		t.Errorf("after withdrawing: players=%v ready=%v, want only anna and ready", v.Game.PlayerIDs(), v.Ready)
+	if !slices.Equal(v.Game.PlayerIDs(), []int64{anna.PlayerID}) || !v.Started {
+		t.Errorf("after withdrawing: players=%v ready=%v, want only anna and ready", v.Game.PlayerIDs(), v.Started)
 	}
 }
 
@@ -311,19 +321,19 @@ func TestGameWithoutPlayersLeftIsDeleted(t *testing.T) {
 	befriend(t, s, anna, ben)
 
 	// Everybody who creates a game takes part in it.
-	if _, err := s.CreateGame(ctx, anna, x01Game(), []string{"ben"}); !errors.Is(err, ErrInvalid) {
+	if _, err := createGame(ctx, s, anna, x01Game(), []string{"ben"}); !errors.Is(err, ErrInvalid) {
 		t.Errorf("a game without a player of the creator: got %v, want ErrInvalid", err)
 	}
 
 	// A game that nobody accepted is gone when the last player leaves it.
-	v, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"})
+	v, err := createGame(ctx, s, anna, x01Game(anna.PlayerID), []string{"ben"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.LeaveGame(ctx, anna, v.Game.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.DeclineInvitation(ctx, ben, v.Game.ID); !errors.Is(err, ErrNotFound) {
+	if err := s.Decline(ctx, ben, GameLobby(v.Game.ID)); !errors.Is(err, ErrNotFound) {
 		t.Errorf("declining a game that is gone: got %v, want ErrNotFound", err)
 	}
 }
@@ -340,7 +350,7 @@ func TestBoards(t *testing.T) {
 
 	g := x01Game(ben.PlayerID)
 	g = withBoard(g, b.ID)
-	if _, err := s.CreateGame(ctx, ben, g, nil); !errors.Is(err, ErrInvalid) {
+	if _, err := createGame(ctx, s, ben, g, nil); !errors.Is(err, ErrInvalid) {
 		t.Errorf("ben uses anna's board: got %v, want ErrInvalid", err)
 	}
 	if err := s.DeleteBoard(ctx, ben, b.ID); !errors.Is(err, ErrNotFound) {
@@ -352,7 +362,7 @@ func TestBoards(t *testing.T) {
 	}
 	g = x01Game(anna.PlayerID)
 	g = withBoard(g, b.ID)
-	created, err := s.CreateGame(ctx, anna, g, nil)
+	created, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatalf("anna uses her board: %v", err)
 	}
@@ -366,7 +376,12 @@ func TestFriends(t *testing.T) {
 	s := newService(t)
 	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")
 
-	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"}); !isError[NotFriendError](err) {
+	v, err := s.CreateGame(ctx, anna, x01Game(), 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lobby := GameLobby(v.Game.ID)
+	if err := s.Invite(ctx, anna, lobby, "ben"); !isError[NotFriendError](err) {
 		t.Errorf("invite before befriending: got %v, want NotFriendError", err)
 	}
 
@@ -388,7 +403,7 @@ func TestFriends(t *testing.T) {
 	if len(annas.Outgoing) != 1 || annas.Outgoing[0].Username != "ben" || len(bens.Incoming) != 1 || bens.Incoming[0].Username != "anna" {
 		t.Fatalf("pending request: anna %+v, ben %+v", annas, bens)
 	}
-	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"}); !isError[NotFriendError](err) {
+	if err := s.Invite(ctx, anna, lobby, "ben"); !isError[NotFriendError](err) {
 		t.Errorf("invite with pending request: got %v, want NotFriendError", err)
 	}
 	if err := s.AcceptFriend(ctx, anna, ben.ID); !errors.Is(err, ErrNotFound) {
@@ -403,10 +418,10 @@ func TestFriends(t *testing.T) {
 	if len(annas.Friends) != 1 || annas.Friends[0].Name != "ben" || len(annas.Outgoing) != 0 {
 		t.Fatalf("after mutual request: %+v", annas)
 	}
-	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"}); err != nil {
+	if err := s.Invite(ctx, anna, lobby, "ben"); err != nil {
 		t.Errorf("invite friend: %v", err)
 	}
-	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"cara"}); !isError[NotFriendError](err) {
+	if err := s.Invite(ctx, anna, lobby, "cara"); !isError[NotFriendError](err) {
 		t.Errorf("invite stranger: got %v, want NotFriendError", err)
 	}
 
@@ -439,7 +454,7 @@ func TestStats(t *testing.T) {
 
 	g := x01Game(anna.PlayerID, guest.ID)
 	g.Rules.(*x01.Settings).StartScore = 40
-	v, err := s.CreateGame(ctx, anna, g, nil)
+	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,7 +464,7 @@ func TestStats(t *testing.T) {
 	}
 
 	// A running game doesn't count.
-	running, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
+	running, _ := createGame(ctx, s, anna, x01Game(anna.PlayerID), nil)
 	if _, err := s.AddDart(ctx, anna, running.Game.ID, t20); err != nil {
 		t.Fatal(err)
 	}
@@ -508,7 +523,7 @@ func TestBoardCamera(t *testing.T) {
 	onBoard := func(playerID, boardID int64, invite ...string) GameView {
 		t.Helper()
 		g := withBoard(x01Game(playerID), boardID)
-		v, err := s.CreateGame(ctx, anna, g, invite)
+		v, err := createGame(ctx, s, anna, g, invite)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -537,7 +552,7 @@ func TestBoardCamera(t *testing.T) {
 	if g, _ := s.Game(ctx, anna, game.Game.ID); g.HasBoard() {
 		t.Error("the first game kept the board")
 	}
-	if _, err := s.AcceptInvitation(ctx, ben, waiting.Game.ID, nil); err != nil {
+	if _, err := acceptGame(ctx, s, ben, waiting.Game.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 	if v, err = s.AddBoardDart(ctx, keller, t20); err != nil || v.Game.ID != waiting.Game.ID || len(v.Darts) != 1 {
@@ -566,8 +581,8 @@ func TestSubscribe(t *testing.T) {
 	s := newService(t)
 	anna := register(t, s, "anna")
 	papa, _ := s.CreateGuest(ctx, anna, "Papa")
-	v, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
-	other, _ := s.CreateGame(ctx, anna, x01Game(papa.ID), nil)
+	v, _ := createGame(ctx, s, anna, x01Game(anna.PlayerID), nil)
+	other, _ := createGame(ctx, s, anna, x01Game(papa.ID), nil)
 
 	changes, stop := s.Subscribe(v.Game.ID)
 	pending := func() bool {
@@ -612,7 +627,7 @@ func TestTakeout(t *testing.T) {
 
 	g := x01Game(anna.PlayerID, guest.ID)
 	g = withBoard(g, keller.ID)
-	v, err := s.CreateGame(ctx, anna, g, nil)
+	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -657,7 +672,7 @@ func TestTakeout(t *testing.T) {
 	// two play already).
 	oma, _ := s.CreateGuest(ctx, anna, "Oma")
 	opa, _ := s.CreateGuest(ctx, anna, "Opa")
-	free, _ := s.CreateGame(ctx, anna, x01Game(oma.ID, opa.ID), nil)
+	free, _ := createGame(ctx, s, anna, x01Game(oma.ID, opa.ID), nil)
 	for range 3 {
 		v, _ = s.AddDart(ctx, anna, free.Game.ID, t20)
 	}
@@ -676,7 +691,7 @@ func TestBoardDartAfterMissedTakeout(t *testing.T) {
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 	g := x01Game(anna.PlayerID, guest.ID)
 	g = withBoard(g, keller.ID)
-	v, err := s.CreateGame(ctx, anna, g, nil)
+	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -707,7 +722,7 @@ func TestBoardTakeoutAfterBust(t *testing.T) {
 	g := x01Game(anna.PlayerID, guest.ID)
 	g.Rules.(*x01.Settings).StartScore = 40
 	g = withBoard(g, keller.ID)
-	v, err := s.CreateGame(ctx, anna, g, nil)
+	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -734,7 +749,7 @@ func TestEditDart(t *testing.T) {
 	guest, _ := s.CreateGuest(ctx, anna, "Papa")
 	g := x01Game(anna.PlayerID, guest.ID)
 	g.Rules.(*x01.Settings).StartScore = 101
-	v, err := s.CreateGame(ctx, anna, g, nil)
+	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -790,15 +805,15 @@ func TestLeavingEndsAGameOfOneAccount(t *testing.T) {
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 	guest, _ := s.CreateGuest(ctx, anna, "Gast")
 
-	older, err := s.CreateGame(ctx, anna, withBoard(x01Game(guest.ID), keller.ID), nil)
+	older, err := createGame(ctx, s, anna, withBoard(x01Game(guest.ID), keller.ID), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := s.CreateGame(ctx, anna, withBoard(x01Game(anna.PlayerID), keller.ID), []string{"ben"})
+	v, err := createGame(ctx, s, anna, withBoard(x01Game(anna.PlayerID), keller.ID), []string{"ben"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AcceptInvitation(ctx, ben, v.Game.ID, nil); err != nil {
+	if _, err := acceptGame(ctx, s, ben, v.Game.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AddDart(ctx, anna, v.Game.ID, t20); err != nil {
@@ -834,7 +849,7 @@ func TestLeavingEndsAGameOfOneAccount(t *testing.T) {
 	// A finished game can't be left.
 	short := x01Game(anna.PlayerID)
 	short.Rules.(*x01.Settings).StartScore = 40
-	sv, _ := s.CreateGame(ctx, anna, short, nil)
+	sv, _ := createGame(ctx, s, anna, short, nil)
 	if _, err := s.AddDart(ctx, anna, sv.Game.ID, throw.Dart{Number: 20, Segment: dartboard.Double}); err != nil {
 		t.Fatal(err)
 	}
@@ -843,7 +858,7 @@ func TestLeavingEndsAGameOfOneAccount(t *testing.T) {
 	}
 
 	// Leaving the lobby removes the game, and the invitation to it with it.
-	lobby, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"})
+	lobby, _ := createGame(ctx, s, anna, x01Game(anna.PlayerID), []string{"ben"})
 	if gv, err := s.LeaveGame(ctx, anna, lobby.Game.ID); err != nil || gv.Game.ID != 0 {
 		t.Fatalf("leave the lobby: %v, %v", gv.Game.ID, err)
 	}
@@ -859,7 +874,7 @@ func TestDartPosition(t *testing.T) {
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 	g := x01Game(anna.PlayerID)
 	g = withBoard(g, keller.ID)
-	v, err := s.CreateGame(ctx, anna, g, nil)
+	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -904,7 +919,7 @@ func TestDecideBullOff(t *testing.T) {
 	papa, _ := s.CreateGuest(ctx, anna, "Papa")
 	g := x01Game(anna.PlayerID, papa.ID)
 	g.BullOff = true
-	v, err := s.CreateGame(ctx, anna, g, nil)
+	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -960,12 +975,12 @@ func TestOnlyOwnDartsAreCorrected(t *testing.T) {
 	befriend(t, s, anna, ben)
 	papa, _ := s.CreateGuest(ctx, anna, "Papa")
 
-	v, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID, papa.ID), []string{"ben"})
+	v, err := createGame(ctx, s, anna, x01Game(anna.PlayerID, papa.ID), []string{"ben"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	id := v.Game.ID
-	if _, err := s.AcceptInvitation(ctx, ben, id, nil); err != nil {
+	if _, err := acceptGame(ctx, s, ben, id, nil); err != nil {
 		t.Fatal(err)
 	}
 	for range 3 { // anna's visit, then papa's, so ben is up

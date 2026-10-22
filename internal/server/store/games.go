@@ -239,10 +239,20 @@ func (store *Store) ListGamesWithDartsSince(ctx context.Context, accountID, play
 		Where("id IN (?)", recent))
 }
 
-// StartGame stores when a game became ready.
+// StartGame stores when the game started and its throwing order (g.Participants).
 func (store *Store) StartGame(ctx context.Context, g *game.Game) error {
-	_, err := store.db.NewUpdate().Model(g).Column("started_at").WherePK().Exec(ctx)
-	return err
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewUpdate().Model(g).Column("started_at").WherePK().Exec(ctx); err != nil {
+			return err
+		}
+		for i := range g.Participants {
+			g.Participants[i].Position = i
+			if _, err := tx.NewUpdate().Model(&g.Participants[i]).Column("place").WherePK().Exec(ctx); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // SetBullOffCloser stores who the players found closer when bulling off ended in a tie.
@@ -297,19 +307,19 @@ func (store *Store) UpdateDart(ctx context.Context, d *throw.Dart) error {
 	return nil
 }
 
-// JoinGame adds a player to a game with an accepted invitation, as the last to throw,
-// on the board if one is given.
-func (store *Store) JoinGame(ctx context.Context, gameID, playerID int64, boardID *int64) error {
+// AddParticipant adds a player to a game in the lobby, invited or accepted (p.Status), as
+// the last so far, on the board if one is given.
+func (store *Store) AddParticipant(ctx context.Context, gameID int64, p game.Participant) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		var last int
 		if err := tx.NewSelect().Model((*game.Participant)(nil)).ColumnExpr("COALESCE(MAX(place), -1)").Where("game_id = ?", gameID).Scan(ctx, &last); err != nil {
 			return err
 		}
-		p := game.Participant{GameID: gameID, PlayerID: playerID, Position: last + 1, Status: game.InvitationAccepted, BoardID: boardID}
+		p.GameID, p.Position = gameID, last+1
 		if _, err := tx.NewInsert().Model(&p).Exec(ctx); err != nil {
 			return err
 		}
-		return markBoardUsed(ctx, tx, boardID, time.Now())
+		return markBoardUsed(ctx, tx, p.BoardID, time.Now())
 	})
 }
 

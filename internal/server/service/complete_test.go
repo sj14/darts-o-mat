@@ -26,9 +26,9 @@ func TestCompleteGame(t *testing.T) {
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
 	befriend(t, s, anna, ben)
-	v, _ := s.CreateGame(ctx, anna, quick(anna.PlayerID), []string{"ben"})
+	v, _ := createGame(ctx, s, anna, quick(anna.PlayerID), []string{"ben"})
 	id := v.Game.ID
-	_, _ = s.AcceptInvitation(ctx, ben, id, nil)
+	_, _ = acceptGame(ctx, s, ben, id, nil)
 	if _, err := s.AddDart(ctx, anna, id, d20); err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestCompleteGame(t *testing.T) {
 	if v, _ = s.Game(ctx, anna, id); !v.Common().GameOver || v.Completed || !v.MayUndo() {
 		t.Fatalf("after the last dart: over %v, completed %v, may undo %v; want over, open to corrections", v.Common().GameOver, v.Completed, v.MayUndo())
 	}
-	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), nil); err != nil {
+	if _, err := createGame(ctx, s, ben, x01Game(ben.PlayerID), nil); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ = s.Game(ctx, anna, id); !v.Completed || v.Game.CompletedAt == nil {
@@ -63,7 +63,7 @@ func TestCompletedByTime(t *testing.T) {
 	anna := register(t, s, "anna")
 	offset := time.Duration(0)
 	s.now = func() time.Time { return time.Now().Add(offset) }
-	v, _ := s.CreateGame(ctx, anna, quick(anna.PlayerID), nil)
+	v, _ := createGame(ctx, s, anna, quick(anna.PlayerID), nil)
 	_, _ = s.AddDart(ctx, anna, v.Game.ID, d20)
 
 	offset = game.CompleteAfter - 10*time.Second
@@ -91,17 +91,17 @@ func TestStartingAGameCompletesTheFinishedOnes(t *testing.T) {
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
 	papa, _ := s.CreateGuest(ctx, anna, "Papa")
 
-	running, _ := s.CreateGame(ctx, anna, x01Game(papa.ID), nil) // guests only: a second board
+	running, _ := createGame(ctx, s, anna, x01Game(papa.ID), nil) // guests only: a second board
 	_, _ = s.AddDart(ctx, anna, running.Game.ID, t20)
-	finished, _ := s.CreateGame(ctx, anna, quick(anna.PlayerID), nil)
+	finished, _ := createGame(ctx, s, anna, quick(anna.PlayerID), nil)
 	_, _ = s.AddDart(ctx, anna, finished.Game.ID, d20)
-	strangers, _ := s.CreateGame(ctx, ben, quick(ben.PlayerID), nil)
+	strangers, _ := createGame(ctx, s, ben, quick(ben.PlayerID), nil)
 	_, _ = s.AddDart(ctx, ben, strangers.Game.ID, d20)
 
 	if v, _ := s.Game(ctx, anna, finished.Game.ID); v.Completed {
 		t.Fatal("completed before anything else happened")
 	}
-	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil); err != nil {
+	if _, err := createGame(ctx, s, anna, x01Game(anna.PlayerID), nil); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ := s.Game(ctx, anna, finished.Game.ID); !v.Completed || v.Game.CompletedAt == nil {
@@ -123,19 +123,19 @@ func TestAcceptingAGameCompletesTheFinishedOne(t *testing.T) {
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
 	befriend(t, s, anna, ben)
 	befriend(t, s, carla, ben)
-	v, _ := s.CreateGame(ctx, anna, quick(anna.PlayerID), []string{"ben"})
+	v, _ := createGame(ctx, s, anna, quick(anna.PlayerID), []string{"ben"})
 	id := v.Game.ID
-	_, _ = s.AcceptInvitation(ctx, ben, id, nil)
+	_, _ = acceptGame(ctx, s, ben, id, nil)
 	_, _ = s.AddDart(ctx, anna, id, d20)
 
-	next, err := s.CreateGame(ctx, carla, x01Game(carla.PlayerID), []string{"ben"})
+	next, err := createGame(ctx, s, carla, x01Game(carla.PlayerID), []string{"ben"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if v, _ = s.Game(ctx, anna, id); v.Completed {
 		t.Fatal("completed by an invitation ben hasn't answered")
 	}
-	if _, err := s.AcceptInvitation(ctx, ben, next.Game.ID, nil); err != nil {
+	if _, err := acceptGame(ctx, s, ben, next.Game.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ = s.Game(ctx, anna, id); !v.Completed || v.Game.CompletedAt == nil {
@@ -150,10 +150,10 @@ func TestThoseWhoLeftCantComplete(t *testing.T) {
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
 	befriend(t, s, anna, ben)
 	befriend(t, s, anna, carla)
-	v, _ := s.CreateGame(ctx, anna, quick(anna.PlayerID), []string{"ben", "carla"})
+	v, _ := createGame(ctx, s, anna, quick(anna.PlayerID), []string{"ben", "carla"})
 	id := v.Game.ID
-	_, _ = s.AcceptInvitation(ctx, ben, id, nil)
-	_, _ = s.AcceptInvitation(ctx, carla, id, nil)
+	_, _ = acceptGame(ctx, s, ben, id, nil)
+	_, _ = acceptGame(ctx, s, carla, id, nil)
 	if _, err := s.LeaveGame(ctx, carla, id); err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestThoseWhoLeftCantComplete(t *testing.T) {
 		t.Fatalf("carla's view: left %v, over %v", v.HasLeft, v.Common().GameOver)
 	}
 	// Starting another game doesn't complete a game one has left.
-	if _, err := s.CreateGame(ctx, carla, x01Game(carla.PlayerID), nil); err != nil {
+	if _, err := createGame(ctx, s, carla, x01Game(carla.PlayerID), nil); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ = s.Game(ctx, anna, id); v.Completed {
@@ -173,7 +173,7 @@ func TestThoseWhoLeftCantComplete(t *testing.T) {
 	}
 	// But whoever stayed accepts the result by starting another game, also without the
 	// last dart, so it is final before the next one.
-	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), nil); err != nil {
+	if _, err := createGame(ctx, s, ben, x01Game(ben.PlayerID), nil); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ = s.Game(ctx, anna, id); !v.Completed || v.Game.CompletedAt == nil {
@@ -192,7 +192,7 @@ func TestStatsOfCompletedGames(t *testing.T) {
 	boardA, _ := s.CreateBoard(ctx, anna, "A")
 
 	g := withBoard(quick(anna.PlayerID), boardA.ID)
-	v, _ := s.CreateGame(ctx, anna, g, nil)
+	v, _ := createGame(ctx, s, anna, g, nil)
 	x, y := 0.0, 100.0 // between the 20 and the inner side of the triple, at the top
 	if _, err := s.AddBoardDart(ctx, boardA, throw.Dart{Number: 20, Segment: dartboard.Double, X: &x, Y: &y}); err != nil {
 		t.Fatal(err)

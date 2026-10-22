@@ -15,7 +15,8 @@ var ErrAlreadyFriends = fmt.Errorf("%w: already friends or requested", ErrInvali
 type Friend struct {
 	AccountID int64  `json:"account_id"`
 	Username  string `json:"username"`
-	Name      string `json:"name"` // name of the account's player
+	PlayerID  int64  `json:"player_id"` // the account's own player
+	Name      string `json:"name"`      // name of the account's player
 }
 
 type FriendList struct {
@@ -124,7 +125,7 @@ func (s *Service) friends(ctx context.Context, ids []int64) ([]Friend, error) {
 	}
 	byID := map[int64]Friend{}
 	for _, a := range accounts {
-		byID[a.ID] = Friend{AccountID: a.ID, Username: a.Username, Name: names[a.PlayerID]}
+		byID[a.ID] = Friend{AccountID: a.ID, Username: a.Username, PlayerID: a.PlayerID, Name: names[a.PlayerID]}
 	}
 
 	result := []Friend{}

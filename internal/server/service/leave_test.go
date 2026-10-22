@@ -16,7 +16,7 @@ func TestLeaveGame(t *testing.T) {
 	befriend(t, s, anna, ben)
 	befriend(t, s, anna, carla)
 
-	v, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben", "carla"})
+	v, err := createGame(ctx, s, anna, x01Game(anna.PlayerID), []string{"ben", "carla"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,8 +24,8 @@ func TestLeaveGame(t *testing.T) {
 	if _, err := s.LeaveGame(ctx, ben, id); !errors.Is(err, ErrForbidden) {
 		t.Errorf("ben declines by leaving before he accepted: got %v, want ErrForbidden", err)
 	}
-	_, _ = s.AcceptInvitation(ctx, ben, id, nil)
-	_, _ = s.AcceptInvitation(ctx, carla, id, nil)
+	_, _ = acceptGame(ctx, s, ben, id, nil)
+	_, _ = acceptGame(ctx, s, carla, id, nil)
 
 	for range 3 { // anna's visit
 		if _, err := s.AddDart(ctx, anna, id, t20); err != nil {
@@ -91,8 +91,8 @@ func TestLeaveTheLobby(t *testing.T) {
 	// A game for three still waits after ben took a seat.
 	g := x01Game(anna.PlayerID)
 	g.Seats = 3
-	v, _ := s.CreateGame(ctx, anna, g, nil)
-	if _, err := s.JoinGame(ctx, ben, v.Game.ID, nil); err != nil {
+	v, _ := createGame(ctx, s, anna, g, nil)
+	if _, err := joinGame(ctx, s, ben, v.Game.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 	gv, err := s.LeaveGame(ctx, ben, v.Game.ID)
@@ -115,9 +115,9 @@ func TestCantLeaveWhileBullingOff(t *testing.T) {
 	befriend(t, s, anna, carla)
 	g := x01Game(anna.PlayerID)
 	g.BullOff = true
-	v, _ := s.CreateGame(ctx, anna, g, []string{"ben", "carla"})
-	_, _ = s.AcceptInvitation(ctx, ben, v.Game.ID, nil)
-	_, _ = s.AcceptInvitation(ctx, carla, v.Game.ID, nil)
+	v, _ := createGame(ctx, s, anna, g, []string{"ben", "carla"})
+	_, _ = acceptGame(ctx, s, ben, v.Game.ID, nil)
+	_, _ = acceptGame(ctx, s, carla, v.Game.ID, nil)
 
 	if _, err := s.LeaveGame(ctx, ben, v.Game.ID); !errors.Is(err, turn.ErrCantLeave) {
 		t.Errorf("leave while bulling off: got %v, want ErrCantLeave", err)
@@ -132,9 +132,9 @@ func TestTheCreatorCanLeaveToo(t *testing.T) {
 	befriend(t, s, anna, ben)
 	befriend(t, s, anna, carla)
 	papa, _ := s.CreateGuest(ctx, anna, "Papa")
-	v, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID, papa.ID), []string{"ben", "carla"})
-	_, _ = s.AcceptInvitation(ctx, ben, v.Game.ID, nil)
-	_, _ = s.AcceptInvitation(ctx, carla, v.Game.ID, nil)
+	v, _ := createGame(ctx, s, anna, x01Game(anna.PlayerID, papa.ID), []string{"ben", "carla"})
+	_, _ = acceptGame(ctx, s, ben, v.Game.ID, nil)
+	_, _ = acceptGame(ctx, s, carla, v.Game.ID, nil)
 
 	// Anna leaves with her guest: ben and carla play on.
 	v, err := s.LeaveGame(ctx, anna, v.Game.ID)
@@ -158,10 +158,10 @@ func TestLeavingCountsForWhoLeft(t *testing.T) {
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
 	befriend(t, s, anna, ben)
 	befriend(t, s, anna, carla)
-	v, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben", "carla"})
+	v, _ := createGame(ctx, s, anna, x01Game(anna.PlayerID), []string{"ben", "carla"})
 	id := v.Game.ID
-	_, _ = s.AcceptInvitation(ctx, ben, id, nil)
-	_, _ = s.AcceptInvitation(ctx, carla, id, nil)
+	_, _ = acceptGame(ctx, s, ben, id, nil)
+	_, _ = acceptGame(ctx, s, carla, id, nil)
 
 	left := func(acc account.Account) int {
 		got, err := s.Stats(ctx, acc, "")

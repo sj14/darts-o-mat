@@ -15,9 +15,9 @@ func TestRatePlayer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, _ := s.CreateGame(ctx, anna, quick(anna.PlayerID, guest.ID), []string{"ben"})
+	v, _ := createGame(ctx, s, anna, quick(anna.PlayerID, guest.ID), []string{"ben"})
 	id := v.Game.ID
-	_, _ = s.AcceptInvitation(ctx, ben, id, nil)
+	_, _ = acceptGame(ctx, s, ben, id, nil)
 
 	if _, err := s.RatePlayer(ctx, anna, id, ben.PlayerID, true); !errors.Is(err, ErrNotOver) {
 		t.Errorf("rate while playing: got %v, want ErrNotOver", err)
@@ -65,8 +65,8 @@ func TestReputationInOpenGames(t *testing.T) {
 	for _, name := range []string{"anna", "carla", "dora"} {
 		rater := register(t, s, name)
 		befriend(t, s, rater, ben)
-		v, _ := s.CreateGame(ctx, rater, quick(rater.PlayerID), []string{"ben"})
-		_, _ = s.AcceptInvitation(ctx, ben, v.Game.ID, nil)
+		v, _ := createGame(ctx, s, rater, quick(rater.PlayerID), []string{"ben"})
+		_, _ = acceptGame(ctx, s, ben, v.Game.ID, nil)
 		if _, err := s.AddDart(ctx, rater, v.Game.ID, d20); err != nil {
 			t.Fatal(err)
 		}
@@ -75,7 +75,7 @@ func TestReputationInOpenGames(t *testing.T) {
 			t.Fatal(err)
 		}
 		if name == "carla" { // two thumbs are too few to show
-			v, err := s.CreateGame(ctx, ben, lobby, nil)
+			v, err := createGame(ctx, s, ben, lobby, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -88,7 +88,7 @@ func TestReputationInOpenGames(t *testing.T) {
 			}
 		}
 	}
-	if _, err := s.CreateGame(ctx, ben, lobby, nil); err != nil {
+	if _, err := createGame(ctx, s, ben, lobby, nil); err != nil {
 		t.Fatal(err)
 	}
 	l, _ := s.OpenLobbies(ctx, erik)
@@ -104,8 +104,8 @@ func TestThumbsCountOncePerPlayer(t *testing.T) {
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
 	befriend(t, s, anna, ben)
 	for i, up := range []bool{true, true, false} {
-		v, _ := s.CreateGame(ctx, anna, quick(anna.PlayerID), []string{"ben"})
-		_, _ = s.AcceptInvitation(ctx, ben, v.Game.ID, nil)
+		v, _ := createGame(ctx, s, anna, quick(anna.PlayerID), []string{"ben"})
+		_, _ = acceptGame(ctx, s, ben, v.Game.ID, nil)
 		if _, err := s.AddDart(ctx, anna, v.Game.ID, d20); err != nil {
 			t.Fatal(err)
 		}

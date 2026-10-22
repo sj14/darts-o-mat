@@ -15,12 +15,15 @@ func (c *Controller) showSettings(w http.ResponseWriter, r *http.Request) {
 
 func (c *Controller) renderSettings(w http.ResponseWriter, r *http.Request, status int, errMsg string) {
 	acc := auth.Account(r.Context())
-	p, err := c.svc.Player(r.Context(), acc)
+	players, err := c.svc.Players(r.Context(), acc) // its own player first, then its guests
+	if err == nil && len(players) == 0 {
+		err = errors.New("the account has no player")
+	}
 	if err != nil {
 		serverError(w, err)
 		return
 	}
-	render(w, r, status, view.Settings(acc, p, errMsg))
+	render(w, r, status, view.Settings(acc, players[0], players[1:], errMsg))
 }
 
 // setColor stores the accent color of the account's player and shows the settings again.

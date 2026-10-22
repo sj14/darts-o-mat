@@ -3,7 +3,6 @@ package view
 import (
 	"context"
 	"strconv"
-	"strings"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
@@ -32,17 +31,6 @@ func tournamentPlayerName(ctx context.Context, v service.TournamentView, id int6
 		}
 	}
 	return "?"
-}
-
-// tournamentPending names the invited players who haven't accepted yet.
-func tournamentPending(ctx context.Context, v service.TournamentView) string {
-	var names []string
-	for _, p := range v.Tournament.Participants {
-		if p.Status == game.InvitationPending {
-			names = append(names, tournamentPlayerName(ctx, v, p.PlayerID))
-		}
-	}
-	return strings.Join(names, ", ")
 }
 
 // scoreUnit is what the score of a match counts: sets, or legs in games without sets.

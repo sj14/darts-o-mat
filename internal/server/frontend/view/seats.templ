@@ -1,0 +1,152 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/sj14/darts-o-mat/internal/server/domain/board"
+	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
+)
+
+// lobbyPanel is the lobby of a game or tournament: who is in and who is invited, with a
+// board each; for the players in it, adding the account's players (or a new guest),
+// inviting friends and starting. Plain forms that go back to the page; the others see the
+// change live.
+templ lobbyPanel(m lobbyModel) {
+	if m.invited {
+		<div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-board-green/40 bg-board-green/15 px-4 py-3">
+			<span class="font-semibold">
+				if m.tournament {
+					{ T(ctx).InvitedToTournament() }
+				} else {
+					{ T(ctx).InvitedToGame() }
+				}
+			</span>
+			@answerInvitation(m.base, m.boards, m.BoardOnly)
+		</div>
+	}
+	@panel("flex flex-col gap-4") {
+		if m.Open() {
+			<p class="text-white/70">{ T(ctx).StartsWhenFull() }</p>
+			if !m.Full(len(m.seats)) {
+				<p class="font-semibold text-amber-300">{ T(ctx).WaitingForSeats(m.Seats - len(m.seats)) }</p>
+			}
+		} else if m.canPlay {
+			<p class="text-white/70">{ T(ctx).LobbyHint() }</p>
+		}
+		<ul class="divide-y divide-white/10">
+			for _, s := range m.seats {
+				@lobbySeatRow(m, s)
+			}
+		</ul>
+		if m.canPlay && m.choices != nil {
+			@lobbyAdd(m)
+		}
+		if m.canPlay && !m.Open() {
+			<form method="post" action={ templ.URL(m.url("/start")) } class="flex flex-wrap items-center gap-3">
+				<button type="submit" class={ btnAccent } disabled?={ !m.startable() }>
+					if m.tournament {
+						{ T(ctx).StartTournament() }
+					} else {
+						{ T(ctx).StartGame() }
+					}
+				</button>
+				if !m.canStart {
+					<span class={ hintClass }>{ T(ctx).ErrNotReady() }</span>
+				} else if !m.startable() {
+					<span class={ hintClass }>{ T(ctx).ErrTournamentPlayers(tournament.MinPlayers, tournament.MaxPlayers) }</span>
+				}
+			</form>
+		}
+	}
+}
+
+// lobbySeatRow is a player of the lobby: their name and board, whether they are in or
+// invited, and for the viewer's own the board to choose and taking them out.
+templ lobbySeatRow(m lobbyModel, s lobbySeat) {
+	<li class="flex flex-wrap items-center justify-between gap-2 py-3">
+		<span class="font-display text-2xl font-semibold">
+			{ displayName(ctx, s.player) }
+			if s.player.IsGuest() {
+				<span class="font-sans text-sm font-normal text-white/50">{ T(ctx).GuestMark() }</span>
+			}
+			if s.board != "" && !(s.mine && m.canPlay && len(m.boards) > 0) {
+				<span class="ml-1 font-sans text-sm font-normal text-white/50">📷 { s.board }</span>
+			}
+		</span>
+		<span class="flex flex-wrap items-center gap-2">
+			if s.mine && !s.pending && m.canPlay && len(m.boards) > 0 {
+				<form method="post" action={ templ.URL(m.url("/players/" + strconv.FormatInt(s.player.ID, 10) + "/board")) } class="flex items-center gap-1">
+					@seatBoardSelect(m.boards, s.boardID, m.BoardOnly)
+					<button type="submit" class={ btnSecondary, btnSmall }>{ T(ctx).Save() }</button>
+				</form>
+			}
+			if s.pending {
+				<span class="animate-pulse rounded-full bg-amber-400/20 px-3 py-1 text-sm text-amber-300">{ T(ctx).Invited() }</span>
+				if m.canPlay {
+					<form method="post" action={ templ.URL(m.url("/invitations/" + strconv.FormatInt(s.player.ID, 10) + "/withdraw")) }>
+						<button type="submit" class={ btnDanger, btnSmall }>{ T(ctx).Uninvite() }</button>
+					</form>
+				}
+			} else {
+				<span class="rounded-full bg-board-green/20 px-3 py-1 text-sm text-emerald-300">{ T(ctx).Joined() }</span>
+				if s.mine && m.canPlay {
+					<form method="post" action={ templ.URL(m.url("/players/" + strconv.FormatInt(s.player.ID, 10) + "/remove")) }>
+						<button type="submit" class="rounded-full px-2 text-white/40 transition hover:bg-board-red/30 hover:text-red-300" title={ T(ctx).RemoveFromLobby() } aria-label={ T(ctx).RemoveFromLobby() }>✕</button>
+					</form>
+				}
+			}
+		</span>
+	</li>
+}
+
+// seatBoardSelect is boardSelect with the seat's board selected.
+templ seatBoardSelect(boards []board.Board, selected *int64, required bool) {
+	<label class="flex items-center gap-2 text-sm text-white/70">
+		📷
+		<span class="sr-only">{ T(ctx).Board() }</span>
+		<select name="board_id" class={ inputClass, "w-auto! py-1!" }>
+			if !required {
+				<option value="">{ T(ctx).NoBoard() }</option>
+			}
+			for _, b := range boards {
+				<option value={ strconv.FormatInt(b.ID, 10) } selected?={ selected != nil && *selected == b.ID }>{ b.Name }</option>
+			}
+		</select>
+	</label>
+}
+
+// lobbyAdd adds the account's players, a new guest, or invites a friend.
+templ lobbyAdd(m lobbyModel) {
+	if !m.Open() || !m.Full(len(m.seats)) {
+		<div class="flex flex-col gap-3 border-t border-white/10 pt-4">
+			if len(m.choices.Players) > 0 {
+				<form method="post" action={ templ.URL(m.url("/players")) } class="flex flex-wrap items-center gap-2">
+					<select name="player_id" class={ inputClass, "w-auto!" } aria-label={ T(ctx).Players() }>
+						for _, p := range m.choices.Players {
+							<option value={ strconv.FormatInt(p.ID, 10) }>{ p.Name }</option>
+						}
+					</select>
+					@boardSelect(m.boards, m.BoardOnly)
+					<button type="submit" class={ btnSecondary }>{ T(ctx).Add() }</button>
+				</form>
+			}
+			<form method="post" action={ templ.URL(m.url("/players")) } class="flex flex-wrap items-center gap-2">
+				<input type="text" name="name" required class={ inputClass, "w-48!" } placeholder={ T(ctx).GuestName() } aria-label={ T(ctx).GuestName() }/>
+				@boardSelect(m.boards, m.BoardOnly)
+				<button type="submit" class={ btnSecondary }>{ T(ctx).AddGuest() }</button>
+			</form>
+			if len(m.choices.Friends) > 0 {
+				<form method="post" action={ templ.URL(m.url("/invitations")) } class="flex flex-wrap items-center gap-2">
+					<select name="username" class={ inputClass, "w-auto!" } aria-label={ T(ctx).InviteFriends() }>
+						for _, f := range m.choices.Friends {
+							<option value={ f.Username }>{ f.Name }</option>
+						}
+					</select>
+					<button type="submit" class={ btnSecondary }>{ T(ctx).Invite() }</button>
+				</form>
+			} else if !m.choices.HasFriends {
+				<p class={ hintClass }>{ T(ctx).NoFriendsBefore() }<a href="/friends" class={ linkClass }>{ T(ctx).NavFriends() }</a>{ T(ctx).NoFriendsAfter() }</p>
+			}
+		</div>
+	}
+}

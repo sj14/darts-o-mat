@@ -120,15 +120,17 @@ func (s *Service) checkSeatBoard(ctx context.Context, acc account.Account, st se
 		}
 		return nil
 	}
-	if slices.Contains(st.shared, *boardID) {
+	if !slices.Contains(st.shared, *boardID) {
+		b, err := s.store.GetBoard(ctx, *boardID)
+		if errors.Is(err, store.ErrNotFound) || (err == nil && b.AccountID != acc.ID) {
+			return fmt.Errorf("%w: unknown board", ErrInvalid)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	if !st.holdsBoards {
 		return nil
-	}
-	b, err := s.store.GetBoard(ctx, *boardID)
-	if errors.Is(err, store.ErrNotFound) || (err == nil && b.AccountID != acc.ID) {
-		return fmt.Errorf("%w: unknown board", ErrInvalid)
-	}
-	if err != nil || !st.holdsBoards {
-		return err
 	}
 	return s.checkBoardFree(ctx, *boardID, st.game)
 }

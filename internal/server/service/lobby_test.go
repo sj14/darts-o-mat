@@ -17,11 +17,11 @@ func TestOpenGame(t *testing.T) {
 
 	g := x01Game(anna.PlayerID)
 	g.Seats = 3
-	v, err := s.CreateGame(ctx, anna, g, nil)
+	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.Ready {
+	if v.Started {
 		t.Fatal("a game with free seats is ready")
 	}
 	if _, err := s.AddDart(ctx, anna, v.Game.ID, t20); !errors.Is(err, ErrNotReady) {
@@ -29,34 +29,34 @@ func TestOpenGame(t *testing.T) {
 	}
 
 	// Strangers see it with the players who are in, those in it don't, and a game that isn't open stays hidden.
-	closed, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
+	closed, _ := createGame(ctx, s, anna, x01Game(anna.PlayerID), nil)
 	if l, err := s.OpenLobbies(ctx, ben); err != nil || len(l) != 1 || l[0].ID != v.Game.ID || len(l[0].Joined) != 1 || l[0].Joined[0].Name != "anna" || l[0].Seats != 3 {
 		t.Fatalf("ben's open games = %+v, %v; want anna's game with 1 of 3", l, err)
 	}
 	if l, _ := s.OpenLobbies(ctx, anna); len(l) != 0 {
 		t.Errorf("anna sees her own game: %+v", l)
 	}
-	if _, err := s.JoinGame(ctx, ben, closed.Game.ID, nil); !errors.Is(err, ErrNotFound) {
+	if _, err := joinGame(ctx, s, ben, closed.Game.ID, nil); !errors.Is(err, ErrNotFound) {
 		t.Errorf("join a game that isn't open: got %v, want ErrNotFound", err)
 	}
 
-	if _, err := s.JoinGame(ctx, anna, v.Game.ID, nil); !errors.Is(err, ErrInvalid) {
+	if _, err := joinGame(ctx, s, anna, v.Game.ID, nil); !errors.Is(err, ErrInvalid) {
 		t.Errorf("anna joins her own game: got %v, want ErrInvalid", err)
 	}
-	if v, err = s.JoinGame(ctx, ben, v.Game.ID, nil); err != nil || v.Ready || !v.CanThrow {
-		t.Fatalf("ben joins: ready %v, can throw %v, %v; want waiting, may throw", v.Ready, v.CanThrow, err)
+	if v, err = joinGame(ctx, s, ben, v.Game.ID, nil); err != nil || v.Started || !v.CanThrow {
+		t.Fatalf("ben joins: ready %v, can throw %v, %v; want waiting, may throw", v.Started, v.CanThrow, err)
 	}
-	if _, err := s.JoinGame(ctx, ben, v.Game.ID, nil); !errors.Is(err, ErrInvalid) {
+	if _, err := joinGame(ctx, s, ben, v.Game.ID, nil); !errors.Is(err, ErrInvalid) {
 		t.Errorf("ben joins twice: got %v, want ErrInvalid", err)
 	}
 	if l, _ := s.OpenLobbies(ctx, ben); len(l) != 0 {
 		t.Errorf("ben still sees the game he is in: %+v", l)
 	}
 
-	if v, err = s.JoinGame(ctx, carla, v.Game.ID, nil); err != nil || !v.Ready || len(v.Game.PlayerIDs()) != 3 {
-		t.Fatalf("carla takes the last seat: ready %v, players %v, %v; want ready with 3", v.Ready, v.Game.PlayerIDs(), err)
+	if v, err = joinGame(ctx, s, carla, v.Game.ID, nil); err != nil || !v.Started || len(v.Game.PlayerIDs()) != 3 {
+		t.Fatalf("carla takes the last seat: ready %v, players %v, %v; want ready with 3", v.Started, v.Game.PlayerIDs(), err)
 	}
-	if _, err := s.JoinGame(ctx, dora, v.Game.ID, nil); !errors.Is(err, ErrNoSeat) {
+	if _, err := joinGame(ctx, s, dora, v.Game.ID, nil); !errors.Is(err, ErrNoSeat) {
 		t.Errorf("join a full game: got %v, want ErrNoSeat", err)
 	}
 	if l, _ := s.OpenLobbies(ctx, dora); len(l) != 0 {
@@ -80,7 +80,7 @@ func TestOpenGameValidation(t *testing.T) {
 	} {
 		g := x01Game(anna.PlayerID)
 		g.Lobby = tt
-		if _, err := s.CreateGame(ctx, anna, g, nil); !errors.Is(err, ErrInvalid) {
+		if _, err := createGame(ctx, s, anna, g, nil); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s: got %v, want ErrInvalid", name, err)
 		}
 	}
@@ -103,23 +103,23 @@ func TestOpenTournament(t *testing.T) {
 
 	tr := quickTournament(tournament.RoundRobin, anna.PlayerID)
 	tr.Seats = 3
-	v, err := s.CreateTournament(ctx, anna, tr, nil)
+	v, err := createTournament(ctx, s, anna, tr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.Ready || len(v.State.Matches) != 0 {
-		t.Fatalf("ready %v with %d matches before the seats are taken", v.Ready, len(v.State.Matches))
+	if v.Started || len(v.State.Matches) != 0 {
+		t.Fatalf("ready %v with %d matches before the seats are taken", v.Started, len(v.State.Matches))
 	}
 	if l, _ := s.OpenLobbies(ctx, ben); len(l) != 1 || !l[0].Tournament || l[0].Format != tournament.RoundRobin {
 		t.Fatalf("ben's open games = %+v, want the tournament", l)
 	}
-	if v, err = s.JoinTournament(ctx, ben, v.Tournament.ID, nil); err != nil || v.Ready {
-		t.Fatalf("ben joins: ready %v, %v", v.Ready, err)
+	if v, err = joinTournament(ctx, s, ben, v.Tournament.ID, nil); err != nil || v.Started {
+		t.Fatalf("ben joins: ready %v, %v", v.Started, err)
 	}
-	if v, err = s.JoinTournament(ctx, carla, v.Tournament.ID, nil); err != nil || !v.Ready || len(v.State.Matches) != 3 || len(v.Tournament.PlayerIDs()) != 3 {
-		t.Fatalf("carla takes the last seat: ready %v, %d matches, players %v, %v; want ready with 3 matches", v.Ready, len(v.State.Matches), v.Tournament.PlayerIDs(), err)
+	if v, err = joinTournament(ctx, s, carla, v.Tournament.ID, nil); err != nil || !v.Started || len(v.State.Matches) != 3 || len(v.Tournament.PlayerIDs()) != 3 {
+		t.Fatalf("carla takes the last seat: ready %v, %d matches, players %v, %v; want ready with 3 matches", v.Started, len(v.State.Matches), v.Tournament.PlayerIDs(), err)
 	}
-	if _, err := s.JoinTournament(ctx, ben, v.Tournament.ID, nil); !errors.Is(err, ErrInvalid) {
+	if _, err := joinTournament(ctx, s, ben, v.Tournament.ID, nil); !errors.Is(err, ErrInvalid) {
 		t.Errorf("join twice: got %v, want ErrInvalid", err)
 	}
 	// Whoever has a player in a match may start it: the first match anna plays.
@@ -142,16 +142,16 @@ func TestLeaveTournamentViews(t *testing.T) {
 
 	tr := quickTournament(tournament.RoundRobin, anna.PlayerID)
 	tr.Seats = 3
-	v, _ := s.CreateTournament(ctx, anna, tr, nil)
+	v, _ := createTournament(ctx, s, anna, tr, nil)
 	id := v.Tournament.ID
-	_, _ = s.JoinTournament(ctx, ben, id, nil)
+	_, _ = joinTournament(ctx, s, ben, id, nil)
 	lobby, err := s.LeaveTournament(ctx, ben, id)
 	if err != nil || lobby.Tournament.ID != 0 {
 		t.Fatalf("leave the lobby: %+v, %v; want an empty view", lobby.Tournament.ID, err)
 	}
 
-	_, _ = s.JoinTournament(ctx, ben, id, nil)
-	if _, err := s.JoinTournament(ctx, carla, id, nil); err != nil {
+	_, _ = joinTournament(ctx, s, ben, id, nil)
+	if _, err := joinTournament(ctx, s, carla, id, nil); err != nil {
 		t.Fatal(err)
 	}
 	running, err := s.LeaveTournament(ctx, carla, id)
@@ -176,33 +176,33 @@ func TestBoardOnlyGame(t *testing.T) {
 
 	g := x01Game(anna.PlayerID)
 	g.Lobby = game.Lobby{Seats: 2, BoardOnly: true}
-	if _, err := s.CreateGame(ctx, anna, g, nil); !errors.Is(err, ErrBoardRequired) {
+	if _, err := createGame(ctx, s, anna, g, nil); !errors.Is(err, ErrBoardRequired) {
 		t.Fatalf("create without a board: got %v, want ErrBoardRequired", err)
 	}
-	v, err := s.CreateGame(ctx, anna, withBoard(g, annas.ID), nil)
+	v, err := createGame(ctx, s, anna, withBoard(g, annas.ID), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if l, _ := s.OpenLobbies(ctx, ben); len(l) != 1 || !l[0].BoardOnly {
 		t.Fatalf("ben's open games = %+v, want the one that needs a board", l)
 	}
-	if _, err := s.JoinGame(ctx, ben, v.Game.ID, nil); !errors.Is(err, ErrBoardRequired) {
+	if _, err := joinGame(ctx, s, ben, v.Game.ID, nil); !errors.Is(err, ErrBoardRequired) {
 		t.Errorf("join without a board: got %v, want ErrBoardRequired", err)
 	}
 	if _, err := s.UseBoard(ctx, anna, v.Game.ID, nil); !errors.Is(err, ErrBoardRequired) {
 		t.Errorf("take the board away: got %v, want ErrBoardRequired", err)
 	}
-	if v, err = s.JoinGame(ctx, ben, v.Game.ID, &bens.ID); err != nil || !v.Ready {
-		t.Fatalf("join with a board: ready %v, %v; want ready", v.Ready, err)
+	if v, err = joinGame(ctx, s, ben, v.Game.ID, &bens.ID); err != nil || !v.Started {
+		t.Fatalf("join with a board: ready %v, %v; want ready", v.Started, err)
 	}
 
 	// Running, the game keeps its boards: a newer game (of a guest, anna plays already)
 	// cannot take one.
 	papa, _ := s.CreateGuest(ctx, anna, "Papa")
-	if _, err := s.CreateGame(ctx, anna, withBoard(x01Game(papa.ID), annas.ID), nil); !errors.Is(err, ErrBoardBusy) {
+	if _, err := createGame(ctx, s, anna, withBoard(x01Game(papa.ID), annas.ID), nil); !errors.Is(err, ErrBoardBusy) {
 		t.Errorf("new game on a board in a board-only game: got %v, want ErrBoardBusy", err)
 	}
-	if g, err := s.CreateGame(ctx, anna, x01Game(papa.ID), nil); err != nil {
+	if g, err := createGame(ctx, s, anna, x01Game(papa.ID), nil); err != nil {
 		t.Errorf("new game without a board: %v", err)
 	} else if _, err := s.UseBoard(ctx, anna, g.Game.ID, &annas.ID); !errors.Is(err, ErrBoardBusy) {
 		t.Errorf("move another game to the board: got %v, want ErrBoardBusy", err)
@@ -218,13 +218,13 @@ func TestOutsiderIsRefusedFirst(t *testing.T) {
 	annas, _ := s.CreateBoard(ctx, anna, "Annas")
 	g := withBoard(x01Game(anna.PlayerID), annas.ID)
 	g.Lobby = game.Lobby{Seats: 2, BoardOnly: true}
-	v, err := s.CreateGame(ctx, anna, g, nil)
+	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// carl just finished a game of his own: it can still be corrected.
-	own, _ := s.CreateGame(ctx, carl, quick(carl.PlayerID), nil)
+	own, _ := createGame(ctx, s, carl, quick(carl.PlayerID), nil)
 	if _, err := s.AddDart(ctx, carl, own.Game.ID, d20); err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestOutsiderIsRefusedFirst(t *testing.T) {
 	if _, err := s.UseBoard(ctx, carl, v.Game.ID, nil); !errors.Is(err, ErrNotFound) {
 		t.Errorf("an outsider takes a board away: got %v, want ErrNotFound", err)
 	}
-	if _, err := s.AcceptInvitation(ctx, carl, v.Game.ID, &annas.ID); !errors.Is(err, ErrNotFound) {
+	if _, err := acceptGame(ctx, s, carl, v.Game.ID, &annas.ID); !errors.Is(err, ErrNotFound) {
 		t.Errorf("an outsider accepts without an invitation: got %v, want ErrNotFound", err)
 	}
 	if own, _ = s.Game(ctx, carl, own.Game.ID); own.Completed {

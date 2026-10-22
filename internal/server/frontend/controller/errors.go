@@ -56,6 +56,7 @@ func errorText(t view.Texts, err error) (string, bool) {
 		{turn.ErrGameOver, t.ErrGameOver},
 		{turn.ErrWaitingForTakeout, t.ErrPullDartsFirst},
 		{service.ErrNotReady, t.ErrNotReady},
+		{service.ErrStarted, t.ErrStarted},
 		{service.ErrAborted, t.ErrAborted},
 		{service.ErrCompleted, t.ErrCompleted},
 		{service.ErrNotOver, t.ErrNotOver},

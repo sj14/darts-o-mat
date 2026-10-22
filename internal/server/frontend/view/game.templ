@@ -13,21 +13,21 @@ import (
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
 )
 
-templ Game(user string, v service.GameView) {
+templ Game(user string, v service.GameView, errMsg string) {
 	@layout(modeLabel(T(ctx), v.Game.Settings), user) {
 		// The server pushes the board whenever the game changes (darts from the cameras or
 		// other devices, answered invitations); the board element swaps itself on "board".
 		// After a lost connection connection.js fetches the board again (data-refresh).
 		<div hx-ext="sse" sse-connect={ gameURL(v.Game.ID, "/events") } data-refresh="#board">
-			@Board(v, "")
+			@Board(v, errMsg)
 		</div>
 	}
 }
 
 // Board is the part of the game page that htmx replaces after every dart.
-// Until all invited players have accepted, it shows the lobby instead.
+// Until the game starts, it shows the lobby instead.
 templ Board(v service.GameView, errMsg string) {
-	if !v.Ready && !v.Game.Aborted() {
+	if !v.Started && !v.Game.Aborted() {
 		@lobby(v, errMsg)
 	} else {
 		@scores(v, errMsg, nil, false)
@@ -141,62 +141,12 @@ templ boardMenu(v service.GameView) {
 	</details>
 }
 
-// lobby turns into the board once everyone has accepted, pushed by the server.
+// lobby turns into the board once the game starts, pushed by the server.
 templ lobby(v service.GameView, errMsg string) {
 	<div id="board" sse-swap="board" hx-swap="outerHTML" data-sound={ soundKind(v) } data-sound-id={ soundID(v) }>
 		@gameTitle(v, nil)
 		@errorAlert(errMsg)
-		if v.Invited {
-			<div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-board-green/40 bg-board-green/15 px-4 py-3">
-				<span class="font-semibold">{ T(ctx).InvitedToGame() }</span>
-				<div class="flex gap-2">
-					<form method="post" action={ templ.URL(gameURL(v.Game.ID, "/accept")) } class="flex items-center gap-2">
-						@boardSelect(boardsOfChoices(v.Boards), false)
-						<button type="submit" class="rounded-xl bg-board-green px-4 py-2 font-semibold text-white hover:brightness-110">{ T(ctx).Accept() }</button>
-					</form>
-					<form method="post" action={ templ.URL(gameURL(v.Game.ID, "/decline")) }>
-						<button type="submit" class="rounded-xl border border-board-red/60 px-4 py-2 font-semibold text-red-300 hover:bg-board-red/20">{ T(ctx).Decline() }</button>
-					</form>
-				</div>
-			</div>
-		}
-		@panel("") {
-			<p class="mb-4 text-white/70">{ T(ctx).GameStartsWhenAccepted() }</p>
-			if !v.Game.Full(len(v.Game.Participants)) {
-				<p class="mb-4 font-semibold text-amber-300">{ T(ctx).WaitingForSeats(v.Game.Seats - len(v.Game.Participants)) }</p>
-			}
-			<ul class="divide-y divide-white/10">
-				for _, pl := range v.Players {
-					<li class="flex flex-wrap items-center justify-between gap-2 py-3">
-						<span class="font-display text-2xl font-semibold">
-							{ displayName(ctx, pl) }
-							if pl.IsGuest() {
-								<span class="font-sans text-sm font-normal text-white/50">{ T(ctx).GuestMark() }</span>
-							}
-							if name := playerBoardName(v, pl.ID); name != "" {
-								<span class="ml-1 font-sans text-sm font-normal text-white/50">📷 { name }</span>
-							}
-						</span>
-						if !v.Pending(pl.ID) {
-							<span class="rounded-full bg-board-green/20 px-3 py-1 text-sm text-emerald-300">{ T(ctx).Joined() }</span>
-						} else {
-								<span class="flex items-center gap-2">
-									<span class="animate-pulse rounded-full bg-amber-400/20 px-3 py-1 text-sm text-amber-300">{ T(ctx).Invited() }</span>
-									if !v.Invited {
-										<button
-											type="button"
-											class="rounded-lg border border-board-red/60 px-3 py-1 text-sm text-red-300 hover:bg-board-red/20"
-											hx-post={ gameURL(v.Game.ID, "/invitations/"+strconv.FormatInt(pl.ID, 10)+"/withdraw") }
-											hx-target="#board"
-											hx-swap="outerHTML"
-										>{ T(ctx).Uninvite() }</button>
-									}
-								</span>
-						}
-					</li>
-				}
-			</ul>
-		}
+		@lobbyPanel(gameLobby(v))
 		if !v.Invited {
 			<div class="mt-4">
 				@leaveButton(v)

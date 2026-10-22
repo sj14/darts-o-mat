@@ -21,16 +21,16 @@ func TestTurnLimit(t *testing.T) {
 
 	g := x01Game(anna.PlayerID)
 	g.TurnSeconds = 60
-	v, err := s.CreateGame(ctx, anna, g, []string{"ben", "carla"})
+	v, err := createGame(ctx, s, anna, g, []string{"ben", "carla"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	id := v.Game.ID
-	_, _ = s.AcceptInvitation(ctx, ben, id, nil)
+	_, _ = acceptGame(ctx, s, ben, id, nil)
 	if v, _ = s.Game(ctx, anna, id); v.Game.StartedAt != nil || s.timers[id] != nil {
 		t.Fatalf("started with carla's invitation open: %v, timer %v", v.Game.StartedAt, s.timers[id])
 	}
-	_, _ = s.AcceptInvitation(ctx, carla, id, nil)
+	_, _ = acceptGame(ctx, s, carla, id, nil)
 
 	// The clock starts with the game, before the first dart.
 	if v, _ = s.Game(ctx, anna, id); v.Game.StartedAt == nil || s.timers[id] == nil {
@@ -92,7 +92,7 @@ func TestTurnLimitAfterRestart(t *testing.T) {
 	s.now = func() time.Time { return time.Now().Add(offset) }
 	g := x01Game(anna.PlayerID)
 	g.TurnSeconds = 60
-	v, err := s.CreateGame(ctx, anna, g, nil)
+	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,9 +124,9 @@ func TestSkippedTurnsCantBeTakenBack(t *testing.T) {
 	s.now = func() time.Time { return time.Now().Add(offset) }
 	g := x01Game(anna.PlayerID)
 	g.TurnSeconds = 60
-	v, _ := s.CreateGame(ctx, anna, g, []string{"ben"})
+	v, _ := createGame(ctx, s, anna, g, []string{"ben"})
 	id := v.Game.ID
-	_, _ = s.AcceptInvitation(ctx, ben, id, nil)
+	_, _ = acceptGame(ctx, s, ben, id, nil)
 	_, _ = s.AddDart(ctx, anna, id, t20)
 	offset += 2 * time.Minute
 	s.endTurn(id)
@@ -147,9 +147,9 @@ func TestResumeTurnLimits(t *testing.T) {
 	befriend(t, s, anna, ben)
 	g := x01Game(anna.PlayerID)
 	g.TurnSeconds = 60
-	v, _ := s.CreateGame(ctx, anna, g, []string{"ben"})
+	v, _ := createGame(ctx, s, anna, g, []string{"ben"})
 	id := v.Game.ID
-	_, _ = s.AcceptInvitation(ctx, ben, id, nil)
+	_, _ = acceptGame(ctx, s, ben, id, nil)
 	_, _ = s.AddDart(ctx, anna, id, t20)
 
 	s.timersMu.Lock()
@@ -182,28 +182,35 @@ func TestGameStart(t *testing.T) {
 	// A player plays one game at a time: each game is of other players.
 	guest, _ := s.CreateGuest(ctx, anna, "Gast")
 
-	alone, _ := s.CreateGame(ctx, anna, x01Game(guest.ID), nil)
+	alone, _ := createGame(ctx, s, anna, x01Game(guest.ID), nil)
 	if alone.Game.StartedAt == nil {
 		t.Error("a game of one account isn't started when created")
 	}
 	open := x01Game(anna.PlayerID)
 	open.Seats = 2
-	v, _ := s.CreateGame(ctx, anna, open, nil)
+	v, _ := createGame(ctx, s, anna, open, nil)
 	if v.Game.StartedAt != nil {
 		t.Fatal("an open game started with a free seat")
 	}
-	if v, _ = s.JoinGame(ctx, ben, v.Game.ID, nil); v.Game.StartedAt == nil {
+	if v, _ = joinGame(ctx, s, ben, v.Game.ID, nil); v.Game.StartedAt == nil {
 		t.Error("an open game didn't start with its last seat")
 	}
-	// The last invitation open is declined: the others start.
-	v, _ = s.CreateGame(ctx, cara, x01Game(cara.PlayerID), []string{"ben"})
-	if v.Game.StartedAt != nil {
-		t.Fatal("started with an invitation open")
+	// The last invitation open is declined: a player may start it now, it doesn't start by
+	// itself.
+	v, _ = createGame(ctx, s, cara, x01Game(cara.PlayerID), []string{"ben"})
+	if v.Game.StartedAt != nil || v.CanStart {
+		t.Fatal("startable with an invitation open")
 	}
-	if err := s.DeclineInvitation(ctx, ben, v.Game.ID); err != nil {
+	if err := s.Decline(ctx, ben, GameLobby(v.Game.ID)); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ = s.Game(ctx, cara, v.Game.ID); v.Game.StartedAt != nil || !v.CanStart {
+		t.Errorf("after the invitation was declined: started %v, can start %v; want it waiting for cara to start", v.Game.StartedAt, v.CanStart)
+	}
+	if err := s.Start(ctx, cara, GameLobby(v.Game.ID)); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ = s.Game(ctx, cara, v.Game.ID); v.Game.StartedAt == nil {
-		t.Error("the game didn't start after the invitation was declined")
+		t.Error("the game didn't start when cara started it")
 	}
 }

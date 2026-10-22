@@ -1,13 +1,16 @@
 package view
 
 import (
+	"strconv"
+
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
 )
 
-// Settings lets an account change how it appears (the accent color of its player) and its
-// email; the admin finds the admin page there.
-templ Settings(acc account.Account, p player.Player, errMsg string) {
+// Settings lets an account change how it appears (the accent color of its player), its
+// email and delete its guests (guests are made in the lobby of a game); the admin finds the
+// admin page there.
+templ Settings(acc account.Account, p player.Player, guests []player.Player, errMsg string) {
 	@layout(T(ctx).NavSettings(), acc.Username) {
 		<div class="mx-auto max-w-3xl">
 			@pageTitle(T(ctx).NavSettings(), "")
@@ -40,6 +43,23 @@ templ Settings(acc account.Account, p player.Player, errMsg string) {
 					<input type="email" name="email" value={ acc.Email } class={ inputClass, "max-w-xs" } autocomplete="email" autocapitalize="none" aria-label={ T(ctx).Email() }/>
 					<button type="submit" class={ btnSecondary }>{ T(ctx).SaveEmail() }</button>
 				</form>
+			}
+			@panel("mt-6") {
+				<h2 class={ labelClass }>{ T(ctx).Guests() }</h2>
+				<p class={ hintClass }>{ T(ctx).GuestsHint() }</p>
+				if len(guests) == 0 {
+					<p class="mt-4 text-white/50">{ T(ctx).NoGuests() }</p>
+				}
+				<ul class="mt-2 divide-y divide-white/10">
+					for _, g := range guests {
+						<li class="flex items-center justify-between gap-2 py-2">
+							<span>{ g.Name }</span>
+							<form method="post" action={ templ.URL("/guests/" + strconv.FormatInt(g.ID, 10) + "/delete") } data-confirm={ T(ctx).DeleteGuestConfirm(g.Name) } onsubmit="return confirm(this.dataset.confirm)">
+								<button type="submit" class={ btnDanger, btnSmall }>{ T(ctx).DeleteGuest() }</button>
+							</form>
+						</li>
+					}
+				</ul>
 			}
 			if acc.Admin {
 				@panel("mt-6") {

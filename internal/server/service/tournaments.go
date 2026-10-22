@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"math/rand/v2"
 	"slices"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
@@ -26,23 +25,29 @@ type TournamentView struct {
 	// Time is when the tournament was played so far: from the first dart of its games
 	// to the last.
 	Time turn.Span `json:"time"`
-	// Ready is true once no invitation is pending anymore and no seat is free; only then
-	// games can start.
-	Ready bool `json:"ready"`
+	// Started is true once the tournament left the lobby: its order is drawn, its games can
+	// start.
+	Started bool `json:"started"`
+	// CanStart is true in the lobby once no invitation is pending and no seat is free
+	// (tournament.Tournament.CanStart); it needs tournament.MinPlayers too.
+	CanStart bool `json:"can_start"`
 
 	// The following fields depend on the account the view was created for.
 	CanPlay bool `json:"can_play"` // may start the games of its players' matches
 	Invited bool `json:"invited"`  // has a pending invitation to answer
 	// Mine are the players of the account that take part: its own player and its guests.
 	Mine []int64 `json:"-"`
-	// Boards are the boards the viewer can pick to accept an invitation on.
+	// Boards are the boards the viewer can pick to accept an invitation on, or for its
+	// players in the lobby.
 	Boards []BoardChoice `json:"boards,omitempty"`
+	// Choices are who the viewer can add to the lobby or invite, only in the lobby.
+	Choices *LobbyChoices `json:"choices,omitempty"`
 }
 
-// CanStart reports whether the account the view was created for may start the game of
+// MayStart reports whether the account the view was created for may start the game of
 // the match now (see StartMatch): it controls one of the match's players.
-func (v TournamentView) CanStart(m tournament.Match) bool {
-	return v.CanPlay && v.Ready && m.Ready() && (slices.Contains(v.Mine, m.PlayerIDs[0]) || slices.Contains(v.Mine, m.PlayerIDs[1]))
+func (v TournamentView) MayStart(m tournament.Match) bool {
+	return v.CanPlay && v.Started && m.Ready() && (slices.Contains(v.Mine, m.PlayerIDs[0]) || slices.Contains(v.Mine, m.PlayerIDs[1]))
 }
 
 // Finished reports whether nothing happens in the tournament anymore: it is over or was
@@ -55,51 +60,6 @@ func (v TournamentView) Finished() bool {
 func (v TournamentView) Pending(playerID int64) bool {
 	p, ok := v.Tournament.Participant(playerID)
 	return ok && p.Status == game.InvitationPending
-}
-
-// CreateTournament creates a tournament for the account, like CreateGame: the players are
-// the account's own player and guests (the Participants, each with the board it throws
-// on) plus the invited friends. The order of the players is drawn at random; it seeds
-// the bracket.
-func (s *Service) CreateTournament(ctx context.Context, acc account.Account, t tournament.Tournament, inviteUsernames []string) (TournamentView, error) {
-	t.ID = 0
-	t.Settings = t.Settings.WithDefaults()
-	if len(t.Participants) == 0 {
-		return TournamentView{}, fmt.Errorf("%w: choose at least one of your players", ErrInvalid)
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.checkOwnPlayers(ctx, acc, t.PlayerIDs()); err != nil {
-		return TournamentView{}, err
-	}
-	for i, p := range t.Participants {
-		t.Participants[i].Status = game.InvitationAccepted
-		if err := s.checkSeatBoard(ctx, acc, seat{lobby: t.Lobby}, p.BoardID); err != nil {
-			return TournamentView{}, err
-		}
-	}
-	own := t.PlayerIDs()
-	invited, err := s.invitedPlayers(ctx, acc, inviteUsernames)
-	if err != nil {
-		return TournamentView{}, err
-	}
-	for _, id := range invited {
-		t.Participants = append(t.Participants, tournament.Participant{PlayerID: id, Status: game.InvitationPending})
-	}
-	rand.Shuffle(len(t.Participants), func(i, j int) { t.Participants[i], t.Participants[j] = t.Participants[j], t.Participants[i] })
-	if err := t.Validate(); err != nil {
-		return TournamentView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
-	}
-	if err := s.checkPlayersFree(ctx, acc, own, 0); err != nil {
-		return TournamentView{}, err
-	}
-	if err := s.completeFinished(ctx, acc); err != nil {
-		return TournamentView{}, err
-	}
-	if err := s.store.CreateTournament(ctx, &t); err != nil {
-		return TournamentView{}, err
-	}
-	return s.tournamentView(ctx, acc, t)
 }
 
 func (s *Service) Tournament(ctx context.Context, acc account.Account, id int64) (TournamentView, error) {
@@ -149,54 +109,6 @@ func (s *Service) TournamentInvitations(ctx context.Context, acc account.Account
 	return views, nil
 }
 
-// AcceptTournamentInvitation accepts the invitation to a tournament. The player throws
-// on the board if one is given (one of the account's, or one other players throw on), in
-// all the matches they play.
-func (s *Service) AcceptTournamentInvitation(ctx context.Context, acc account.Account, id int64, boardID *int64) (TournamentView, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	v, err := s.Tournament(ctx, acc, id)
-	if err != nil {
-		return TournamentView{}, err
-	}
-	if !v.Invited {
-		return TournamentView{}, ErrNotFound
-	}
-	if err := s.checkSeatBoard(ctx, acc, tournamentSeat(v.Tournament), boardID); err != nil {
-		return TournamentView{}, err
-	}
-	if err := s.checkPlayersFree(ctx, acc, []int64{acc.PlayerID}, 0); err != nil {
-		return TournamentView{}, err
-	}
-	if err := s.completeFinished(ctx, acc); err != nil {
-		return TournamentView{}, err
-	}
-	if err := s.store.AcceptTournamentInvitation(ctx, id, acc.PlayerID, boardID); err != nil {
-		return TournamentView{}, err
-	}
-	s.tournaments.Notify(id)
-	return s.Tournament(ctx, acc, id)
-}
-
-// DeclineTournamentInvitation removes the account's player from a tournament it was
-// invited to. Its games only start once everyone accepted, so it has none yet.
-func (s *Service) DeclineTournamentInvitation(ctx context.Context, acc account.Account, id int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	v, err := s.Tournament(ctx, acc, id)
-	if err != nil {
-		return err
-	}
-	if !v.Invited {
-		return ErrNotFound
-	}
-	if err := s.store.RemoveTournamentParticipant(ctx, id, acc.PlayerID); err != nil {
-		return err
-	}
-	s.tournaments.Notify(id)
-	return nil
-}
-
 // StartMatch starts the game of a match whose players are known. An account with a
 // player of the match may start it; its players accepted the tournament, so they don't
 // have to accept the game, and throw on the boards they chose for the tournament.
@@ -212,7 +124,7 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 		return GameView{}, ErrAborted
 	case !v.CanPlay:
 		return GameView{}, ErrForbidden
-	case !v.Ready:
+	case !v.Started:
 		return GameView{}, ErrNotReady
 	case match < 0 || match >= len(v.State.Matches):
 		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, tournament.ErrNoMatch)
@@ -220,37 +132,31 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 		return GameView{}, fmt.Errorf("%w: match %d can't be started", ErrInvalid, match)
 	}
 	m := v.State.Matches[match]
-	if !v.CanStart(m) {
+	if !v.MayStart(m) {
 		return GameView{}, ErrForbidden
 	}
 	g := v.Tournament.Game(match, m.PlayerIDs[0], m.PlayerIDs[1])
 	if err := g.Validate(); err != nil {
 		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
-	for _, p := range g.Participants {
-		if p.BoardID == nil {
-			continue
+	// The match's game seats both players on the boards they chose for the tournament;
+	// their seat in this tournament doesn't count. A match doesn't need boards even of a
+	// board-only tournament.
+	st := tournamentSeat(v.Tournament)
+	st.lobby, st.holdsBoards = game.Lobby{}, true
+	err = s.takeSeats(ctx, acc, st, g.Participants, id, func() error {
+		if err := s.completePrevious(ctx, v.State, m); err != nil {
+			return err
 		}
-		if err := s.checkBoardFree(ctx, *p.BoardID, 0); err != nil {
-			return GameView{}, err
+		if err := s.store.CreateGame(ctx, &g); err != nil {
+			return err
 		}
-	}
-	if err := s.checkPlayersFree(ctx, acc, m.PlayerIDs[:], id); err != nil {
-		return GameView{}, err
-	}
-	if err := s.completeFinished(ctx, acc); err != nil {
-		return GameView{}, err
-	}
-	if err := s.completePrevious(ctx, v.State, m); err != nil {
-		return GameView{}, err
-	}
-	if err := s.store.CreateGame(ctx, &g); err != nil {
-		return GameView{}, err
-	}
-	if err := s.takeBoards(ctx, g); err != nil {
-		return GameView{}, err
-	}
-	if err := s.startGame(ctx, g.ID); err != nil {
+		if err := s.takeBoards(ctx, g); err != nil {
+			return err
+		}
+		return s.startGame(ctx, g.ID)
+	})
+	if err != nil {
 		return GameView{}, err
 	}
 	s.tournaments.Notify(id)
@@ -290,8 +196,13 @@ func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tou
 		return TournamentView{}, err
 	}
 	v.Mine, v.Invited, v.CanPlay = pt.mine, pt.invited, pt.canPlay
-	if v.Invited {
+	if v.Invited || (v.CanPlay && !t.Started()) {
 		if v.Boards, err = s.tournamentBoardChoices(ctx, acc, t); err != nil {
+			return TournamentView{}, err
+		}
+	}
+	if v.CanPlay && !t.Started() {
+		if v.Choices, err = s.lobbyChoices(ctx, acc, t.PlayerIDs()); err != nil {
 			return TournamentView{}, err
 		}
 	}
@@ -301,7 +212,7 @@ func (s *Service) tournamentView(ctx context.Context, acc account.Account, t tou
 // buildTournament computes everything of a tournament's view that doesn't depend on who
 // looks at it, like build for a game.
 func (s *Service) buildTournament(ctx context.Context, t tournament.Tournament) (TournamentView, error) {
-	v := TournamentView{Tournament: t, Ready: t.Ready()}
+	v := TournamentView{Tournament: t, Started: t.Started(), CanStart: t.CanStart()}
 	var err error
 	if v.Players, err = s.store.GetPlayers(ctx, t.PlayerIDs()); err != nil {
 		return TournamentView{}, err
@@ -342,7 +253,7 @@ func (s *Service) buildTournament(ctx context.Context, t tournament.Tournament) 
 		}
 		results[g.TournamentMatch] = r
 	}
-	if t.Full(len(t.Participants)) { // the schedule needs all players
+	if t.Started() { // the schedule needs all players, drawn
 		v.State = tournament.Plan(t.Format, t.PlayerIDs(), results)
 	}
 	// A completed tournament can't change anymore: whoever looks at it first stores that,

@@ -64,30 +64,31 @@ func TestTournamentAPI(t *testing.T) {
 	anna.expect(http.StatusNoContent, "POST", "/friends", `{"username":"ben"}`)
 	ben.expect(http.StatusNoContent, "POST", "/friends/1/accept", ``)
 
-	// A tournament of anna, her guest and ben, who is invited.
+	// A tournament of anna, her guest and ben, who is invited: made in its lobby.
 	guest := anna.expect(http.StatusCreated, "POST", "/players", `{"name":"Papa"}`)
 	guestID := int64(guest["id"].(float64))
 	body, _ := json.Marshal(map[string]any{
-		"format": "round_robin", "mode": "x01", "legs": 1, "player_ids": []int64{1, guestID}, "invite": []string{"ben"},
+		"format": "round_robin", "mode": "x01", "legs": 1,
 		"rules": map[string]any{"start_score": 40, "out_mode": "single"},
 	})
 	created := anna.expect(http.StatusCreated, "POST", "/tournaments", string(body))
 	tour := created["tournament"].(map[string]any)
 	id := int64(tour["id"].(float64))
-	if tour["format"] != "round_robin" || tour["rules"] == nil {
-		t.Errorf("created tournament = %v", tour)
+	if tour["format"] != "round_robin" || tour["rules"] == nil || created["started"] != false {
+		t.Errorf("created tournament = %v", created)
 	}
 	path := "/tournaments/" + itoa(id)
+	anna.expect(http.StatusOK, "POST", path+"/players", `{"player_id":`+itoa(guestID)+`}`)
+	anna.expect(http.StatusOK, "POST", path+"/invitations", `{"username":"ben"}`)
 
 	// Ben sees the invitation, and the games wait for him.
 	if list := ben.do("GET", "/tournaments", ""); list.Code != http.StatusOK || !bytes.Contains(list.Body.Bytes(), []byte(`"invited":true`)) {
 		t.Errorf("ben's tournaments: %d %s", list.Code, list.Body)
 	}
-	anna.expect(http.StatusConflict, "POST", path+"/matches/0", ``)
+	anna.expect(http.StatusConflict, "POST", path+"/start", ``)
 	ben.expect(http.StatusOK, "POST", path+"/accept", ``)
-	view := anna.expect(http.StatusOK, "GET", path, ``)
-	if view["ready"] != true {
-		t.Fatalf("not ready after ben accepted: %v", view)
+	if view := anna.expect(http.StatusOK, "POST", path+"/start", ``); view["started"] != true {
+		t.Fatalf("not started after ben accepted and anna started it: %v", view)
 	}
 
 	// Anna starts the first match she plays; the answer is its game.
@@ -122,8 +123,8 @@ func TestOpenLobbiesAPI(t *testing.T) {
 	dora, erik := newClient(t, h, "dora"), newClient(t, h, "erik")
 
 	rules := map[string]any{"start_score": 301, "out_mode": "double"}
-	game, _ := json.Marshal(map[string]any{"mode": "x01", "legs": 1, "player_ids": []int64{1}, "seats": 2, "rules": rules})
-	tour, _ := json.Marshal(map[string]any{"format": "round_robin", "mode": "x01", "legs": 1, "player_ids": []int64{3}, "seats": 3, "rules": rules})
+	game, _ := json.Marshal(map[string]any{"mode": "x01", "legs": 1, "seats": 2, "rules": rules})
+	tour, _ := json.Marshal(map[string]any{"format": "round_robin", "mode": "x01", "legs": 1, "seats": 3, "rules": rules})
 	g := anna.expect(http.StatusCreated, "POST", "/games", string(game))
 	gameID := itoa(int64(g["game"].(map[string]any)["id"].(float64)))
 	tr := carla.expect(http.StatusCreated, "POST", "/tournaments", string(tour))
@@ -140,16 +141,16 @@ func TestOpenLobbiesAPI(t *testing.T) {
 	}
 
 	// The game takes its last seat with ben and starts; then it is full.
-	if v := ben.expect(http.StatusOK, "POST", "/games/"+gameID+"/join", ``); v["ready"] != true {
+	if v := ben.expect(http.StatusOK, "POST", "/games/"+gameID+"/join", ``); v["started"] != true {
 		t.Errorf("after joining: %v", v)
 	}
 	dora.expect(http.StatusBadRequest, "POST", "/games/"+gameID+"/join", ``)
 
 	// The tournament needs a third player.
-	if v := dora.expect(http.StatusOK, "POST", "/tournaments/"+tourID+"/join", ``); v["ready"] == true {
+	if v := dora.expect(http.StatusOK, "POST", "/tournaments/"+tourID+"/join", ``); v["started"] == true {
 		t.Errorf("ready with a seat free: %v", v)
 	}
-	if v := erik.expect(http.StatusOK, "POST", "/tournaments/"+tourID+"/join", `{}`); v["ready"] != true {
+	if v := erik.expect(http.StatusOK, "POST", "/tournaments/"+tourID+"/join", `{}`); v["started"] != true {
 		t.Errorf("not ready after the last seat: %v", v)
 	}
 }

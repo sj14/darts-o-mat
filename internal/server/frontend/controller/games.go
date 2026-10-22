@@ -18,6 +18,11 @@ import (
 )
 
 func (c *Controller) showGame(w http.ResponseWriter, r *http.Request) {
+	c.renderGame(w, r, http.StatusOK, "")
+}
+
+// renderGame shows the page of the game of the URL, with the message if there is one.
+func (c *Controller) renderGame(w http.ResponseWriter, r *http.Request, status int, errMsg string) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
@@ -32,7 +37,7 @@ func (c *Controller) showGame(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	render(w, r, http.StatusOK, view.Game(acc.Username, v))
+	render(w, r, status, view.Game(acc.Username, v, errMsg))
 }
 
 // gameEvents streams the board to the game page whenever the game changes, as
@@ -250,60 +255,6 @@ func (c *Controller) useBoard(w http.ResponseWriter, r *http.Request) {
 	}
 	v, err := c.svc.UseBoard(r.Context(), auth.Account(r.Context()), id, boardID)
 	c.respondBoard(w, r, id, v, err)
-}
-
-func (c *Controller) acceptInvitation(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	boardID, err := boardFromForm(r)
-	if err == nil {
-		_, err = c.svc.AcceptInvitation(r.Context(), auth.Account(r.Context()), id, boardID)
-	}
-	if err != nil && !isNotFound(err) {
-		c.joinFailed(w, r, err, view.T(r.Context()).ErrInput(), false)
-		return
-	}
-	http.Redirect(w, r, gameURL(id), http.StatusSeeOther)
-}
-
-func (c *Controller) declineInvitation(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	err := c.svc.DeclineInvitation(r.Context(), auth.Account(r.Context()), id)
-	if err != nil && !isNotFound(err) {
-		serverError(w, err)
-		return
-	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
-// withdrawInvitation is called by htmx from the lobby and responds with the updated board.
-func (c *Controller) withdrawInvitation(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	playerID, ok := urlID(w, r, "playerID")
-	if !ok {
-		return
-	}
-
-	v, err := c.svc.WithdrawInvitation(r.Context(), auth.Account(r.Context()), id, playerID)
-	switch {
-	case err == nil:
-		render(w, r, http.StatusOK, view.Board(v, ""))
-	case isNotFound(err):
-		// No player left, the game was deleted.
-		w.Header().Set("HX-Redirect", "/")
-	case errors.Is(err, service.ErrInvalid):
-		c.renderBoard(w, r, id, view.T(r.Context()).ErrNoInvitation())
-	default:
-		c.handleGameError(w, r, id, err)
-	}
 }
 
 // respondBoard responds to an action on a game with the board, or with the error.

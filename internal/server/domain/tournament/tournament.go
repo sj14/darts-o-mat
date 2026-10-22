@@ -8,7 +8,6 @@ package tournament
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
@@ -65,6 +64,10 @@ type Tournament struct {
 	CreatedAt    time.Time     `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 	// AbortedAt is set when the tournament ended without a winner, because a player left it.
 	AbortedAt *time.Time `bun:",nullzero" json:"aborted_at,omitempty"`
+	// StartedAt is when the tournament started: a player started it in the lobby, or the
+	// last seat of an open one was taken. The order of the players is drawn then. Nil while
+	// it waits in the lobby.
+	StartedAt *time.Time `bun:",nullzero" json:"started_at,omitempty"`
 	// CompletedAt is set once the tournament was seen completed: over, and all its games
 	// completed (State.Completed); then nothing about it can change anymore.
 	CompletedAt *time.Time `bun:",nullzero" json:"completed_at,omitempty"`
@@ -89,10 +92,29 @@ func (t Tournament) Participant(playerID int64) (Participant, bool) {
 	return Participant{}, false
 }
 
-// Ready reports whether no seat is free and no invitation is pending: only then its
-// games can start, like game.Game.Ready.
-func (t Tournament) Ready() bool {
-	return t.Full(len(t.Participants)) && !slices.ContainsFunc(t.Participants, func(p Participant) bool { return p.Status == game.InvitationPending })
+// Started reports whether the tournament left the lobby: its order is drawn, its games can
+// start.
+func (t Tournament) Started() bool {
+	return t.StartedAt != nil
+}
+
+// CanStart reports whether the tournament in the lobby may start, like game.Game.CanStart;
+// it also needs MinPlayers for its schedule (CheckPlayerCount).
+func (t Tournament) CanStart() bool {
+	statuses := make([]game.InvitationStatus, len(t.Participants))
+	for i, p := range t.Participants {
+		statuses[i] = p.Status
+	}
+	return !t.Started() && t.Lobby.CanStart(statuses)
+}
+
+// CheckPlayerCount checks that the tournament has as many players as its schedule needs
+// (ErrPlayerCount). In the lobby it may have fewer.
+func (t Tournament) CheckPlayerCount() error {
+	if len(t.Participants) < MinPlayers || len(t.Participants) > MaxPlayers {
+		return fmt.Errorf("%w: %d to %d", ErrPlayerCount, MinPlayers, MaxPlayers)
+	}
+	return nil
 }
 
 // Aborted reports whether the tournament ended without a winner.
@@ -104,8 +126,8 @@ func (t Tournament) Validate() error {
 	if t.Format != Knockout && t.Format != RoundRobin {
 		return fmt.Errorf("unknown format %q, use knockout or round_robin", t.Format)
 	}
-	// An open tournament may have fewer players than it needs until strangers joined.
-	if len(t.Participants) > MaxPlayers || (!t.Open() && len(t.Participants) < MinPlayers) {
+	// In the lobby it may have fewer players than it needs; CanStart checks them.
+	if len(t.Participants) > MaxPlayers {
 		return fmt.Errorf("%w: %d to %d", ErrPlayerCount, MinPlayers, MaxPlayers)
 	}
 	if err := game.CheckPlayers(t.PlayerIDs()); err != nil {

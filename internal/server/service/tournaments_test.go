@@ -42,13 +42,13 @@ func TestRoundRobinTournament(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	v, err := s.CreateTournament(ctx, anna, quickTournament(tournament.RoundRobin, anna.PlayerID, g1.ID, g2.ID), []string{"ben"})
+	v, err := createTournament(ctx, s, anna, quickTournament(tournament.RoundRobin, anna.PlayerID, g1.ID, g2.ID), []string{"ben"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	id := v.Tournament.ID
-	if v.Ready || len(v.State.Matches) != 6 {
-		t.Fatalf("ready %v with %d matches, want waiting for ben with 6 matches", v.Ready, len(v.State.Matches))
+	if v.Started || len(v.State.Matches) != 0 {
+		t.Fatalf("started %v with %d matches, want waiting for ben, no schedule before the draw", v.Started, len(v.State.Matches))
 	}
 	if _, err := s.StartMatch(ctx, anna, id, 0); !errors.Is(err, ErrNotReady) {
 		t.Fatalf("start before ben accepted: %v, want ErrNotReady", err)
@@ -56,8 +56,8 @@ func TestRoundRobinTournament(t *testing.T) {
 	if inv, err := s.TournamentInvitations(ctx, ben); err != nil || len(inv) != 1 {
 		t.Fatalf("ben's invitations: %v, %v", inv, err)
 	}
-	if v, err = s.AcceptTournamentInvitation(ctx, ben, id, nil); err != nil || !v.Ready || !v.CanPlay {
-		t.Fatalf("accept: ready %v can play %v, %v", v.Ready, v.CanPlay, err)
+	if v, err = acceptTournament(ctx, s, ben, id, nil); err != nil || !v.Started || !v.CanPlay {
+		t.Fatalf("accept: ready %v can play %v, %v", v.Started, v.CanPlay, err)
 	}
 
 	// A player plays one match at a time: the first two matches have no player in common,
@@ -114,7 +114,7 @@ func TestRoundRobinTournament(t *testing.T) {
 		t.Errorf("a tournament that can still be corrected counts: %+v", sums[0].X01.Record)
 	}
 	for _, acc := range []account.Account{anna, ben} {
-		if _, err := s.CreateGame(ctx, acc, x01Game(acc.PlayerID), nil); err != nil {
+		if _, err := createGame(ctx, s, acc, x01Game(acc.PlayerID), nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -178,7 +178,7 @@ func TestKnockoutTournament(t *testing.T) {
 		}
 		ids = append(ids, g.ID)
 	}
-	v, err := s.CreateTournament(ctx, anna, quickTournament(tournament.Knockout, ids...), nil)
+	v, err := createTournament(ctx, s, anna, quickTournament(tournament.Knockout, ids...), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func TestKnockoutTournament(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Going on to another tournament completes the final.
-	if _, err := s.CreateTournament(ctx, anna, quickTournament(tournament.Knockout, ids...), nil); err != nil {
+	if _, err := createTournament(ctx, s, anna, quickTournament(tournament.Knockout, ids...), nil); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ = s.Tournament(ctx, anna, id); !v.State.Completed() {
@@ -279,11 +279,11 @@ func TestSubscribeTournament(t *testing.T) {
 		ids = append(ids, g.ID)
 	}
 	ids, others := ids[:3], ids[3:]
-	v, err := s.CreateTournament(ctx, anna, quickTournament(tournament.RoundRobin, ids...), nil)
+	v, err := createTournament(ctx, s, anna, quickTournament(tournament.RoundRobin, ids...), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := s.CreateTournament(ctx, anna, quickTournament(tournament.RoundRobin, others...), nil)
+	other, err := createTournament(ctx, s, anna, quickTournament(tournament.RoundRobin, others...), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

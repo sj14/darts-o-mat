@@ -106,6 +106,12 @@ func (l Lobby) Full(players int) bool {
 	return !l.Open() || players >= l.Seats
 }
 
+// CanStart reports whether a game or tournament with participants that answered so may
+// start: someone is in, no invitation is pending and no seat is free.
+func (l Lobby) CanStart(statuses []InvitationStatus) bool {
+	return len(statuses) > 0 && l.Full(len(statuses)) && !slices.Contains(statuses, InvitationPending)
+}
+
 // Validate checks the lobby of a game or tournament that has players players so far and
 // may have min to max in total.
 func (l Lobby) Validate(players, min, max int) error {
@@ -158,8 +164,9 @@ type Game struct {
 	// tie, see turn.Log.BullOffCloser.
 	BullOffCloser *int64    `json:"bull_off_closer,omitempty"`
 	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-	// StartedAt is when the game became ready: everyone accepted and no seat is free. The
-	// first turn's time begins then. Nil while it waits in the lobby.
+	// StartedAt is when the game started: a player started it in the lobby, or the last
+	// seat of an open game was taken. The first turn's time begins then. Nil while it waits
+	// in the lobby.
 	StartedAt *time.Time `bun:",nullzero" json:"started_at,omitempty"`
 	// CompletedAt is when a player of the finished game went on to another game or
 	// tournament; after that it can't be undone or corrected anymore. Nil until then; see
@@ -193,9 +200,24 @@ func (g Game) Participant(playerID int64) (Participant, bool) {
 	return Participant{}, false
 }
 
-// Ready reports whether the game can start: no invitation is pending and no seat is free.
-func (g Game) Ready() bool {
-	return g.Full(len(g.Participants)) && !slices.ContainsFunc(g.Participants, func(p Participant) bool { return p.Status == InvitationPending })
+// Started reports whether the game left the lobby: darts can be thrown.
+func (g Game) Started() bool {
+	return g.StartedAt != nil
+}
+
+// CanStart reports whether the game in the lobby may start: no invitation is pending and
+// no seat is free.
+func (g Game) CanStart() bool {
+	return !g.Started() && g.Lobby.CanStart(g.Statuses())
+}
+
+// Statuses returns the answers of the participants to their invitations.
+func (g Game) Statuses() []InvitationStatus {
+	statuses := make([]InvitationStatus, len(g.Participants))
+	for i, p := range g.Participants {
+		statuses[i] = p.Status
+	}
+	return statuses
 }
 
 // CompleteAfter is how long a finished game may stay as it is before it counts as

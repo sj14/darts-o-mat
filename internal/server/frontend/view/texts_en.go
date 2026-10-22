@@ -50,16 +50,13 @@ func (textsEN) RoundN(n int) string   { return "Round " + strconv.Itoa(n) }
 func (textsEN) InvitedToGame() string { return "You're invited to this game." }
 func (textsEN) Accept() string        { return "Accept" }
 func (textsEN) Decline() string       { return "Decline" }
-func (textsEN) GameStartsWhenAccepted() string {
-	return "The game starts as soon as everyone invited has accepted."
-}
-func (textsEN) GuestMark() string  { return "(guest)" }
-func (textsEN) Joined() string     { return "in" }
-func (textsEN) Accepted() string   { return "accepted" }
-func (textsEN) Invited() string    { return "invited" }
-func (textsEN) Uninvite() string   { return "Withdraw" }
-func (textsEN) AbortGame() string  { return "Abort game" }
-func (textsEN) BoardInUse() string { return "in use, the other game loses it" }
+func (textsEN) GuestMark() string     { return "(guest)" }
+func (textsEN) Joined() string        { return "in" }
+func (textsEN) Accepted() string      { return "accepted" }
+func (textsEN) Invited() string       { return "invited" }
+func (textsEN) Uninvite() string      { return "Withdraw" }
+func (textsEN) AbortGame() string     { return "Abort game" }
+func (textsEN) BoardInUse() string    { return "in use, the other game loses it" }
 func (textsEN) LandingLead() string {
 	return "A free, open-source darts scorer that you host yourself. Enter your throws or let cameras detect them – the score is counted for you."
 }
@@ -342,7 +339,6 @@ func (textsEN) TurnLimitHint(skips int) string {
 }
 func (textsEN) TurnTimeLeft() string    { return "Time left for the turn" }
 func (textsEN) Players() string         { return "Players" }
-func (textsEN) Me(name string) string   { return "Me (" + name + ")" }
 func (textsEN) InviteFriends() string   { return "Invite friends" }
 func (textsEN) NoFriendsBefore() string { return "Add other accounts under " }
 func (textsEN) NoFriendsAfter() string  { return " to invite them." }
@@ -454,6 +450,25 @@ func (textsEN) ErrBoardRequired() string {
 func (textsEN) ErrBoardBusy() string {
 	return "This board is in a running game that needs it, so it cannot be taken."
 }
+func (textsEN) ErrStarted() string { return "It has started already." }
+func (textsEN) LobbyHint() string {
+	return "Add your players and invite friends, then start. Who throws first is drawn at the start."
+}
+func (textsEN) FirstPlayerHint() string {
+	return "Who is in the lobby first; add more players and invite friends there."
+}
+func (textsEN) StartsWhenFull() string {
+	return "Open for strangers: it starts by itself once every seat is taken."
+}
+func (textsEN) StartTournament() string { return "Start tournament" }
+func (textsEN) AddGuest() string        { return "Add guest" }
+func (textsEN) Invite() string          { return "Invite" }
+func (textsEN) RemoveFromLobby() string { return "Remove" }
+func (textsEN) Save() string            { return "Save" }
+func (textsEN) Guests() string          { return "Guests" }
+func (textsEN) NoGuests() string {
+	return "No guests yet. You add them in the lobby of a game."
+}
 func (textsEN) ErrPlayerBusy(name string) string {
 	return name + " is in another game or tournament already."
 }
@@ -474,10 +489,7 @@ func (textsEN) Games() string          { return "Games" }
 func (textsEN) DartsHits() string      { return "Darts / hits" }
 
 func (textsEN) InvitedToTournament() string {
-	return "You're invited to this tournament. The games start as soon as everyone has accepted."
-}
-func (textsEN) WaitingFor(names string) string {
-	return "Waiting for " + names + " to accept. Then the games can start."
+	return "You're invited to this tournament."
 }
 func (textsEN) WinsTournament(name string) string { return "🏆 " + name + " wins the tournament!" }
 func (textsEN) LeaveTournament() string           { return "Leave tournament" }
@@ -526,7 +538,6 @@ func (textsEN) ErrGuestNameTaken() string {
 func (textsEN) ErrGameNotStarted() string {
 	return "The game couldn't be started. Please check the settings."
 }
-func (textsEN) ErrChoosePlayer() string { return "Please choose or invite at least one player." }
 func (textsEN) ErrTournamentPlayers(min, max int) string {
 	return "A tournament needs " + strconv.Itoa(min) + " to " + strconv.Itoa(max) + " players: you, guests and invited friends."
 }

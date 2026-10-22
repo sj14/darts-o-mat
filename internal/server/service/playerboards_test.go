@@ -18,17 +18,17 @@ func TestPlayersOnTheirOwnBoards(t *testing.T) {
 	g := x01Game(anna.PlayerID)
 	g = withBoard(g, boardA.ID)
 	g.Seats = 2
-	v, err := s.CreateGame(ctx, anna, g, nil)
+	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	carla := register(t, s, "carla")
 	boardC, _ := s.CreateBoard(ctx, carla, "C")
-	if _, err := s.JoinGame(ctx, ben, v.Game.ID, &boardC.ID); !errors.Is(err, ErrInvalid) {
+	if _, err := joinGame(ctx, s, ben, v.Game.ID, &boardC.ID); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("ben joins on carla's board: got %v, want ErrInvalid", err)
 	}
-	if v, err = s.JoinGame(ctx, ben, v.Game.ID, &boardB.ID); err != nil || !v.Ready || !v.HasBoard() {
-		t.Fatalf("ben joins on his board: ready %v, has a board %v, %v", v.Ready, v.HasBoard(), err)
+	if v, err = joinGame(ctx, s, ben, v.Game.ID, &boardB.ID); err != nil || !v.Started || !v.HasBoard() {
+		t.Fatalf("ben joins on his board: ready %v, has a board %v, %v", v.Started, v.HasBoard(), err)
 	}
 	id := v.Game.ID
 	if len(v.BoardNames) != 2 || v.BoardNames[ben.PlayerID] != "B" || v.BoardNames[anna.PlayerID] != "A" {
@@ -62,7 +62,7 @@ func TestPlayersOnTheirOwnBoards(t *testing.T) {
 	// A board belongs to one game: ben starts another on his board, for a guest.
 	guest, _ := s.CreateGuest(ctx, ben, "Gast")
 	other := withBoard(x01Game(guest.ID), boardB.ID)
-	if _, err := s.CreateGame(ctx, ben, other, nil); err != nil {
+	if _, err := createGame(ctx, s, ben, other, nil); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ = s.Game(ctx, anna, id); v.BoardOf(ben.PlayerID) != nil && *v.BoardOf(ben.PlayerID) == boardB.ID {
@@ -79,16 +79,16 @@ func TestOpenTournamentOnTheirOwnBoards(t *testing.T) {
 
 	tr := quickTournament(tournament.RoundRobin, anna.PlayerID)
 	tr.Seats = 3
-	v, err := s.CreateTournament(ctx, anna, tr, nil)
+	v, err := createTournament(ctx, s, anna, tr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	id := v.Tournament.ID
-	if _, err := s.JoinTournament(ctx, ben, id, &boardB.ID); err != nil {
+	if _, err := joinTournament(ctx, s, ben, id, &boardB.ID); err != nil {
 		t.Fatal(err)
 	}
-	if v, err = s.JoinTournament(ctx, carla, id, &boardC.ID); err != nil || !v.Ready {
-		t.Fatalf("carla joins: ready %v, %v", v.Ready, err)
+	if v, err = joinTournament(ctx, s, carla, id, &boardC.ID); err != nil || !v.Started {
+		t.Fatalf("carla joins: ready %v, %v", v.Started, err)
 	}
 
 	// The match between ben and carla is played on their boards.

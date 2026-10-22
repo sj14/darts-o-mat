@@ -45,7 +45,6 @@ type Texts interface {
 	InvitedToGame() string
 	Accept() string
 	Decline() string
-	GameStartsWhenAccepted() string
 	GuestMark() string
 	Joined() string
 	Accepted() string
@@ -232,7 +231,6 @@ type Texts interface {
 	TurnLimitHint(skips int) string
 	TurnTimeLeft() string
 	Players() string
-	Me(name string) string
 	InviteFriends() string
 	NoFriendsBefore() string
 	NoFriendsAfter() string
@@ -313,6 +311,17 @@ type Texts interface {
 	ErrBoardRequired() string
 	ErrBoardBusy() string
 	ErrPlayerBusy(name string) string
+	ErrStarted() string
+	LobbyHint() string
+	FirstPlayerHint() string
+	StartsWhenFull() string
+	StartTournament() string
+	AddGuest() string
+	Invite() string
+	RemoveFromLobby() string
+	Save() string
+	Guests() string
+	NoGuests() string
 	HeatmapDarts(n int) string
 	HeatmapNone() string
 	Count180() string
@@ -329,7 +338,6 @@ type Texts interface {
 
 	// Tournaments.
 	InvitedToTournament() string
-	WaitingFor(names string) string
 	WinsTournament(name string) string
 	LeaveTournament() string
 	LeaveTournamentConfirm() string
@@ -358,7 +366,6 @@ type Texts interface {
 	ErrEnterName() string
 	ErrGuestNameTaken() string
 	ErrGameNotStarted() string
-	ErrChoosePlayer() string
 	ErrTournamentPlayers(min, max int) string
 	ErrUnknownUser(username string) string
 	ErrNotFriend(username string) string

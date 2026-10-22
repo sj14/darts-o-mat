@@ -99,34 +99,6 @@ func (c *Controller) startMatch(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *Controller) acceptTournament(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	boardID, err := boardFromForm(r)
-	if err == nil {
-		_, err = c.svc.AcceptTournamentInvitation(r.Context(), auth.Account(r.Context()), id, boardID)
-	}
-	if err != nil && !isNotFound(err) {
-		c.joinFailed(w, r, err, view.T(r.Context()).ErrInput(), false)
-		return
-	}
-	http.Redirect(w, r, tournamentURL(id), http.StatusSeeOther)
-}
-
-func (c *Controller) declineTournament(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	if err := c.svc.DeclineTournamentInvitation(r.Context(), auth.Account(r.Context()), id); err != nil && !isNotFound(err) {
-		serverError(w, err)
-		return
-	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
 // leaveTournament lets the account leave the tournament with all its players: in the
 // lobby they are removed, once it is running it ends for everyone.
 func (c *Controller) leaveTournament(w http.ResponseWriter, r *http.Request) {

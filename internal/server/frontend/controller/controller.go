@@ -56,7 +56,6 @@ func (c *Controller) Routes() http.Handler {
 		r.Post("/settings/delete", c.deleteAccount)
 		r.Get("/admin", c.showAdmin)
 		r.Post("/admin/pages/{name}", c.setPage)
-		r.Post("/guests", c.createGuest)
 		r.Post("/guests/{id}/delete", c.deleteGuest)
 		r.Get("/stats", c.showStats)
 		r.Get("/friends", c.showFriends)
@@ -70,13 +69,11 @@ func (c *Controller) Routes() http.Handler {
 
 		r.Get("/lobbies", c.showLobbies)
 		r.Post("/games", c.createGame)
-		r.Post("/games/{id}/join", c.joinGame)
-		r.Post("/tournaments/{id}/join", c.joinTournament)
+		c.lobbyRoutes(r, "/games", service.GameLobby)
+		c.lobbyRoutes(r, "/tournaments", service.TournamentLobby)
 		r.Get("/tournaments/{id}", c.showTournament)
 		r.Get("/tournaments/{id}/events", c.tournamentEvents)
 		r.Post("/tournaments/{id}/matches/{match}", c.startMatch)
-		r.Post("/tournaments/{id}/accept", c.acceptTournament)
-		r.Post("/tournaments/{id}/decline", c.declineTournament)
 		r.Post("/tournaments/{id}/leave", c.leaveTournament)
 		r.Get("/games/{id}", c.showGame)
 		r.Get("/games/{id}/events", c.gameEvents)
@@ -91,9 +88,6 @@ func (c *Controller) Routes() http.Handler {
 		r.Post("/games/{id}/leave", c.leaveGame)
 		r.Post("/games/{id}/board", c.useBoard)
 		r.Post("/games/{id}/bull-off/{playerID}", c.decideBullOff)
-		r.Post("/games/{id}/accept", c.acceptInvitation)
-		r.Post("/games/{id}/decline", c.declineInvitation)
-		r.Post("/games/{id}/invitations/{playerID}/withdraw", c.withdrawInvitation)
 	})
 	return r
 }

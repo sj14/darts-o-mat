@@ -3,7 +3,6 @@ package view
 import (
 	"strconv"
 
-	"github.com/sj14/darts-o-mat/internal/server/domain/board"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
@@ -34,19 +33,9 @@ templ TournamentBody(v service.TournamentView, failed Alert) {
 			@tournamentBadge(v)
 		</div>
 		@alert(failed)
-		if v.Invited {
-			<div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3">
-				<span>{ T(ctx).InvitedToTournament() }</span>
-				@answerTournament(v.Tournament.ID, boardsOfChoices(v.Boards))
-			</div>
-		} else if !v.Ready && !v.Tournament.Aborted() {
-			<div class="mb-6 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3">
-				if !v.Tournament.Full(len(v.Tournament.Participants)) {
-					<p>{ T(ctx).WaitingForSeats(v.Tournament.Seats - len(v.Tournament.Participants)) }</p>
-				}
-				if tournamentPending(ctx, v) != "" {
-					<p>{ T(ctx).WaitingFor(tournamentPending(ctx, v)) }</p>
-				}
+		if !v.Started && !v.Tournament.Aborted() {
+			<div class="mb-6">
+				@lobbyPanel(tournamentLobby(v))
 			</div>
 		}
 		if v.State.Over {
@@ -58,13 +47,15 @@ templ TournamentBody(v service.TournamentView, failed Alert) {
 			</div>
 		}
 		<div class="flex flex-col gap-6">
-			if v.Tournament.Format == tournament.Knockout {
-				@bracket(v)
-			} else {
-				@standings(v)
-				@roundRobinMatches(v)
+			if v.Started {
+				if v.Tournament.Format == tournament.Knockout {
+					@bracket(v)
+				} else {
+					@standings(v)
+					@roundRobinMatches(v)
+				}
+				@tournamentStats(v)
 			}
-			@tournamentStats(v)
 			if !v.Invited && !v.State.Over && !v.Tournament.Aborted() {
 				<form method="post" action={ templ.URL(tournamentURL(v.Tournament.ID, "/leave")) } data-confirm={ T(ctx).LeaveTournamentConfirm() } onsubmit="return confirm(this.dataset.confirm)">
 					<button type="submit" class={ btnDanger, btnSmall }>{ T(ctx).LeaveTournament() }</button>
@@ -78,25 +69,13 @@ templ tournamentBadge(v service.TournamentView) {
 	switch  {
 		case v.Tournament.Aborted():
 			@statusBadge(T(ctx).StatusAborted(), "bg-white/10 text-white/50")
-		case !v.Ready:
+		case !v.Started:
 			@statusBadge(T(ctx).StatusWaiting(), "bg-amber-400/20 text-amber-300")
 		case v.State.Over:
 			@statusBadge(T(ctx).StatusOver(), "bg-board-cream/15 text-board-cream")
 		default:
 			@statusBadge(T(ctx).StatusRunning(), "bg-board-green/25 text-emerald-300")
 	}
-}
-
-templ answerTournament(id int64, boards []board.Board) {
-	<div class="flex flex-wrap items-center gap-2">
-		<form method="post" action={ templ.URL(tournamentURL(id, "/accept")) } class="flex items-center gap-2">
-			@boardSelect(boards, false)
-			<button type="submit" class={ btnPrimary }>{ T(ctx).Accept() }</button>
-		</form>
-		<form method="post" action={ templ.URL(tournamentURL(id, "/decline")) }>
-			<button type="submit" class={ btnDanger }>{ T(ctx).Decline() }</button>
-		</form>
-	</div>
 }
 
 // bracket shows the knockout bracket, one column per round.
@@ -124,7 +103,7 @@ templ bracket(v service.TournamentView) {
 
 // matchCard shows a match with its players, the score and what can be done with it.
 templ matchCard(v service.TournamentView, m tournament.Match) {
-	<div class={ "rounded-2xl border bg-pub-800 p-2", templ.KV("border-board-green/60", v.CanStart(m)), templ.KV("border-white/10", !v.CanStart(m)) }>
+	<div class={ "rounded-2xl border bg-pub-800 p-2", templ.KV("border-board-green/60", v.MayStart(m)), templ.KV("border-white/10", !v.MayStart(m)) }>
 		for j, id := range m.PlayerIDs {
 			<div class={ "flex items-center justify-between gap-2 rounded-lg px-2 py-1", templ.KV("bg-amber-400/15 font-bold text-amber-200", id != 0 && m.Winner() == id) }>
 				<span class={ "truncate", templ.KV("text-white/30 italic", id == 0) }>
@@ -148,7 +127,7 @@ templ matchCard(v service.TournamentView, m tournament.Match) {
 // matchAction starts the game of a match or links to it.
 templ matchAction(v service.TournamentView, m tournament.Match) {
 	switch  {
-		case v.CanStart(m):
+		case v.MayStart(m):
 			<form method="post" action={ templ.URL(tournamentURL(v.Tournament.ID, "/matches/"+strconv.Itoa(m.Index))) } class="mt-1">
 				<button type="submit" class={ btnPrimary, btnSmall, "w-full" }>{ T(ctx).StartGame() }</button>
 			</form>

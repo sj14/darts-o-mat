@@ -28,11 +28,11 @@ func TestOneSeatPerPlayer(t *testing.T) {
 	// A lobby counts, until anna leaves it.
 	open := x01Game(anna.PlayerID)
 	open.Seats = 2
-	lobby, err := s.CreateGame(ctx, anna, open, nil)
+	lobby, err := createGame(ctx, s, anna, open, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil); err == nil {
+	if _, err := createGame(ctx, s, anna, x01Game(anna.PlayerID), nil); err == nil {
 		t.Fatal("a game while waiting in a lobby")
 	} else if g, _, ok := busyIn(err); !ok || g != lobby.Game.ID || !errors.Is(err, ErrInvalid) {
 		t.Errorf("game while in a lobby: %v, want PlayerBusyError for game %d", err, lobby.Game.ID)
@@ -41,38 +41,38 @@ func TestOneSeatPerPlayer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	running, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
+	running, err := createGame(ctx, s, anna, x01Game(anna.PlayerID), nil)
 	if err != nil {
 		t.Fatalf("a game after leaving the lobby: %v", err)
 	}
-	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID, papa.ID), nil); err == nil {
+	if _, err := createGame(ctx, s, anna, x01Game(anna.PlayerID, papa.ID), nil); err == nil {
 		t.Fatal("a second running game for anna")
 	} else if g, _, _ := busyIn(err); g != running.Game.ID {
 		t.Errorf("second game: %v, want PlayerBusyError for game %d", err, running.Game.ID)
 	}
 	// Other players of the account play at the same time, e.g. on another board.
-	if _, err := s.CreateGame(ctx, anna, x01Game(papa.ID), nil); err != nil {
+	if _, err := createGame(ctx, s, anna, x01Game(papa.ID), nil); err != nil {
 		t.Errorf("a guest's game next to anna's: %v", err)
 	}
 
 	// An invitation doesn't count; taking the seat checks the player, invited or as a
 	// stranger, in a game or a tournament.
-	invited, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), []string{"anna"})
+	invited, err := createGame(ctx, s, ben, x01Game(ben.PlayerID), []string{"anna"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AcceptInvitation(ctx, anna, invited.Game.ID, nil); err == nil {
+	if _, err := acceptGame(ctx, s, anna, invited.Game.ID, nil); err == nil {
 		t.Error("anna accepts while she plays")
 	} else if g, _, _ := busyIn(err); g != running.Game.ID {
 		t.Errorf("accept: %v, want PlayerBusyError for game %d", err, running.Game.ID)
 	}
 	joinable := quickTournament(tournament.RoundRobin, cara.PlayerID)
 	joinable.Seats = 3
-	tv, err := s.CreateTournament(ctx, cara, joinable, nil)
+	tv, err := createTournament(ctx, s, cara, joinable, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.JoinTournament(ctx, anna, tv.Tournament.ID, nil); err == nil {
+	if _, err := joinTournament(ctx, s, anna, tv.Tournament.ID, nil); err == nil {
 		t.Error("anna joins a tournament while she plays")
 	}
 
@@ -89,7 +89,7 @@ func TestOneSeatPerPlayer(t *testing.T) {
 	if _, err := s.LeaveGame(ctx, anna, running.Game.ID); err != nil {
 		t.Fatal(err)
 	}
-	over, err := s.CreateGame(ctx, anna, quick(anna.PlayerID), nil)
+	over, err := createGame(ctx, s, anna, quick(anna.PlayerID), nil)
 	if err != nil {
 		t.Fatalf("a game after leaving the last: %v", err)
 	}
@@ -98,15 +98,15 @@ func TestOneSeatPerPlayer(t *testing.T) {
 	}
 
 	// A tournament counts as a whole, from its lobby on and also between its matches.
-	if _, err := s.JoinTournament(ctx, anna, tv.Tournament.ID, nil); err != nil {
+	if _, err := joinTournament(ctx, s, anna, tv.Tournament.ID, nil); err != nil {
 		t.Fatalf("join after the last game is over: %v", err)
 	}
-	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil); err == nil {
+	if _, err := createGame(ctx, s, anna, x01Game(anna.PlayerID), nil); err == nil {
 		t.Error("a game while in a tournament")
 	} else if _, tr, _ := busyIn(err); tr != tv.Tournament.ID {
 		t.Errorf("game while in a tournament: %v, want PlayerBusyError for tournament %d", err, tv.Tournament.ID)
 	}
-	if _, err := s.CreateTournament(ctx, anna, quickTournament(tournament.RoundRobin, anna.PlayerID), nil); err == nil {
+	if _, err := createTournament(ctx, s, anna, quickTournament(tournament.RoundRobin, anna.PlayerID), nil); err == nil {
 		t.Error("a second tournament for anna")
 	}
 }
@@ -119,11 +119,11 @@ func TestLobbyGoneWithTheLastPlayer(t *testing.T) {
 
 	tr := quickTournament(tournament.RoundRobin, anna.PlayerID)
 	tr.Seats = 3
-	tv, err := s.CreateTournament(ctx, anna, tr, nil)
+	tv, err := createTournament(ctx, s, anna, tr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.JoinTournament(ctx, ben, tv.Tournament.ID, nil); err != nil {
+	if _, err := joinTournament(ctx, s, ben, tv.Tournament.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.LeaveTournament(ctx, anna, tv.Tournament.ID); err != nil {

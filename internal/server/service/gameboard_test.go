@@ -23,7 +23,7 @@ func TestUseBoard(t *testing.T) {
 	bens, _ := s.CreateBoard(ctx, ben, "Bens")
 
 	// A game without a board offers the viewer's boards; none is in use yet.
-	first, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
+	first, err := createGame(ctx, s, anna, x01Game(anna.PlayerID), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestUseBoard(t *testing.T) {
 
 	// A second game, of a guest, takes the board over; the first continues without it.
 	papa, _ := s.CreateGuest(ctx, anna, "Papa")
-	second, err := s.CreateGame(ctx, anna, x01Game(papa.ID), nil)
+	second, err := createGame(ctx, s, anna, x01Game(papa.ID), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestNewGameTakesTheBoard(t *testing.T) {
 	anna := register(t, s, "anna")
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 
-	first, err := s.CreateGame(ctx, anna, withBoard(x01Game(anna.PlayerID), keller.ID), nil)
+	first, err := createGame(ctx, s, anna, withBoard(x01Game(anna.PlayerID), keller.ID), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestNewGameTakesTheBoard(t *testing.T) {
 	}
 
 	papa, _ := s.CreateGuest(ctx, anna, "Papa")
-	second, err := s.CreateGame(ctx, anna, withBoard(x01Game(papa.ID), keller.ID), nil)
+	second, err := createGame(ctx, s, anna, withBoard(x01Game(papa.ID), keller.ID), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestFriendsShareABoard(t *testing.T) {
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 	bens, _ := s.CreateBoard(ctx, ben, "Bens")
 
-	v, err := s.CreateGame(ctx, anna, withBoard(x01Game(anna.PlayerID), keller.ID), []string{"ben"})
+	v, err := createGame(ctx, s, anna, withBoard(x01Game(anna.PlayerID), keller.ID), []string{"ben"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,10 +119,10 @@ func TestFriendsShareABoard(t *testing.T) {
 	if len(bv.Boards) != 2 || !bv.Boards[1].Others || bv.Boards[1].ID != keller.ID {
 		t.Fatalf("ben's choices = %+v, want his own board and anna's", bv.Boards)
 	}
-	if _, err := s.AcceptInvitation(ctx, ben, v.Game.ID, &keller.ID); err != nil {
+	if _, err := acceptGame(ctx, s, ben, v.Game.ID, &keller.ID); err != nil {
 		t.Fatalf("ben accepts on anna's board: %v", err)
 	}
-	if _, err := s.AcceptInvitation(ctx, ben, v.Game.ID, &bens.ID); err == nil {
+	if _, err := acceptGame(ctx, s, ben, v.Game.ID, &bens.ID); err == nil {
 		t.Error("accepting twice worked")
 	}
 	if v, _ = s.Game(ctx, ben, v.Game.ID); !onBoard(v, ben.PlayerID, keller.ID) || !onBoard(v, anna.PlayerID, keller.ID) {
@@ -148,11 +148,11 @@ func TestUseNoBoard(t *testing.T) {
 	befriend(t, s, anna, ben)
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 
-	v, err := s.CreateGame(ctx, anna, withBoard(x01Game(anna.PlayerID), keller.ID), []string{"ben"})
+	v, err := createGame(ctx, s, anna, withBoard(x01Game(anna.PlayerID), keller.ID), []string{"ben"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AcceptInvitation(ctx, ben, v.Game.ID, nil); err != nil {
+	if _, err := acceptGame(ctx, s, ben, v.Game.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ = s.Game(ctx, anna, v.Game.ID); !v.HasBoard() || !v.HasCamera(anna.PlayerID) {

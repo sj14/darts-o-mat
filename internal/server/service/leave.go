@@ -62,7 +62,7 @@ func (s *Service) LeaveGame(ctx context.Context, acc account.Account, gameID int
 // leave is LeaveGame after the checks. The caller holds s.mu.
 func (s *Service) leave(ctx context.Context, acc account.Account, v GameView) (GameView, error) {
 	gameID := v.Game.ID
-	if !v.Ready { // still in the lobby
+	if !v.Started { // still in the lobby
 		for _, id := range v.Mine {
 			if err := s.store.RemoveParticipant(ctx, gameID, id); err != nil {
 				return GameView{}, err
@@ -152,7 +152,7 @@ func (s *Service) leaveTournament(ctx context.Context, acc account.Account, t to
 	if err != nil {
 		return err
 	}
-	if !v.Ready { // still in the lobby
+	if !v.Started { // still in the lobby
 		for _, id := range v.Mine {
 			if err := s.store.RemoveTournamentParticipant(ctx, t.ID, id); err != nil {
 				return err

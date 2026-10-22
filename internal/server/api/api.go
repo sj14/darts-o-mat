@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
 	"github.com/sj14/darts-o-mat/internal/server/auth"
+	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
@@ -72,14 +73,12 @@ func (a *API) Routes() http.Handler {
 		r.Post("/games/{id}/bull-off", a.decideBullOff)
 
 		r.Get("/lobbies", a.listLobbies)
-		r.Post("/games/{id}/join", a.joinGame)
-		r.Post("/tournaments/{id}/join", a.joinTournament)
+		a.lobbyRoutes(r, "/games", service.GameLobby)
+		a.lobbyRoutes(r, "/tournaments", service.TournamentLobby)
 		r.Get("/tournaments", a.listTournaments)
 		r.Post("/tournaments", a.createTournament)
 		r.Get("/tournaments/{id}", a.getTournament)
 		r.Post("/tournaments/{id}/matches/{match}", a.startMatch)
-		r.Post("/tournaments/{id}/accept", a.acceptTournament)
-		r.Post("/tournaments/{id}/decline", a.declineTournament)
 		r.Post("/tournaments/{id}/leave", a.leaveTournament)
 		r.Get("/stats", a.stats)
 		r.Get("/friends", a.listFriends)
@@ -88,9 +87,6 @@ func (a *API) Routes() http.Handler {
 		r.Delete("/friends/{accountID}", a.removeFriend)
 
 		r.Get("/invitations", a.listInvitations)
-		r.Post("/games/{id}/accept", a.acceptInvitation)
-		r.Post("/games/{id}/decline", a.declineInvitation)
-		r.Delete("/games/{id}/invitations/{playerID}", a.withdrawInvitation)
 	})
 	return r
 }
@@ -249,18 +245,17 @@ func (a *API) listGames(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, games, err)
 }
 
-// createRequest is the body to create a game or a tournament.
+// createRequest is the body to create a game or a tournament in its lobby, with the
+// account's own player in it.
 type createRequest struct {
 	// Format is the tournament's format; a game has none.
 	Format tournament.Format `json:"format,omitempty"`
 	game.Settings
 	game.Lobby
-	// PlayerIDs are the account's own player and its guests, in throwing order.
-	PlayerIDs []int64 `json:"player_ids"`
-	// BoardID is the board these players throw on, one of the account's.
+	// PlayerID is the account's player it begins with: its own (0, the default) or a guest.
+	PlayerID int64 `json:"player_id"`
+	// BoardID is the board that player throws on, one of the account's.
 	BoardID *int64 `json:"board_id"`
-	// Invite lists usernames of other accounts to invite; they are added after PlayerIDs.
-	Invite []string `json:"invite"`
 }
 
 func (a *API) createGame(w http.ResponseWriter, r *http.Request) {
@@ -268,11 +263,7 @@ func (a *API) createGame(w http.ResponseWriter, r *http.Request) {
 	if !decodeGame(w, r, &req, &req.Settings) {
 		return
 	}
-	g := game.Game{Settings: req.Settings, Lobby: req.Lobby}
-	for _, id := range req.PlayerIDs {
-		g.Participants = append(g.Participants, game.Participant{PlayerID: id, BoardID: req.BoardID})
-	}
-	v, err := a.svc.CreateGame(r.Context(), auth.Account(r.Context()), g, req.Invite)
+	v, err := a.svc.CreateGame(r.Context(), auth.Account(r.Context()), game.Game{Settings: req.Settings, Lobby: req.Lobby}, req.PlayerID, req.BoardID)
 	respond(w, http.StatusCreated, v, err)
 }
 
@@ -458,44 +449,6 @@ func (a *API) listInvitations(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, games, err)
 }
 
-func (a *API) acceptInvitation(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	boardID, ok := optionalBoard(w, r)
-	if !ok {
-		return
-	}
-	v, err := a.svc.AcceptInvitation(r.Context(), auth.Account(r.Context()), id, boardID)
-	respond(w, http.StatusOK, v, err)
-}
-
-func (a *API) declineInvitation(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	if err := a.svc.DeclineInvitation(r.Context(), auth.Account(r.Context()), id); err != nil {
-		writeError(w, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (a *API) withdrawInvitation(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	playerID, ok := urlID(w, r, "playerID")
-	if !ok {
-		return
-	}
-	v, err := a.svc.WithdrawInvitation(r.Context(), auth.Account(r.Context()), id, playerID)
-	respond(w, http.StatusOK, v, err)
-}
-
 // urlID parses a numeric URL parameter and writes the error response if that fails.
 func urlID(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
 	id, err := strconv.ParseInt(chi.URLParam(r, name), 10, 64)
@@ -550,10 +503,7 @@ func (a *API) createTournament(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t := tournament.Tournament{Format: req.Format, Settings: req.Settings, Lobby: req.Lobby}
-	for _, id := range req.PlayerIDs {
-		t.Participants = append(t.Participants, tournament.Participant{PlayerID: id, BoardID: req.BoardID})
-	}
-	v, err := a.svc.CreateTournament(r.Context(), auth.Account(r.Context()), t, req.Invite)
+	v, err := a.svc.CreateTournament(r.Context(), auth.Account(r.Context()), t, req.PlayerID, req.BoardID)
 	respond(w, http.StatusCreated, v, err)
 }
 
@@ -578,27 +528,6 @@ func (a *API) startMatch(w http.ResponseWriter, r *http.Request) {
 	}
 	v, err := a.svc.StartMatch(r.Context(), auth.Account(r.Context()), id, int(match))
 	respond(w, http.StatusCreated, v, err)
-}
-
-func (a *API) acceptTournament(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	boardID, ok := optionalBoard(w, r)
-	if !ok {
-		return
-	}
-	v, err := a.svc.AcceptTournamentInvitation(r.Context(), auth.Account(r.Context()), id, boardID)
-	respond(w, http.StatusOK, v, err)
-}
-
-func (a *API) declineTournament(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	respondEmpty(w, a.svc.DeclineTournamentInvitation(r.Context(), auth.Account(r.Context()), id))
 }
 
 func (a *API) leaveTournament(w http.ResponseWriter, r *http.Request) {
@@ -632,34 +561,6 @@ func (a *API) listLobbies(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, service.LobbyFilterFromQuery(r.URL.Query()).Apply(lobbies), err)
 }
 
-// joinGame takes a seat of an open game with the account's player.
-func (a *API) joinGame(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	boardID, ok := optionalBoard(w, r)
-	if !ok {
-		return
-	}
-	v, err := a.svc.JoinGame(r.Context(), auth.Account(r.Context()), id, boardID)
-	respond(w, http.StatusOK, v, err)
-}
-
-// joinTournament takes a seat of an open tournament with the account's player.
-func (a *API) joinTournament(w http.ResponseWriter, r *http.Request) {
-	id, ok := urlID(w, r, "id")
-	if !ok {
-		return
-	}
-	boardID, ok := optionalBoard(w, r)
-	if !ok {
-		return
-	}
-	v, err := a.svc.JoinTournament(r.Context(), auth.Account(r.Context()), id, boardID)
-	respond(w, http.StatusOK, v, err)
-}
-
 // respondEmpty answers with 204 and no body, or with the error.
 func respondEmpty(w http.ResponseWriter, err error) {
 	if err != nil {
@@ -689,7 +590,7 @@ func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case tooLarge:
 		status = http.StatusRequestEntityTooLarge
-	case errors.Is(err, service.ErrAlreadyFriends):
+	case errors.Is(err, service.ErrAlreadyFriends), errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrStarted):
 		status = http.StatusConflict
 	case errors.Is(err, service.ErrInvalid), errors.Is(err, dartboard.ErrInvalid):
 		status = http.StatusBadRequest
@@ -702,7 +603,7 @@ func writeError(w http.ResponseWriter, err error) {
 	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound
 	case errors.Is(err, turn.ErrGameOver), errors.Is(err, turn.ErrWaitingForTakeout), errors.Is(err, service.ErrNothingToUndo), errors.Is(err, service.ErrNoActiveGame), errors.Is(err, service.ErrNotOnBoard), errors.Is(err, service.ErrCantLeave),
-		errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrAborted), errors.Is(err, service.ErrCompleted), errors.Is(err, service.ErrUsernameTaken), errors.Is(err, service.ErrEmailTaken):
+		errors.Is(err, service.ErrAborted), errors.Is(err, service.ErrCompleted), errors.Is(err, service.ErrUsernameTaken), errors.Is(err, service.ErrEmailTaken):
 		status = http.StatusConflict
 	}
 
@@ -712,4 +613,83 @@ func writeError(w http.ResponseWriter, err error) {
 		msg = http.StatusText(status)
 	}
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+// lobbyRoutes adds what games and tournaments both do in their lobby, under the prefix
+// (/games, /tournaments); ref names the one of the URL's id. Each answers with the game or
+// tournament, or 204 when the account has nothing to see there anymore.
+func (a *API) lobbyRoutes(r chi.Router, prefix string, ref func(int64) service.LobbyRef) {
+	type seat struct {
+		PlayerID int64  `json:"player_id"`
+		BoardID  *int64 `json:"board_id"`
+		Username string `json:"username"`
+	}
+	// do runs the change on the lobby of the URL with the body, if it reads.
+	do := func(change func(r *http.Request, ref service.LobbyRef, body seat) error) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			id, ok := urlID(w, r, "id")
+			if !ok {
+				return
+			}
+			var body seat
+			if r.ContentLength != 0 && !decode(w, r, &body) {
+				return
+			}
+			if s := chi.URLParam(r, "playerID"); s != "" {
+				if body.PlayerID, ok = urlID(w, r, "playerID"); !ok {
+					return
+				}
+			}
+			if err := change(r, ref(id), body); err != nil {
+				writeError(w, err)
+				return
+			}
+			a.respondLobby(w, r, ref(id))
+		}
+	}
+	acc := func(r *http.Request) account.Account { return auth.Account(r.Context()) }
+	r.Post(prefix+"/{id}/players", do(func(r *http.Request, ref service.LobbyRef, b seat) error {
+		return a.svc.AddPlayer(r.Context(), acc(r), ref, b.PlayerID, b.BoardID)
+	}))
+	r.Delete(prefix+"/{id}/players/{playerID}", do(func(r *http.Request, ref service.LobbyRef, b seat) error {
+		return a.svc.RemovePlayer(r.Context(), acc(r), ref, b.PlayerID)
+	}))
+	r.Put(prefix+"/{id}/players/{playerID}/board", do(func(r *http.Request, ref service.LobbyRef, b seat) error {
+		return a.svc.SetSeatBoard(r.Context(), acc(r), ref, b.PlayerID, b.BoardID)
+	}))
+	r.Post(prefix+"/{id}/invitations", do(func(r *http.Request, ref service.LobbyRef, b seat) error {
+		return a.svc.Invite(r.Context(), acc(r), ref, b.Username)
+	}))
+	r.Delete(prefix+"/{id}/invitations/{playerID}", do(func(r *http.Request, ref service.LobbyRef, b seat) error {
+		return a.svc.Withdraw(r.Context(), acc(r), ref, b.PlayerID)
+	}))
+	r.Post(prefix+"/{id}/accept", do(func(r *http.Request, ref service.LobbyRef, b seat) error {
+		return a.svc.Accept(r.Context(), acc(r), ref, b.BoardID)
+	}))
+	r.Post(prefix+"/{id}/decline", do(func(r *http.Request, ref service.LobbyRef, b seat) error {
+		return a.svc.Decline(r.Context(), acc(r), ref)
+	}))
+	r.Post(prefix+"/{id}/join", do(func(r *http.Request, ref service.LobbyRef, b seat) error {
+		return a.svc.Join(r.Context(), acc(r), ref, b.BoardID)
+	}))
+	r.Post(prefix+"/{id}/start", do(func(r *http.Request, ref service.LobbyRef, b seat) error {
+		return a.svc.Start(r.Context(), acc(r), ref)
+	}))
+}
+
+// respondLobby answers a change of a lobby with the game or tournament as it is now, or 204
+// if the account has nothing to see there anymore (it declined, or the lobby is gone).
+func (a *API) respondLobby(w http.ResponseWriter, r *http.Request, ref service.LobbyRef) {
+	var v any
+	var err error
+	if ref.Tournament {
+		v, err = a.svc.Tournament(r.Context(), auth.Account(r.Context()), ref.ID)
+	} else {
+		v, err = a.svc.Game(r.Context(), auth.Account(r.Context()), ref.ID)
+	}
+	if errors.Is(err, service.ErrNotFound) {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	respond(w, http.StatusOK, v, err)
 }

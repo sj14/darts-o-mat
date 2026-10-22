@@ -69,7 +69,7 @@ templ invitations(views []service.GameView) {
 						<a href={ templ.URL(gameURL(v.Game.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">{ modeLabel(T(ctx), v.Game.Settings) }</a>
 						<div class="text-sm text-white/50">{ T(ctx).WithPlayers(playerNames(ctx, v, v.Game.PlayerIDs())) }</div>
 					</div>
-					@answerInvitation(v.Game.ID, boardsOfChoices(v.Boards))
+					@answerInvitation(gameURL(v.Game.ID, ""), boardsOfChoices(v.Boards), v.Game.BoardOnly)
 				</li>
 			}
 		</ul>
@@ -86,20 +86,22 @@ templ tournamentInvitations(views []service.TournamentView) {
 						<a href={ templ.URL(tournamentURL(v.Tournament.ID, "")) } class="font-display text-2xl font-semibold uppercase hover:text-amber-300">🏆 { formatName(T(ctx), v.Tournament.Format) }</a>
 						<div class="text-sm text-white/50">{ modeLabel(T(ctx), v.Tournament.Settings) } · { T(ctx).PlayerCount(len(v.Players)) }</div>
 					</div>
-					@answerTournament(v.Tournament.ID, boardsOfChoices(v.Boards))
+					@answerInvitation(tournamentURL(v.Tournament.ID, ""), boardsOfChoices(v.Boards), v.Tournament.BoardOnly)
 				</li>
 			}
 		</ul>
 	}
 }
 
-templ answerInvitation(gameID int64, boards []board.Board) {
+// answerInvitation accepts, on a board, or declines the invitation to the game or
+// tournament with the page base.
+templ answerInvitation(base string, boards []board.Board, required bool) {
 	<div class="flex flex-wrap items-center gap-2">
-		<form method="post" action={ templ.URL(gameURL(gameID, "/accept")) } class="flex items-center gap-2">
-			@boardSelect(boards, false)
+		<form method="post" action={ templ.URL(base + "/accept") } class="flex items-center gap-2">
+			@boardSelect(boards, required)
 			<button type="submit" class={ btnPrimary }>{ T(ctx).Accept() }</button>
 		</form>
-		<form method="post" action={ templ.URL(gameURL(gameID, "/decline")) }>
+		<form method="post" action={ templ.URL(base + "/decline") }>
 			<button type="submit" class={ btnDanger }>{ T(ctx).Decline() }</button>
 		</form>
 	</div>
@@ -117,7 +119,7 @@ templ recentGames(views []service.GameView) {
 							switch  {
 								case v.Game.Aborted():
 									@statusBadge(T(ctx).StatusAborted(), "bg-white/10 text-white/50")
-								case !v.Ready:
+								case !v.Started:
 									@statusBadge(T(ctx).StatusWaiting(), "bg-amber-400/20 text-amber-300")
 								case progressOf(v).GameOver:
 									@statusBadge(T(ctx).StatusOver(), "bg-board-cream/15 text-board-cream")
@@ -189,81 +191,18 @@ templ legsChoice() {
 	}
 }
 
-// PlayersModel is what the player selection shows: who can play, who is ticked, and why
-// adding or deleting a guest failed, if it did.
-type PlayersModel struct {
-	Players  []player.Player // the account's own player followed by its guests
-	Selected map[int64]bool
-	Error    string
-}
-
-// firstSelected ticks the account's own player, as a new game starts out.
-func firstSelected(players []player.Player) map[int64]bool {
-	if len(players) == 0 {
-		return nil
-	}
-	return map[int64]bool{players[0].ID: true}
-}
-
-// PlayerPicker lets the user pick who plays, and add or delete guests without leaving the
-// form: htmx swaps only this part, so the settings picked so far stay, and the guest just
-// added is ticked. The name and the button belong to the form guest-form (the form attribute),
-// which sits next to the game's form, as forms can't be nested.
-templ PlayerPicker(m PlayersModel) {
-	<div id="players">
-		@fieldset(T(ctx).Players()) {
-			@errorAlert(m.Error)
-			<div class="flex flex-col gap-1">
-				for i, p := range m.Players {
-					<div class="flex items-center gap-1">
-						@checkbox("player-"+strconv.FormatInt(p.ID, 10), "player_ids", strconv.FormatInt(p.ID, 10), m.Selected[p.ID]) {
-							if i == 0 {
-								{ T(ctx).Me(p.Name) }
-							} else {
-								{ p.Name } <span class="text-white/40">{ T(ctx).GuestMark() }</span>
-							}
-						}
-						if i > 0 {
-							<button
-								type="button"
-								class="rounded-full px-2 text-white/40 transition hover:bg-board-red/30 hover:text-red-300"
-								title={ T(ctx).DeleteGuest() }
-								aria-label={ T(ctx).DeleteGuest() }
-								hx-post={ "/guests/" + strconv.FormatInt(p.ID, 10) + "/delete" }
-								hx-target="#players"
-								hx-swap="outerHTML"
-								hx-confirm={ T(ctx).DeleteGuestConfirm(p.Name) }
-							>✕</button>
-						}
-					</div>
-				}
-			</div>
-			<div class="mt-3 flex gap-2">
-				<input form="guest-form" type="text" name="name" class={ inputClass } placeholder={ T(ctx).GuestName() } aria-label={ T(ctx).GuestName() }/>
-				<button form="guest-form" type="submit" class={ btnSecondary }>{ T(ctx).Add() }</button>
-			</div>
-			<p class={ hintClass }>{ T(ctx).GuestsHint() }</p>
-		}
-	</div>
-}
-
-// participants lets the user pick who plays and on which board.
-// The players throw in the listed order, invited accounts last.
+// participants lets the user open the game for strangers and pick the player it begins
+// with (their own, or a guest while they play elsewhere) and its board; the other players
+// are added and invited in the lobby.
 templ participants(m HomeModel) {
-	@PlayerPicker(PlayersModel{Players: m.Players, Selected: firstSelected(m.Players)})
-	@fieldset(T(ctx).InviteFriends()) {
-		if len(m.Friends.Friends) == 0 {
-			<p class="text-white/50">{ T(ctx).NoFriendsBefore() }<a href="/friends" class={ linkClass }>{ T(ctx).NavFriends() }</a>{ T(ctx).NoFriendsAfter() }</p>
-		}
-		<div class="flex flex-col gap-1">
-			for _, f := range m.Friends.Friends {
-				@checkbox("invite-"+f.Username, "invite", f.Username, false) {
-					{ f.Name }
+	if len(m.Players) > 1 {
+		@fieldset(T(ctx).Players()) {
+			<select name="player_id" class={ inputClass, "w-auto!" } aria-label={ T(ctx).Players() }>
+				for _, p := range m.Players {
+					<option value={ strconv.FormatInt(p.ID, 10) }>{ p.Name }</option>
 				}
-			}
-		</div>
-		if len(m.Friends.Friends) > 0 {
-			<p class={ hintClass }>{ T(ctx).GameStartsWhenAccepted() }</p>
+			</select>
+			<p class={ hintClass }>{ T(ctx).FirstPlayerHint() }</p>
 		}
 	}
 	@fieldset(T(ctx).Strangers()) {
@@ -305,8 +244,6 @@ templ newGame(m HomeModel) {
 				@modeTile(game.ModeX01, m.Mode, "X01", T(ctx).X01Description(), "501")
 				@modeTile(game.ModeAroundTheClock, m.Mode, T(ctx).AroundTheClock(), T(ctx).AroundTheClockDescription(), "1→20")
 			</div>
-			// The form of the guest field in the player selection, outside the game's form.
-			<form id="guest-form" method="post" action="/guests" hx-post="/guests" hx-target="#players" hx-swap="outerHTML" hx-include="#players [name=player_ids]"></form>
 			switch m.Mode {
 				case game.ModeX01:
 					<form method="post" action="/games" class="flex flex-col gap-5">
