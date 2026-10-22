@@ -19,6 +19,9 @@ type lobbyModel struct {
 	canStart   bool // no invitation is pending and no seat is free
 	boards     []board.Board
 	choices    *service.LobbyChoices
+	// leaveConfirm asks before the viewer's last player is taken out, which is leaving:
+	// the same question as the button to leave.
+	leaveConfirm string
 }
 
 // lobbySeat is a player in the lobby, or invited to it.
@@ -30,16 +33,16 @@ type lobbySeat struct {
 	board   string // its name, if the viewer knows it
 }
 
-func gameLobby(v service.GameView) lobbyModel {
-	m := lobbyModel{base: gameURL(v.Game.ID, ""), Lobby: v.Game.Lobby, invited: v.Invited, canPlay: v.CanThrow, canStart: v.CanStart, boards: boardsOfChoices(v.Boards), choices: v.Choices}
+func gameLobby(t Texts, v service.GameView) lobbyModel {
+	m := lobbyModel{base: gameURL(v.Game.ID, ""), Lobby: v.Game.Lobby, invited: v.Invited, canPlay: v.CanThrow, canStart: v.CanStart, boards: boardsOfChoices(v.Boards), choices: v.Choices, leaveConfirm: leaveConfirm(t, v)}
 	for _, p := range v.Players {
 		m.seats = append(m.seats, lobbySeat{player: p, pending: v.Pending(p.ID), mine: v.IsMine(p.ID), boardID: v.BoardOf(p.ID), board: v.BoardNames[p.ID]})
 	}
 	return m
 }
 
-func tournamentLobby(v service.TournamentView) lobbyModel {
-	m := lobbyModel{base: tournamentURL(v.Tournament.ID, ""), Lobby: v.Tournament.Lobby, tournament: true, invited: v.Invited, canPlay: v.CanPlay, canStart: v.CanStart, boards: boardsOfChoices(v.Boards), choices: v.Choices}
+func tournamentLobby(t Texts, v service.TournamentView) lobbyModel {
+	m := lobbyModel{base: tournamentURL(v.Tournament.ID, ""), Lobby: v.Tournament.Lobby, tournament: true, invited: v.Invited, canPlay: v.CanPlay, canStart: v.CanStart, boards: boardsOfChoices(v.Boards), choices: v.Choices, leaveConfirm: t.LeaveTournamentConfirm()}
 	for _, p := range v.Players {
 		tp, _ := v.Tournament.Participant(p.ID)
 		s := lobbySeat{player: p, pending: v.Pending(p.ID), boardID: tp.BoardID}
@@ -59,6 +62,17 @@ func tournamentLobby(v service.TournamentView) lobbyModel {
 // url is the URL of an action of the lobby.
 func (m lobbyModel) url(suffix string) string {
 	return m.base + suffix
+}
+
+// lastOfMine reports whether the seat is the viewer's only player in the lobby: taking it
+// out leaves.
+func (m lobbyModel) lastOfMine(s lobbySeat) bool {
+	for _, o := range m.seats {
+		if o.mine && !o.pending && o.player.ID != s.player.ID {
+			return false
+		}
+	}
+	return true
 }
 
 // startable reports whether a player may start it now: everyone answered, and a

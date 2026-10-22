@@ -90,7 +90,15 @@ templ lobbySeatRow(m lobbyModel, s lobbySeat) {
 			} else {
 				<span class="rounded-full bg-board-green/20 px-3 py-1 text-sm text-emerald-300">{ T(ctx).Joined() }</span>
 				if s.mine && m.canPlay {
-					<form method="post" action={ templ.URL(m.url("/players/" + strconv.FormatInt(s.player.ID, 10) + "/remove")) }>
+					// Taking out the viewer's last player is leaving: it asks like the button to leave.
+					<form
+						method="post"
+						action={ templ.URL(m.url("/players/" + strconv.FormatInt(s.player.ID, 10) + "/remove")) }
+						if m.lastOfMine(s) {
+							data-confirm={ m.leaveConfirm }
+							onsubmit="return confirm(this.dataset.confirm)"
+						}
+					>
 						<button type="submit" class="rounded-full px-2 text-white/40 transition hover:bg-board-red/30 hover:text-red-300" title={ T(ctx).RemoveFromLobby() } aria-label={ T(ctx).RemoveFromLobby() }>✕</button>
 					</form>
 				}
@@ -115,7 +123,8 @@ templ seatBoardSelect(boards []board.Board, selected *int64, required bool) {
 	</label>
 }
 
-// lobbyAdd adds the account's players, a new guest, or invites a friend.
+// lobbyAdd adds the account's players or a new guest (on the board of its other players,
+// changed at the seat), or invites a friend.
 templ lobbyAdd(m lobbyModel) {
 	if !m.Open() || !m.Full(len(m.seats)) {
 		<div class="flex flex-col gap-3 border-t border-white/10 pt-4">
@@ -126,13 +135,11 @@ templ lobbyAdd(m lobbyModel) {
 							<option value={ strconv.FormatInt(p.ID, 10) }>{ p.Name }</option>
 						}
 					</select>
-					@boardSelect(m.boards, m.BoardOnly)
 					<button type="submit" class={ btnSecondary }>{ T(ctx).Add() }</button>
 				</form>
 			}
 			<form method="post" action={ templ.URL(m.url("/players")) } class="flex flex-wrap items-center gap-2">
 				<input type="text" name="name" required class={ inputClass, "w-48!" } placeholder={ T(ctx).GuestName() } aria-label={ T(ctx).GuestName() }/>
-				@boardSelect(m.boards, m.BoardOnly)
 				<button type="submit" class={ btnSecondary }>{ T(ctx).AddGuest() }</button>
 			</form>
 			if len(m.choices.Friends) > 0 {

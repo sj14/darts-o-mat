@@ -189,10 +189,10 @@ func TestGuestsBelongToTheirAccount(t *testing.T) {
 		t.Fatal(err)
 	}
 	lobby := GameLobby(v.Game.ID)
-	if err := s.AddPlayer(ctx, ben, lobby, guest.ID, nil); !errors.Is(err, ErrInvalid) {
+	if err := s.AddPlayer(ctx, ben, lobby, guest.ID); !errors.Is(err, ErrInvalid) {
 		t.Errorf("ben adds anna's guest: got %v, want ErrInvalid", err)
 	}
-	if err := s.AddPlayer(ctx, ben, lobby, anna.PlayerID, nil); !errors.Is(err, ErrInvalid) {
+	if err := s.AddPlayer(ctx, ben, lobby, anna.PlayerID); !errors.Is(err, ErrInvalid) {
 		t.Errorf("ben adds anna without invitation: got %v, want ErrInvalid", err)
 	}
 	if err := s.Invite(ctx, ben, lobby, "nobody"); !isError[UnknownUserError](err) || !errors.Is(err, ErrInvalid) {

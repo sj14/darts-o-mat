@@ -649,7 +649,7 @@ func (a *API) lobbyRoutes(r chi.Router, prefix string, ref func(int64) service.L
 	}
 	acc := func(r *http.Request) account.Account { return auth.Account(r.Context()) }
 	r.Post(prefix+"/{id}/players", do(func(r *http.Request, ref service.LobbyRef, b seat) error {
-		return a.svc.AddPlayer(r.Context(), acc(r), ref, b.PlayerID, b.BoardID)
+		return a.svc.AddPlayer(r.Context(), acc(r), ref, b.PlayerID)
 	}))
 	r.Delete(prefix+"/{id}/players/{playerID}", do(func(r *http.Request, ref service.LobbyRef, b seat) error {
 		return a.svc.RemovePlayer(r.Context(), acc(r), ref, b.PlayerID)

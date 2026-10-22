@@ -242,11 +242,12 @@ func firstPlayer(acc account.Account, playerID int64) int64 {
 }
 
 // AddPlayer seats a player of the account (its own or a guest) in a lobby it takes part
-// in, on the board if one is given.
-func (s *Service) AddPlayer(ctx context.Context, acc account.Account, ref LobbyRef, playerID int64, boardID *int64) error {
+// in, on the board its other players there throw on (the first of them); SetSeatBoard
+// changes it.
+func (s *Service) AddPlayer(ctx context.Context, acc account.Account, ref LobbyRef, playerID int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	l, _, err := s.lobbyFor(ctx, acc, ref)
+	l, pt, err := s.lobbyFor(ctx, acc, ref)
 	if err != nil {
 		return err
 	}
@@ -259,7 +260,13 @@ func (s *Service) AddPlayer(ctx context.Context, acc account.Account, ref LobbyR
 	if l.Full(len(l.seats)) && l.Open() {
 		return ErrNoSeat
 	}
-	seat := game.Participant{PlayerID: playerID, Status: game.InvitationAccepted, BoardID: boardID}
+	seat := game.Participant{PlayerID: playerID, Status: game.InvitationAccepted}
+	for _, p := range l.seats {
+		if slices.Contains(pt.mine, p.PlayerID) && p.Status == game.InvitationAccepted {
+			seat.BoardID = p.BoardID
+			break
+		}
+	}
 	return s.takeSeats(ctx, acc, l.seat(), []game.Participant{seat}, 0, func() error {
 		return s.addSeat(ctx, l, seat)
 	})

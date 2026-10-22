@@ -35,7 +35,7 @@ templ TournamentBody(v service.TournamentView, failed Alert) {
 		@alert(failed)
 		if !v.Started && !v.Tournament.Aborted() {
 			<div class="mb-6">
-				@lobbyPanel(tournamentLobby(v))
+				@lobbyPanel(tournamentLobby(T(ctx), v))
 			</div>
 		}
 		if v.State.Over {

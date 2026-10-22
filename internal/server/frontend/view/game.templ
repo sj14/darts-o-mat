@@ -146,7 +146,7 @@ templ lobby(v service.GameView, errMsg string) {
 	<div id="board" sse-swap="board" hx-swap="outerHTML" data-sound={ soundKind(v) } data-sound-id={ soundID(v) }>
 		@gameTitle(v, nil)
 		@errorAlert(errMsg)
-		@lobbyPanel(gameLobby(v))
+		@lobbyPanel(gameLobby(T(ctx), v))
 		if !v.Invited {
 			<div class="mt-4">
 				@leaveButton(v)

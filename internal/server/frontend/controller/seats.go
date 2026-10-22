@@ -45,13 +45,13 @@ func (c *Controller) lobbyRoutes(r chi.Router, prefix string, ref func(int64) se
 			return f(r, acc, l, playerID, boardID)
 		}
 	}
-	r.Post(prefix+"/{id}/players", do(false, withBoard(func(r *http.Request, acc account.Account, l service.LobbyRef, _ int64, boardID *int64) error {
+	r.Post(prefix+"/{id}/players", do(false, func(r *http.Request, acc account.Account, l service.LobbyRef, _ int64) error {
 		playerID, err := c.playerFromForm(r, acc)
 		if err != nil {
 			return err
 		}
-		return c.svc.AddPlayer(r.Context(), acc, l, playerID, boardID)
-	})))
+		return c.svc.AddPlayer(r.Context(), acc, l, playerID)
+	}))
 	r.Post(prefix+"/{id}/players/{playerID}/remove", do(false, func(r *http.Request, acc account.Account, l service.LobbyRef, playerID int64) error {
 		return c.svc.RemovePlayer(r.Context(), acc, l, playerID)
 	}))

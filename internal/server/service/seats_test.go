@@ -40,14 +40,15 @@ func TestGameLobby(t *testing.T) {
 		t.Errorf("dart in the lobby: got %v, want ErrNotReady", err)
 	}
 
-	if err := s.AddPlayer(ctx, anna, lobby, papa.ID, &keller.ID); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.AddPlayer(ctx, anna, lobby, papa.ID, nil); !errors.Is(err, ErrInvalid) {
-		t.Errorf("adding twice: got %v, want ErrInvalid", err)
-	}
+	// A player added takes the board of the account's players in the lobby.
 	if err := s.SetSeatBoard(ctx, anna, lobby, anna.PlayerID, &keller.ID); err != nil {
 		t.Fatal(err)
+	}
+	if err := s.AddPlayer(ctx, anna, lobby, papa.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddPlayer(ctx, anna, lobby, papa.ID); !errors.Is(err, ErrInvalid) {
+		t.Errorf("adding twice: got %v, want ErrInvalid", err)
 	}
 	if err := s.Invite(ctx, anna, lobby, "ben"); err != nil {
 		t.Fatal(err)
@@ -55,7 +56,7 @@ func TestGameLobby(t *testing.T) {
 	if err := s.Start(ctx, anna, lobby); !errors.Is(err, ErrNotReady) {
 		t.Errorf("start with ben invited: got %v, want ErrNotReady", err)
 	}
-	for _, err := range []error{s.Start(ctx, cara, lobby), s.AddPlayer(ctx, cara, lobby, cara.PlayerID, nil), s.Invite(ctx, cara, lobby, "anna")} {
+	for _, err := range []error{s.Start(ctx, cara, lobby), s.AddPlayer(ctx, cara, lobby, cara.PlayerID), s.Invite(ctx, cara, lobby, "anna")} {
 		if !errors.Is(err, ErrNotFound) {
 			t.Errorf("an outsider in the lobby: got %v, want ErrNotFound", err)
 		}
@@ -81,7 +82,7 @@ func TestGameLobby(t *testing.T) {
 	if !onBoard(v, anna.PlayerID, keller.ID) || !onBoard(v, papa.ID, keller.ID) {
 		t.Error("anna and Papa don't throw on Keller")
 	}
-	if err := s.AddPlayer(ctx, anna, lobby, papa.ID, nil); !errors.Is(err, ErrStarted) {
+	if err := s.AddPlayer(ctx, anna, lobby, papa.ID); !errors.Is(err, ErrStarted) {
 		t.Errorf("adding after the start: got %v, want ErrStarted", err)
 	}
 	if _, err := s.AddDart(ctx, ben, id, t20); err != nil {
@@ -100,7 +101,7 @@ func TestRemoveFromLobby(t *testing.T) {
 
 	v, _ := s.CreateGame(ctx, anna, x01Game(), 0, nil)
 	lobby := GameLobby(v.Game.ID)
-	_ = s.AddPlayer(ctx, anna, lobby, papa.ID, nil)
+	_ = s.AddPlayer(ctx, anna, lobby, papa.ID)
 	_ = s.Invite(ctx, anna, lobby, "ben")
 	if err := s.RemovePlayer(ctx, anna, lobby, ben.PlayerID); !errors.Is(err, ErrNotFound) {
 		t.Errorf("anna takes out ben: got %v, want ErrNotFound", err)
@@ -143,11 +144,11 @@ func TestTournamentLobby(t *testing.T) {
 		t.Fatal(err)
 	}
 	lobby := TournamentLobby(v.Tournament.ID)
-	_ = s.AddPlayer(ctx, anna, lobby, g1.ID, nil)
+	_ = s.AddPlayer(ctx, anna, lobby, g1.ID)
 	if err := s.Start(ctx, anna, lobby); !errors.Is(err, tournament.ErrPlayerCount) {
 		t.Errorf("start with two players: got %v, want ErrPlayerCount", err)
 	}
-	_ = s.AddPlayer(ctx, anna, lobby, g2.ID, nil)
+	_ = s.AddPlayer(ctx, anna, lobby, g2.ID)
 	if err := s.Start(ctx, anna, lobby); err != nil {
 		t.Fatal(err)
 	}

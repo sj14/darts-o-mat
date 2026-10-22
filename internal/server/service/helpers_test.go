@@ -25,7 +25,10 @@ func createGame(ctx context.Context, s *Service, acc account.Account, g game.Gam
 	}
 	ref := GameLobby(v.Game.ID)
 	for _, p := range g.Participants[1:] {
-		if err := s.AddPlayer(ctx, acc, ref, p.PlayerID, p.BoardID); err != nil {
+		if err := s.AddPlayer(ctx, acc, ref, p.PlayerID); err != nil {
+			return v, err
+		}
+		if err := s.SetSeatBoard(ctx, acc, ref, p.PlayerID, p.BoardID); err != nil {
 			return v, err
 		}
 	}
@@ -82,7 +85,10 @@ func createTournament(ctx context.Context, s *Service, acc account.Account, t to
 	}
 	ref := TournamentLobby(v.Tournament.ID)
 	for _, p := range t.Participants[1:] {
-		if err := s.AddPlayer(ctx, acc, ref, p.PlayerID, p.BoardID); err != nil {
+		if err := s.AddPlayer(ctx, acc, ref, p.PlayerID); err != nil {
+			return v, err
+		}
+		if err := s.SetSeatBoard(ctx, acc, ref, p.PlayerID, p.BoardID); err != nil {
 			return v, err
 		}
 	}
