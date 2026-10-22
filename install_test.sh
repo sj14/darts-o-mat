@@ -23,7 +23,8 @@ system() {
 	local dir=$1 os=$2 machine=$3 tool name p
 	shift 3
 	mkdir -p "$dir"
-	for tool in curl wget tar mktemp rm mkdir mv cp cut grep sed id ditto sha256sum shasum cat dirname echo chmod ln; do
+	# gzip: GNU tar runs it for a .tar.gz (the tar of macOS has it built in).
+	for tool in curl wget tar gzip mktemp rm mkdir mv cp cut grep sed id ditto sha256sum shasum cat dirname echo chmod ln; do
 		p=$(command -v "$tool" 2>/dev/null) && [ -x "$p" ] && ln -sf "$p" "$dir/$tool"
 	done
 	printf '#!/bin/sh\ncase "$1" in -m) echo %s;; *) echo %s;; esac\n' "$machine" "$os" >"$dir/uname"
