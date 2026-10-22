@@ -121,7 +121,7 @@ run "$work/tar"
 check tar-install "$output" "Installed into ~/.local"
 [ -x "$work/home/.local/bin/darts-o-cam" ] || fail "tar: the program isn't in ~/.local/bin"
 [ -f "$work/home/.local/share/applications/darts-o-cam.desktop" ] || fail "tar: no menu entry"
-[ ! -e "$work/home/.local/share/systemd" ] && [ ! -e "$work/home/.local/lib" ] || fail "tar: the systemd unit must not be installed"
+if [ -e "$work/home/.local/share/systemd" ] || [ -e "$work/home/.local/lib" ]; then fail "tar: the systemd unit must not be installed"; fi
 run "$work/tar" --dry-run
 check tar-update "$output" "Updating"
 run "$work/tar"
@@ -163,7 +163,7 @@ check server-tar "$output" "Installed into ~/.local"
 check server-tar "$output" "http://localhost:3000"
 [ -x "$work/home/.local/bin/darts-o-mat" ] || fail "server tar: the program isn't in ~/.local/bin"
 [ -f "$work/home/.local/share/doc/darts-o-mat/LICENSE" ] || fail "server tar: no LICENSE"
-[ ! -e "$work/home/.local/bin/darts-o-cam" ] && [ ! -e "$work/home/.local/lib" ] && [ ! -e "$work/home/.local/share/systemd" ] || fail "server tar: only the program and its documents are installed, not the service"
+if [ -e "$work/home/.local/bin/darts-o-cam" ] || [ -e "$work/home/.local/lib" ] || [ -e "$work/home/.local/share/systemd" ]; then fail "server tar: only the program and its documents are installed, not the service"; fi
 run "$work/tar" --server
 check server-update "$output" "up to date"
 check server-update "$output" "games and accounts are kept"
