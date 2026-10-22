@@ -81,8 +81,11 @@ func (l Log) Turn(players int) *Turn {
 }
 
 // Replay calls dart for every dart of the log in order, except those thrown to bull
-// off, and handles the takeouts in between. A dart while the turn waits for the
-// takeout is an error. Afterwards t.Throwers tells who threw each entry, and t.Times
+// off, and handles the takeouts in between. A dart while the turn waits for the takeout
+// implies it: the darts were pulled out without a takeout in the log, e.g. in a game that
+// got a board after darts were typed in by hand (whether a game waits follows the boards
+// it has now). A dart typed in while waiting is refused before it is stored
+// (ErrWaitingForTakeout). Afterwards t.Throwers tells who threw each entry, and t.Times
 // when the game and its finished legs and sets were played.
 func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
 	t.Throwers = make([]int, len(l.Entries))
@@ -96,6 +99,9 @@ func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
 				t.Times.Game.Start = d.CreatedAt
 			}
 			t.Times.Game.End = d.CreatedAt
+		}
+		if d.IsDart() && t.Waiting() {
+			t.Takeout()
 		}
 		t.Throwers[i] = t.Player
 		switch {
@@ -119,8 +125,6 @@ func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
 				t.Takeout()
 			}
 			continue
-		case t.Waiting():
-			return fmt.Errorf("entry %d: %w", i+1, ErrWaitingForTakeout)
 		case t.Over():
 			return fmt.Errorf("dart %d: %w", i+1, ErrGameOver)
 		case len(l.PlayerIDs) > 0 && d.PlayerID != 0 && d.PlayerID != l.PlayerIDs[t.Player]:

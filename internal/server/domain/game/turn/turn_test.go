@@ -136,11 +136,12 @@ func TestReplay(t *testing.T) {
 		t.Errorf("player %d with %d darts, want player 1 with 1 dart", tr.Player, tr.Dart)
 	}
 
-	// A dart before the takeout is an error.
+	// A dart without the takeout before it implies it, e.g. darts typed in before the game
+	// got a board.
 	log.Entries = []throw.Dart{dart, dart, dart, dart}
 	tr = log.Turn(2)
-	if err := log.Replay(tr, advance(tr)); !errors.Is(err, ErrWaitingForTakeout) {
-		t.Errorf("got %v, want ErrWaitingForTakeout", err)
+	if err := log.Replay(tr, advance(tr)); err != nil || tr.Player != 1 || tr.Dart != 1 {
+		t.Errorf("player %d with %d darts, %v; want player 1 with 1 dart", tr.Player, tr.Dart, err)
 	}
 }
 

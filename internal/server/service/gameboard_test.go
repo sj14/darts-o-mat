@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
 )
 
 // onBoard reports whether the player throws on the board in the game.
@@ -187,5 +189,40 @@ func TestUseNoBoard(t *testing.T) {
 	// She can go back to the board.
 	if v, err = s.UseBoard(ctx, anna, v.Game.ID, &keller.ID); err != nil || !onBoard(v, anna.PlayerID, keller.ID) {
 		t.Errorf("back to the board: %v", err)
+	}
+}
+
+// A game that gets a board after darts were typed in by hand goes on: the turns before
+// had no takeouts, from now on it waits for them.
+func TestBoardAfterHandEnteredDarts(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	tom, _ := s.CreateGuest(ctx, anna, "Tom")
+	keller, _ := s.CreateBoard(ctx, anna, "Keller")
+
+	v, err := createGame(ctx, s, anna, x01Game(tom.ID, anna.PlayerID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Game.ID
+	for range 7 { // Tom's turn, anna's, and Tom's first dart
+		if _, err := s.AddDart(ctx, anna, id, t20); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if v, err = s.UseBoard(ctx, anna, id, &keller.ID); err != nil {
+		t.Fatalf("put the players on Keller: %v", err)
+	}
+	if !v.Game.WaitsForTakeout() || len(v.Darts) != 7 {
+		t.Fatalf("waits %v with %d darts, want the game on the board with its 7 darts", v.Game.WaitsForTakeout(), len(v.Darts))
+	}
+	for range 2 {
+		if _, err := s.AddDart(ctx, anna, id, t20); err != nil {
+			t.Fatalf("Tom's turn goes on: %v", err)
+		}
+	}
+	if _, err := s.AddDart(ctx, anna, id, t20); !errors.Is(err, turn.ErrWaitingForTakeout) {
+		t.Errorf("a dart before the takeout: got %v, want ErrWaitingForTakeout", err)
 	}
 }

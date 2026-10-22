@@ -366,6 +366,9 @@ func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64
 		if cur := v.Common().CurrentPlayerID; cur != nil && !v.IsMine(*cur) {
 			return ErrForbidden
 		}
+		if v.Common().WaitingForTakeout {
+			return turn.ErrWaitingForTakeout // the replay would take the dart for the takeout
+		}
 		return s.storeDart(ctx, g, v, d)
 	})
 }
@@ -377,7 +380,7 @@ func (s *Service) storeDart(ctx context.Context, g *game.Game, v GameView, d thr
 		d.PlayerID = *cur // the replay below refuses the dart if the game is over
 	}
 	// The stored darts were accepted before, so an error can only come from the new
-	// one, e.g. turn.ErrWaitingForTakeout.
+	// one, e.g. turn.ErrGameOver.
 	if _, err := g.Play(append(v.Darts, d)); err != nil {
 		return err
 	}
