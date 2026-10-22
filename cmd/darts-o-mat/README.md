@@ -55,6 +55,8 @@ Options:
 - `-client-ip-header X-Forwarded-For` – behind a proxy or ingress: the header it passes the visitor's address in, so the limit per network works (only if all requests come through that proxy)
 - `-turnstile-site-key …` and `-turnstile-secret-key …` – only for servers that strangers can register on: registering then needs a [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) check ("I am not a robot"). Without both keys nothing is checked, and nothing from Cloudflare is loaded. The keys can also be set as `DARTS_O_MAT_TURNSTILE_SITE_KEY` and `DARTS_O_MAT_TURNSTILE_SECRET_KEY`.
 
+Behind a proxy that provides HTTPS, the proxy has to send `X-Forwarded-Proto: https` (Caddy, Traefik and the nginx ingress do; plain nginx needs `proxy_set_header X-Forwarded-Proto $scheme;`), otherwise the login cookie isn't marked as HTTPS-only.
+
 ### In a container
 
 Instead of Go, [Docker](https://www.docker.com) (or Podman) is enough. From the project folder:

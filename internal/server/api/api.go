@@ -685,7 +685,10 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, err error) {
 	status := http.StatusInternalServerError
+	_, tooLarge := errors.AsType[*http.MaxBytesError](err)
 	switch {
+	case tooLarge:
+		status = http.StatusRequestEntityTooLarge
 	case errors.Is(err, service.ErrAlreadyFriends):
 		status = http.StatusConflict
 	case errors.Is(err, service.ErrInvalid), errors.Is(err, dartboard.ErrInvalid):

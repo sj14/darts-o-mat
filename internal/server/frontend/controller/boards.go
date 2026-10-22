@@ -49,7 +49,7 @@ func (c *Controller) createBoardToken(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	scheme := "http"
-	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+	if auth.IsHTTPS(r) {
 		scheme = "https"
 	}
 	c.renderBoards(w, r, http.StatusOK, "", &view.NewBoardToken{BoardName: name, Token: token, Server: scheme + "://" + r.Host})

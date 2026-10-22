@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/sj14/darts-o-mat/internal/common/sse"
 	"github.com/sj14/darts-o-mat/internal/common/update"
 	"github.com/sj14/darts-o-mat/internal/server/api"
@@ -46,6 +46,11 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
+	// Forms and API requests are small; a limit keeps a huge body from filling the memory.
+	r.Use(middleware.RequestSize(maxBodySize))
+	// Refuses POSTs from other sites (by Sec-Fetch-Site, or Origin against Host), on top of
+	// the SameSite cookie; the cameras and other clients without a browser aren't affected.
+	r.Use(http.NewCrossOriginProtection().Handler)
 
 	var (
 		repo *store.Store
@@ -80,6 +85,13 @@ func main() {
 	serve(ctx, *addr, r)
 }
 
+// maxBodySize is the largest request body the server reads.
+const maxBodySize = 1 << 20
+
+// readHeaderTimeout is how long a client may take to send the headers of a request, so
+// connections that send them slowly on purpose can't keep the server busy.
+const readHeaderTimeout = 10 * time.Second
+
 // shutdownTimeout is how long the requests that are running when the server stops get to
 // finish, e.g. a dart on its way to the database.
 const shutdownTimeout = 10 * time.Second
@@ -89,9 +101,11 @@ const shutdownTimeout = 10 * time.Second
 func serve(ctx context.Context, addr string, h http.Handler) {
 	streams := make(chan struct{})
 	srv := &http.Server{
-		Addr:        addr,
-		Handler:     h,
-		BaseContext: func(net.Listener) context.Context { return sse.WithShutdown(context.Background(), streams) },
+		Addr:    addr,
+		Handler: h,
+		// No ReadTimeout or WriteTimeout: they would also end the live streams (SSE).
+		ReadHeaderTimeout: readHeaderTimeout,
+		BaseContext:       func(net.Listener) context.Context { return sse.WithShutdown(context.Background(), streams) },
 	}
 	srv.RegisterOnShutdown(func() { close(streams) })
 	stopped := make(chan struct{})

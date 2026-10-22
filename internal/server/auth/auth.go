@@ -68,7 +68,7 @@ func Login(w http.ResponseWriter, r *http.Request, svc *service.Service, usernam
 		Path:     "/",
 		MaxAge:   int(service.SessionDuration.Seconds()),
 		HttpOnly: true,
-		Secure:   isHTTPS(r),
+		Secure:   IsHTTPS(r),
 		// Lax keeps the cookie out of cross-site POST requests, which protects against CSRF.
 		SameSite: http.SameSiteLaxMode,
 	})
@@ -82,12 +82,14 @@ func Logout(w http.ResponseWriter, r *http.Request, svc *service.Service) error 
 			return err
 		}
 	}
-	http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: isHTTPS(r), SameSite: http.SameSiteLaxMode})
+	http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: IsHTTPS(r), SameSite: http.SameSiteLaxMode})
 	return nil
 }
 
-// isHTTPS also detects HTTPS terminated by a reverse proxy.
-func isHTTPS(r *http.Request) bool {
+// IsHTTPS tells whether the browser reached the server over HTTPS, also when a reverse proxy
+// terminates it (X-Forwarded-Proto: https; a proxy that doesn't set it makes the session
+// cookie go out without Secure).
+func IsHTTPS(r *http.Request) bool {
 	return r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 }
 
