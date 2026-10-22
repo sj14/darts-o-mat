@@ -75,9 +75,20 @@ templ lobbySeatRow(m lobbyModel, s lobbySeat) {
 		</span>
 		<span class="flex flex-wrap items-center gap-2">
 			if s.mine && !s.pending && m.canPlay && len(m.boards) > 0 {
-				<form method="post" action={ templ.URL(m.url("/players/" + strconv.FormatInt(s.player.ID, 10) + "/board")) } class="flex items-center gap-1">
+				// Choosing saves at once: htmx posts it and swaps in the lobby of the answer (the
+				// page); without JavaScript the button does.
+				<form
+					method="post"
+					action={ templ.URL(m.url("/players/" + strconv.FormatInt(s.player.ID, 10) + "/board")) }
+					hx-post={ m.url("/players/" + strconv.FormatInt(s.player.ID, 10) + "/board") }
+					hx-trigger="change"
+					hx-target={ m.target }
+					hx-select={ m.target }
+					hx-swap="outerHTML"
+					class="flex items-center gap-1"
+				>
 					@seatBoardSelect(m.boards, s.boardID, m.BoardOnly)
-					<button type="submit" class={ btnSecondary, btnSmall }>{ T(ctx).Save() }</button>
+					<noscript><button type="submit" class={ btnSecondary, btnSmall }>{ T(ctx).Save() }</button></noscript>
 				</form>
 			}
 			if s.pending {

@@ -94,7 +94,8 @@ func (c *Controller) playerFromForm(r *http.Request, acc account.Account) (int64
 
 // respondLobby answers a change of a lobby: its page again, the start page if the account
 // has nothing to see there anymore (declined, left), or with the message why it failed:
-// on the page of the open games for a join, else on the lobby's page.
+// on the page of the open games for a join, else on the lobby's page. htmx (the board of a
+// seat) swaps the lobby out of that page.
 func (c *Controller) respondLobby(w http.ResponseWriter, r *http.Request, l service.LobbyRef, err error, fromLobbies bool) {
 	page := gameURL(l.ID)
 	if l.Tournament {
@@ -120,13 +121,17 @@ func (c *Controller) respondLobby(w http.ResponseWriter, r *http.Request, l serv
 		msg = t.ErrInput()
 	}
 	failed := alertOf(err, msg)
+	status := http.StatusConflict
+	if isHTMX(r) {
+		status = http.StatusOK // htmx doesn't swap errors
+	}
 	switch {
 	case fromLobbies:
-		c.renderLobbies(w, r, http.StatusConflict, failed)
+		c.renderLobbies(w, r, status, failed)
 	case l.Tournament:
-		c.renderTournament(w, r, http.StatusConflict, failed)
+		c.renderTournament(w, r, status, failed)
 	default:
-		c.renderGame(w, r, http.StatusConflict, failed.Text)
+		c.renderGame(w, r, status, failed.Text)
 	}
 }
 

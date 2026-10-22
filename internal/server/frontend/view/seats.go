@@ -10,7 +10,8 @@ import (
 
 // lobbyModel is the lobby of a game or a tournament as lobbyPanel shows it.
 type lobbyModel struct {
-	base string // the page of the game or tournament, the lobby's actions are below it
+	base   string // the page of the game or tournament, the lobby's actions are below it
+	target string // the part of that page the server replaces on changes: #board, #tournament
 	game.Lobby
 	seats      []lobbySeat
 	tournament bool
@@ -34,7 +35,7 @@ type lobbySeat struct {
 }
 
 func gameLobby(t Texts, v service.GameView) lobbyModel {
-	m := lobbyModel{base: gameURL(v.Game.ID, ""), Lobby: v.Game.Lobby, invited: v.Invited, canPlay: v.CanThrow, canStart: v.CanStart, boards: boardsOfChoices(v.Boards), choices: v.Choices, leaveConfirm: leaveConfirm(t, v)}
+	m := lobbyModel{base: gameURL(v.Game.ID, ""), target: "#board", Lobby: v.Game.Lobby, invited: v.Invited, canPlay: v.CanThrow, canStart: v.CanStart, boards: boardsOfChoices(v.Boards), choices: v.Choices, leaveConfirm: leaveConfirm(t, v)}
 	for _, p := range v.Players {
 		m.seats = append(m.seats, lobbySeat{player: p, pending: v.Pending(p.ID), mine: v.IsMine(p.ID), boardID: v.BoardOf(p.ID), board: v.BoardNames[p.ID]})
 	}
@@ -42,7 +43,7 @@ func gameLobby(t Texts, v service.GameView) lobbyModel {
 }
 
 func tournamentLobby(t Texts, v service.TournamentView) lobbyModel {
-	m := lobbyModel{base: tournamentURL(v.Tournament.ID, ""), Lobby: v.Tournament.Lobby, tournament: true, invited: v.Invited, canPlay: v.CanPlay, canStart: v.CanStart, boards: boardsOfChoices(v.Boards), choices: v.Choices, leaveConfirm: t.LeaveTournamentConfirm()}
+	m := lobbyModel{base: tournamentURL(v.Tournament.ID, ""), target: "#tournament", Lobby: v.Tournament.Lobby, tournament: true, invited: v.Invited, canPlay: v.CanPlay, canStart: v.CanStart, boards: boardsOfChoices(v.Boards), choices: v.Choices, leaveConfirm: t.LeaveTournamentConfirm()}
 	for _, p := range v.Players {
 		tp, _ := v.Tournament.Participant(p.ID)
 		s := lobbySeat{player: p, pending: v.Pending(p.ID), boardID: tp.BoardID}
