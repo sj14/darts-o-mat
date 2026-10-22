@@ -55,8 +55,8 @@ func TestCompleteGame(t *testing.T) {
 	}
 }
 
-// Nothing is stored and no timer runs for a game that finished a while ago: looking at it
-// works out that its result is final.
+// No timer runs for a game that finished a while ago: looking at it works out that its
+// result is final, and stores that.
 func TestCompletedByTime(t *testing.T) {
 	ctx := context.Background()
 	s := newService(t)
@@ -72,8 +72,11 @@ func TestCompletedByTime(t *testing.T) {
 	}
 	offset = game.CompleteAfter + 2*time.Second // the database's time has whole seconds
 	v, _ = s.Game(ctx, anna, v.Game.ID)
-	if !v.Completed || v.Game.CompletedAt != nil {
-		t.Errorf("a minute after the end: completed %v, stored %v; want completed by the time, nothing stored", v.Completed, v.Game.CompletedAt)
+	if !v.Completed || v.Game.CompletedAt == nil {
+		t.Errorf("a minute after the end: completed %v, stored %v; want completed and stored", v.Completed, v.Game.CompletedAt)
+	}
+	if left, _ := s.store.ListUnfinishedGamesByPlayer(ctx, anna.PlayerID); len(left) != 0 {
+		t.Errorf("anna's unfinished games = %d, want none", len(left))
 	}
 	if _, err := s.UndoDart(ctx, anna, v.Game.ID); !errors.Is(err, ErrCompleted) {
 		t.Errorf("undo after the minute: got %v, want ErrCompleted", err)

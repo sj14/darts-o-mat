@@ -692,6 +692,15 @@ func (s *Service) build(ctx context.Context, g game.Game) (GameView, error) {
 		return GameView{}, err
 	}
 	v.Completed = g.Completed(v.Darts, v.Common(), s.now())
+	// Completed by the minute without a change: whoever looks at it first stores that, like
+	// buildTournament, so later lookups leave it out in SQL.
+	if v.Completed && g.CompletedAt == nil && !g.Aborted() {
+		now := s.now()
+		v.Game.CompletedAt = &now
+		if err := s.store.CompleteGame(ctx, &v.Game); err != nil {
+			return GameView{}, err
+		}
+	}
 	if d, ok := g.TurnDeadline(v.Darts, v.Common()); ok {
 		if earliest := s.started.Add(time.Duration(g.TurnSeconds) * time.Second); d.Before(earliest) {
 			d = earliest

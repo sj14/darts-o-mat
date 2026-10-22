@@ -218,9 +218,9 @@ func (store *Store) AbortGame(ctx context.Context, g *game.Game) error {
 	return err
 }
 
-// CompleteGame stores when a game was completed.
+// CompleteGame stores when a game was completed, unless that is stored already.
 func (store *Store) CompleteGame(ctx context.Context, g *game.Game) error {
-	_, err := store.db.NewUpdate().Model(g).Column("completed_at").WherePK().Exec(ctx)
+	_, err := store.db.NewUpdate().Model(g).Column("completed_at").WherePK().Where("completed_at IS NULL").Exec(ctx)
 	return err
 }
 
