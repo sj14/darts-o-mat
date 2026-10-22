@@ -3,6 +3,8 @@ package view
 import (
 	"math"
 	"strconv"
+
+	"github.com/sj14/darts-o-mat/internal/common/buildinfo"
 )
 
 // textsEN are the English texts, the default language: complete, so every other
@@ -74,6 +76,13 @@ func (textsEN) LandingFeatureText(i int) string {
 		"X01 and Around the Clock, legs and sets, knockout and round-robin tournaments, friends, guests and statistics.",
 	}[i%4]
 }
+
+func (textsEN) ProjectPage() string    { return "Downloads" }
+func (textsEN) ProjectPageURL() string { return buildinfo.PageURL }
+func (textsEN) ProjectPageHint() string {
+	return "The project page has darts-o-cam for the computer with the cameras, the server and the instructions."
+}
+func (textsEN) About() string { return "About darts-o-mat" }
 
 func (textsEN) OpenGames() string   { return "Open games" }
 func (textsEN) NoOpenGames() string { return "No game is looking for players right now." }
@@ -340,12 +349,10 @@ func (textsEN) TokenShownOnce() string {
 }
 func (textsEN) Server() string      { return "Server" }
 func (textsEN) CameraToken() string { return "Camera token" }
-func (textsEN) CalibrationHintBefore() string {
-	return "The calibration stays on the computer with the cameras, not on this server. None yet? Start "
+func (textsEN) CalibrationHint() string {
+	return "The calibration stays on the computer with the cameras, not on this server: darts-o-cam does it there."
 }
-func (textsEN) CalibrationHintMiddle() string {
-	return " there; its interface opens in the browser ("
-}
+func (textsEN) DownloadCam() string { return "Download darts-o-cam" }
 func (textsEN) CameraTokenActive() string { return "Camera token active" }
 func (textsEN) CreateCameraToken() string { return "Create camera token" }
 func (textsEN) NewCameraToken() string    { return "Create a new camera token" }

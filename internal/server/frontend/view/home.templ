@@ -402,7 +402,7 @@ templ Boards(user string, boards []service.BoardView, errMsg string, newToken *N
 						<dt class="text-white/60">{ T(ctx).CameraToken() }</dt>
 						<dd class="break-all font-mono text-emerald-200">{ newToken.Token }</dd>
 					</dl>
-					<p class="mt-3 text-sm text-white/60">{ T(ctx).CalibrationHintBefore() }<code>go run ./cmd/darts-o-cam</code>{ T(ctx).CalibrationHintMiddle() }<code>http://localhost:8090</code>).</p>
+					<p class="mt-3 text-sm text-white/60">{ T(ctx).CalibrationHint() } <a href={ templ.URL(T(ctx).ProjectPageURL() + "#start") } class={ linkClass } target="_blank" rel="noopener">{ T(ctx).DownloadCam() }</a></p>
 				</div>
 			}
 			@panel("") {

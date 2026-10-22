@@ -79,6 +79,10 @@ type Texts interface {
 	LandingLead() string
 	LandingFeatureTitle(i int) string
 	LandingFeatureText(i int) string
+	ProjectPage() string
+	ProjectPageURL() string // the project page in this language
+	ProjectPageHint() string
+	About() string
 	BoardInUse() string
 	BoardInUseConfirm() string
 
@@ -239,8 +243,8 @@ type Texts interface {
 	TokenShownOnce() string
 	Server() string
 	CameraToken() string
-	CalibrationHintBefore() string
-	CalibrationHintMiddle() string
+	CalibrationHint() string
+	DownloadCam() string
 	CameraTokenActive() string
 	CreateCameraToken() string
 	NewCameraToken() string

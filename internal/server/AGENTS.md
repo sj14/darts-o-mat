@@ -60,7 +60,7 @@ Every player has an accent color from a fixed palette (`player.Colors`, ten colo
 
 ## Landing page
 
-Logged-out visitors of `/` get a landing page (`view.Landing`: name, one sentence, login and register buttons, four feature tiles) instead of a redirect to the login page; every other page redirects (`Controller.loggedOut`). Its texts are in `Texts` (`LandingLead`, `LandingFeatureTitle/Text`) and mirror the [project page](../../site) (`site/`), keep them in line. No screenshots yet.
+Logged-out visitors of `/` get a landing page (`view.Landing`: name, one sentence, login and register buttons, a button to the [project page](../../site) with the downloads, four feature tiles) instead of a redirect to the login page; every other page redirects (`Controller.loggedOut`). The same page is at `/about` for everyone, linked in the footer of every page ("About darts-o-mat"), so a logged-in player finds darts-o-cam's download too; logged in it shows a button to the start page instead of login and register. The project page's address is `buildinfo.PageURL`; `Texts.ProjectPageURL` gives the one of the language (German: `de/`). Its texts are in `Texts` (`LandingLead`, `LandingFeatureTitle/Text`, `ProjectPage…`) and mirror the project page (`site/`), keep them in line. No screenshots yet.
 
 ## Deployment
 

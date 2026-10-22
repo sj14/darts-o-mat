@@ -4,8 +4,12 @@ package buildinfo
 
 import "runtime/debug"
 
-// ProjectURL is the project's page.
+// ProjectURL is the project's repository.
 const ProjectURL = "https://github.com/sj14/darts-o-mat"
+
+// PageURL is the project page (GitHub Pages) with the downloads, in English; the German one is
+// under de/.
+const PageURL = "https://sj14.github.io/darts-o-mat/"
 
 // stamped is the version a release build sets: -ldflags "-X
 // github.com/sj14/darts-o-mat/internal/common/buildinfo.stamped=1.2.3". The container image is built

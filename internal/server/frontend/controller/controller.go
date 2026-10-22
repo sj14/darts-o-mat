@@ -38,6 +38,7 @@ func (c *Controller) Routes() http.Handler {
 		r.Use(auth.Require(c.svc, c.loggedOut))
 
 		r.Get("/", c.home)
+		r.Get("/about", c.about)
 		r.Post("/language", c.setLanguage)
 		r.Get("/settings", c.showSettings)
 		r.Post("/settings/color", c.setColor)
@@ -85,12 +86,12 @@ func (c *Controller) Routes() http.Handler {
 	return r
 }
 
-// loggedOut answers requests of logged-out users: the start page shows the landing page,
-// everything else sends them to the login page.
+// loggedOut answers requests of logged-out users: the start page and /about show the landing
+// page, everything else sends them to the login page.
 // htmx requests get the HX-Redirect header instead, so the login page isn't swapped into the current page.
 func (c *Controller) loggedOut(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet && r.URL.Path == "/" {
-		render(w, r, http.StatusOK, view.Landing(c.svc.RegistrationOpen()))
+	if r.Method == http.MethodGet && (r.URL.Path == "/" || r.URL.Path == "/about") {
+		render(w, r, http.StatusOK, view.Landing(c.svc.RegistrationOpen(), ""))
 		return
 	}
 	if r.Header.Get("HX-Request") != "" {
@@ -98,6 +99,11 @@ func (c *Controller) loggedOut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+// about shows the landing page to logged-in accounts, e.g. to find darts-o-cam's download.
+func (c *Controller) about(w http.ResponseWriter, r *http.Request) {
+	render(w, r, http.StatusOK, view.Landing(c.svc.RegistrationOpen(), auth.Account(r.Context()).Username))
 }
 
 // urlID parses a numeric URL parameter and responds with 404 if that fails.

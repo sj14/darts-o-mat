@@ -4,6 +4,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/sj14/darts-o-mat/internal/common/buildinfo"
 )
 
 // textsDE are the German texts. Whatever isn't defined here comes from textsEN.
@@ -72,6 +74,12 @@ func (textsDE) LandingFeatureText(i int) string {
 		"X01 und Around the Clock, Legs und Sets, K.-o.- und Jeder-gegen-jeden-Turniere, Freunde, Gäste und Statistiken.",
 	}[i%4]
 }
+
+func (textsDE) ProjectPageURL() string { return buildinfo.PageURL + "de/" }
+func (textsDE) ProjectPageHint() string {
+	return "Auf der Projektseite gibt es darts-o-cam für den Rechner mit den Kameras, den Server und die Anleitungen."
+}
+func (textsDE) About() string { return "Über darts-o-mat" }
 
 func (textsDE) OpenGames() string   { return "Offene Spiele" }
 func (textsDE) NoOpenGames() string { return "Zurzeit sucht kein Spiel Mitspieler." }
@@ -325,12 +333,10 @@ func (textsDE) TokenShownOnce() string {
 	return "Er wird nur jetzt angezeigt. Trage beides in darts-o-cam am Rechner mit den Kameras unter „Einstellungen“ ein:"
 }
 func (textsDE) CameraToken() string { return "Kamera-Token" }
-func (textsDE) CalibrationHintBefore() string {
-	return "Die Kalibrierung liegt auf dem Rechner mit den Kameras, nicht auf diesem Server. Noch keine? Starte dort "
+func (textsDE) CalibrationHint() string {
+	return "Die Kalibrierung liegt auf dem Rechner mit den Kameras, nicht auf diesem Server: Das erledigt dort darts-o-cam."
 }
-func (textsDE) CalibrationHintMiddle() string {
-	return "; die Oberfläche öffnet sich im Browser ("
-}
+func (textsDE) DownloadCam() string { return "darts-o-cam herunterladen" }
 func (textsDE) CameraTokenActive() string { return "Kamera-Token aktiv" }
 func (textsDE) CreateCameraToken() string { return "Kamera-Token erzeugen" }
 func (textsDE) NewCameraToken() string    { return "Neuen Kamera-Token erzeugen" }
