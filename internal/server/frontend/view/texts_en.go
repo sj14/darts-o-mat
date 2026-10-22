@@ -452,6 +452,9 @@ func (textsEN) ErrBoardRequired() string {
 func (textsEN) ErrBoardBusy() string {
 	return "This board is in a running game that needs it, so it cannot be taken."
 }
+func (textsEN) ErrPlayerBusy(name string) string {
+	return name + " is still playing in another game."
+}
 func (textsEN) HeatmapDarts(n int) string {
 	return strconv.Itoa(n) + " darts seen by the camera"
 }

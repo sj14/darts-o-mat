@@ -22,6 +22,9 @@ func errorText(t view.Texts, err error) (string, bool) {
 	if notFriend, ok := errors.AsType[service.NotFriendError](err); ok {
 		return t.ErrNotFriend(notFriend.Username), true
 	}
+	if busy, ok := errors.AsType[service.PlayerBusyError](err); ok {
+		return t.ErrPlayerBusy(busy.Player), true
+	}
 	if errors.Is(err, page.ErrTooLong) {
 		return t.ErrPageTooLong(page.MaxLen), true
 	}
@@ -66,4 +69,11 @@ func errorText(t view.Texts, err error) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// busyGame is the running game a player of err plays in, if err is a
+// service.PlayerBusyError the account may look into; else 0.
+func busyGame(err error) int64 {
+	busy, _ := errors.AsType[service.PlayerBusyError](err)
+	return busy.GameID
 }

@@ -20,7 +20,7 @@ import (
 
 // Tournament shows a tournament: who plays, the bracket or table with the results, the
 // games to start next and the statistics of its finished games.
-func Tournament(user string, v service.TournamentView, errMsg string) templ.Component {
+func Tournament(user string, v service.TournamentView, failed Alert) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -70,7 +70,7 @@ func Tournament(user string, v service.TournamentView, errMsg string) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = TournamentBody(v, errMsg).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = TournamentBody(v, failed).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -89,7 +89,7 @@ func Tournament(user string, v service.TournamentView, errMsg string) templ.Comp
 }
 
 // TournamentBody is the part of the tournament page that the server replaces on changes.
-func TournamentBody(v service.TournamentView, errMsg string) templ.Component {
+func TournamentBody(v service.TournamentView, failed Alert) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -161,7 +161,7 @@ func TournamentBody(v service.TournamentView, errMsg string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = errorAlert(errMsg).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = alert(failed).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

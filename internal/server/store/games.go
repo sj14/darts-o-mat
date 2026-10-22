@@ -111,8 +111,18 @@ func (store *Store) ListGames(ctx context.Context, accountID, playerID int64, li
 // one is over only its replay tells, so the caller still checks that; this only leaves
 // out the games that can't be running, without replaying them.
 func (store *Store) ListUnfinishedGamesByBoard(ctx context.Context, boardID int64) ([]game.Game, error) {
-	on := store.db.NewSelect().Model((*game.Participant)(nil)).Column("game_id").Where("board_id = ?", boardID)
-	return store.scanGames(ctx, store.db.NewSelect().Where("id IN (?)", on).
+	return store.listUnfinished(ctx, store.db.NewSelect().Model((*game.Participant)(nil)).Column("game_id").Where("board_id = ?", boardID))
+}
+
+// ListUnfinishedGamesByPlayer is ListUnfinishedGamesByBoard for the games the player takes
+// part in.
+func (store *Store) ListUnfinishedGamesByPlayer(ctx context.Context, playerID int64) ([]game.Game, error) {
+	return store.listUnfinished(ctx, store.db.NewSelect().Model((*game.Participant)(nil)).Column("game_id").Where("player_id = ?", playerID))
+}
+
+// listUnfinished returns the games of the ids the query selects that may still be running.
+func (store *Store) listUnfinished(ctx context.Context, ids *bun.SelectQuery) ([]game.Game, error) {
+	return store.scanGames(ctx, store.db.NewSelect().Where("id IN (?)", ids).
 		Where("started_at IS NOT NULL").Where("aborted_at IS NULL").Where("completed_at IS NULL").
 		Order("id DESC"))
 }

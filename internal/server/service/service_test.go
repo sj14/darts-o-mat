@@ -502,18 +502,20 @@ func TestBoardCamera(t *testing.T) {
 		t.Errorf("no game: got %v, want ErrNoActiveGame", err)
 	}
 
-	onBoard := func(boardID int64, invite ...string) GameView {
+	// Each game is of another player of anna's: a player plays one game at a time.
+	papa, _ := s.CreateGuest(ctx, anna, "Papa")
+	oma, _ := s.CreateGuest(ctx, anna, "Oma")
+	onBoard := func(playerID, boardID int64, invite ...string) GameView {
 		t.Helper()
-		g := x01Game(anna.PlayerID)
-		g = withBoard(g, boardID)
+		g := withBoard(x01Game(playerID), boardID)
 		v, err := s.CreateGame(ctx, anna, g, invite)
 		if err != nil {
 			t.Fatal(err)
 		}
 		return v
 	}
-	game := onBoard(keller.ID)
-	other := onBoard(verein.ID)
+	game := onBoard(anna.PlayerID, keller.ID)
+	other := onBoard(papa.ID, verein.ID)
 	befriend(t, s, anna, ben)
 	v, err := s.AddBoardDart(ctx, keller, t20)
 	if err != nil {
@@ -528,7 +530,7 @@ func TestBoardCamera(t *testing.T) {
 
 	// A new game takes the board at once, even while it waits for ben: the cameras'
 	// darts go nowhere until ben accepts.
-	waiting := onBoard(keller.ID, "ben")
+	waiting := onBoard(oma.ID, keller.ID, "ben")
 	if _, err := s.AddBoardDart(ctx, keller, t20); !errors.Is(err, ErrNoActiveGame) {
 		t.Errorf("dart while the new game waits: got %v, want ErrNoActiveGame", err)
 	}
@@ -554,7 +556,7 @@ func TestBoardCamera(t *testing.T) {
 	if v, _ = s.BoardTakeout(ctx, keller); len(v.Darts) != 4 {
 		t.Errorf("second takeout changed the log: %d entries", len(v.Darts))
 	}
-	if v.BoardNames[anna.PlayerID] != "Keller" {
+	if v.BoardNames[oma.ID] != "Keller" {
 		t.Errorf("board names = %v, want Keller", v.BoardNames)
 	}
 }
@@ -563,8 +565,9 @@ func TestSubscribe(t *testing.T) {
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
+	papa, _ := s.CreateGuest(ctx, anna, "Papa")
 	v, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
-	other, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
+	other, _ := s.CreateGame(ctx, anna, x01Game(papa.ID), nil)
 
 	changes, stop := s.Subscribe(v.Game.ID)
 	pending := func() bool {
@@ -650,12 +653,15 @@ func TestTakeout(t *testing.T) {
 		t.Errorf("second undo: darts=%d waiting=%v, want 2 darts", len(v.Darts), v.Common().WaitingForTakeout)
 	}
 
-	// Without a board, the turn passes on right after the third dart.
-	free, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID, guest.ID), nil)
+	// Without a board, the turn passes on right after the third dart (other players: these
+	// two play already).
+	oma, _ := s.CreateGuest(ctx, anna, "Oma")
+	opa, _ := s.CreateGuest(ctx, anna, "Opa")
+	free, _ := s.CreateGame(ctx, anna, x01Game(oma.ID, opa.ID), nil)
 	for range 3 {
 		v, _ = s.AddDart(ctx, anna, free.Game.ID, t20)
 	}
-	if v.Common().WaitingForTakeout || current(v) != guest.ID {
+	if v.Common().WaitingForTakeout || current(v) != opa.ID {
 		t.Errorf("game without board: waiting=%v current=%d, want the guest", v.Common().WaitingForTakeout, current(v))
 	}
 }
@@ -782,8 +788,9 @@ func TestLeavingEndsAGameOfOneAccount(t *testing.T) {
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
 	befriend(t, s, anna, ben)
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
+	guest, _ := s.CreateGuest(ctx, anna, "Gast")
 
-	older, err := s.CreateGame(ctx, anna, withBoard(x01Game(anna.PlayerID), keller.ID), nil)
+	older, err := s.CreateGame(ctx, anna, withBoard(x01Game(guest.ID), keller.ID), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -310,6 +310,7 @@ type Texts interface {
 	NeedsBoard() string
 	ErrBoardRequired() string
 	ErrBoardBusy() string
+	ErrPlayerBusy(name string) string
 	HeatmapDarts(n int) string
 	HeatmapNone() string
 	Count180() string

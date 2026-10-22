@@ -13,11 +13,11 @@ import (
 
 // showLobbies lists the open games and tournaments, narrowed down by the filter of the query.
 func (c *Controller) showLobbies(w http.ResponseWriter, r *http.Request) {
-	c.renderLobbies(w, r, http.StatusOK, "")
+	c.renderLobbies(w, r, http.StatusOK, view.Alert{})
 }
 
 // renderLobbies shows the page of the open games, with the message if there is one.
-func (c *Controller) renderLobbies(w http.ResponseWriter, r *http.Request, status int, errMsg string) {
+func (c *Controller) renderLobbies(w http.ResponseWriter, r *http.Request, status int, failed view.Alert) {
 	ctx := r.Context()
 	acc := auth.Account(ctx)
 	lobbies, err := c.svc.OpenLobbies(ctx, acc)
@@ -37,7 +37,7 @@ func (c *Controller) renderLobbies(w http.ResponseWriter, r *http.Request, statu
 		Total:   len(lobbies),
 		Filter:  filter,
 		Boards:  boards,
-		Error:   errMsg,
+		Error:   failed,
 	}))
 }
 
@@ -99,9 +99,9 @@ func (c *Controller) joinFailed(w http.ResponseWriter, r *http.Request, err erro
 	case isNotFound(err):
 		http.NotFound(w, r)
 	case errors.Is(err, service.ErrInvalid) && fromLobbies:
-		c.renderLobbies(w, r, http.StatusConflict, msg)
+		c.renderLobbies(w, r, http.StatusConflict, view.Alert{Text: msg, Game: busyGame(err)})
 	case errors.Is(err, service.ErrInvalid):
-		c.renderHome(w, r, http.StatusConflict, "", msg)
+		c.renderHome(w, r, http.StatusConflict, "", view.Alert{Text: msg, Game: busyGame(err)})
 	default:
 		serverError(w, err)
 	}

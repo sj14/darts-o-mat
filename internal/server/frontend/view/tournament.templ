@@ -12,19 +12,19 @@ import (
 
 // Tournament shows a tournament: who plays, the bracket or table with the results, the
 // games to start next and the statistics of its finished games.
-templ Tournament(user string, v service.TournamentView, errMsg string) {
+templ Tournament(user string, v service.TournamentView, failed Alert) {
 	@layout(tournamentLabel(T(ctx), v.Tournament), user) {
 		// The server pushes the tournament whenever it or one of its games changes; the
 		// element swaps itself on "tournament". After a lost connection connection.js fetches
 		// it again (data-refresh).
 		<div hx-ext="sse" sse-connect={ tournamentURL(v.Tournament.ID, "/events") } data-refresh="#tournament">
-			@TournamentBody(v, errMsg)
+			@TournamentBody(v, failed)
 		</div>
 	}
 }
 
 // TournamentBody is the part of the tournament page that the server replaces on changes.
-templ TournamentBody(v service.TournamentView, errMsg string) {
+templ TournamentBody(v service.TournamentView, failed Alert) {
 	<div id="tournament" sse-swap="tournament" hx-swap="outerHTML">
 		<div class="mb-5 flex flex-wrap items-end justify-between gap-2">
 			<div>
@@ -33,7 +33,7 @@ templ TournamentBody(v service.TournamentView, errMsg string) {
 			</div>
 			@tournamentBadge(v)
 		</div>
-		@errorAlert(errMsg)
+		@alert(failed)
 		if v.Invited {
 			<div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3">
 				<span>{ T(ctx).InvitedToTournament() }</span>

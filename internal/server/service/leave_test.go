@@ -88,15 +88,10 @@ func TestLeaveTheLobby(t *testing.T) {
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
 
+	// A game for three still waits after ben took a seat.
 	g := x01Game(anna.PlayerID)
-	g.Seats = 2
-	v, _ := s.CreateGame(ctx, anna, g, nil)
-	if _, err := s.JoinGame(ctx, ben, v.Game.ID, nil); err != nil {
-		t.Fatal(err)
-	}
-	// The game started with the last seat; make it wait for a third player instead.
 	g.Seats = 3
-	v, _ = s.CreateGame(ctx, anna, g, nil)
+	v, _ := s.CreateGame(ctx, anna, g, nil)
 	if _, err := s.JoinGame(ctx, ben, v.Game.ID, nil); err != nil {
 		t.Fatal(err)
 	}

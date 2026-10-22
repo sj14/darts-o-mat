@@ -84,7 +84,10 @@ func TestDeleteAccount(t *testing.T) {
 	befriend(t, s, ben, cara)
 	befriend(t, s, anna, cara)
 	keller, _ := s.CreateBoard(ctx, ben, "Keller")
-	_, _ = s.CreateGuest(ctx, ben, "Bens Gast")
+	bensGuest, _ := s.CreateGuest(ctx, ben, "Bens Gast")
+	// A player plays one game at a time: the running games below are each of other players.
+	annasGuest, _ := s.CreateGuest(ctx, anna, "Annas Gast")
+	carasGuest, _ := s.CreateGuest(ctx, cara, "Caras Gast")
 
 	quick := func(ids ...int64) game.Game {
 		g := x01Game(ids...)
@@ -95,15 +98,15 @@ func TestDeleteAccount(t *testing.T) {
 	done, _ := s.CreateGame(ctx, anna, quick(anna.PlayerID), []string{"ben"})
 	_, _ = s.AcceptInvitation(ctx, ben, done.Game.ID, nil)
 	_, _ = s.AddDart(ctx, anna, done.Game.ID, d20)
-	// A running game of anna with ben and cara: ben leaves it, it goes on.
-	three, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben", "cara"})
+	// A running game of anna's guest with ben and cara: ben leaves it, it goes on.
+	three, _ := s.CreateGame(ctx, anna, x01Game(annasGuest.ID), []string{"ben", "cara"})
 	_, _ = s.AcceptInvitation(ctx, ben, three.Game.ID, nil)
 	_, _ = s.AcceptInvitation(ctx, cara, three.Game.ID, nil)
-	// A running game of ben's own, with anna: it is aborted.
-	bens, _ := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), []string{"anna"})
+	// A running game of ben's guest, with anna: it is aborted.
+	bens, _ := s.CreateGame(ctx, ben, x01Game(bensGuest.ID), []string{"anna"})
 	_, _ = s.AcceptInvitation(ctx, anna, bens.Game.ID, nil)
 	// An invitation of ben's that nobody answered: declined.
-	invited, _ := s.CreateGame(ctx, cara, x01Game(cara.PlayerID), []string{"ben"})
+	invited, _ := s.CreateGame(ctx, cara, x01Game(carasGuest.ID), []string{"ben"})
 	// A tournament of cara with ben in it: aborted.
 	tr := quickTournament(tournament.RoundRobin, cara.PlayerID)
 	tr.Seats = 3

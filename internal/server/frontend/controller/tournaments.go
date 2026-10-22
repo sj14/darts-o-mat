@@ -19,10 +19,10 @@ func tournamentURL(id int64) string {
 }
 
 func (c *Controller) showTournament(w http.ResponseWriter, r *http.Request) {
-	c.renderTournament(w, r, http.StatusOK, "")
+	c.renderTournament(w, r, http.StatusOK, view.Alert{})
 }
 
-func (c *Controller) renderTournament(w http.ResponseWriter, r *http.Request, status int, errMsg string) {
+func (c *Controller) renderTournament(w http.ResponseWriter, r *http.Request, status int, failed view.Alert) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
@@ -37,7 +37,7 @@ func (c *Controller) renderTournament(w http.ResponseWriter, r *http.Request, st
 		serverError(w, err)
 		return
 	}
-	render(w, r, status, view.Tournament(acc.Username, v, errMsg))
+	render(w, r, status, view.Tournament(acc.Username, v, failed))
 }
 
 // tournamentEvents streams the tournament to its page whenever it or one of its games
@@ -63,7 +63,7 @@ func (c *Controller) tournamentEvents(w http.ResponseWriter, r *http.Request) {
 			return "", err
 		}
 		var buf bytes.Buffer
-		if err := view.TournamentBody(v, "").Render(r.Context(), &buf); err != nil {
+		if err := view.TournamentBody(v, view.Alert{}).Render(r.Context(), &buf); err != nil {
 			log.Printf("render tournament: %v", err)
 			return "", err
 		}
@@ -83,13 +83,17 @@ func (c *Controller) startMatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := c.svc.StartMatch(r.Context(), auth.Account(r.Context()), id, match)
+	_, busy := errors.AsType[service.PlayerBusyError](err)
 	switch {
 	case err == nil:
 		http.Redirect(w, r, gameURL(v.Game.ID), http.StatusSeeOther)
 	case isNotFound(err):
 		http.NotFound(w, r)
+	case busy:
+		msg, _ := errorText(view.T(r.Context()), err)
+		c.renderTournament(w, r, http.StatusConflict, view.Alert{Text: msg, Game: busyGame(err)})
 	case errors.Is(err, service.ErrInvalid), errors.Is(err, service.ErrForbidden), errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrAborted):
-		c.renderTournament(w, r, http.StatusConflict, view.T(r.Context()).ErrMatchNotStartable())
+		c.renderTournament(w, r, http.StatusConflict, view.Alert{Text: view.T(r.Context()).ErrMatchNotStartable()})
 	default:
 		serverError(w, err)
 	}
@@ -139,7 +143,7 @@ func (c *Controller) leaveTournament(w http.ResponseWriter, r *http.Request) {
 	case isNotFound(err):
 		http.NotFound(w, r)
 	case errors.Is(err, service.ErrForbidden), errors.Is(err, service.ErrInvalid):
-		c.renderTournament(w, r, http.StatusConflict, view.T(r.Context()).ErrInput())
+		c.renderTournament(w, r, http.StatusConflict, view.Alert{Text: view.T(r.Context()).ErrInput()})
 	default:
 		serverError(w, err)
 	}

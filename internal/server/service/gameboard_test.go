@@ -49,12 +49,16 @@ func TestUseBoard(t *testing.T) {
 		t.Error("the board isn't marked as used")
 	}
 
-	// A second game takes the board over; the first continues without it.
-	second, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
+	// A second game, of a guest, takes the board over; the first continues without it.
+	papa, _ := s.CreateGuest(ctx, anna, "Papa")
+	second, err := s.CreateGame(ctx, anna, x01Game(papa.ID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(second.Boards) != 1 || !second.Boards[0].InUse {
 		t.Fatalf("choices = %+v, want Keller in use", second.Boards)
 	}
-	if v, err = s.UseBoard(ctx, anna, second.Game.ID, &keller.ID); err != nil || !onBoard(v, anna.PlayerID, keller.ID) {
+	if v, err = s.UseBoard(ctx, anna, second.Game.ID, &keller.ID); err != nil || !onBoard(v, papa.ID, keller.ID) {
 		t.Fatalf("second game takes the board: %v", err)
 	}
 	if v, _ = s.Game(ctx, anna, first.Game.ID); v.HasBoard() {
@@ -79,7 +83,8 @@ func TestNewGameTakesTheBoard(t *testing.T) {
 		t.Error("the board isn't in use by the first game")
 	}
 
-	second, err := s.CreateGame(ctx, anna, withBoard(x01Game(anna.PlayerID), keller.ID), nil)
+	papa, _ := s.CreateGuest(ctx, anna, "Papa")
+	second, err := s.CreateGame(ctx, anna, withBoard(x01Game(papa.ID), keller.ID), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

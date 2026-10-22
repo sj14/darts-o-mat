@@ -59,9 +59,9 @@ func TestPlayersOnTheirOwnBoards(t *testing.T) {
 		t.Fatalf("ben's takeout: %v, current %v; want anna up", err, v.Common().CurrentPlayerID)
 	}
 
-	// A board belongs to one game: ben starts another on his board.
-	other := x01Game(ben.PlayerID)
-	other = withBoard(other, boardB.ID)
+	// A board belongs to one game: ben starts another on his board, for a guest.
+	guest, _ := s.CreateGuest(ctx, ben, "Gast")
+	other := withBoard(x01Game(guest.ID), boardB.ID)
 	if _, err := s.CreateGame(ctx, ben, other, nil); err != nil {
 		t.Fatal(err)
 	}

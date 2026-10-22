@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
@@ -59,44 +60,55 @@ func TestRoundRobinTournament(t *testing.T) {
 		t.Fatalf("accept: ready %v can play %v, %v", v.Ready, v.CanPlay, err)
 	}
 
-	for _, m := range v.State.Matches {
-		// Ben may only start his own matches.
-		mine := m.PlayerIDs[0] == ben.PlayerID || m.PlayerIDs[1] == ben.PlayerID
-		if _, err := s.StartMatch(ctx, ben, id, m.Index); !mine && !errors.Is(err, ErrForbidden) {
-			t.Errorf("ben starts match %v: %v, want ErrForbidden", m.PlayerIDs, err)
-		} else if mine {
-			if err != nil {
-				t.Fatalf("ben starts his match %v: %v", m.PlayerIDs, err)
-			}
-			continue
-		}
-		if _, err := s.StartMatch(ctx, anna, id, m.Index); err != nil {
-			t.Fatalf("start match %d: %v", m.Index, err)
-		}
+	// A player plays one match at a time: the first two matches have no player in common,
+	// the third shares one with the first while that runs.
+	if _, err := s.StartMatch(ctx, anna, id, 0); err != nil {
+		t.Fatal(err)
+	}
+	busy := slices.IndexFunc(v.State.Matches, func(m tournament.Match) bool {
+		return m.Index != 0 && slices.ContainsFunc(m.PlayerIDs[:], func(p int64) bool { return slices.Contains(v.State.Matches[0].PlayerIDs[:], p) })
+	})
+	if _, err := s.StartMatch(ctx, anna, id, busy); !errors.As(err, new(PlayerBusyError)) {
+		t.Errorf("start a match of a player who plays another: %v, want PlayerBusyError", err)
 	}
 	if _, err := s.StartMatch(ctx, anna, id, 0); !errors.Is(err, ErrInvalid) {
 		t.Errorf("starting a running match again: %v, want ErrInvalid", err)
 	}
 
-	// The first player of each match wins with one dart.
-	v, err = s.Tournament(ctx, anna, id)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// The first player of each match wins with one dart, one match after the other.
 	for _, m := range v.State.Matches {
+		if m.Index != 0 { // started above
+			// Ben may only start his own matches.
+			starter := anna
+			if m.PlayerIDs[0] == ben.PlayerID || m.PlayerIDs[1] == ben.PlayerID {
+				starter = ben
+			} else if _, err := s.StartMatch(ctx, ben, id, m.Index); !errors.Is(err, ErrForbidden) {
+				t.Errorf("ben starts match %v: %v, want ErrForbidden", m.PlayerIDs, err)
+			}
+			if _, err := s.StartMatch(ctx, starter, id, m.Index); err != nil {
+				t.Fatalf("%s starts match %v: %v", starter.Username, m.PlayerIDs, err)
+			}
+		}
+		tv, err := s.Tournament(ctx, anna, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gameID := tv.State.Matches[m.Index].Result.GameID
 		// Ben enters his own darts, anna those of hers and her guests.
 		actor := anna
-		if gv, _ := s.Game(ctx, anna, m.Result.GameID); *gv.Common().CurrentPlayerID == ben.PlayerID {
+		if gv, _ := s.Game(ctx, anna, gameID); *gv.Common().CurrentPlayerID == ben.PlayerID {
 			actor = ben
 		}
-		if _, err := s.AddDart(ctx, actor, m.Result.GameID, d20); err != nil {
+		if _, err := s.AddDart(ctx, actor, gameID, d20); err != nil {
 			t.Fatalf("match %d: %v", m.Index, err)
 		}
 	}
 	// The tournament is over at once, but its result counts only once its games are
-	// completed: here by the players going on to another game.
-	if v, err = s.Tournament(ctx, anna, id); err != nil || !v.State.Over || v.State.Completed() || !v.State.Matches[0].Result.Unconfirmed {
-		t.Fatalf("after the last darts: over %v, completed %v, %+v, %v; want over, open to corrections", v.State.Over, v.State.Completed(), v.State.Matches[0].Result, err)
+	// completed: here by the players going on to another game (starting the next match
+	// completed the earlier ones of its players).
+	last := len(v.State.Matches) - 1
+	if v, err = s.Tournament(ctx, anna, id); err != nil || !v.State.Over || v.State.Completed() || !v.State.Matches[last].Result.Unconfirmed {
+		t.Fatalf("after the last darts: over %v, completed %v, %+v, %v; want over, open to corrections", v.State.Over, v.State.Completed(), v.State.Matches[last].Result, err)
 	}
 	if sums, _ := s.Stats(ctx, anna, ""); sums[0].X01.Tournaments != 0 {
 		t.Errorf("a tournament that can still be corrected counts: %+v", sums[0].X01.Record)

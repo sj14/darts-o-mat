@@ -31,8 +31,18 @@ templ sectionTitle(title string) {
 }
 
 templ errorAlert(msg string) {
-	if msg != "" {
-		<div class="mb-4 animate-shake rounded-2xl border border-board-red/50 bg-board-red/15 px-4 py-3 text-red-200" role="alert">{ msg }</div>
+	@alert(Alert{Text: msg})
+}
+
+templ alert(a Alert) {
+	if a.Text != "" {
+		<div class="mb-4 animate-shake rounded-2xl border border-board-red/50 bg-board-red/15 px-4 py-3 text-red-200" role="alert">
+			{ a.Text }
+			if a.Game != 0 {
+				{ " " }
+				<a href={ templ.URL(gameURL(a.Game, "")) } class={ linkClass }>{ T(ctx).ToGame() }</a>
+			}
+		</div>
 	}
 }
 

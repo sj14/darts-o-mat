@@ -134,6 +134,9 @@ func (s *Service) JoinGame(ctx context.Context, acc account.Account, gameID int6
 	if err := s.checkSeatBoard(ctx, acc, gameSeat(g), boardID); err != nil {
 		return GameView{}, err
 	}
+	if err := s.checkPlayersFree(ctx, acc, []int64{acc.PlayerID}); err != nil {
+		return GameView{}, err
+	}
 	if err := s.completeFinished(ctx, acc); err != nil {
 		return GameView{}, err
 	}

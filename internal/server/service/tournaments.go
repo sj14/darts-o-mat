@@ -228,6 +228,9 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 			return GameView{}, err
 		}
 	}
+	if err := s.checkPlayersFree(ctx, acc, m.PlayerIDs[:]); err != nil {
+		return GameView{}, err
+	}
 	if err := s.completeFinished(ctx, acc); err != nil {
 		return GameView{}, err
 	}

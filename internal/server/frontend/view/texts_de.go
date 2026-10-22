@@ -440,6 +440,9 @@ func (textsDE) ErrBoardRequired() string {
 func (textsDE) ErrBoardBusy() string {
 	return "Dieses Board ist in einem laufenden Spiel, das es braucht, und kann nicht weggenommen werden."
 }
+func (textsDE) ErrPlayerBusy(name string) string {
+	return name + " spielt gerade noch ein anderes Spiel."
+}
 func (textsDE) HeatmapDarts(n int) string {
 	return strconv.Itoa(n) + " von der Kamera erkannte Darts"
 }

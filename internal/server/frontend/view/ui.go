@@ -15,3 +15,9 @@ const (
 	hintClass  = "mt-1.5 text-sm text-white/50"
 	linkClass  = "font-semibold text-emerald-300 underline-offset-4 hover:underline"
 )
+
+// Alert is an error message, with a link to the game it is about if there is one.
+type Alert struct {
+	Text string
+	Game int64
+}

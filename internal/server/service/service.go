@@ -269,6 +269,9 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 			return GameView{}, err
 		}
 	}
+	if err := s.checkPlayersFree(ctx, acc, g.PlayerIDs()); err != nil {
+		return GameView{}, err
+	}
 	invited, err := s.invitedPlayers(ctx, acc, inviteUsernames)
 	if err != nil {
 		return GameView{}, err
@@ -386,6 +389,9 @@ func (s *Service) AcceptInvitation(ctx context.Context, acc account.Account, gam
 		return GameView{}, ErrNotFound
 	}
 	if err := s.checkSeatBoard(ctx, acc, gameSeat(v.Game), boardID); err != nil {
+		return GameView{}, err
+	}
+	if err := s.checkPlayersFree(ctx, acc, []int64{acc.PlayerID}); err != nil {
 		return GameView{}, err
 	}
 	if err := s.completeFinished(ctx, acc); err != nil {

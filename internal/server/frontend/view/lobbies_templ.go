@@ -24,7 +24,7 @@ type LobbiesModel struct {
 	Total   int                 // all open ones, with or without the filter
 	Filter  service.LobbyFilter
 	Boards  []service.BoardView
-	Error   string // why joining failed, if it did
+	Error   Alert // why joining failed, if it did
 }
 
 // Lobbies is the page of the open games and tournaments to join, with filters to pick a
@@ -68,7 +68,7 @@ func Lobbies(m LobbiesModel) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = errorAlert(m.Error).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = alert(m.Error).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

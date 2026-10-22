@@ -177,10 +177,12 @@ func TestTurnLimitValidation(t *testing.T) {
 func TestGameStart(t *testing.T) {
 	ctx := context.Background()
 	s := newService(t)
-	anna, ben := register(t, s, "anna"), register(t, s, "ben")
-	befriend(t, s, anna, ben)
+	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")
+	befriend(t, s, cara, ben)
+	// A player plays one game at a time: each game is of other players.
+	guest, _ := s.CreateGuest(ctx, anna, "Gast")
 
-	alone, _ := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), nil)
+	alone, _ := s.CreateGame(ctx, anna, x01Game(guest.ID), nil)
 	if alone.Game.StartedAt == nil {
 		t.Error("a game of one account isn't started when created")
 	}
@@ -194,14 +196,14 @@ func TestGameStart(t *testing.T) {
 		t.Error("an open game didn't start with its last seat")
 	}
 	// The last invitation open is declined: the others start.
-	v, _ = s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"})
+	v, _ = s.CreateGame(ctx, cara, x01Game(cara.PlayerID), []string{"ben"})
 	if v.Game.StartedAt != nil {
 		t.Fatal("started with an invitation open")
 	}
 	if err := s.DeclineInvitation(ctx, ben, v.Game.ID); err != nil {
 		t.Fatal(err)
 	}
-	if v, _ = s.Game(ctx, anna, v.Game.ID); v.Game.StartedAt == nil {
+	if v, _ = s.Game(ctx, cara, v.Game.ID); v.Game.StartedAt == nil {
 		t.Error("the game didn't start after the invitation was declined")
 	}
 }

@@ -30,7 +30,7 @@ type HomeModel struct {
 	Tournaments           []service.TournamentView
 	TournamentInvitations []service.TournamentView
 	Mode                  game.Mode // selected mode of the new game, empty until the user picked one
-	Error                 string
+	Error                 Alert
 }
 
 func Home(m HomeModel) templ.Component {
@@ -66,7 +66,7 @@ func Home(m HomeModel) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = errorAlert(m.Error).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = alert(m.Error).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

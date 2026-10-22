@@ -17,17 +17,17 @@ import (
 )
 
 func (c *Controller) home(w http.ResponseWriter, r *http.Request) {
-	c.renderHome(w, r, http.StatusOK, game.Mode(r.URL.Query().Get("mode")), "")
+	c.renderHome(w, r, http.StatusOK, game.Mode(r.URL.Query().Get("mode")), view.Alert{})
 }
 
 // renderHome shows the start page, with the options of mode if one is selected.
-func (c *Controller) renderHome(w http.ResponseWriter, r *http.Request, status int, mode game.Mode, errMsg string) {
+func (c *Controller) renderHome(w http.ResponseWriter, r *http.Request, status int, mode game.Mode, failed view.Alert) {
 	if mode != game.ModeX01 && mode != game.ModeAroundTheClock {
 		mode = ""
 	}
 
 	ctx := r.Context()
-	m := view.HomeModel{Account: auth.Account(ctx), Mode: mode, Error: errMsg}
+	m := view.HomeModel{Account: auth.Account(ctx), Mode: mode, Error: failed}
 	var err error
 	if m.Players, err = c.svc.Players(ctx, m.Account); err != nil {
 		serverError(w, err)
@@ -69,7 +69,7 @@ func (c *Controller) createGuest(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		if msg, ok := guestErrorText(view.T(r.Context()), err); ok {
-			c.renderHome(w, r, http.StatusBadRequest, "", msg)
+			c.renderHome(w, r, http.StatusBadRequest, "", view.Alert{Text: msg})
 		} else {
 			serverError(w, err)
 		}
@@ -96,7 +96,7 @@ func (c *Controller) deleteGuest(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 	default:
 		if msg, ok := guestErrorText(view.T(r.Context()), err); ok {
-			c.renderHome(w, r, http.StatusConflict, "", msg)
+			c.renderHome(w, r, http.StatusConflict, "", view.Alert{Text: msg})
 		} else {
 			serverError(w, err)
 		}
@@ -199,7 +199,7 @@ func (c *Controller) createGame(w http.ResponseWriter, r *http.Request) {
 	} else if text, ok := errorText(texts, err); ok {
 		msg = text
 	}
-	c.renderHome(w, r, http.StatusBadRequest, game.Mode(r.FormValue("mode")), msg)
+	c.renderHome(w, r, http.StatusBadRequest, game.Mode(r.FormValue("mode")), view.Alert{Text: msg, Game: busyGame(err)})
 }
 
 // gameFromForm reads the new game and the usernames to invite from the form.
