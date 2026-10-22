@@ -458,8 +458,7 @@ func (ui *UI) addCamera(w http.ResponseWriter, r *http.Request) {
 	name, err := ui.app.AddCamera(board, r.FormValue("id"))
 	if err != nil {
 		m := ui.devicesModel(board)
-		var inUse camapp.DeviceInUseError
-		if errors.As(err, &inUse) {
+		if inUse, ok := errors.AsType[camapp.DeviceInUseError](err); ok {
 			m.Error = T(r.Context()).ErrDeviceInUse(inUse.Camera)
 		} else {
 			m.Error = T(r.Context()).ErrAddCamera(err.Error())
@@ -680,7 +679,6 @@ func (e refineError) Unwrap() error { return e.err }
 // calibrationError is the message of an error from finishing a calibration, empty
 // for none.
 func calibrationError(t Texts, err error) string {
-	var refine refineError
 	switch {
 	case err == nil:
 		return ""
@@ -690,7 +688,8 @@ func calibrationError(t Texts, err error) string {
 		return t.ErrPointsDontFit()
 	case errors.Is(err, errAutoFailed):
 		return t.ErrAutoFailed()
-	case errors.As(err, &refine):
+	}
+	if refine, ok := errors.AsType[refineError](err); ok {
 		return t.ErrRefine(refine.err)
 	}
 	return err.Error()

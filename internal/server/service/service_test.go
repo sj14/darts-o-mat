@@ -185,8 +185,7 @@ func TestGuestsBelongToTheirAccount(t *testing.T) {
 	if _, err := s.CreateGame(ctx, ben, x01Game(anna.PlayerID), nil); !errors.Is(err, ErrInvalid) {
 		t.Errorf("ben adds anna without invitation: got %v, want ErrInvalid", err)
 	}
-	var unknown UnknownUserError
-	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), []string{"nobody"}); !errors.As(err, &unknown) || !errors.Is(err, ErrInvalid) {
+	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), []string{"nobody"}); !isError[UnknownUserError](err) || !errors.Is(err, ErrInvalid) {
 		t.Errorf("invite unknown user: got %v, want UnknownUserError wrapping ErrInvalid", err)
 	}
 	if _, err := s.CreateGame(ctx, ben, x01Game(ben.PlayerID), []string{"Ben"}); !errors.Is(err, ErrInviteSelf) {
@@ -367,8 +366,7 @@ func TestFriends(t *testing.T) {
 	s := newService(t)
 	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")
 
-	var notFriend NotFriendError
-	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"}); !errors.As(err, &notFriend) {
+	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"}); !isError[NotFriendError](err) {
 		t.Errorf("invite before befriending: got %v, want NotFriendError", err)
 	}
 
@@ -381,8 +379,7 @@ func TestFriends(t *testing.T) {
 	if err := s.RequestFriend(ctx, anna, "anna"); !errors.Is(err, ErrInvalid) {
 		t.Errorf("befriend yourself: got %v, want ErrInvalid", err)
 	}
-	var unknown UnknownUserError
-	if err := s.RequestFriend(ctx, anna, "nobody"); !errors.As(err, &unknown) {
+	if err := s.RequestFriend(ctx, anna, "nobody"); !isError[UnknownUserError](err) {
 		t.Errorf("unknown user: got %v, want UnknownUserError", err)
 	}
 
@@ -391,7 +388,7 @@ func TestFriends(t *testing.T) {
 	if len(annas.Outgoing) != 1 || annas.Outgoing[0].Username != "ben" || len(bens.Incoming) != 1 || bens.Incoming[0].Username != "anna" {
 		t.Fatalf("pending request: anna %+v, ben %+v", annas, bens)
 	}
-	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"}); !errors.As(err, &notFriend) {
+	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"}); !isError[NotFriendError](err) {
 		t.Errorf("invite with pending request: got %v, want NotFriendError", err)
 	}
 	if err := s.AcceptFriend(ctx, anna, ben.ID); !errors.Is(err, ErrNotFound) {
@@ -409,7 +406,7 @@ func TestFriends(t *testing.T) {
 	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"ben"}); err != nil {
 		t.Errorf("invite friend: %v", err)
 	}
-	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"cara"}); !errors.As(err, &notFriend) {
+	if _, err := s.CreateGame(ctx, anna, x01Game(anna.PlayerID), []string{"cara"}); !isError[NotFriendError](err) {
 		t.Errorf("invite stranger: got %v, want NotFriendError", err)
 	}
 
@@ -991,4 +988,10 @@ func TestOnlyOwnDartsAreCorrected(t *testing.T) {
 	if got, _ := s.Game(ctx, ben, id); !got.MayEdit(6) || got.MayEdit(0) || !got.MayUndo() {
 		t.Errorf("ben may edit his dart %v, anna's %v, undo %v; want true, false, true", got.MayEdit(6), got.MayEdit(0), got.MayUndo())
 	}
+}
+
+// isError reports whether err wraps an error of type E.
+func isError[E error](err error) bool {
+	_, ok := errors.AsType[E](err)
+	return ok
 }

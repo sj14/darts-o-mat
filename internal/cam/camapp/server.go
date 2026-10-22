@@ -94,6 +94,6 @@ func (s *server) post(ctx context.Context, path string, body []byte) (int64, err
 // notConnected reports whether a request failed before it was sent: no connection could
 // be made (refused, no route, unknown host).
 func notConnected(err error) bool {
-	var op *net.OpError
-	return errors.As(err, &op) && op.Op == "dial"
+	op, ok := errors.AsType[*net.OpError](err)
+	return ok && op.Op == "dial"
 }

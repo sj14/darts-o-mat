@@ -15,14 +15,13 @@ import (
 // others: a plain service.ErrInvalid, whose message depends on the form it came from, and
 // internal errors.
 func errorText(t view.Texts, err error) (string, bool) {
-	var unknown service.UnknownUserError
-	var notFriend service.NotFriendError
-	switch {
-	case errors.As(err, &unknown):
+	if unknown, ok := errors.AsType[service.UnknownUserError](err); ok {
 		return t.ErrUnknownUser(unknown.Username), true
-	case errors.As(err, &notFriend):
+	}
+	if notFriend, ok := errors.AsType[service.NotFriendError](err); ok {
 		return t.ErrNotFriend(notFriend.Username), true
-	case errors.Is(err, tournament.ErrPlayerCount):
+	}
+	if errors.Is(err, tournament.ErrPlayerCount) {
 		return t.ErrTournamentPlayers(tournament.MinPlayers, tournament.MaxPlayers), true
 	}
 	texts := []struct {
