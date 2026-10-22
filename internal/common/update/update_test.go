@@ -8,6 +8,7 @@ import (
 )
 
 func TestNewer(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		latest, current string
 		want            bool
@@ -33,6 +34,7 @@ func TestNewer(t *testing.T) {
 }
 
 func TestCheck(t *testing.T) {
+	// Not parallel: it changes apiURL and latest, which the package's other tests read.
 	status := http.StatusOK
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("User-Agent") == "" {

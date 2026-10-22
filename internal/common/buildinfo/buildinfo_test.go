@@ -6,6 +6,7 @@ import (
 )
 
 func TestVersion(t *testing.T) {
+	t.Parallel()
 	settings := func(rev, modified string) []debug.BuildSetting {
 		return []debug.BuildSetting{{Key: "vcs.revision", Value: rev}, {Key: "vcs.modified", Value: modified}}
 	}
@@ -27,6 +28,7 @@ func TestVersion(t *testing.T) {
 }
 
 func TestStampedVersionWins(t *testing.T) {
+	// Not parallel: it changes stamped, which the package's other tests read.
 	old := stamped
 	defer func() { stamped = old }()
 	stamped = "1.2.3"

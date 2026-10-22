@@ -24,6 +24,7 @@ func (fakeCaptcha) Verify(_ context.Context, token string) error {
 }
 
 func TestCaptcha(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 

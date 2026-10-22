@@ -29,6 +29,7 @@ func quickTournament(format tournament.Format, playerIDs ...int64) tournament.To
 var d20 = throw.Dart{Number: 20, Segment: dartboard.Double}
 
 func TestRoundRobinTournament(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -167,6 +168,7 @@ func TestRoundRobinTournament(t *testing.T) {
 }
 
 func TestKnockoutTournament(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -266,6 +268,7 @@ func TestKnockoutTournament(t *testing.T) {
 }
 
 func TestSubscribeTournament(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")

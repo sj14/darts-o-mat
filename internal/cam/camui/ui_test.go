@@ -58,6 +58,7 @@ func get(t *testing.T, srv *httptest.Server, path string) (int, string) {
 }
 
 func TestEventPages(t *testing.T) {
+	t.Parallel()
 	app, srv := newUI(t)
 	frames := []*image.RGBA{
 		loadRGBA(t, "../vision/testdata/cam1.jpg"),
@@ -147,6 +148,7 @@ func TestEventPages(t *testing.T) {
 }
 
 func TestSettings(t *testing.T) {
+	t.Parallel()
 	app, srv := newUI(t)
 	post := func(values url.Values) (int, string) {
 		t.Helper()
@@ -243,6 +245,7 @@ func TestSettings(t *testing.T) {
 // The configuration directory doesn't exist before the first start: the cameras'
 // images are saved into it when a camera is added, before any configuration is.
 func TestNewCreatesDir(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir() + "/darts-o-cam"
 	app, err := camapp.New(dir, camapp.Options{})
 	if err != nil {
@@ -257,6 +260,7 @@ func TestNewCreatesDir(t *testing.T) {
 // The overview's list of detections updates itself: the stream sends the new list after
 // every detection.
 func TestEventStream(t *testing.T) {
+	t.Parallel()
 	app, srv := newUI(t)
 	ctx := t.Context()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/board/1/events/stream", nil)
@@ -300,6 +304,7 @@ func TestEventStream(t *testing.T) {
 // With one board the pages show no choice; a second one brings the tabs, and each board
 // shows its own detections.
 func TestBoards(t *testing.T) {
+	t.Parallel()
 	app, srv := newUI(t)
 	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	resp, err := noRedirect.Get(srv.URL + "/")

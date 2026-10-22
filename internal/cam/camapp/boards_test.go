@@ -12,6 +12,7 @@ import (
 )
 
 func TestBoards(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	cfg := defaultConfig()
 	cfg.Boards = append(cfg.Boards, newBoard(2, "Garage"))
@@ -85,6 +86,7 @@ func TestBoards(t *testing.T) {
 
 // Detections are kept per board: each shows its own.
 func TestEventsPerBoard(t *testing.T) {
+	t.Parallel()
 	a, err := New(t.TempDir(), Options{})
 	if err != nil {
 		t.Fatal(err)
@@ -103,6 +105,7 @@ func TestEventsPerBoard(t *testing.T) {
 
 // Each board has settings of its own.
 func TestBoardSettingsAreSeparate(t *testing.T) {
+	t.Parallel()
 	a, err := New(t.TempDir(), Options{})
 	if err != nil {
 		t.Fatal(err)
@@ -128,6 +131,7 @@ func TestBoardSettingsAreSeparate(t *testing.T) {
 }
 
 func TestSmallFrames(t *testing.T) {
+	t.Parallel()
 	b := newBoard(1, "Board") // wants 1280×720
 	for _, tc := range []struct {
 		width, height int

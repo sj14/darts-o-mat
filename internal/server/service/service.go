@@ -21,6 +21,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/store"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -83,6 +84,10 @@ type Options struct {
 	ClientIPHeader string
 	// Captcha checks that registrations come from a person; nil checks nothing.
 	Captcha captcha.Verifier
+	// PasswordCost is the bcrypt cost of the password hashes, 0 for bcrypt.DefaultCost.
+	// Only tests set it: a hash takes about 85 ms at the default, and they register and
+	// log in a lot.
+	PasswordCost int
 }
 
 type Service struct {
@@ -110,6 +115,9 @@ type Service struct {
 	// started is when the server started: no turn ends earlier than its time after it
 	// (see GameView.TurnDeadline).
 	started time.Time
+	// dummyHash is compared against when a username doesn't exist, so a failed login takes
+	// the same time whether the username exists or not.
+	dummyHash []byte
 	// pages are the texts of the pages, read once (see Pages); SetPage replaces the map.
 	pages   map[page.Name]string
 	pagesMu sync.Mutex
@@ -117,6 +125,10 @@ type Service struct {
 
 func New(store *store.Store, opts Options) *Service {
 	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, now: time.Now, shuffle: rand.Shuffle, started: time.Now()}
+	if s.opts.PasswordCost == 0 {
+		s.opts.PasswordCost = bcrypt.DefaultCost
+	}
+	s.dummyHash, _ = bcrypt.GenerateFromPassword([]byte("darts-o-mat"), s.opts.PasswordCost)
 	s.limitLogins(opts.MaxLoginFailures)
 	return s
 }

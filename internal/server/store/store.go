@@ -15,6 +15,12 @@ type Store struct {
 	db *bun.DB
 }
 
+// Close closes the connections to the database. An in-memory SQLite database is gone
+// with its last connection.
+func (store *Store) Close() error {
+	return store.db.Close()
+}
+
 // NewPostgres connects to PostgreSQL, e.g. with
 // dsn "postgres://postgres:mysecretpassword@localhost:5432/darts-o-mat?sslmode=disable".
 //

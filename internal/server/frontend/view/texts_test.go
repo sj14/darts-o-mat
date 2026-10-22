@@ -21,6 +21,7 @@ var complete = []i18n.Lang{i18n.German}
 // TestTranslations calls every text in every language and compares it with English: a
 // text that comes out the same isn't translated yet.
 func TestTranslations(t *testing.T) {
+	t.Parallel()
 	en := textsOf(i18n.English)
 	if empty := i18n.Empty(en); len(empty) > 0 {
 		t.Errorf("English texts are empty: %v", empty)

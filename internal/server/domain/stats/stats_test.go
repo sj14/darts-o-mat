@@ -6,6 +6,7 @@ import (
 )
 
 func TestRecordAveragesDurations(t *testing.T) {
+	t.Parallel()
 	var r Record
 	r.add(Result{Won: true, GameTime: 10 * time.Minute, LegTime: 10 * time.Minute, TimedLegs: 2})
 	r.add(Result{GameTime: 20 * time.Minute, LegTime: 20 * time.Minute, TimedLegs: 1})

@@ -11,6 +11,7 @@ import (
 )
 
 func TestWaitForTakeout(t *testing.T) {
+	t.Parallel()
 	tr := Log{WaitForTakeout: true}.Turn(2)
 
 	for range DartsPerTurn {
@@ -39,6 +40,7 @@ func TestWaitForTakeout(t *testing.T) {
 }
 
 func TestFinish(t *testing.T) {
+	t.Parallel()
 	// The checkout wins at once, also on a board: there is nothing to wait for.
 	tr := Log{WaitForTakeout: true}.Turn(2)
 	tr.Finish()
@@ -48,6 +50,7 @@ func TestFinish(t *testing.T) {
 }
 
 func TestLegs(t *testing.T) {
+	t.Parallel()
 	legStarts := 0
 	tr := Log{Legs: 2}.Turn(3)
 	tr.OnLegStart = func() { legStarts++ }
@@ -76,6 +79,7 @@ func TestLegs(t *testing.T) {
 }
 
 func TestSets(t *testing.T) {
+	t.Parallel()
 	tr := Log{Legs: 2, Sets: 2, WaitForTakeout: true}.Turn(2)
 	check := func(step string, set, leg, player int) {
 		t.Helper()
@@ -121,6 +125,7 @@ func TestSets(t *testing.T) {
 }
 
 func TestReplay(t *testing.T) {
+	t.Parallel()
 	dart, takeout := throw.Dart{Number: 20, Segment: dartboard.Single}, throw.Dart{Takeout: true}
 	advance := func(tr *Turn) func(int, throw.Dart) error {
 		return func(int, throw.Dart) error { tr.Advance(); return nil }
@@ -146,6 +151,7 @@ func TestReplay(t *testing.T) {
 }
 
 func TestBullOff(t *testing.T) {
+	t.Parallel()
 	at := func(x, y float64) throw.Dart { return throw.Dart{Number: 20, Segment: dartboard.Single, X: &x, Y: &y} }
 	bullseye := throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bullseye}
 	bull := throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bull}
@@ -185,6 +191,7 @@ func TestBullOff(t *testing.T) {
 }
 
 func TestBullOffStartsLegs(t *testing.T) {
+	t.Parallel()
 	bullseye := throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bullseye}
 	miss := throw.Dart{Segment: dartboard.Miss}
 	log := Log{BullOff: true, Legs: 2, Entries: []throw.Dart{miss, bullseye}}
@@ -202,6 +209,7 @@ func TestBullOffStartsLegs(t *testing.T) {
 }
 
 func TestBullOffCloser(t *testing.T) {
+	t.Parallel()
 	bull := throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bull}
 	miss := throw.Dart{Segment: dartboard.Miss}
 	two := 2
@@ -228,6 +236,7 @@ func TestBullOffCloser(t *testing.T) {
 // Replay records when the game and each finished leg and set were played: from their
 // first dart to their last, takeouts aside.
 func TestReplayTimes(t *testing.T) {
+	t.Parallel()
 	at := func(min int) time.Time { return time.Date(2026, 10, 16, 20, min, 0, 0, time.UTC) }
 	advance, finish := throw.Dart{Number: 1}, throw.Dart{Number: 2}
 	entry := func(d throw.Dart, min int) throw.Dart { d.CreatedAt = at(min); return d }
@@ -268,6 +277,7 @@ func TestReplayTimes(t *testing.T) {
 }
 
 func TestLeave(t *testing.T) {
+	t.Parallel()
 	// The player who is up leaves: their turn is over, the next one throws.
 	tr := Log{}.Turn(3)
 	tr.Advance()
@@ -316,6 +326,7 @@ func TestLeave(t *testing.T) {
 }
 
 func TestLeaveWhileWaitingForTakeout(t *testing.T) {
+	t.Parallel()
 	tr := Log{WaitForTakeout: true}.Turn(3)
 	for range DartsPerTurn {
 		tr.Advance()
@@ -333,6 +344,7 @@ func TestLeaveWhileWaitingForTakeout(t *testing.T) {
 }
 
 func TestReplayLeaveAndThrowers(t *testing.T) {
+	t.Parallel()
 	ids := []int64{10, 20, 30}
 	dart := func(id int64) throw.Dart { return throw.Dart{PlayerID: id, Number: 1, Segment: dartboard.Single} }
 	log := Log{PlayerIDs: ids, Entries: []throw.Dart{dart(10), {PlayerID: 10, Leave: true}, dart(20)}}
@@ -358,6 +370,7 @@ func TestReplayLeaveAndThrowers(t *testing.T) {
 }
 
 func TestSkip(t *testing.T) {
+	t.Parallel()
 	// A player who took too long is passed over, with the darts they threw.
 	tr := Log{}.Turn(3)
 	tr.Advance()
@@ -382,6 +395,7 @@ func TestSkip(t *testing.T) {
 }
 
 func TestReplaySkip(t *testing.T) {
+	t.Parallel()
 	ids := []int64{10, 20, 30}
 	dart := func(id int64) throw.Dart { return throw.Dart{PlayerID: id, Number: 1, Segment: dartboard.Single} }
 	log := Log{PlayerIDs: ids, Entries: []throw.Dart{dart(10), {PlayerID: 10, Skip: true}, {PlayerID: 20, Skip: true}, dart(30)}}

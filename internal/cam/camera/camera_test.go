@@ -12,6 +12,7 @@ import (
 
 // TestRead checks the frame handover without a real camera.
 func TestRead(t *testing.T) {
+	t.Parallel()
 	c := newCamera(Device{ID: "test"}, Options{})
 	frame := func(n int) *image.RGBA { return image.NewRGBA(image.Rect(0, 0, n, 1)) }
 
@@ -57,6 +58,7 @@ func TestRead(t *testing.T) {
 
 // TestDue checks the frame rate limit: a 30 fps camera delivers every third frame at 10 fps.
 func TestDue(t *testing.T) {
+	t.Parallel()
 	if c := newCamera(Device{}, Options{}); !c.due() || !c.due() {
 		t.Error("without FPS every frame should be due")
 	}
@@ -81,6 +83,7 @@ func TestDue(t *testing.T) {
 
 // TestWatchdog checks that a camera without frames fails, but not one that delivers.
 func TestWatchdog(t *testing.T) {
+	// Not parallel: it changes noFrames, which the package's other tests read.
 	defer func(d time.Duration) { noFrames = d }(noFrames)
 	noFrames = 50 * time.Millisecond
 
@@ -108,6 +111,7 @@ func TestWatchdog(t *testing.T) {
 }
 
 func TestSwapBGRA(t *testing.T) {
+	t.Parallel()
 	to := make([]byte, 8)
 	swapBGRA(to, []byte{1, 2, 3, 0, 4, 5, 6, 0})
 	if want := []byte{3, 2, 1, 255, 6, 5, 4, 255}; !bytes.Equal(to, want) {

@@ -11,6 +11,7 @@ import (
 )
 
 func TestOpenGame(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, carla, dora := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla"), register(t, s, "dora")
@@ -68,6 +69,7 @@ func TestOpenGame(t *testing.T) {
 }
 
 func TestOpenGameValidation(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -87,6 +89,7 @@ func TestOpenGameValidation(t *testing.T) {
 }
 
 func TestOffered(t *testing.T) {
+	t.Parallel()
 	open := game.Lobby{Seats: 2}
 	if !offered(open, 1, false) {
 		t.Error("an open game with a free seat isn't offered")
@@ -97,6 +100,7 @@ func TestOffered(t *testing.T) {
 }
 
 func TestOpenTournament(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
@@ -136,6 +140,7 @@ func TestOpenTournament(t *testing.T) {
 // Leaving a tournament that hasn't started takes the player out and shows nothing; leaving a
 // running one shows it, aborted.
 func TestLeaveTournamentViews(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
@@ -168,6 +173,7 @@ func TestLeaveTournamentViews(t *testing.T) {
 }
 
 func TestBoardOnlyGame(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -212,6 +218,7 @@ func TestBoardOnlyGame(t *testing.T) {
 // Whoever takes no part in a game learns nothing about it, not even that it needs a
 // board, and a refused request changes nothing of theirs.
 func TestOutsiderIsRefusedFirst(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, carl := register(t, s, "anna"), register(t, s, "carl")

@@ -13,6 +13,7 @@ import (
 
 // TestTurboDecode compares libjpeg-turbo with image/jpeg on a frame of the development board.
 func TestTurboDecode(t *testing.T) {
+	t.Parallel()
 	data, err := os.ReadFile("../vision/testdata/cam1.jpg")
 	if err != nil {
 		t.Fatal(err)

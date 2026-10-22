@@ -9,6 +9,7 @@ import (
 )
 
 func TestTurnstile(t *testing.T) {
+	t.Parallel()
 	var got struct{ secret, response string }
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()

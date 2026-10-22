@@ -12,6 +12,7 @@ import (
 )
 
 func TestDeleteGuest(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -78,6 +79,7 @@ func TestDeleteGuest(t *testing.T) {
 }
 
 func TestDeleteAccount(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, cara, dora := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara"), register(t, s, "dora")

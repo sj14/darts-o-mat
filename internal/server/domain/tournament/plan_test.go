@@ -6,12 +6,14 @@ import (
 )
 
 func TestSeeding(t *testing.T) {
+	t.Parallel()
 	if got, want := seeding(8), []int{1, 8, 4, 5, 2, 7, 3, 6}; !slices.Equal(got, want) {
 		t.Errorf("seeding(8) = %v, want %v", got, want)
 	}
 }
 
 func TestKnockout(t *testing.T) {
+	t.Parallel()
 	players := []int64{1, 2, 3, 4, 5} // seeds 1 to 5
 	st := Plan(Knockout, players, nil)
 	if st.Rounds != 3 || len(st.Matches) != 7 {
@@ -54,6 +56,7 @@ func TestKnockout(t *testing.T) {
 }
 
 func TestRoundRobin(t *testing.T) {
+	t.Parallel()
 	for n := MinPlayers; n <= 6; n++ {
 		var players []int64
 		for i := range n {
@@ -82,6 +85,7 @@ func TestRoundRobin(t *testing.T) {
 }
 
 func TestStandings(t *testing.T) {
+	t.Parallel()
 	players := []int64{1, 2, 3}
 	st := Plan(RoundRobin, players, nil)
 	results := map[int]Result{}
@@ -119,6 +123,7 @@ func TestStandings(t *testing.T) {
 }
 
 func TestKnockoutSizes(t *testing.T) {
+	t.Parallel()
 	for _, n := range []int{MinPlayers, 16, 17, MaxPlayers} {
 		var players []int64
 		for i := range n {

@@ -10,11 +10,13 @@ import (
 // The unique index keeps an email to one account even when the check before it is skipped,
 // as when two requests race, and lets any number of accounts have none.
 func TestEmailIndex(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	st, err := NewSQLite(ctx, "file:"+t.Name()+"?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { st.Close() }) // the in-memory database is gone with it, also for -count
 	insert := func(username, email string) error {
 		a := account.Account{Username: username, Email: email, PasswordHash: "x", PlayerID: int64(len(username))}
 		_, err := st.db.NewInsert().Model(&a).Exec(ctx)

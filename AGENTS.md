@@ -150,7 +150,9 @@ What the server packages do in detail is under [server → structure](internal/s
 
 ## Testing
 
-- Everything without camera and browser: `go test ./...` (rules and service against in-memory SQLite, image processing against images in `internal/cam/vision/testdata`, camera access without a camera).
+- Everything without camera and browser: `go test ./...` (rules and service against in-memory SQLite, image processing against images in `internal/cam/vision/testdata`, camera access without a camera); `go test -short ./...` skips the few that take half a second or more (real camera images, the checkout table), CI runs them all.
+- **Every test calls `t.Parallel()`**, except one that changes a package variable the package's other tests read (it says so in a comment); Go runs those first, before the parallel ones. A test that needs its own database opens a named in-memory SQLite and closes it (`t.Cleanup`, `Store.Close`), so `-count` starts fresh. Tests make password hashes with `service.Options.PasswordCost` set to `bcrypt.MinCost`: at the default cost every account and login costs about 85 ms.
+- **On macOS** every new test binary waits about 0.7 s on its first start while the system checks it (Gatekeeper/XProtect), and `go test` builds a new one per package. Allowing the terminal under System Settings → Privacy & Security → Developer Tools skips that check for what it starts.
 - Web interface in the browser: see [server → testing](internal/server/AGENTS.md#testing).
 - Camera and detection on the real board: see [camera → debugging](internal/cam/AGENTS.md#debugging).
 

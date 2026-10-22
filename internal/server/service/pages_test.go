@@ -12,6 +12,7 @@ import (
 // The first account is the admin and the only one who may write the pages; an empty text
 // takes a page down.
 func TestPages(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	admin := register(t, s, "anna")

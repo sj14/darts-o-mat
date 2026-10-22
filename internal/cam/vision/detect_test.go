@@ -60,6 +60,7 @@ func drawDart(img *image.RGBA, tip dartboard.Point, dir dartboard.Point) {
 }
 
 func TestDetectDart(t *testing.T) {
+	t.Parallel()
 	// The cameras look across the board, so darts point up in the image.
 	tests := []struct {
 		name string
@@ -92,6 +93,7 @@ func TestDetectDart(t *testing.T) {
 }
 
 func TestDetectDartIgnoresSpecks(t *testing.T) {
+	t.Parallel()
 	before := loadRGBA(t, "testdata/cam3.jpg")
 	after := loadRGBA(t, "testdata/cam3.jpg")
 	tip := dartboard.Point{X: 640, Y: 360}
@@ -114,6 +116,7 @@ func TestDetectDartIgnoresSpecks(t *testing.T) {
 
 // Only the flight is visible, e.g. the rest is hidden behind other darts: there's no tip to find.
 func TestDetectDartOnlyFlight(t *testing.T) {
+	t.Parallel()
 	before := loadRGBA(t, "testdata/cam3.jpg")
 	after := loadRGBA(t, "testdata/cam3.jpg")
 	for y := 100; y < 170; y++ {
@@ -127,6 +130,7 @@ func TestDetectDartOnlyFlight(t *testing.T) {
 }
 
 func TestDetectDartNothingChanged(t *testing.T) {
+	t.Parallel()
 	img := loadRGBA(t, "testdata/cam3.jpg")
 	if _, err := DetectDart(img, img, DefaultDetectOptions, ReferenceScale); err != ErrNoDart {
 		t.Errorf("got %v, want ErrNoDart", err)
@@ -139,6 +143,7 @@ func TestDetectDartNothingChanged(t *testing.T) {
 // (a black dart in front of a black segment). Darts within 1.5 mm of a wire are only
 // logged: at this resolution they land on either side.
 func TestRealDarts(t *testing.T) {
+	t.Parallel()
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)
@@ -196,6 +201,7 @@ func itoa(n uint8) string {
 }
 
 func TestComponentsBridging(t *testing.T) {
+	t.Parallel()
 	m := &Mask{W: 20, H: 20, Pix: make([]bool, 400)}
 	// A dashed vertical line: pieces of 3 px with gaps of 4 px.
 	for y := range 20 {
@@ -224,6 +230,7 @@ func TestComponentsBridging(t *testing.T) {
 // TestRealThrows runs the detection on real throws recorded with darts-o-cam -save
 // (2026-10-11), with the fields confirmed by the player.
 func TestRealThrows(t *testing.T) {
+	t.Parallel()
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)
@@ -272,6 +279,7 @@ func TestRealThrows(t *testing.T) {
 // hand) in cases where it used to be off or missing. The frames come with a newer calibration than
 // testdata/calibration.json, so only the pixel is checked.
 func TestTipOnDartAxis(t *testing.T) {
+	t.Parallel()
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)
@@ -330,6 +338,7 @@ func distanceToWire(p dartboard.Point) float64 {
 }
 
 func TestFuseTips(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		points []dartboard.Point
@@ -368,6 +377,7 @@ func equal(points []dartboard.Point) []Tip {
 
 // The cameras count by their resolution at the dart: the squared pixels per mm.
 func TestFuseTipsWeighted(t *testing.T) {
+	t.Parallel()
 	// The real S14 of TestRealDarts: two cameras, the one seeing the dart in the double
 	// sees the spot squeezed (0.7 px/mm towards the center).
 	far := Tip{Point: dartboard.Polar(166.1, 282.9), Radial: 0.7, Tangential: 1.3}
@@ -422,6 +432,7 @@ func TestFuseTipsWeighted(t *testing.T) {
 // found them live). cam1 saw the 17, cam2 only the upper part of the dart, and cam3's
 // tip, the right one, ended on an earlier dart; without it the result was a 16.
 func TestFuseTipsDisagreeingPair(t *testing.T) {
+	t.Parallel()
 	tips := []Tip{
 		{Point: dartboard.Point{X: 8.2, Y: -23.5}, Radial: 1.0, Tangential: 1.6},
 		{Point: dartboard.Point{X: -63.2, Y: 28.9}, Radial: 1.0, Tangential: 1.5},
@@ -445,6 +456,7 @@ func TestFuseTipsDisagreeingPair(t *testing.T) {
 
 // TestBlur compares the running-sum blur with averaging each neighborhood directly.
 func TestBlur(t *testing.T) {
+	t.Parallel()
 	img := image.NewRGBA(image.Rect(0, 0, 13, 9))
 	for i := range img.Pix {
 		img.Pix[i] = uint8(i * 37 % 251)
@@ -479,6 +491,7 @@ func TestBlur(t *testing.T) {
 // cam3 saw only part of the new dart behind the old one (35 mm off); the result must
 // be the middle of the other two instead of the one closer to cam3.
 func TestFuseTipsDropsOutlier(t *testing.T) {
+	t.Parallel()
 	cam1, cam2, cam3 := dartboard.Point{X: 93.9, Y: 24.9}, dartboard.Point{X: 99.6, Y: 15.4}, dartboard.Point{X: 60.0, Y: 33.0}
 	p, err := FuseTips(equal([]dartboard.Point{cam1, cam2, cam3}))
 	if err != nil {
@@ -497,6 +510,7 @@ func TestFuseTipsDropsOutlier(t *testing.T) {
 // ring's edge, 56 px below the tip, was taken for the tip and scored 12, twice at the
 // same spot. Checked in pixels: the frames belong to a newer calibration than testdata's.
 func TestDetectIgnoresSpeckBelowTip(t *testing.T) {
+	t.Parallel()
 	before := loadRGBA(t, "testdata/throws/006-cam2-before.jpg")
 	after := loadRGBA(t, "testdata/throws/006-cam2-after.jpg")
 	d, err := DetectDart(before, after, DefaultDetectOptions, ReferenceScale)
@@ -514,6 +528,10 @@ func TestDetectIgnoresSpeckBelowTip(t *testing.T) {
 // the 1 (2026-10-13, cam1 of event 95, after 93 and 94 since the takeout): with the
 // earlier darts known, the detection leaves them out.
 func TestDetectDartBesideMovedDart(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("long; runs without -short, e.g. in CI")
+	}
 	frames := func(n string) (*image.RGBA, *image.RGBA) {
 		return loadRGBA(t, "testdata/throws/"+n+"-cam1-before.jpg"), loadRGBA(t, "testdata/throws/"+n+"-cam1-after.jpg")
 	}
@@ -548,6 +566,7 @@ func TestDetectDartBesideMovedDart(t *testing.T) {
 // ends on the earlier darts, so the tip found is right but counts as hidden; see
 // TestFuseTipsDisagreeingPair for why it still decides.
 func TestDetectDartBesideHiddenInGroup(t *testing.T) {
+	t.Parallel()
 	frames := func(n string) (*image.RGBA, *image.RGBA) {
 		return loadRGBA(t, "testdata/throws/"+n+"-cam3-before.jpg"), loadRGBA(t, "testdata/throws/"+n+"-cam3-after.jpg")
 	}
@@ -588,6 +607,7 @@ func fillRect(img *image.RGBA, r image.Rectangle, c color.RGBA) {
 // px, its "tip" 25 mm from where the other cameras saw the dart). It is elongated but far
 // too small for a dart, so the camera doesn't count.
 func TestDetectDartBesideSliverIsNoDart(t *testing.T) {
+	t.Parallel()
 	bounds := image.Rect(0, 0, 640, 480)
 	before := image.NewRGBA(bounds)
 	fillRect(before, bounds, color.RGBA{90, 90, 90, 255})

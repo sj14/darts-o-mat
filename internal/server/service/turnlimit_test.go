@@ -11,6 +11,7 @@ import (
 )
 
 func TestTurnLimit(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
@@ -85,6 +86,7 @@ func TestTurnLimit(t *testing.T) {
 // The time the server was down doesn't cost a turn: after a start every turn has its whole
 // time again.
 func TestTurnLimitAfterRestart(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -116,6 +118,7 @@ func TestTurnLimitAfterRestart(t *testing.T) {
 }
 
 func TestSkippedTurnsCantBeTakenBack(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -141,6 +144,7 @@ func TestSkippedTurnsCantBeTakenBack(t *testing.T) {
 }
 
 func TestResumeTurnLimits(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -164,6 +168,7 @@ func TestResumeTurnLimits(t *testing.T) {
 }
 
 func TestTurnLimitValidation(t *testing.T) {
+	t.Parallel()
 	for seconds, ok := range map[int]bool{0: true, game.MinTurnSeconds: true, game.MaxTurnSeconds: true, -1: false, 5: false, game.MaxTurnSeconds + 1: false} {
 		s := x01Game(1).Settings
 		s.Legs, s.Sets, s.TurnSeconds = 1, 1, seconds
@@ -175,6 +180,7 @@ func TestTurnLimitValidation(t *testing.T) {
 
 // A game starts when it is ready, however that came about.
 func TestGameStart(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")

@@ -9,6 +9,7 @@ import (
 // Other web pages open in the browser can't change anything, and the interface only
 // answers under this computer's address or a local name.
 func TestProtect(t *testing.T) {
+	t.Parallel()
 	h := protect(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	for _, tt := range []struct {
 		name, method, host string

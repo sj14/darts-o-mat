@@ -77,6 +77,7 @@ func final(t *testing.T, out <-chan outcome) outcome {
 
 // While the server is down the reports wait and are sent again, in order.
 func TestReporterSendsAgain(t *testing.T) {
+	t.Parallel()
 	f := &fakeServer{down: 3}
 	r, out := testReporter(t, f)
 	now := time.Now()
@@ -101,6 +102,7 @@ func TestReporterSendsAgain(t *testing.T) {
 
 // An answer of the server is final: a refused dart isn't sent again.
 func TestReporterDoesntRepeatRefusals(t *testing.T) {
+	t.Parallel()
 	f := &fakeServer{status: http.StatusConflict}
 	r, out := testReporter(t, f)
 	r.add(report{event: 1, at: time.Now(), dart: dartboard.Hit{Number: 20, Segment: dartboard.Single}})
@@ -115,6 +117,7 @@ func TestReporterDoesntRepeatRefusals(t *testing.T) {
 // A report that couldn't be sent within giveUpAfter of its detection is dropped; a refused
 // connection (the server restarts) is tried again until then.
 func TestReporterGivesUp(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.NotFoundHandler())
 	srv.Close() // nothing listens there anymore
 	out := make(chan outcome, 100)
@@ -134,6 +137,7 @@ func TestReporterGivesUp(t *testing.T) {
 // After a timeout the server may have entered the dart: it isn't sent again, which could
 // count it twice.
 func TestReporterDoesntRepeatAfterTimeout(t *testing.T) {
+	t.Parallel()
 	release := make(chan struct{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		<-release // answers only after the client gave up

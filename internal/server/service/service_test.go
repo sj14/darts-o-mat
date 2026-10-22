@@ -13,6 +13,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/store"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func newService(t *testing.T) *Service {
@@ -21,8 +22,9 @@ func newService(t *testing.T) *Service {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(st, Options{Registration: true})
-	s.shuffle = func(int, func(i, j int)) {} // the order the players took their seats
+	t.Cleanup(func() { st.Close() })                                        // the in-memory database is gone with it, also for -count
+	s := New(st, Options{Registration: true, PasswordCost: bcrypt.MinCost}) // fast hashes
+	s.shuffle = func(int, func(i, j int)) {}                                // the order the players took their seats
 	return s
 }
 
@@ -66,6 +68,7 @@ func withBoard(g game.Game, boardID int64) game.Game {
 var t20 = throw.Dart{Number: 20, Segment: dartboard.Triple}
 
 func TestAuth(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 
@@ -102,13 +105,14 @@ func TestAuth(t *testing.T) {
 		t.Errorf("after logout: got %v, want ErrUnauthenticated", err)
 	}
 
-	closed := New(s.store, Options{Registration: false})
+	closed := New(s.store, Options{Registration: false, PasswordCost: bcrypt.MinCost})
 	if _, err := closed.Register(ctx, "cara", "", "", "password"); !errors.Is(err, ErrRegistrationClosed) {
 		t.Errorf("closed registration: got %v, want ErrRegistrationClosed", err)
 	}
 }
 
 func TestEmail(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 
@@ -161,6 +165,7 @@ func TestEmail(t *testing.T) {
 }
 
 func TestGuestsBelongToTheirAccount(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -204,6 +209,7 @@ func TestGuestsBelongToTheirAccount(t *testing.T) {
 }
 
 func TestInvitationFlow(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")
@@ -282,6 +288,7 @@ func TestInvitationFlow(t *testing.T) {
 }
 
 func TestDeclineAndWithdraw(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")
@@ -315,6 +322,7 @@ func TestDeclineAndWithdraw(t *testing.T) {
 }
 
 func TestGameWithoutPlayersLeftIsDeleted(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -339,6 +347,7 @@ func TestGameWithoutPlayersLeftIsDeleted(t *testing.T) {
 }
 
 func TestBoards(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -372,6 +381,7 @@ func TestBoards(t *testing.T) {
 }
 
 func TestFriends(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")
@@ -447,6 +457,7 @@ func TestFriends(t *testing.T) {
 }
 
 func TestStats(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -485,6 +496,7 @@ func TestStats(t *testing.T) {
 }
 
 func TestBoardCamera(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -577,6 +589,7 @@ func TestBoardCamera(t *testing.T) {
 }
 
 func TestSubscribe(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -619,6 +632,7 @@ func TestSubscribe(t *testing.T) {
 }
 
 func TestTakeout(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -684,6 +698,7 @@ func TestTakeout(t *testing.T) {
 // A camera dart while the game waits for the takeout means the cameras missed it: the
 // takeout is entered, and the dart is the next player's.
 func TestBoardDartAfterMissedTakeout(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -714,6 +729,7 @@ func TestBoardDartAfterMissedTakeout(t *testing.T) {
 
 // Pulling the darts out after a bust passes the turn on without adding misses.
 func TestBoardTakeoutAfterBust(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -743,6 +759,7 @@ func TestBoardTakeoutAfterBust(t *testing.T) {
 }
 
 func TestEditDart(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -798,6 +815,7 @@ func TestEditDart(t *testing.T) {
 // There is no "abort": leaving a game with all your players ends it if fewer than two are
 // left, which is all there is to aborting a game of one account.
 func TestLeavingEndsAGameOfOneAccount(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -868,6 +886,7 @@ func TestLeavingEndsAGameOfOneAccount(t *testing.T) {
 }
 
 func TestDartPosition(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -913,6 +932,7 @@ func TestDartPosition(t *testing.T) {
 }
 
 func TestDecideBullOff(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -943,6 +963,7 @@ func TestDecideBullOff(t *testing.T) {
 }
 
 func TestSetColor(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -969,6 +990,7 @@ func TestSetColor(t *testing.T) {
 }
 
 func TestOnlyOwnDartsAreCorrected(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")

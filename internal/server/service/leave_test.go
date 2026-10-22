@@ -10,6 +10,7 @@ import (
 )
 
 func TestLeaveGame(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
@@ -84,6 +85,7 @@ func TestLeaveGame(t *testing.T) {
 }
 
 func TestLeaveTheLobby(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -108,6 +110,7 @@ func TestLeaveTheLobby(t *testing.T) {
 }
 
 func TestCantLeaveWhileBullingOff(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
@@ -126,6 +129,7 @@ func TestCantLeaveWhileBullingOff(t *testing.T) {
 
 // Nobody is the host: whoever created the game can leave it like the others.
 func TestTheCreatorCanLeaveToo(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
@@ -153,6 +157,7 @@ func TestTheCreatorCanLeaveToo(t *testing.T) {
 }
 
 func TestLeavingCountsForWhoLeft(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")

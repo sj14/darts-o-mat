@@ -13,6 +13,7 @@ import (
 // A dart the server refuses, e.g. because the player who is up throws on another
 // board, comes back as an error with the server's reason, which the event list shows.
 func TestServerReportsRefusedDarts(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer secret" {
 			w.WriteHeader(http.StatusUnauthorized)

@@ -6,6 +6,7 @@ import (
 )
 
 func TestAccent(t *testing.T) {
+	t.Parallel()
 	p := Player{Name: "Anna"}
 	if got := p.Accent(); !slices.Contains(Colors, got) {
 		t.Fatalf("accent of %q = %q, want one of the colors", p.Name, got)

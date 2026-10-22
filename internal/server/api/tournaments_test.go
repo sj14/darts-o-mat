@@ -10,6 +10,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/internal/server/service"
 	"github.com/sj14/darts-o-mat/internal/server/store"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // client calls the API as one account, with its session cookie.
@@ -55,11 +56,13 @@ func newClient(t *testing.T, h http.Handler, username string) *client {
 }
 
 func TestTournamentAPI(t *testing.T) {
+	t.Parallel()
 	st, err := store.NewSQLite(context.Background(), "file:"+t.Name()+"?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := New(service.New(st, service.Options{Registration: true})).Routes()
+	t.Cleanup(func() { st.Close() }) // the in-memory database is gone with it, also for -count
+	h := New(service.New(st, service.Options{Registration: true, PasswordCost: bcrypt.MinCost})).Routes()
 	anna, ben := newClient(t, h, "anna"), newClient(t, h, "ben")
 	anna.expect(http.StatusNoContent, "POST", "/friends", `{"username":"ben"}`)
 	ben.expect(http.StatusNoContent, "POST", "/friends/1/accept", ``)
@@ -113,11 +116,13 @@ func itoa(n int64) string {
 }
 
 func TestOpenLobbiesAPI(t *testing.T) {
+	t.Parallel()
 	st, err := store.NewSQLite(context.Background(), "file:"+t.Name()+"?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := New(service.New(st, service.Options{Registration: true})).Routes()
+	t.Cleanup(func() { st.Close() }) // the in-memory database is gone with it, also for -count
+	h := New(service.New(st, service.Options{Registration: true, PasswordCost: bcrypt.MinCost})).Routes()
 	// A player has one seat at a time: everyone takes part in one lobby only.
 	anna, ben, carla := newClient(t, h, "anna"), newClient(t, h, "ben"), newClient(t, h, "carla")
 	dora, erik := newClient(t, h, "dora"), newClient(t, h, "erik")

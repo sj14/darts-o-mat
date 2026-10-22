@@ -9,6 +9,7 @@ import (
 )
 
 func TestCheckout(t *testing.T) {
+	t.Parallel()
 	bull := throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bullseye}
 	tests := []struct {
 		mode      OutMode
@@ -52,6 +53,10 @@ func TestCheckout(t *testing.T) {
 
 // TestCheckoutValid checks every suggestion against the rules by playing it.
 func TestCheckoutValid(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("long; runs without -short, e.g. in CI")
+	}
 	for _, mode := range []OutMode{OutModeSingle, OutModeDouble, OutModeMaster} {
 		for remaining := uint64(1); remaining <= 180; remaining++ {
 			for darts := 1; darts <= 3; darts++ {

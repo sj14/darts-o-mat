@@ -284,7 +284,7 @@ func (textsDE) WithPlayers(names string) string { return "mit " + names }
 func (textsDE) PlayerCount(n int) string        { return strconv.Itoa(n) + " Spieler" }
 func (textsDE) GuestsHint() string              { return "Für Mitspieler ohne eigenen Account. Nur du siehst sie." }
 func (textsDE) GuestName() string               { return "Name des Gastspielers" }
-func (textsDE) Add() string                     { return "Anlegen" }
+func (textsDE) Add() string                     { return "Hinzufügen" }
 func (textsDE) RecentGames() string             { return "Letzte Spiele" }
 func (textsDE) StatusAborted() string           { return "abgebrochen" }
 func (textsDE) StatusWaiting() string           { return "wartet" }

@@ -22,6 +22,7 @@ func quick(playerIDs ...int64) game.Game {
 // A finished game can be corrected until a player goes on to the next game, also the one
 // who lost it; then it can't be changed anymore.
 func TestCompleteGame(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -58,6 +59,7 @@ func TestCompleteGame(t *testing.T) {
 // No timer runs for a game that finished a while ago: looking at it works out that its
 // result is final, and stores that.
 func TestCompletedByTime(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -86,6 +88,7 @@ func TestCompletedByTime(t *testing.T) {
 // Starting another game completes the games that just finished, not those still running,
 // so one account can keep several boards going.
 func TestStartingAGameCompletesTheFinishedOnes(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -118,6 +121,7 @@ func TestStartingAGameCompletesTheFinishedOnes(t *testing.T) {
 // Accepting an invitation to the next game accepts the result of the last one, also for
 // the one who lost it, so it is final before the next starts.
 func TestAcceptingAGameCompletesTheFinishedOne(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
@@ -145,6 +149,7 @@ func TestAcceptingAGameCompletesTheFinishedOne(t *testing.T) {
 
 // Whoever left a game has no say in its result.
 func TestThoseWhoLeftCantComplete(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
@@ -184,6 +189,7 @@ func TestThoseWhoLeftCantComplete(t *testing.T) {
 // A game counts in the statistics once it is completed, and is stored then: it is not
 // replayed again, and what is stored doesn't change anymore.
 func TestStatsOfCompletedGames(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	offset := time.Duration(0)

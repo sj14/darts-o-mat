@@ -9,6 +9,7 @@ import (
 // reconnects again if it ran for a while, so a camera that keeps failing doesn't make the
 // board reopen its cameras in a loop.
 func TestReconnectAfter(t *testing.T) {
+	t.Parallel()
 	start := time.Now()
 	for _, tt := range []struct {
 		name        string

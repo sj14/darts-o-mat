@@ -12,6 +12,10 @@ import (
 )
 
 func TestAssignCameras(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("long; runs without -short, e.g. in CI")
+	}
 	cam1, cam2, cam3 := loadRGBA(t, "testdata/cam1.jpg"), loadRGBA(t, "testdata/cam2.jpg"), loadRGBA(t, "testdata/cam3.jpg")
 	refs := []image.Image{cam1, cam2, cam3}
 

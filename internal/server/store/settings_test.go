@@ -12,11 +12,13 @@ import (
 // The settings of each mode are in a table of their own and come back with the game; a
 // game that takes over the settings of another (a tournament's) shares the row.
 func TestModeSettingsTables(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	st, err := NewSQLite(ctx, "file:"+t.Name()+"?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { st.Close() }) // the in-memory database is gone with it, also for -count
 	create := func(s game.Settings) game.Game {
 		g := game.Game{Settings: s, Participants: []game.Participant{{PlayerID: 1}, {PlayerID: 2}}}
 		if err := st.CreateGame(ctx, &g); err != nil {
@@ -52,11 +54,13 @@ func TestModeSettingsTables(t *testing.T) {
 
 // A game that is deleted takes its settings row along, unless another game still uses it.
 func TestDeletingAGameDeletesItsSettings(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	st, err := NewSQLite(ctx, "file:"+t.Name()+"?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { st.Close() }) // the in-memory database is gone with it, also for -count
 	create := func(s game.Settings) game.Game {
 		g := game.Game{Settings: s, Participants: []game.Participant{{PlayerID: 1, Status: game.InvitationAccepted}, {PlayerID: 2}}}
 		if err := st.CreateGame(ctx, &g); err != nil {

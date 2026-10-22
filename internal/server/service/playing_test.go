@@ -19,6 +19,7 @@ func busyIn(err error) (gameID, tournamentID int64, ok bool) {
 // over. Invitations, finished games and games they left don't count, and an account can
 // still run games of other players at once.
 func TestOneSeatPerPlayer(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")
@@ -113,6 +114,7 @@ func TestOneSeatPerPlayer(t *testing.T) {
 
 // A lobby stays offered as long as someone is in it, and is gone once the last one left.
 func TestLobbyGoneWithTheLastPlayer(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")

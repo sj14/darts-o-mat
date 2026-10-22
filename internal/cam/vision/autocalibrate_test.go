@@ -32,6 +32,10 @@ func autoDeviation(m Mapping, truthToImage Homography) float64 {
 // tap anywhere in the double of the 20 has to lead to the same calibration, whichever of
 // them is looked at and wherever in the segment (±9°, between the rings) the tap is.
 func TestAutoCalibrateReal(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("long; runs without -short, e.g. in CI")
+	}
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)
@@ -70,6 +74,7 @@ func TestAutoCalibrateReal(t *testing.T) {
 // The points read off a result are as good as clicked ones: refining from them again leads
 // to the same calibration.
 func TestAutoCalibratePoints(t *testing.T) {
+	t.Parallel()
 	calib, _ := LoadCalibration("testdata/calibration.json")
 	cam, _ := calib.Camera("cam2")
 	truth, _ := cam.ToBoard()
@@ -95,6 +100,7 @@ func TestAutoCalibratePoints(t *testing.T) {
 
 // Where there is no double ring to be found, it says so instead of making something up.
 func TestAutoCalibrateNoBoard(t *testing.T) {
+	t.Parallel()
 	calib, _ := LoadCalibration("testdata/calibration.json")
 	cam, _ := calib.Camera("cam1")
 	truth, _ := cam.ToBoard()
@@ -123,6 +129,7 @@ func TestAutoCalibrateNoBoard(t *testing.T) {
 // A board drawn by the tests' own renderer, seen from the side, is found as well: it has no
 // glare and no logos, so this is the geometry alone.
 func TestAutoCalibrateSynthetic(t *testing.T) {
+	t.Parallel()
 	calib, _ := LoadCalibration("testdata/calibration.json")
 	cam, _ := calib.Camera("cam3")
 	truth, _ := cam.ToBoard()
@@ -144,6 +151,7 @@ func TestAutoCalibrateSynthetic(t *testing.T) {
 // and the numbers to the board's rim. The taps are in the double of the 20, which lies
 // left, right and below in the three pictures.
 func TestAutoCalibrateFlat(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		file string
 		tap  dartboard.Point

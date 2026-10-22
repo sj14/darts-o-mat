@@ -9,6 +9,7 @@ import (
 )
 
 func TestPlayersOnTheirOwnBoards(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -71,6 +72,7 @@ func TestPlayersOnTheirOwnBoards(t *testing.T) {
 }
 
 func TestOpenTournamentOnTheirOwnBoards(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")

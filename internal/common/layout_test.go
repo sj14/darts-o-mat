@@ -14,6 +14,7 @@ const module = "github.com/sj14/darts-o-mat/internal/"
 // The project is one Go module, so the compiler doesn't keep the programs apart: this does.
 // The server and the camera share only what is in common; common knows neither of them.
 func TestImports(t *testing.T) {
+	t.Parallel()
 	forbidden := map[string][]string{
 		"common": {"server", "cam"},
 		"server": {"cam"},

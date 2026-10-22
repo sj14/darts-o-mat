@@ -12,6 +12,7 @@ import (
 )
 
 func TestWatcher(t *testing.T) {
+	t.Parallel()
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)
@@ -53,6 +54,7 @@ func TestWatcher(t *testing.T) {
 }
 
 func TestWatcherIgnoresStillBoard(t *testing.T) {
+	t.Parallel()
 	img := loadRGBA(t, "testdata/cam3.jpg")
 	w := NewWatcher([]Mapping{{ToBoard: Homography{1, 0, 0, 0, 1, 0, 0, 0, 1}}}, DefaultWatchOptions)
 	for range 10 {
@@ -64,6 +66,7 @@ func TestWatcherIgnoresStillBoard(t *testing.T) {
 
 // The caller may reuse the slice of frames between calls, like darts-o-cam does.
 func TestWatcherReusedSlice(t *testing.T) {
+	t.Parallel()
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)
@@ -104,6 +107,7 @@ func single1(t *testing.T, toBoard Homography) dartboard.Point {
 
 // Pulling a dart out changes the image as much as throwing it, but must not count as a dart.
 func TestWatcherTakeout(t *testing.T) {
+	t.Parallel()
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)
@@ -149,6 +153,7 @@ func TestWatcherTakeout(t *testing.T) {
 // Darts already in the board when the watcher starts are unknown to it. With an image
 // of the empty board it still recognizes pulling them out as a takeout.
 func TestWatcherTakeoutOfUnknownDarts(t *testing.T) {
+	t.Parallel()
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)
@@ -180,6 +185,7 @@ func TestWatcherTakeoutOfUnknownDarts(t *testing.T) {
 // TestWatcherRemovedReal tells darts thrown from darts pulled out on real recordings,
 // by comparing with the empty board.
 func TestWatcherRemovedReal(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		event, camera string
 		removed       bool
@@ -205,6 +211,10 @@ func TestWatcherRemovedReal(t *testing.T) {
 // TestWatcherRemovedExposure: while the darts were pulled out, one camera adjusted its
 // exposure, so its whole image changed. The other two cameras clearly saw the takeout.
 func TestWatcherRemovedExposure(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("long; runs without -short, e.g. in CI")
+	}
 	for _, tt := range []struct {
 		event   string
 		removed bool
@@ -235,6 +245,7 @@ func TestWatcherRemovedExposure(t *testing.T) {
 // empty board), is a miss without a position: e.g. a dart far out in the surround,
 // where the cameras took a thin change along the board's rim for it (2026-10-13).
 func TestWatcherUnlocatedMiss(t *testing.T) {
+	t.Parallel()
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)

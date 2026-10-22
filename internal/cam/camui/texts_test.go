@@ -15,6 +15,7 @@ var sameInAllLanguages = []string{"Server", "PositionMM", "Board", "Boards"}
 // TestTranslations checks that English is complete and German fully translated (see
 // view.TestTranslations).
 func TestTranslations(t *testing.T) {
+	t.Parallel()
 	en := textsOf(i18n.English)
 	if empty := i18n.Empty(en); len(empty) > 0 {
 		t.Errorf("English texts are empty: %v", empty)
@@ -26,6 +27,7 @@ func TestTranslations(t *testing.T) {
 
 // TestLanguage checks that the pages follow the browser's language.
 func TestLanguage(t *testing.T) {
+	t.Parallel()
 	_, srv := newUI(t)
 	for lang, want := range map[string]string{
 		"":               "Detection is waiting for a calibrated camera.",

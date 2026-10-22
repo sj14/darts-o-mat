@@ -15,6 +15,7 @@ import (
 // Stream sends the rendered data as an event after each change, every line in its own
 // data field, and ends when render fails.
 func TestStream(t *testing.T) {
+	t.Parallel()
 	changes := make(chan struct{}, 1)
 	renders := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -57,6 +58,7 @@ func TestStream(t *testing.T) {
 
 // A stream ends when the server shuts down, so http.Server.Shutdown doesn't wait for it.
 func TestStreamEndsOnShutdown(t *testing.T) {
+	t.Parallel()
 	done := make(chan struct{})
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		Stream(w, r, "board", nil, func() (string, error) { return "", nil })

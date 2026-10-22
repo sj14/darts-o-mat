@@ -15,6 +15,7 @@ func onBoard(v GameView, playerID, boardID int64) bool {
 }
 
 func TestUseBoard(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -72,6 +73,7 @@ func TestUseBoard(t *testing.T) {
 }
 
 func TestNewGameTakesTheBoard(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -103,6 +105,7 @@ func TestNewGameTakesTheBoard(t *testing.T) {
 
 // Friends at one board share it: the friend picks the board the host throws on.
 func TestFriendsShareABoard(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -144,6 +147,7 @@ func TestFriendsShareABoard(t *testing.T) {
 // A board that broke is taken from the running game: its players enter the darts by hand
 // from then on, as if they had played without a board from the start.
 func TestUseNoBoard(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -195,6 +199,7 @@ func TestUseNoBoard(t *testing.T) {
 // A game that gets a board after darts were typed in by hand goes on: the turns before
 // had no takeouts, from now on it waits for them.
 func TestBoardAfterHandEnteredDarts(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")

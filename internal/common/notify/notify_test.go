@@ -3,6 +3,7 @@ package notify
 import "testing"
 
 func TestHub(t *testing.T) {
+	t.Parallel()
 	var h Hub[int]
 	ch, stop := h.Subscribe(1)
 	other, stopOther := h.Subscribe(2)

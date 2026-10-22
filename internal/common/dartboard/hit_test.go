@@ -6,6 +6,7 @@ import (
 )
 
 func TestHitString(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		dart Hit
 		want string
@@ -24,6 +25,7 @@ func TestHitString(t *testing.T) {
 }
 
 func TestHitScore(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		dart Hit
 		want uint64
@@ -43,6 +45,7 @@ func TestHitScore(t *testing.T) {
 }
 
 func TestHitValidate(t *testing.T) {
+	t.Parallel()
 	valid := []Hit{
 		{Segment: Miss, Number: 20},
 		{Segment: Miss},
@@ -70,6 +73,7 @@ func TestHitValidate(t *testing.T) {
 }
 
 func TestSegmentJSON(t *testing.T) {
+	t.Parallel()
 	data, err := json.Marshal(Hit{Number: 20, Segment: Outer})
 	if err != nil {
 		t.Fatal(err)

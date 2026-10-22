@@ -13,6 +13,7 @@ import (
 )
 
 func TestDefaultBoard(t *testing.T) {
+	t.Parallel()
 	view := func(id int64, used time.Duration) board.Board {
 		b := board.Board{ID: id}
 		if used != 0 {
@@ -39,6 +40,7 @@ func TestDefaultBoard(t *testing.T) {
 }
 
 func TestHandEntry(t *testing.T) {
+	t.Parallel()
 	board1, board2 := int64(1), int64(2)
 	const anna, ben, guest = int64(10), int64(20), int64(30)
 	progress := func(current int64) progress {
@@ -83,6 +85,7 @@ func TestHandEntry(t *testing.T) {
 }
 
 func TestLastTurnOf(t *testing.T) {
+	t.Parallel()
 	st := x01.State{Turns: []x01.Turn{
 		{PlayerID: 1, Round: 1, Points: 125, Complete: true},
 		{PlayerID: 2, Round: 1, Points: 0, Bust: true, Complete: true},

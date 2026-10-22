@@ -7,6 +7,7 @@ import (
 )
 
 func TestRatePlayer(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
@@ -57,6 +58,7 @@ func TestRatePlayer(t *testing.T) {
 
 // Others see the share of thumbs up in the list of open games, from three thumbs on.
 func TestReputationInOpenGames(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	ben, erik := register(t, s, "ben"), register(t, s, "erik")
@@ -99,6 +101,7 @@ func TestReputationInOpenGames(t *testing.T) {
 
 // Many games against one player count as one thumb, the newest.
 func TestThumbsCountOncePerPlayer(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")

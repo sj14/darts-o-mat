@@ -30,6 +30,7 @@ func hitsUpTo(n uint8) []throw.Dart {
 }
 
 func TestPlay(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		settings    Settings
@@ -133,6 +134,7 @@ func oneplayer(darts []throw.Dart) []throw.Dart {
 }
 
 func TestPlayAfterWin(t *testing.T) {
+	t.Parallel()
 	_, err := Play(Settings{}, []int64{1}, append(hitsUpTo(20), throw.Dart{Segment: dartboard.Miss}))
 	if !errors.Is(err, turn.ErrGameOver) {
 		t.Errorf("got %v, want ErrGameOver", err)
@@ -140,6 +142,7 @@ func TestPlayAfterWin(t *testing.T) {
 }
 
 func TestStats(t *testing.T) {
+	t.Parallel()
 	darts := []throw.Dart{hit(1, 1), hit(5, 1), hit(2, 1), throw.Dart{Segment: dartboard.Miss}}
 	st, err := Play(Settings{}, []int64{1, 2}, darts)
 	if err != nil {
@@ -154,6 +157,7 @@ func TestStats(t *testing.T) {
 }
 
 func TestTurns(t *testing.T) {
+	t.Parallel()
 	darts := []throw.Dart{hit(1, 1), hit(5, 1), hit(2, 1), {Segment: dartboard.Miss}, hit(3, 1)}
 	st, err := Play(Settings{}, []int64{1, 2}, darts)
 	if err != nil {
@@ -185,6 +189,7 @@ func TestTurns(t *testing.T) {
 }
 
 func TestLegs(t *testing.T) {
+	t.Parallel()
 	log := turn.Log{Legs: 2, Entries: oneplayer(hitsUpTo(20))}
 	st, err := PlayLog(Settings{}, []int64{1, 2}, log)
 	if err != nil {

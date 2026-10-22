@@ -7,6 +7,7 @@ import (
 )
 
 func TestUniquePath(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	touch := func(name string) {
 		if err := os.WriteFile(filepath.Join(dir, name), nil, 0o644); err != nil {
@@ -32,6 +33,7 @@ func TestUniquePath(t *testing.T) {
 
 // A page can only suggest a name; it never reaches a folder of its own choosing.
 func TestCleanName(t *testing.T) {
+	t.Parallel()
 	for in, want := range map[string]string{
 		"001-cam1-before.jpg":    "001-cam1-before.jpg",
 		"../../.ssh/config":      "config",

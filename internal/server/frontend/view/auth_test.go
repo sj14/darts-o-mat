@@ -9,6 +9,7 @@ import (
 
 // The registration page shows Cloudflare's widget only with a site key.
 func TestRegisterShowsTheCaptchaOnlyWithAKey(t *testing.T) {
+	t.Parallel()
 	render := func(m AuthModel) string {
 		var b bytes.Buffer
 		m.Registration = true

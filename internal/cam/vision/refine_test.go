@@ -56,6 +56,7 @@ func renderBoard(toImage Homography, w, h int) *image.RGBA {
 }
 
 func TestRefineCalibration(t *testing.T) {
+	t.Parallel()
 	// The view of one of the development board's cameras.
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
@@ -120,6 +121,7 @@ func TestRefineCalibration(t *testing.T) {
 // the empty board, from a deliberately rough start (rotated by 4°, shifted by 10 px, up
 // to ~30 mm off). It must end up where the refinement from the hand-clicked points does.
 func TestRefineCalibrationReal(t *testing.T) {
+	t.Parallel()
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)

@@ -13,11 +13,13 @@ import (
 // Of the games on a board only those that may still be running are listed: started, not
 // aborted, not completed. Games on other boards aren't.
 func TestListUnfinishedGamesByBoard(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	st, err := NewSQLite(ctx, "file:"+t.Name()+"?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { st.Close() }) // the in-memory database is gone with it, also for -count
 	b, other := board.Board{AccountID: 1, Name: "B"}, board.Board{AccountID: 1, Name: "Other"}
 	for _, x := range []*board.Board{&b, &other} {
 		if err := st.CreateBoard(ctx, x); err != nil {

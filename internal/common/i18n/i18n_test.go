@@ -3,6 +3,7 @@ package i18n
 import "testing"
 
 func TestNegotiate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		header string
 		want   Lang

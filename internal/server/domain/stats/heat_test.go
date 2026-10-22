@@ -7,6 +7,7 @@ import (
 )
 
 func TestHeat(t *testing.T) {
+	t.Parallel()
 	h := NewHeat([]dartboard.Point{{X: 1, Y: 1}, {X: 2, Y: 3}, {X: -1, Y: 1}, {X: 500, Y: 0}})
 	if h.Darts != 3 || h.Max != 2 || len(h.Cells) != 2 {
 		t.Fatalf("heat = %+v; want 3 darts (the far one left out) in 2 cells, 2 in the fullest", h)

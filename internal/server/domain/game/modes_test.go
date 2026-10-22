@@ -9,6 +9,7 @@ import (
 )
 
 func TestRulesMustFitTheMode(t *testing.T) {
+	t.Parallel()
 	ok := Settings{Mode: ModeX01, Legs: 1, Sets: 1, Rules: &x01.Settings{StartScore: 501, OutMode: x01.OutModeDouble}}
 	if err := ok.Validate(); err != nil {
 		t.Fatal(err)
@@ -27,6 +28,7 @@ func TestRulesMustFitTheMode(t *testing.T) {
 
 // The rules are written as "rules", and read into the type of the mode once it is prepared.
 func TestRulesJSON(t *testing.T) {
+	t.Parallel()
 	out, err := json.Marshal(Settings{Mode: ModeAroundTheClock, Rules: &aroundtheclock.Settings{Bull: true}})
 	if err != nil {
 		t.Fatal(err)

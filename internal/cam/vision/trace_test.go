@@ -5,6 +5,7 @@ import "testing"
 // TestTraceDart checks that the trace comes to the same tip as the detection and records
 // its steps.
 func TestTraceDart(t *testing.T) {
+	t.Parallel()
 	calib, err := LoadCalibration("testdata/calibration.json")
 	if err != nil {
 		t.Fatal(err)

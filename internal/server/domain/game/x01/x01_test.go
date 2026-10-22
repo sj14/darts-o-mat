@@ -23,6 +23,7 @@ func hit(number, multiplier uint8) throw.Dart {
 var miss = throw.Dart{Segment: dartboard.Miss}
 
 func TestPlay(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		settings      Settings
@@ -180,6 +181,7 @@ func TestPlay(t *testing.T) {
 }
 
 func TestPlayErrors(t *testing.T) {
+	t.Parallel()
 	s := Settings{StartScore: 40, OutMode: OutModeDouble}
 
 	_, err := Play(s, []int64{1}, []throw.Dart{hit(20, 2), miss})
@@ -194,6 +196,7 @@ func TestPlayErrors(t *testing.T) {
 }
 
 func TestOutModeJSON(t *testing.T) {
+	t.Parallel()
 	var m OutMode
 	if err := m.UnmarshalText([]byte("master")); err != nil || m != OutModeMaster {
 		t.Errorf("unmarshal master: got %v, %v", m, err)
@@ -204,6 +207,7 @@ func TestOutModeJSON(t *testing.T) {
 }
 
 func TestStats(t *testing.T) {
+	t.Parallel()
 	s := Settings{StartScore: 501, OutMode: OutModeDouble}
 	darts := []throw.Dart{
 		hit(20, 3), hit(20, 3), hit(20, 3), // player 1: 180
@@ -228,6 +232,7 @@ func TestStats(t *testing.T) {
 }
 
 func TestStatsBustAndCheckout(t *testing.T) {
+	t.Parallel()
 	s := Settings{StartScore: 100, OutMode: OutModeDouble}
 	darts := []throw.Dart{
 		hit(20, 3), hit(19, 1), hit(20, 1), // 21 left, then 20 leaves 1: bust, the turn scores 0
@@ -244,6 +249,7 @@ func TestStatsBustAndCheckout(t *testing.T) {
 }
 
 func TestTurns(t *testing.T) {
+	t.Parallel()
 	s := Settings{StartScore: 100, OutMode: OutModeDouble}
 	darts := []throw.Dart{
 		hit(20, 3), hit(5, 1), hit(1, 1), // player 1 scores 66, 34 left
@@ -285,6 +291,7 @@ func TestTurns(t *testing.T) {
 }
 
 func TestPlayLogWaitForTakeout(t *testing.T) {
+	t.Parallel()
 	s := Settings{StartScore: 501, OutMode: OutModeDouble}
 	darts := []throw.Dart{hit(20, 3), hit(20, 3), hit(20, 3)}
 
@@ -316,6 +323,7 @@ func TestPlayLogWaitForTakeout(t *testing.T) {
 }
 
 func TestLegs(t *testing.T) {
+	t.Parallel()
 	s := Settings{StartScore: 40, OutMode: OutModeDouble}
 	log := turn.Log{Legs: 2, Entries: []throw.Dart{
 		hit(20, 2), // leg 1: player 1 checks out and wins it at once
@@ -361,6 +369,7 @@ func TestLegs(t *testing.T) {
 }
 
 func TestStatsPointsAfterBust(t *testing.T) {
+	t.Parallel()
 	// The first dart of a busted turn doesn't count for the average.
 	st, _ := Play(Settings{StartScore: 30, OutMode: OutModeDouble}, []int64{1}, []throw.Dart{hit(20, 1), hit(20, 1)})
 	if got := st.Players[0].Stats.Points; got != 0 {

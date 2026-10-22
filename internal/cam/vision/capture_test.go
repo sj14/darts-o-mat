@@ -12,6 +12,7 @@ import (
 // Next waits for a new frame, and stops waiting when its context is done, so a detection
 // can be stopped while a camera delivers nothing.
 func TestLiveNext(t *testing.T) {
+	t.Parallel()
 	l := &Live{}
 	l.cond = sync.NewCond(&l.mu)
 	deliver := func() {

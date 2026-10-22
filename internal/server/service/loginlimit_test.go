@@ -8,6 +8,7 @@ import (
 )
 
 func TestLoginLimit(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	register(t, s, "anna")
@@ -67,6 +68,7 @@ func TestLoginLimit(t *testing.T) {
 }
 
 func TestLoginLimitPerNetwork(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	register(t, s, "anna")
@@ -92,6 +94,7 @@ func TestLoginLimitPerNetwork(t *testing.T) {
 }
 
 func TestClientNetwork(t *testing.T) {
+	t.Parallel()
 	s := newService(t)
 	none := func(string) string { return "" }
 	for remote, want := range map[string]string{

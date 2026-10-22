@@ -25,6 +25,7 @@ func files(t *testing.T, dir string) []string {
 }
 
 func TestEventFramesOnDisk(t *testing.T) {
+	t.Parallel()
 	frameDir := t.TempDir()
 	// A file from an earlier start: the numbers start over, so it goes.
 	if err := os.WriteFile(filepath.Join(frameDir, "001-cam1-before.jpg"), []byte("old"), 0o644); err != nil {
@@ -69,6 +70,7 @@ func TestEventFramesOnDisk(t *testing.T) {
 
 // With -save, the frames of all detections are kept, also from earlier starts.
 func TestEventFramesKept(t *testing.T) {
+	t.Parallel()
 	frameDir := t.TempDir()
 	old := filepath.Join(frameDir, "099-cam1-before.jpg")
 	if err := os.WriteFile(old, []byte("old"), 0o644); err != nil {
@@ -91,6 +93,7 @@ func TestEventFramesKept(t *testing.T) {
 // kept (its frames are still being saved): the answer is shown all the same, and later
 // ones replace it.
 func TestReportBeforeEventIsKept(t *testing.T) {
+	t.Parallel()
 	a, err := New(t.TempDir(), Options{FrameDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)

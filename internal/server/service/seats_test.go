@@ -12,6 +12,7 @@ import (
 // A game begins as a lobby with the player of the account who created it; players are
 // added and friends invited there, and a player starts it, which draws the order.
 func TestGameLobby(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben, cara := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara")
@@ -93,6 +94,7 @@ func TestGameLobby(t *testing.T) {
 // Taking players out of the lobby: the last one ends it; a guest's game can begin while the
 // account's own player plays elsewhere.
 func TestRemoveFromLobby(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
@@ -133,6 +135,7 @@ func TestRemoveFromLobby(t *testing.T) {
 
 // A tournament starts like a game, once it has enough players; the draw is made then.
 func TestTournamentLobby(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna := register(t, s, "anna")
@@ -159,6 +162,7 @@ func TestTournamentLobby(t *testing.T) {
 
 // An open lobby starts by itself when its last seat is taken.
 func TestOpenLobbyStartsWhenFull(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")

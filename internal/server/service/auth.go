@@ -32,10 +32,6 @@ var (
 	ErrEmailTaken = store.ErrEmailTaken
 )
 
-// dummyHash is compared against when a username doesn't exist,
-// so a failed login takes the same time whether the username exists or not.
-var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("darts-o-mat"), bcrypt.DefaultCost)
-
 // CaptchaSiteKey is the public key of the widget the registration page shows, empty if
 // registrations aren't checked.
 func (s *Service) CaptchaSiteKey() string {
@@ -83,7 +79,7 @@ func (s *Service) Register(ctx context.Context, username, email, name, password 
 		name = username
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.opts.PasswordCost)
 	if err != nil {
 		return account.Account{}, err
 	}
@@ -136,7 +132,7 @@ func (s *Service) Login(ctx context.Context, username, password string) (string,
 func (s *Service) login(ctx context.Context, username, password string) (string, account.Account, error) {
 	a, err := s.store.GetAccountByUsername(ctx, username)
 	if errors.Is(err, store.ErrNotFound) {
-		_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(password))
+		_ = bcrypt.CompareHashAndPassword(s.dummyHash, []byte(password))
 		return "", account.Account{}, ErrUnauthenticated
 	}
 	if err != nil {

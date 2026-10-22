@@ -22,6 +22,7 @@ func correctionOf(offset func(ring, angle float64) float64) *GridCorrection {
 }
 
 func TestGridCorrection(t *testing.T) {
+	t.Parallel()
 	// The double ring is found 1 mm outside its wires towards the 6 (90°), on the other
 	// side not at all; all other rings are where they belong.
 	c := correctionOf(func(ring, angle float64) float64 {
@@ -59,6 +60,7 @@ func TestGridCorrection(t *testing.T) {
 }
 
 func TestMappingTip(t *testing.T) {
+	t.Parallel()
 	// The image is the board, 1 px per mm, but upside down: the image's y points down.
 	m := Mapping{ToBoard: Homography{1, 0, 0, 0, -1, 0, 0, 0, 1}}
 	// A dart in the 20 whose flight points up in the image, away from the center.

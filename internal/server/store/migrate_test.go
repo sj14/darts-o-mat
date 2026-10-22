@@ -49,6 +49,7 @@ var models = []any{
 // The SQLite migrations, written by hand, give the same schema as the structs: tables,
 // columns with their types, defaults and keys, and indexes.
 func TestSQLiteMigrationsMatchModels(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	open := func(name string) *bun.DB {
 		sqldb, err := sql.Open("sqlite", "file:"+t.Name()+name+"?mode=memory&cache=shared")
@@ -138,6 +139,7 @@ func sqliteSchema(t *testing.T, db *bun.DB) string {
 //
 // When it fails, it prints the SQL that is missing: the start of a new migration.
 func TestPostgresMigrationsMatchModels(t *testing.T) {
+	t.Parallel()
 	dsn := os.Getenv("DARTS_O_MAT_TEST_POSTGRES")
 	if dsn == "" {
 		t.Skip("DARTS_O_MAT_TEST_POSTGRES isn't set")

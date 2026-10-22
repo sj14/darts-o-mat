@@ -74,6 +74,10 @@ func click(p dartboard.Point) url.Values {
 // One click on the double of the 20 calibrates the camera, and the result can be refined
 // again from its points like a calibration clicked by hand.
 func TestCalibrateByOneClick(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("long; runs without -short, e.g. in CI")
+	}
 	ui, app, srv, tap := calibrationFixture(t)
 
 	_, body := get(t, srv, "/cam/cam1/calibrate")
@@ -102,6 +106,7 @@ func TestCalibrateByOneClick(t *testing.T) {
 
 // If the click leads nowhere, the user is told and gets the wire crossings to click.
 func TestCalibrateFallsBackToClicking(t *testing.T) {
+	t.Parallel()
 	ui, app, srv, _ := calibrationFixture(t)
 
 	resp := post(t, srv, "/cam/cam1/auto", click(dartboard.Point{X: 30, Y: 30}))
@@ -128,6 +133,7 @@ func TestCalibrateFallsBackToClicking(t *testing.T) {
 
 // The user can also choose the wire crossings right away.
 func TestCalibrateByHandOnRequest(t *testing.T) {
+	t.Parallel()
 	_, _, srv, _ := calibrationFixture(t)
 	post(t, srv, "/cam/cam1/manual", nil)
 	_, body := get(t, srv, "/cam/cam1/calibrate")
@@ -142,6 +148,7 @@ func TestCalibrateByHandOnRequest(t *testing.T) {
 // A failed action on a board, e.g. refining a calibration again, is shown on the board's
 // overview instead of only in the log: the user may have no terminal.
 func TestFailureShownOnOverview(t *testing.T) {
+	t.Parallel()
 	ui, _, _, _ := calibrationFixture(t)
 	failed := refineError{errors.New("too few features")}
 

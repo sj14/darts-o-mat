@@ -15,6 +15,7 @@ func lobbyOf(s game.Settings, t bool, f tournament.Format) OpenLobby {
 }
 
 func TestLobbyFilterMatch(t *testing.T) {
+	t.Parallel()
 	x501 := game.Settings{Mode: game.ModeX01, Legs: 3, Sets: 1, BullOff: true, Rules: &x01.Settings{StartScore: 501, OutMode: x01.OutModeDouble}}
 	x301 := game.Settings{Mode: game.ModeX01, Legs: 1, Sets: 2, TurnSeconds: 60, Rules: &x01.Settings{StartScore: 301, OutMode: x01.OutModeSingle}}
 	atc := game.Settings{Mode: game.ModeAroundTheClock, Legs: 1, Sets: 1, Rules: &aroundtheclock.Settings{}}
@@ -57,6 +58,7 @@ func TestLobbyFilterMatch(t *testing.T) {
 }
 
 func TestLobbyFilterApply(t *testing.T) {
+	t.Parallel()
 	a := OpenLobby{ID: 1, Settings: game.Settings{Mode: game.ModeX01, Legs: 1, Sets: 1, Rules: &x01.Settings{StartScore: 501, OutMode: x01.OutModeDouble}}}
 	b := OpenLobby{ID: 2, Settings: game.Settings{Mode: game.ModeAroundTheClock, Legs: 1, Sets: 1, Rules: &aroundtheclock.Settings{}}}
 	c := OpenLobby{ID: 3, Settings: a.Settings}
@@ -72,6 +74,7 @@ func TestLobbyFilterApply(t *testing.T) {
 }
 
 func TestLobbyFilterFromQuery(t *testing.T) {
+	t.Parallel()
 	q, _ := url.ParseQuery("format=round_robin&mode=x01&start_score=501&out_mode=double&legs=3&sets=2&bull_off=yes&turn_limit=no")
 	want := LobbyFilter{Format: "round_robin", Mode: game.ModeX01, StartScore: 501, OutMode: x01.OutModeDouble, Legs: 3, Sets: 2, BullOff: Yes, TurnLimit: No}
 	if got := LobbyFilterFromQuery(q); got != want {
