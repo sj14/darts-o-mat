@@ -81,8 +81,8 @@ English is the default language, German the first translation; more languages ma
 
 ## Breaking changes
 
-The project isn't in use yet: breaking changes (database schema, API, calibration format) are allowed if they make the code more idiomatic or simpler. Don't build migrations or compatibility workarounds for old data.
-After every change that makes an existing database unusable, explicitly tell the user at the end to delete the old database (e.g. `darts-o-mat.db`). Likewise for other breaking changes (API, calibration file), say what they have to adjust or regenerate.
+The project isn't in use yet: breaking changes (API, calibration format) are allowed if they make the code more idiomatic or simpler. Don't build compatibility workarounds for old clients or calibration files; after such a change, explicitly tell the user at the end what they have to adjust or regenerate.
+The database keeps its data: every change of the schema is a migration for both databases, see [server → database](internal/server/AGENTS.md#database).
 
 ## Technologies
 
@@ -116,7 +116,7 @@ In detail:
 - `internal/server/api`: JSON API under `/api` (server)
 - `internal/server/service`: application logic including permission checks (server)
 - `internal/server/auth`: session cookie and middleware (server)
-- `internal/server/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock, tournaments); `internal/common/dartboard` (board geometry) is used by server and camera
+- `internal/server/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock, tournaments, the texts of the imprint and privacy pages); `internal/common/dartboard` (board geometry) is used by server and camera
 - `internal/server/store`: persistence (server)
 - `internal/common/update`: finds out whether a newer release exists (GitHub, once a day) for the footers of server and camera, see [the rule above](#from-the-home-server-to-saas) (server, camera)
 - `internal/server/captcha`: the optional check that a registration comes from a person (Cloudflare Turnstile), see [server → captcha](internal/server/AGENTS.md#captcha) (server)

@@ -84,6 +84,26 @@ func (textsEN) ProjectPageHint() string {
 }
 func (textsEN) About() string { return "About darts-o-mat" }
 
+func (textsEN) Imprint() string { return "Imprint" }
+func (textsEN) Privacy() string { return "Privacy policy" }
+func (textsEN) PageHint() string {
+	return "Plain text, line breaks stay. Once it has a text the footer of every page links it, also for visitors who aren't logged in; an empty text takes the page down."
+}
+func (textsEN) SavePage() string { return "Save" }
+func (textsEN) ShowPage() string { return "Show page" }
+func (textsEN) Saved() string    { return "Saved." }
+func (textsEN) ErrPageTooLong(max int) string {
+	return "The text is too long, at most " + strconv.Itoa(max) + " characters."
+}
+func (textsEN) AdminTitle() string { return "Administration" }
+func (textsEN) AdminHint() string {
+	return "Settings of this server for everyone who uses it. The first account registered is the admin."
+}
+func (textsEN) AdminLinkHint() string {
+	return "You are the admin of this server: you write the imprint and the privacy policy."
+}
+func (textsEN) OpenAdmin() string { return "Open administration" }
+
 func (textsEN) OpenGames() string   { return "Open games" }
 func (textsEN) NoOpenGames() string { return "No game is looking for players right now." }
 func (textsEN) PlayersOfSeats(players, seats int) string {
@@ -352,7 +372,7 @@ func (textsEN) CameraToken() string { return "Camera token" }
 func (textsEN) CalibrationHint() string {
 	return "The calibration stays on the computer with the cameras, not on this server: darts-o-cam does it there."
 }
-func (textsEN) DownloadCam() string { return "Download darts-o-cam" }
+func (textsEN) DownloadCam() string       { return "Download darts-o-cam" }
 func (textsEN) CameraTokenActive() string { return "Camera token active" }
 func (textsEN) CreateCameraToken() string { return "Create camera token" }
 func (textsEN) NewCameraToken() string    { return "Create a new camera token" }

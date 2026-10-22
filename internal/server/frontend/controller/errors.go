@@ -5,6 +5,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
+	"github.com/sj14/darts-o-mat/internal/server/domain/page"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 	"github.com/sj14/darts-o-mat/internal/server/frontend/view"
 	"github.com/sj14/darts-o-mat/internal/server/service"
@@ -20,6 +21,9 @@ func errorText(t view.Texts, err error) (string, bool) {
 	}
 	if notFriend, ok := errors.AsType[service.NotFriendError](err); ok {
 		return t.ErrNotFriend(notFriend.Username), true
+	}
+	if errors.Is(err, page.ErrTooLong) {
+		return t.ErrPageTooLong(page.MaxLen), true
 	}
 	if errors.Is(err, tournament.ErrPlayerCount) {
 		return t.ErrTournamentPlayers(tournament.MinPlayers, tournament.MaxPlayers), true

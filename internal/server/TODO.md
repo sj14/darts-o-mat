@@ -41,7 +41,10 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
 
 ## Accounts and guests
 
-- Add admin area
+- Admin area: built with the imprint and the privacy policy (2026-10-22, see [AGENTS.md → admin and pages](AGENTS.md#admin-and-pages)). Left:
+  - Several admins: the admin makes other accounts admins (planned as the next rework, 2026-10-22).
+  - An admin who deletes their account leaves the server without one (2026-10-22, not decided): refuse it for the last admin, or pass the role on; until then only SQL (`UPDATE accounts SET admin = true WHERE …`) gives the server a new one.
+  - The pages in the JSON API (not needed so far).
 
 ## Technical
 
@@ -49,12 +52,8 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
 - Failed logins: a list of trusted proxies or the number of hops for `X-Forwarded-For` chains (today the last value of one header counts), and a captcha only after failures, see [AGENTS.md → failed logins](AGENTS.md#failed-logins).
 - A captcha for logging in was left out on purpose (2026-10-18): every login would pay for it and the API couldn't use it; the limit on failed logins does that job.
 - Unsure: switch the primary IDs to UUIDs.
-- Database migrations, once existing data has to be kept (until then the schema comes from the structs, `CreateTable … IfNotExists`, and breaking changes mean deleting the database). Decided 2026-10-17 (SQLite is the database of the home installation, so it needs migrations too):
-  - PostgreSQL: generate them with `migrate.AutoMigrator` from `github.com/uptrace/bun/migrate` (`CreateSQLMigrations`: compares the structs with a database in the previous state and writes the difference as SQL files), review and commit them.
-  - SQLite: write the same migration by hand, as long as Bun's `sqlitedialect` has no schema inspector and migrator (checked in v1.3.0: only `pgdialect` has them, `NewAutoMigrator` fails for SQLite). Many changes need a table rebuild there, since SQLite can't alter columns. Switch to the generated ones once Bun supports SQLite.
-  - One migration directory per database (e.g. `internal/server/store/migrations/postgres` and `…/sqlite`, same names), embedded with `go:embed` and applied at start with `bun/migrate`, instead of `CreateTable`.
-  - Renames aren't detected (they come out as drop + add, losing the data), and data migrations (e.g. filling a new required column): fix them by hand in the generated file. A test could apply all migrations to an empty database of each kind and compare the result with the structs, so the two directories can't drift apart.
-  - Alternative if the hand-written half gets too much: [Atlas](https://atlasgo.io) (`migrate diff` for both databases, also rebuilds SQLite tables), a new external tool.
+- Database migrations are built (2026-10-22, see [AGENTS.md → database](AGENTS.md#database)). Left:
+  - Alternative if writing the SQLite half by hand gets too much: [Atlas](https://atlasgo.io) (`migrate diff` for both databases, also rebuilds SQLite tables), a new external tool. Switch to Bun's own once `sqlitedialect` has a schema inspector.
   - Watch [Turso](https://github.com/tursodatabase/turso): its Postgres frontend (dialect and wire protocol) would let SQLite files be used with only the Postgres dialect in the code, `pgdriver` and `AutoMigrator` for both. Not yet (2026-10-17): the frontend is listed as experimental, Turso isn't 1.0, and over the wire protocol it is a server process of its own, which the home installation would have to install and run next to darts-o-mat. Once it is stable, test whether `AutoMigrator` works with it (it reads the schema from Postgres' system catalogs).
   - Rejected for now: dropping SQLite (the home installation would need a Postgres server or a container) and [embedded-postgres](https://github.com/fergusstrange/embedded-postgres) for it (downloads the Postgres binaries on the first start, against "works without internet" unless bundled with tens of MB per platform; v2 is an alpha meant mainly for tests; a second process to manage). It would fit the tests, if SQLite is ever dropped.
 - ELO rating (offered 2026-10-20, after the thumbs): per mode, one value per player with an account, only for games of exactly two such players of different accounts (no guests, no games with more players at first), start 1000, K=32; stored per game (before and after) as the result is stored, because the order matters. Starting or joining the next game or tournament completes the last one (2026-10-20), so the rating is final before it; only a game left alone is completed lazily by the minute. Caveats to name: no allowance for 301 against 501, legs or sets; friends can pump each other up.

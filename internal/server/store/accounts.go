@@ -16,7 +16,8 @@ var (
 	ErrEmailTaken    = errors.New("email already taken")
 )
 
-// CreateAccount stores the account together with its player.
+// CreateAccount stores the account together with its player; the first account becomes the
+// admin.
 func (store *Store) CreateAccount(ctx context.Context, a *account.Account, p *player.Player) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		exists, err := tx.NewSelect().Model((*account.Account)(nil)).Where("username = ?", a.Username).Exists(ctx)
@@ -31,6 +32,13 @@ func (store *Store) CreateAccount(ctx context.Context, a *account.Account, p *pl
 		} else if taken {
 			return ErrEmailTaken
 		}
+
+		// The first account is the admin.
+		others, err := tx.NewSelect().Model((*account.Account)(nil)).Exists(ctx)
+		if err != nil {
+			return err
+		}
+		a.Admin = !others
 
 		if _, err := tx.NewInsert().Model(p).Exec(ctx); err != nil {
 			return err

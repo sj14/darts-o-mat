@@ -99,7 +99,7 @@ The footer of every page says "Version … available" when there is a newer rele
 
 ## Playing
 
-1. On your first visit create an account ("Register"). Every account is also your player. You may enter an email address; it is optional, nothing is sent to it yet, and you can change or remove it under "Settings".
+1. On your first visit create an account ("Register"). Every account is also your player. You may enter an email address; it is optional, nothing is sent to it yet, and you can change or remove it under "Settings". The first account is the **admin** of the server: under "Settings" → "Open administration" it writes the imprint and the privacy policy, which every page then links at the bottom.
 2. Add fellow players without an account as **guest players** right in the player selection of the new game (the settings you made stay). Players with their own account are added under **Freunde** by username. Once they accept the request, you can **invite** them when starting a game; they have to accept, until then the game waits.
 3. Choose the game mode, tick or invite your fellow players and start.
 4. Enter every throw: first choose single, double or triple, then tap the number – the keys then read e.g. "D20" or "T20". For the bull "Bull" (with "Double" it becomes "Bullseye"; there is no triple bull), for misses "Miss". Misses detected by the cameras show where they went, e.g. "M7" beside the 7. All players with an account can enter throws on their own device.

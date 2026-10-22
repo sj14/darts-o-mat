@@ -11,7 +11,7 @@ import (
 // don't count as untranslated.
 var sameInAllLanguages = []string{
 	"NavBoards", "AroundTheClock", "SetN", "LegN", "Checkout", "Single", "Triple", "Bull", "Bullseye", "Darts",
-	"Board", "ColorName", "Difference", "Finish", "Legs", "Name", "Server", "Sets", "ProjectPage",
+	"Board", "ColorName", "Difference", "Finish", "Legs", "Name", "Server", "Sets", "ProjectPage", "AdminTitle",
 }
 
 // complete are the languages that must have every text translated; for the others the

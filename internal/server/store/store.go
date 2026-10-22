@@ -4,13 +4,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/sj14/darts-o-mat/internal/server/domain/account"
-	"github.com/sj14/darts-o-mat/internal/server/domain/board"
-	"github.com/sj14/darts-o-mat/internal/server/domain/game"
-	"github.com/sj14/darts-o-mat/internal/server/domain/player"
-	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
-	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
-	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -43,41 +36,9 @@ func NewSQLite(ctx context.Context, dsn string) (*Store, error) {
 }
 
 func newStore(ctx context.Context, db *bun.DB) (*Store, error) {
-	models := []any{
-		(*account.Account)(nil),
-		(*account.Session)(nil),
-		(*account.Friendship)(nil),
-		(*game.Game)(nil),
-		(*x01Row)(nil),
-		(*aroundTheClockRow)(nil),
-		(*game.Participant)(nil),
-		(*player.Player)(nil),
-		(*board.Board)(nil),
-		(*board.Token)(nil),
-		(*throw.Dart)(nil),
-		(*stats.Result)(nil),
-		(*stats.TournamentResult)(nil),
-		(*stats.Quit)(nil),
-		(*player.Rating)(nil),
-		(*tournament.Tournament)(nil),
-		(*tournament.Participant)(nil),
-	}
-
-	for _, model := range models {
-		_, err := db.NewCreateTable().Model(model).IfNotExists().Exec(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Accounts may have no email, but never share one. The check above gives the error; this
-	// index keeps it true when two requests race.
-	_, err := db.NewCreateIndex().Model((*account.Account)(nil)).Index("accounts_email_key").
-		Column("email").Unique().Where("email <> ''").IfNotExists().Exec(ctx)
-	if err != nil {
+	if err := migrateSchema(ctx, db); err != nil {
 		return nil, err
 	}
-
 	return &Store{
 		db: db,
 	}, nil

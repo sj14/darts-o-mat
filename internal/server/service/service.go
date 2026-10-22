@@ -16,6 +16,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
+	"github.com/sj14/darts-o-mat/internal/server/domain/page"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/store"
@@ -106,6 +107,9 @@ type Service struct {
 	// started is when the server started: no turn ends earlier than its time after it
 	// (see GameView.TurnDeadline).
 	started time.Time
+	// pages are the texts of the pages, read once (see Pages); SetPage replaces the map.
+	pages   map[page.Name]string
+	pagesMu sync.Mutex
 }
 
 func New(store *store.Store, opts Options) *Service {

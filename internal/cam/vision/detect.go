@@ -526,13 +526,15 @@ type Tip struct {
 // Near the center the cameras surround the dart and their angles say nothing: then it
 // combines each coordinate.
 //
-// Cameras whose tip may be hidden only count if no other camera found the dart.
+// Cameras whose tip may be hidden only count if no other camera found the dart, or if
+// only two did and they are too far apart to tell which one is right (see
+// disagree): the mean of two such cameras is a spot neither of them saw.
 //
 // A camera far from that result is dropped and the others are combined again.
 // Otherwise the median of three takes whichever of the two good cameras is closer to
 // the bad one, instead of the middle between them.
 func FuseTips(tips []Tip) (dartboard.Point, error) {
-	if visible := slices.DeleteFunc(slices.Clone(tips), func(t Tip) bool { return t.Hidden }); len(visible) > 0 {
+	if visible := slices.DeleteFunc(slices.Clone(tips), func(t Tip) bool { return t.Hidden }); len(visible) > 0 && !disagree(visible) {
 		tips = visible
 	}
 	p, err := fuse(tips)
@@ -555,6 +557,15 @@ func FuseTips(tips []Tip) (dartboard.Point, error) {
 // found the tip were measured up to 16 mm apart; one that only saw part of a dart
 // hidden behind another was 30 mm off.
 const maxCameraDeviation = 20.0
+
+// disagree tells whether two cameras are too far apart for their mean: so far that at
+// least one of them is more than maxCameraDeviation from it. Real case (2026-10-22, event
+// 211): the third dart into a group in the 14, cam1 at 24.9 mm in the 17 and cam2 at
+// 69.5 mm in the 14, on opposite sides of the bull; their mean, 46.9 mm, was a 16. cam3,
+// whose tip ended on an earlier dart, saw the 14 at 33.1 mm.
+func disagree(tips []Tip) bool {
+	return len(tips) == 2 && math.Hypot(tips[0].X-tips[1].X, tips[0].Y-tips[1].Y) > 2*maxCameraDeviation
+}
 
 func fuse(tips []Tip) (dartboard.Point, error) {
 	if len(tips) == 0 {

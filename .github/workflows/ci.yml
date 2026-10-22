@@ -14,6 +14,17 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # For the check of the PostgreSQL migrations (internal/server/store).
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DARTS_O_MAT_TEST_POSTGRES: postgres://postgres:test@localhost:5432/postgres?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

@@ -12,6 +12,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/common/i18n"
 	"github.com/sj14/darts-o-mat/internal/common/static"
 	"github.com/sj14/darts-o-mat/internal/server/auth"
+	"github.com/sj14/darts-o-mat/internal/server/domain/page"
 	"github.com/sj14/darts-o-mat/internal/server/frontend/view"
 	"github.com/sj14/darts-o-mat/internal/server/service"
 )
@@ -27,6 +28,7 @@ func New(svc *service.Service) *Controller {
 func (c *Controller) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(i18n.Middleware)
+	r.Use(c.withPages)
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServerFS(static.FS)))
 	r.Get("/login", c.showLogin)
 	r.Post("/login", c.login)
@@ -34,16 +36,26 @@ func (c *Controller) Routes() http.Handler {
 	r.Post("/register", c.register)
 	r.Post("/logout", c.logout)
 
+	// Pages for everyone: with the account of whoever is logged in, without one for the others.
+	r.Group(func(r chi.Router) {
+		r.Use(func(next http.Handler) http.Handler { return auth.Require(c.svc, next.ServeHTTP)(next) })
+		r.Get("/about", c.about)
+		for _, name := range page.Names {
+			r.Get(view.PagePath(name), c.showPage(name))
+		}
+	})
+
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Require(c.svc, c.loggedOut))
 
 		r.Get("/", c.home)
-		r.Get("/about", c.about)
 		r.Post("/language", c.setLanguage)
 		r.Get("/settings", c.showSettings)
 		r.Post("/settings/color", c.setColor)
 		r.Post("/settings/email", c.setEmail)
 		r.Post("/settings/delete", c.deleteAccount)
+		r.Get("/admin", c.showAdmin)
+		r.Post("/admin/pages/{name}", c.setPage)
 		r.Post("/guests", c.createGuest)
 		r.Post("/guests/{id}/delete", c.deleteGuest)
 		r.Get("/stats", c.showStats)
@@ -86,12 +98,12 @@ func (c *Controller) Routes() http.Handler {
 	return r
 }
 
-// loggedOut answers requests of logged-out users: the start page and /about show the landing
-// page, everything else sends them to the login page.
+// loggedOut answers requests of logged-out users: the start page shows the landing page,
+// everything else sends them to the login page.
 // htmx requests get the HX-Redirect header instead, so the login page isn't swapped into the current page.
 func (c *Controller) loggedOut(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet && (r.URL.Path == "/" || r.URL.Path == "/about") {
-		render(w, r, http.StatusOK, view.Landing(c.svc.RegistrationOpen(), ""))
+	if r.Method == http.MethodGet && r.URL.Path == "/" {
+		c.about(w, r)
 		return
 	}
 	if r.Header.Get("HX-Request") != "" {
@@ -101,7 +113,8 @@ func (c *Controller) loggedOut(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
-// about shows the landing page to logged-in accounts, e.g. to find darts-o-cam's download.
+// about shows the landing page, also to logged-in accounts, e.g. to find darts-o-cam's
+// download.
 func (c *Controller) about(w http.ResponseWriter, r *http.Request) {
 	render(w, r, http.StatusOK, view.Landing(c.svc.RegistrationOpen(), auth.Account(r.Context()).Username))
 }

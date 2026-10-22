@@ -83,6 +83,17 @@ type Texts interface {
 	ProjectPageURL() string // the project page in this language
 	ProjectPageHint() string
 	About() string
+	Imprint() string
+	Privacy() string
+	PageHint() string
+	SavePage() string
+	ShowPage() string
+	Saved() string
+	ErrPageTooLong(max int) string
+	AdminTitle() string
+	AdminHint() string
+	AdminLinkHint() string
+	OpenAdmin() string
 	BoardInUse() string
 	BoardInUseConfirm() string
 

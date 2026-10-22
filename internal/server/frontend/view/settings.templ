@@ -1,10 +1,14 @@
 package view
 
-import "github.com/sj14/darts-o-mat/internal/server/domain/player"
+import (
+	"github.com/sj14/darts-o-mat/internal/server/domain/account"
+	"github.com/sj14/darts-o-mat/internal/server/domain/player"
+)
 
-// Settings lets an account change how it appears (the accent color of its player) and its email.
-templ Settings(user, email string, p player.Player, errMsg string) {
-	@layout(T(ctx).NavSettings(), user) {
+// Settings lets an account change how it appears (the accent color of its player) and its
+// email; the admin finds the admin page there.
+templ Settings(acc account.Account, p player.Player, errMsg string) {
+	@layout(T(ctx).NavSettings(), acc.Username) {
 		<div class="mx-auto max-w-3xl">
 			@pageTitle(T(ctx).NavSettings(), "")
 			@errorAlert(errMsg)
@@ -33,9 +37,16 @@ templ Settings(user, email string, p player.Player, errMsg string) {
 				<h2 class={ labelClass }>{ T(ctx).Email() }</h2>
 				<p class={ hintClass }>{ T(ctx).EmailHint() }</p>
 				<form method="post" action="/settings/email" class="mt-4 flex flex-wrap items-center gap-3">
-					<input type="email" name="email" value={ email } class={ inputClass, "max-w-xs" } autocomplete="email" autocapitalize="none" aria-label={ T(ctx).Email() }/>
+					<input type="email" name="email" value={ acc.Email } class={ inputClass, "max-w-xs" } autocomplete="email" autocapitalize="none" aria-label={ T(ctx).Email() }/>
 					<button type="submit" class={ btnSecondary }>{ T(ctx).SaveEmail() }</button>
 				</form>
+			}
+			if acc.Admin {
+				@panel("mt-6") {
+					<h2 class={ labelClass }>{ T(ctx).AdminTitle() }</h2>
+					<p class={ hintClass }>{ T(ctx).AdminLinkHint() }</p>
+					<a href="/admin" class={ btnSecondary, "mt-4 inline-flex" }>{ T(ctx).OpenAdmin() }</a>
+				}
 			}
 			@panel("mt-6 border-board-red/40") {
 				<h2 class={ labelClass }>{ T(ctx).DeleteAccountTitle() }</h2>

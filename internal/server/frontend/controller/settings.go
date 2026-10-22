@@ -20,7 +20,7 @@ func (c *Controller) renderSettings(w http.ResponseWriter, r *http.Request, stat
 		serverError(w, err)
 		return
 	}
-	render(w, r, status, view.Settings(acc.Username, acc.Email, p, errMsg))
+	render(w, r, status, view.Settings(acc, p, errMsg))
 }
 
 // setColor stores the accent color of the account's player and shows the settings again.

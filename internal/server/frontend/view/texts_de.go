@@ -81,6 +81,26 @@ func (textsDE) ProjectPageHint() string {
 }
 func (textsDE) About() string { return "Über darts-o-mat" }
 
+func (textsDE) Imprint() string { return "Impressum" }
+func (textsDE) Privacy() string { return "Datenschutz" }
+func (textsDE) PageHint() string {
+	return "Klartext, Zeilenumbrüche bleiben erhalten. Sobald es einen Text gibt, verlinkt ihn die Fußzeile jeder Seite, auch für Besucher ohne Anmeldung; ein leerer Text nimmt die Seite wieder heraus."
+}
+func (textsDE) SavePage() string { return "Speichern" }
+func (textsDE) ShowPage() string { return "Seite ansehen" }
+func (textsDE) Saved() string    { return "Gespeichert." }
+func (textsDE) ErrPageTooLong(max int) string {
+	return "Der Text ist zu lang, höchstens " + strconv.Itoa(max) + " Zeichen."
+}
+func (textsDE) AdminTitle() string { return "Administration" }
+func (textsDE) AdminHint() string {
+	return "Einstellungen dieses Servers für alle, die ihn nutzen. Das zuerst registrierte Konto ist der Admin."
+}
+func (textsDE) AdminLinkHint() string {
+	return "Du bist Admin dieses Servers: Du schreibst Impressum und Datenschutzerklärung."
+}
+func (textsDE) OpenAdmin() string { return "Administration öffnen" }
+
 func (textsDE) OpenGames() string   { return "Offene Spiele" }
 func (textsDE) NoOpenGames() string { return "Zurzeit sucht kein Spiel Mitspieler." }
 func (textsDE) PlayersOfSeats(players, seats int) string {
@@ -336,7 +356,7 @@ func (textsDE) CameraToken() string { return "Kamera-Token" }
 func (textsDE) CalibrationHint() string {
 	return "Die Kalibrierung liegt auf dem Rechner mit den Kameras, nicht auf diesem Server: Das erledigt dort darts-o-cam."
 }
-func (textsDE) DownloadCam() string { return "darts-o-cam herunterladen" }
+func (textsDE) DownloadCam() string       { return "darts-o-cam herunterladen" }
 func (textsDE) CameraTokenActive() string { return "Kamera-Token aktiv" }
 func (textsDE) CreateCameraToken() string { return "Kamera-Token erzeugen" }
 func (textsDE) NewCameraToken() string    { return "Neuen Kamera-Token erzeugen" }

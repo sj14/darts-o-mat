@@ -33,6 +33,9 @@ type Account struct {
 	// Language of the web interface (see i18n.Lang); empty: the browser's.
 	Language  string    `bun:",notnull,default:''" json:"language"`
 	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	// Admin may change the settings of the server, e.g. the imprint. The first account
+	// registered is the admin.
+	Admin bool `bun:",notnull,default:false" json:"admin"`
 }
 
 // NormalizeUsername makes usernames case-insensitive.
