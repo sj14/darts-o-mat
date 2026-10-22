@@ -40,6 +40,10 @@ On a board the next player is only up once the darts have been pulled out – th
 
 Each player can throw at a board of their own, also when playing with friends or strangers from different places: everybody picks their board when joining.
 
+## Community
+
+Questions, ideas, your board setup: talk about darts-o-mat on [Reddit (r/Darts_o_Mat)](https://www.reddit.com/r/Darts_o_Mat/) or on [Lemmy (discuss.tchncs.de)](https://discuss.tchncs.de/c/Darts_o_Mat). Bugs are best reported as a [GitHub issue](https://github.com/sj14/darts-o-mat/issues).
+
 ## For developers
 
 Notes on architecture and decisions are in the `AGENTS.md` files: [project](AGENTS.md), [server](internal/server/AGENTS.md), [camera](internal/cam/AGENTS.md), [camera access](internal/cam/camera/AGENTS.md). Run the tests with `go test ./...`. Planned work: [project](TODO.md), [server](internal/server/TODO.md), [camera](internal/cam/TODO.md), [camera access](internal/cam/camera/TODO.md).
