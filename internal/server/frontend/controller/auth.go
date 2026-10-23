@@ -4,26 +4,42 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/a-h/templ"
+
 	"github.com/sj14/darts-o-mat/internal/server/auth"
 	"github.com/sj14/darts-o-mat/internal/server/frontend/view"
 	"github.com/sj14/darts-o-mat/internal/server/service"
 )
 
+// renderAuth shows the login or registration page, completing the model: whether
+// registration is open and the key of the captcha widget, empty if registrations aren't
+// checked.
+func (c *Controller) renderAuth(w http.ResponseWriter, r *http.Request, status int, page func(view.AuthModel) templ.Component, m view.AuthModel) {
+	open, err := c.svc.RegistrationOpen(r.Context())
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	m.Registration = open
+	m.CaptchaSiteKey = c.svc.CaptchaSiteKey()
+	render(w, r, status, page(m))
+}
+
 func (c *Controller) showLogin(w http.ResponseWriter, r *http.Request) {
-	render(w, r, http.StatusOK, view.Login(view.AuthModel{Registration: c.svc.RegistrationOpen()}))
+	c.renderAuth(w, r, http.StatusOK, view.Login, view.AuthModel{})
 }
 
 func (c *Controller) login(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	_, err := auth.Login(w, r, c.svc, username, r.FormValue("password"))
 	if errors.Is(err, service.ErrUnauthenticated) {
-		m := view.AuthModel{Username: username, Error: view.T(r.Context()).ErrLogin(), Registration: c.svc.RegistrationOpen()}
-		render(w, r, http.StatusUnauthorized, view.Login(m))
+		m := view.AuthModel{Username: username, Error: view.T(r.Context()).ErrLogin()}
+		c.renderAuth(w, r, http.StatusUnauthorized, view.Login, m)
 		return
 	}
 	if errors.Is(err, service.ErrTooManyLogins) {
-		m := view.AuthModel{Username: username, Error: view.T(r.Context()).ErrTooManyLogins(), Registration: c.svc.RegistrationOpen()}
-		render(w, r, http.StatusTooManyRequests, view.Login(m))
+		m := view.AuthModel{Username: username, Error: view.T(r.Context()).ErrTooManyLogins()}
+		c.renderAuth(w, r, http.StatusTooManyRequests, view.Login, m)
 		return
 	}
 	if err != nil {
@@ -34,20 +50,12 @@ func (c *Controller) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) showRegister(w http.ResponseWriter, r *http.Request) {
-	render(w, r, http.StatusOK, view.Register(c.registerModel(view.AuthModel{})))
-}
-
-// registerModel completes the model of the registration page: whether it is open and the
-// key of the captcha widget, empty if registrations aren't checked.
-func (c *Controller) registerModel(m view.AuthModel) view.AuthModel {
-	m.Registration = c.svc.RegistrationOpen()
-	m.CaptchaSiteKey = c.svc.CaptchaSiteKey()
-	return m
+	c.renderAuth(w, r, http.StatusOK, view.Register, view.AuthModel{})
 }
 
 // register creates the account and logs it in right away.
 func (c *Controller) register(w http.ResponseWriter, r *http.Request) {
-	m := c.registerModel(view.AuthModel{Username: r.FormValue("username"), Email: r.FormValue("email"), Name: r.FormValue("name")})
+	m := view.AuthModel{Username: r.FormValue("username"), Email: r.FormValue("email"), Name: r.FormValue("name")}
 	password := r.FormValue("password")
 
 	// Turnstile's widget adds its answer to the form under this name.
@@ -66,7 +74,7 @@ func (c *Controller) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if m.Error != "" {
-		render(w, r, http.StatusBadRequest, view.Register(m))
+		c.renderAuth(w, r, http.StatusBadRequest, view.Register, m)
 		return
 	}
 

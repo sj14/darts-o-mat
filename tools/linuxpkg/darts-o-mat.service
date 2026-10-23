@@ -8,7 +8,7 @@
 # with, for example:
 #   [Service]
 #   ExecStart=
-#   ExecStart=/usr/bin/darts-o-mat -addr :8080 -registration=false -dsn file:/var/lib/darts-o-mat/darts-o-mat.db
+#   ExecStart=/usr/bin/darts-o-mat -addr :8080 -max-login-failures 5 -dsn file:/var/lib/darts-o-mat/darts-o-mat.db
 # Keys (DARTS_O_MAT_TURNSTILE_SITE_KEY, ...) can go into /etc/darts-o-mat/env instead of
 # the process list: one NAME=value per line, readable by root only.
 [Unit]

@@ -23,7 +23,6 @@ then visit http://localhost:8080 and create an account ("Register").
 The games are kept in the pod only (persistence.enabled=false): they are gone when it is replaced.
 {{- end }}
 {{- end }}
-{{- if .Values.config.registration }}
 
-Anyone who can reach the server can create an account. Set config.registration=false once everybody has one.
-{{- end }}
+The first account is the admin. Anyone who can reach the server can create an account until
+the admin closes the registration under Settings → Open administration.

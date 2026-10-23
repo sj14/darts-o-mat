@@ -37,10 +37,9 @@ securityContext:
     drop:
       - ALL
 
-# How the server runs, see the flags of darts-o-mat (-registration, -db, -dsn).
+# How the server runs, see the flags of darts-o-mat (-db, -dsn). Whether anyone may register
+# is set by the admin in the web interface.
 config:
-  # Let anyone create an account. Turn it off once everybody has one.
-  registration: true
   # sqlite: a file in the volume /data (persistence below), good for a home installation.
   # postgres: a PostgreSQL server of your own, then nothing is stored in the pod.
   database: sqlite

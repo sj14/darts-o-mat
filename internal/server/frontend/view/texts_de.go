@@ -96,7 +96,26 @@ func (textsDE) AdminHint() string {
 func (textsDE) AdminLinkHint() string {
 	return "Du bist Admin dieses Servers: Du schreibst Impressum und Datenschutzerklärung."
 }
-func (textsDE) OpenAdmin() string { return "Administration öffnen" }
+func (textsDE) OpenAdmin() string         { return "Administration öffnen" }
+func (textsDE) RegistrationTitle() string { return "Registrierung" }
+func (textsDE) RegistrationIsOpen() string {
+	return "Die Registrierung ist offen: Jeder, der diesen Server erreicht, kann einen Account anlegen."
+}
+func (textsDE) RegistrationIsClosed() string {
+	return "Die Registrierung ist geschlossen: Niemand kann einen neuen Account anlegen."
+}
+func (textsDE) CaptchaOn() string {
+	return "Beim Registrieren wird geprüft, dass ein Mensch es tut (Cloudflare Turnstile), eingestellt in den Startoptionen des Servers."
+}
+func (textsDE) CaptchaOff() string {
+	return "Beim Registrieren wird nicht geprüft, dass ein Mensch es tut; die Startoptionen des Servers können Cloudflare Turnstile einschalten."
+}
+func (textsDE) OpenRegistration() string {
+	return "Registrierung öffnen"
+}
+func (textsDE) CloseRegistration() string {
+	return "Registrierung schließen"
+}
 
 func (textsDE) OpenGames() string   { return "Offene Spiele" }
 func (textsDE) NoOpenGames() string { return "Zurzeit sucht kein Spiel Mitspieler." }

@@ -22,9 +22,9 @@ func newService(t *testing.T) *Service {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { st.Close() })                                        // the in-memory database is gone with it, also for -count
-	s := New(st, Options{Registration: true, PasswordCost: bcrypt.MinCost}) // fast hashes
-	s.shuffle = func(int, func(i, j int)) {}                                // the order the players took their seats
+	t.Cleanup(func() { st.Close() })                    // the in-memory database is gone with it, also for -count
+	s := New(st, Options{PasswordCost: bcrypt.MinCost}) // fast hashes
+	s.shuffle = func(int, func(i, j int)) {}            // the order the players took their seats
 	return s
 }
 
@@ -105,9 +105,29 @@ func TestAuth(t *testing.T) {
 		t.Errorf("after logout: got %v, want ErrUnauthenticated", err)
 	}
 
-	closed := New(s.store, Options{Registration: false, PasswordCost: bcrypt.MinCost})
-	if _, err := closed.Register(ctx, "cara", "", "", "password"); !errors.Is(err, ErrRegistrationClosed) {
+	// Only the admin (the first account) closes the registration.
+	ben, err := s.Register(ctx, "ben", "", "", "password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetRegistration(ctx, ben, false); !errors.Is(err, ErrForbidden) {
+		t.Errorf("close registration as ben: got %v, want ErrForbidden", err)
+	}
+	if err := s.SetRegistration(ctx, a, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Register(ctx, "cara", "", "", "password"); !errors.Is(err, ErrRegistrationClosed) {
 		t.Errorf("closed registration: got %v, want ErrRegistrationClosed", err)
+	}
+	// The setting is stored, not only kept in memory.
+	if open, err := New(s.store, Options{PasswordCost: bcrypt.MinCost}).RegistrationOpen(ctx); err != nil || open {
+		t.Errorf("registration after restart: open %v, %v; want closed", open, err)
+	}
+	if err := s.SetRegistration(ctx, a, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Register(ctx, "cara", "", "", "password"); err != nil {
+		t.Errorf("reopened registration: %v", err)
 	}
 }
 

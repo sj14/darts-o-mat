@@ -39,9 +39,9 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
 
 ## Accounts and guests
 
-- Admin area: built with the imprint and the privacy policy (2026-10-22, see [AGENTS.md → admin and pages](AGENTS.md#admin-and-pages)). Left:
+- Admin area: built with the imprint and the privacy policy (2026-10-22) and opening and closing the registration (2026-10-23), see [AGENTS.md → admin and pages](AGENTS.md#admin-and-pages). Left:
   - Several admins: the admin makes other accounts admins (planned as the next rework, 2026-10-22).
-  - An admin who deletes their account leaves the server without one (2026-10-22, not decided): refuse it for the last admin, or pass the role on; until then only SQL (`UPDATE accounts SET admin = true WHERE …`) gives the server a new one.
+  - An admin who deletes their account leaves the server without one (2026-10-22, not decided): refuse it for the last admin, or pass the role on; until then only SQL (`UPDATE accounts SET admin = true WHERE …`) gives the server a new one, and a closed registration stays closed (`UPDATE site_settings SET registration = true`).
   - The pages in the JSON API (not needed so far).
 
 ## Technical

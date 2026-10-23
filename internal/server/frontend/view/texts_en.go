@@ -99,7 +99,26 @@ func (textsEN) AdminHint() string {
 func (textsEN) AdminLinkHint() string {
 	return "You are the admin of this server: you write the imprint and the privacy policy."
 }
-func (textsEN) OpenAdmin() string { return "Open administration" }
+func (textsEN) OpenAdmin() string         { return "Open administration" }
+func (textsEN) RegistrationTitle() string { return "Registration" }
+func (textsEN) RegistrationIsOpen() string {
+	return "Registration is open: anyone who reaches this server can create an account."
+}
+func (textsEN) RegistrationIsClosed() string {
+	return "Registration is closed: nobody can create a new account."
+}
+func (textsEN) CaptchaOn() string {
+	return "Registering needs the check that the visitor is a person (Cloudflare Turnstile), set in the server's start options."
+}
+func (textsEN) CaptchaOff() string {
+	return "Registering doesn't check that the visitor is a person; the server's start options can turn on Cloudflare Turnstile."
+}
+func (textsEN) OpenRegistration() string {
+	return "Open registration"
+}
+func (textsEN) CloseRegistration() string {
+	return "Close registration"
+}
 
 func (textsEN) OpenGames() string   { return "Open games" }
 func (textsEN) NoOpenGames() string { return "No game is looking for players right now." }

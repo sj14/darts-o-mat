@@ -95,6 +95,17 @@ type Texts interface {
 	AdminHint() string
 	AdminLinkHint() string
 	OpenAdmin() string
+	RegistrationTitle() string
+	// RegistrationIsOpen and RegistrationIsClosed say on the admin page whether anyone may
+	// create an account.
+	RegistrationIsOpen() string
+	RegistrationIsClosed() string
+	OpenRegistration() string
+	CloseRegistration() string
+	// CaptchaOn and CaptchaOff say on the admin page whether registering needs the captcha,
+	// which the server's start options turn on.
+	CaptchaOn() string
+	CaptchaOff() string
 	BoardInUse() string
 	BoardInUseConfirm() string
 

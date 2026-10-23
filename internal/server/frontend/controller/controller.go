@@ -56,6 +56,7 @@ func (c *Controller) Routes() http.Handler {
 		r.Post("/settings/delete", c.deleteAccount)
 		r.Get("/admin", c.showAdmin)
 		r.Post("/admin/pages/{name}", c.setPage)
+		r.Post("/admin/registration", c.setRegistration)
 		r.Post("/guests/{id}/delete", c.deleteGuest)
 		r.Get("/stats", c.showStats)
 		r.Get("/friends", c.showFriends)
@@ -110,7 +111,12 @@ func (c *Controller) loggedOut(w http.ResponseWriter, r *http.Request) {
 // about shows the landing page, also to logged-in accounts, e.g. to find darts-o-cam's
 // download.
 func (c *Controller) about(w http.ResponseWriter, r *http.Request) {
-	render(w, r, http.StatusOK, view.Landing(c.svc.RegistrationOpen(), auth.Account(r.Context()).Username))
+	open, err := c.svc.RegistrationOpen(r.Context())
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	render(w, r, http.StatusOK, view.Landing(open, auth.Account(r.Context()).Username))
 }
 
 // urlID parses a numeric URL parameter and responds with 404 if that fails.

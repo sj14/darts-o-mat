@@ -61,9 +61,34 @@ func (c *Controller) renderAdmin(w http.ResponseWriter, r *http.Request, status 
 		serverError(w, err)
 		return
 	}
+	open, err := c.svc.RegistrationOpen(r.Context())
+	if err != nil {
+		serverError(w, err)
+		return
+	}
 	pages = maps.Clone(pages)
 	maps.Copy(pages, entered)
-	render(w, r, status, view.Admin(acc.Username, pages, r.URL.Query().Has("saved"), errMsg))
+	m := view.AdminModel{
+		Pages:        pages,
+		Registration: open,
+		Captcha:      c.svc.CaptchaSiteKey() != "",
+		Saved:        r.URL.Query().Has("saved"),
+		Error:        errMsg,
+	}
+	render(w, r, status, view.Admin(acc.Username, m))
+}
+
+// setRegistration opens or closes the registration.
+func (c *Controller) setRegistration(w http.ResponseWriter, r *http.Request) {
+	err := c.svc.SetRegistration(r.Context(), auth.Account(r.Context()), r.FormValue("open") == "true")
+	switch {
+	case err == nil:
+		http.Redirect(w, r, "/admin?saved", http.StatusSeeOther)
+	case errors.Is(err, service.ErrForbidden):
+		http.NotFound(w, r)
+	default:
+		serverError(w, err)
+	}
 }
 
 // setPage stores the text of a page.

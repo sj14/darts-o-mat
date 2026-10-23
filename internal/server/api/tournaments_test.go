@@ -62,7 +62,7 @@ func TestTournamentAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() }) // the in-memory database is gone with it, also for -count
-	h := New(service.New(st, service.Options{Registration: true, PasswordCost: bcrypt.MinCost})).Routes()
+	h := New(service.New(st, service.Options{PasswordCost: bcrypt.MinCost})).Routes()
 	anna, ben := newClient(t, h, "anna"), newClient(t, h, "ben")
 	anna.expect(http.StatusNoContent, "POST", "/friends", `{"username":"ben"}`)
 	ben.expect(http.StatusNoContent, "POST", "/friends/1/accept", ``)
@@ -122,7 +122,7 @@ func TestOpenLobbiesAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() }) // the in-memory database is gone with it, also for -count
-	h := New(service.New(st, service.Options{Registration: true, PasswordCost: bcrypt.MinCost})).Routes()
+	h := New(service.New(st, service.Options{PasswordCost: bcrypt.MinCost})).Routes()
 	// A player has one seat at a time: everyone takes part in one lobby only.
 	anna, ben, carla := newClient(t, h, "anna"), newClient(t, h, "ben"), newClient(t, h, "carla")
 	dora, erik := newClient(t, h, "dora"), newClient(t, h, "erik")

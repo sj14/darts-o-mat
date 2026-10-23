@@ -59,7 +59,10 @@ func (s *Service) CheckCaptcha(ctx context.Context, token string) error {
 // Register creates an account and its player. The player's name defaults to the username;
 // the email may be empty.
 func (s *Service) Register(ctx context.Context, username, email, name, password string) (account.Account, error) {
-	if !s.opts.Registration {
+	switch open, err := s.RegistrationOpen(ctx); {
+	case err != nil:
+		return account.Account{}, err
+	case !open:
 		return account.Account{}, ErrRegistrationClosed
 	}
 

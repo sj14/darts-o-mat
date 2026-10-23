@@ -14,6 +14,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/page"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
+	"github.com/sj14/darts-o-mat/internal/server/domain/site"
 	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
@@ -44,6 +45,7 @@ var models = []any{
 	(*tournament.Tournament)(nil),
 	(*tournament.Participant)(nil),
 	(*page.Page)(nil),
+	(*site.Settings)(nil),
 }
 
 // The SQLite migrations, written by hand, give the same schema as the structs: tables,

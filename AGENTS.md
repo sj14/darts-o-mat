@@ -116,7 +116,7 @@ In detail:
 - `internal/server/api`: JSON API under `/api` (server)
 - `internal/server/service`: application logic including permission checks (server)
 - `internal/server/auth`: session cookie and middleware (server)
-- `internal/server/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock, tournaments, the texts of the imprint and privacy pages); `internal/common/dartboard` (board geometry) is used by server and camera
+- `internal/server/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock, tournaments, the texts of the imprint and privacy pages, the admin's settings of the server); `internal/common/dartboard` (board geometry) is used by server and camera
 - `internal/server/store`: persistence (server)
 - `internal/common/update`: finds out whether a newer release exists (GitHub, once a day) for the footers of server and camera, see [the rule above](#from-the-home-server-to-saas) (server, camera)
 - `internal/server/captcha`: the optional check that a registration comes from a person (Cloudflare Turnstile), see [server → captcha](internal/server/AGENTS.md#captcha) (server)

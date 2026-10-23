@@ -19,6 +19,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/internal/server/domain/page"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
+	"github.com/sj14/darts-o-mat/internal/server/domain/site"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/store"
 	"golang.org/x/crypto/bcrypt"
@@ -71,8 +72,6 @@ func (e UnknownUserError) Unwrap() error {
 }
 
 type Options struct {
-	// Registration allows anyone to create an account.
-	Registration bool
 	// MaxLoginFailures is how many failed logins a username may have within 15 minutes
 	// before logging in as it is refused (ErrTooManyLogins) until they are older; 0 is no
 	// limit.
@@ -121,6 +120,9 @@ type Service struct {
 	// pages are the texts of the pages, read once (see Pages); SetPage replaces the map.
 	pages   map[page.Name]string
 	pagesMu sync.Mutex
+	// site are the admin's settings, read once (see Site); SetRegistration replaces them.
+	site   *site.Settings
+	siteMu sync.Mutex
 }
 
 func New(store *store.Store, opts Options) *Service {
@@ -131,10 +133,6 @@ func New(store *store.Store, opts Options) *Service {
 	s.dummyHash, _ = bcrypt.GenerateFromPassword([]byte("darts-o-mat"), s.opts.PasswordCost)
 	s.limitLogins(opts.MaxLoginFailures)
 	return s
-}
-
-func (s *Service) RegistrationOpen() bool {
-	return s.opts.Registration
 }
 
 // GameView is a game together with everything needed to show it to an account.

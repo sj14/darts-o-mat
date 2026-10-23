@@ -50,7 +50,6 @@ Then open <http://localhost:3000> in the browser. The interface follows your bro
 Options:
 
 - `-addr :8080` – listen on another port
-- `-registration=false` – turn off registering new accounts, e.g. if darts-o-mat is publicly reachable
 - `-max-login-failures 10` – lock a username for 15 minutes after that many failed logins, and a whole network after five times as many, as protection against guessing passwords (the default; `0` turns it off)
 - `-client-ip-header X-Forwarded-For` – behind a proxy or ingress: the header it passes the visitor's address in, so the limit per network works (only if all requests come through that proxy)
 - `-turnstile-site-key …` and `-turnstile-secret-key …` – only for servers that strangers can register on: registering then needs a [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) check ("I am not a robot"). Without both keys nothing is checked, and nothing from Cloudflare is loaded. The keys can also be set as `DARTS_O_MAT_TURNSTILE_SITE_KEY` and `DARTS_O_MAT_TURNSTILE_SECRET_KEY`.
@@ -69,7 +68,7 @@ docker build -f Containerfile -t darts-o-mat .
 docker run -d -p 3000:3000 -v darts-o-mat:/data darts-o-mat
 ```
 
-The data is kept in the volume `darts-o-mat`. Options go after the image name, e.g. `docker run … darts-o-mat -registration=false`.
+The data is kept in the volume `darts-o-mat`. Options go after the image name, e.g. `docker run … darts-o-mat -max-login-failures 5`.
 
 The released image is `ghcr.io/sj14/darts-o-mat` (amd64 and arm64; `latest` is the newest stable release), so there is no need to build it: `docker run -d -p 3000:3000 -v darts-o-mat:/data ghcr.io/sj14/darts-o-mat`.
 
@@ -81,7 +80,7 @@ With the [Helm](https://helm.sh) chart (one pod, the games in a volume):
 helm install darts oci://ghcr.io/sj14/charts/darts-o-mat
 ```
 
-Common settings, e.g. `helm install darts … --set ingress.enabled=true --set ingress.hosts[0].host=darts.example.com --set ingress.hosts[0].paths[0].path=/ --set config.registration=false`. For PostgreSQL instead of the volume: `--set config.database=postgres --set config.postgres.dsn='postgres://…'` (or `config.postgres.existingSecret`). All options with their comments: [`deploy/helm/darts-o-mat/values.yaml`](../../deploy/helm/darts-o-mat/values.yaml).
+Common settings, e.g. `helm install darts … --set ingress.enabled=true --set ingress.hosts[0].host=darts.example.com --set ingress.hosts[0].paths[0].path=/`. For PostgreSQL instead of the volume: `--set config.database=postgres --set config.postgres.dsn='postgres://…'` (or `config.postgres.existingSecret`). All options with their comments: [`deploy/helm/darts-o-mat/values.yaml`](../../deploy/helm/darts-o-mat/values.yaml).
 
 ### With PostgreSQL instead of a file
 
@@ -99,7 +98,7 @@ The footer of every page says "Version … available" when there is a newer rele
 
 ## Playing
 
-1. On your first visit create an account ("Register"). Every account is also your player. You may enter an email address; it is optional, nothing is sent to it yet, and you can change or remove it under "Settings". The first account is the **admin** of the server: under "Settings" → "Open administration" it writes the imprint and the privacy policy, which every page then links at the bottom.
+1. On your first visit create an account ("Register"). Every account is also your player. You may enter an email address; it is optional, nothing is sent to it yet, and you can change or remove it under "Settings". The first account is the **admin** of the server: under "Settings" → "Open administration" it closes the registration once everybody has an account (e.g. if darts-o-mat is publicly reachable) and writes the imprint and the privacy policy, which every page then links at the bottom.
 2. Choose the game mode and its settings and create the game: it opens its **lobby**, with you in it. Players with their own account are added under **Freunde** by username; once they accept the request, you can **invite** them in the lobby, and they accept there.
 3. In the lobby, add fellow players without an account as **guest players** (a name is enough), choose everyone's board, invite friends, and press **Start game** once everyone invited has answered. Who throws first is drawn then. You delete guests under "Settings". A player is in one game or tournament at a time: while someone is still in a running game, waits in a lobby or takes part in a tournament that isn't over, they can't start, join or accept another one (the message links to it); finish or leave it first. Your guests can play at the same time as you, e.g. on a second board: when you have guests, the start form asks who is in the lobby first.
 4. Enter every throw: first choose single, double or triple, then tap the number – the keys then read e.g. "D20" or "T20". For the bull "Bull" (with "Double" it becomes "Bullseye"; there is no triple bull), for misses "Miss". Misses detected by the cameras show where they went, e.g. "M7" beside the 7. All players with an account can enter throws on their own device.

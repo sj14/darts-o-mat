@@ -54,7 +54,6 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - -addr=:3000
-            - -registration={{ .Values.config.registration }}
             - -db={{ .Values.config.database }}
             {{- if $postgres }}
             - -dsn=$(DARTS_O_MAT_DSN)
