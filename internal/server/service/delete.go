@@ -126,8 +126,8 @@ func (s *Service) LastAdmin(ctx context.Context, acc account.Account) (bool, err
 	if !acc.Admin {
 		return false, nil
 	}
-	n, err := s.store.CountAdmins(ctx)
-	return n <= 1, err
+	other, err := s.store.OtherAdmin(ctx, acc.ID)
+	return !other, err
 }
 
 func (s *Service) leaveEverything(ctx context.Context, a account.Account) error {
