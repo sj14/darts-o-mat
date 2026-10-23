@@ -172,7 +172,10 @@ func (textsEN) DeleteAccountConfirm() string {
 	return "Really delete your account? This can't be undone."
 }
 func (textsEN) ErrWrongPassword() string { return "The password is wrong." }
-func (textsEN) LeaveGame() string        { return "Leave game" }
+func (textsEN) ErrLastAdmin() string {
+	return "You are the only admin of this server, so you can't delete your account: the server would be left without one."
+}
+func (textsEN) LeaveGame() string { return "Leave game" }
 func (textsEN) LeaveGameConfirm() string {
 	return "Really leave the game? The others play on without you."
 }

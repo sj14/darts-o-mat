@@ -169,7 +169,10 @@ func (textsDE) DeleteAccountConfirm() string {
 	return "Deinen Account wirklich löschen? Das lässt sich nicht rückgängig machen."
 }
 func (textsDE) ErrWrongPassword() string { return "Das Passwort ist falsch." }
-func (textsDE) LeaveGame() string        { return "Spiel verlassen" }
+func (textsDE) ErrLastAdmin() string {
+	return "Du bist der einzige Admin dieses Servers und kannst deinen Account deshalb nicht löschen: Der Server stünde sonst ohne Admin da."
+}
+func (textsDE) LeaveGame() string { return "Spiel verlassen" }
 func (textsDE) LeaveGameConfirm() string {
 	return "Das Spiel wirklich verlassen? Die anderen spielen ohne dich weiter."
 }

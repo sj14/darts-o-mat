@@ -134,6 +134,7 @@ type Texts interface {
 	DeleteAccountButton() string
 	DeleteAccountConfirm() string
 	ErrWrongPassword() string
+	ErrLastAdmin() string
 	LeaveGame() string
 	LeaveGameConfirm() string
 	PlayerLeft() string

@@ -590,7 +590,7 @@ func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case tooLarge:
 		status = http.StatusRequestEntityTooLarge
-	case errors.Is(err, service.ErrAlreadyFriends), errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrStarted):
+	case errors.Is(err, service.ErrAlreadyFriends), errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrStarted), errors.Is(err, service.ErrLastAdmin):
 		status = http.StatusConflict
 	case errors.Is(err, service.ErrInvalid), errors.Is(err, dartboard.ErrInvalid):
 		status = http.StatusBadRequest

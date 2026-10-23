@@ -10,7 +10,9 @@ import (
 // Settings lets an account change how it appears (the accent color of its player), its
 // email and delete its guests (guests are made in the lobby of a game); the admin finds the
 // admin page there.
-templ Settings(acc account.Account, p player.Player, guests []player.Player, errMsg string) {
+// Settings is the account's settings page. lastAdmin says the account is the only admin,
+// who can't delete their account.
+templ Settings(acc account.Account, p player.Player, guests []player.Player, lastAdmin bool, errMsg string) {
 	@layout(T(ctx).NavSettings(), acc.Username) {
 		<div class="mx-auto max-w-3xl">
 			@pageTitle(T(ctx).NavSettings(), "")
@@ -70,11 +72,15 @@ templ Settings(acc account.Account, p player.Player, guests []player.Player, err
 			}
 			@panel("mt-6 border-board-red/40") {
 				<h2 class={ labelClass }>{ T(ctx).DeleteAccountTitle() }</h2>
-				<p class={ hintClass }>{ T(ctx).DeleteAccountHint() }</p>
-				<form method="post" action="/settings/delete" data-confirm={ T(ctx).DeleteAccountConfirm() } onsubmit="return confirm(this.dataset.confirm)" class="mt-4 flex flex-wrap items-center gap-3">
-					<input type="password" name="password" class={ inputClass, "max-w-xs" } placeholder={ T(ctx).Password() } autocomplete="current-password" required aria-label={ T(ctx).Password() }/>
-					<button type="submit" class={ btnDanger }>{ T(ctx).DeleteAccountButton() }</button>
-				</form>
+				if lastAdmin {
+					<p class={ hintClass }>{ T(ctx).ErrLastAdmin() }</p>
+				} else {
+					<p class={ hintClass }>{ T(ctx).DeleteAccountHint() }</p>
+					<form method="post" action="/settings/delete" data-confirm={ T(ctx).DeleteAccountConfirm() } onsubmit="return confirm(this.dataset.confirm)" class="mt-4 flex flex-wrap items-center gap-3">
+						<input type="password" name="password" class={ inputClass, "max-w-xs" } placeholder={ T(ctx).Password() } autocomplete="current-password" required aria-label={ T(ctx).Password() }/>
+						<button type="submit" class={ btnDanger }>{ T(ctx).DeleteAccountButton() }</button>
+					</form>
+				}
 			}
 		</div>
 	}

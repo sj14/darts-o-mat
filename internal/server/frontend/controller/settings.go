@@ -23,7 +23,12 @@ func (c *Controller) renderSettings(w http.ResponseWriter, r *http.Request, stat
 		serverError(w, err)
 		return
 	}
-	render(w, r, status, view.Settings(acc, players[0], players[1:], errMsg))
+	lastAdmin, err := c.svc.LastAdmin(r.Context(), acc)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	render(w, r, status, view.Settings(acc, players[0], players[1:], lastAdmin, errMsg))
 }
 
 // setColor stores the accent color of the account's player and shows the settings again.

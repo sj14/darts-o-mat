@@ -170,3 +170,26 @@ func playerDeleted(v GameView, id int64) bool {
 	}
 	return false
 }
+
+func TestDeleteLastAdmin(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben := register(t, s, "anna"), register(t, s, "ben") // anna is the admin
+
+	if last, err := s.LastAdmin(ctx, anna); err != nil || !last {
+		t.Errorf("anna: last admin %v, %v; want true", last, err)
+	}
+	if last, err := s.LastAdmin(ctx, ben); err != nil || last {
+		t.Errorf("ben: last admin %v, %v; want false", last, err)
+	}
+	if err := s.DeleteAccount(ctx, anna, "password"); !errors.Is(err, ErrLastAdmin) {
+		t.Fatalf("deleting the last admin: got %v, want ErrLastAdmin", err)
+	}
+	if _, _, err := s.Login(ctx, "anna", "password"); err != nil {
+		t.Errorf("the admin is still there: %v", err)
+	}
+	if err := s.DeleteAccount(ctx, ben, "password"); err != nil {
+		t.Errorf("deleting an account that isn't the admin: %v", err)
+	}
+}

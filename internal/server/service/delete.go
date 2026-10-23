@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -17,6 +18,9 @@ var (
 	ErrGuestBusy = fmt.Errorf("%w: the guest takes part in a running game or tournament", ErrInvalid)
 	// ErrWrongPassword is returned when deleting an account with a wrong password.
 	ErrWrongPassword = fmt.Errorf("%w: wrong password", ErrInvalid)
+	// ErrLastAdmin means the last admin can't delete their account: the server would be
+	// left without one.
+	ErrLastAdmin = errors.New("the last admin can't delete their account")
 )
 
 // DeleteGuest deletes a guest player of the account: it is gone from the lists and the
@@ -93,7 +97,8 @@ func (s *Service) unfinished(ctx context.Context, acc account.Account) ([]GameVi
 // are shown as "deleted player" in the games that stay as they were. Running games and
 // tournaments are dealt with first: the account leaves them with all its players (the
 // others play on, or the game is aborted if fewer than two players would be left; a
-// tournament ends), and open invitations are declined.
+// tournament ends), and open invitations are declined. The last admin can't delete their
+// account (ErrLastAdmin).
 func (s *Service) DeleteAccount(ctx context.Context, acc account.Account, password string) error {
 	a, err := s.store.GetAccount(ctx, acc.ID)
 	if err != nil {
@@ -104,10 +109,25 @@ func (s *Service) DeleteAccount(ctx context.Context, acc account.Account, passwo
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	switch last, err := s.LastAdmin(ctx, a); {
+	case err != nil:
+		return err
+	case last:
+		return ErrLastAdmin
+	}
 	if err := s.leaveEverything(ctx, a); err != nil {
 		return err
 	}
 	return s.store.DeleteAccount(ctx, a)
+}
+
+// LastAdmin says whether the account is the only admin, who can't delete their account.
+func (s *Service) LastAdmin(ctx context.Context, acc account.Account) (bool, error) {
+	if !acc.Admin {
+		return false, nil
+	}
+	n, err := s.store.CountAdmins(ctx)
+	return n <= 1, err
 }
 
 func (s *Service) leaveEverything(ctx context.Context, a account.Account) error {

@@ -71,6 +71,11 @@ func (store *Store) SetEmail(ctx context.Context, id int64, email string) error 
 	})
 }
 
+// CountAdmins returns how many accounts are admins.
+func (store *Store) CountAdmins(ctx context.Context) (int64, error) {
+	return store.db.NewSelect().Model((*account.Account)(nil)).Where("admin").Count(ctx)
+}
+
 func (store *Store) GetAccount(ctx context.Context, id int64) (account.Account, error) {
 	var a account.Account
 	err := store.db.NewSelect().Model(&a).Where("id = ?", id).Scan(ctx)
