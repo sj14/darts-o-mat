@@ -12,7 +12,8 @@ import (
 )
 
 // migrationFiles are the schema's changes, one directory per database with the same names:
-// <time>_<what>.tx.up.sql, each run in a transaction, statements split by "--bun:split".
+// since-<tag>/<time>_<what>.tx.up.sql, grouped by the release they came after, each run in a
+// transaction, statements split by "--bun:split". Bun finds them in the subdirectories too.
 //
 //go:embed migrations
 var migrationFiles embed.FS
