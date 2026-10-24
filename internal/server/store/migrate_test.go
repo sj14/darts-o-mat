@@ -174,3 +174,43 @@ func TestPostgresMigrationsMatchModels(t *testing.T) {
 		}
 	}
 }
+
+// Replicas that start together don't run a migration twice: on PostgreSQL the advisory
+// lock lets one migrate while the others wait, and each ran migration is recorded once.
+// Needs DARTS_O_MAT_TEST_POSTGRES like TestPostgresMigrationsMatchModels, but uses a
+// database of its own.
+func TestPostgresMigrationsConcurrently(t *testing.T) {
+	t.Parallel()
+	dsn := os.Getenv("DARTS_O_MAT_TEST_POSTGRES")
+	if dsn == "" {
+		t.Skip("DARTS_O_MAT_TEST_POSTGRES isn't set")
+	}
+	ctx := context.Background()
+	dsn = emptyPostgresDatabase(t, dsn, "darts_o_mat_migrate_concurrently")
+
+	const replicas = 4
+	errs := make(chan error, replicas)
+	for range replicas {
+		go func() {
+			db := bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn))), pgdialect.New())
+			defer db.Close()
+			errs <- migrateSchema(ctx, db)
+		}()
+	}
+	for range replicas {
+		if err := <-errs; err != nil {
+			t.Errorf("a replica: %v", err)
+		}
+	}
+
+	db := bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn))), pgdialect.New())
+	defer db.Close()
+	var names []string
+	if err := db.NewSelect().Table("bun_migrations").Column("name").Scan(ctx, &names); err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(names)
+	if len(slices.Compact(slices.Clone(names))) != len(names) || len(names) == 0 {
+		t.Errorf("recorded migrations = %q, want each once", names)
+	}
+}

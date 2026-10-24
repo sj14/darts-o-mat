@@ -136,6 +136,18 @@ func createAccount(t *testing.T, st *Store, username string) account.Account {
 // dsn and opens the store on it.
 func newPostgresDatabase(t *testing.T, dsn, name string) *Store {
 	t.Helper()
+	st, err := NewPostgres(context.Background(), emptyPostgresDatabase(t, dsn, name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	return st
+}
+
+// emptyPostgresDatabase makes an empty database with the name on the PostgreSQL server of
+// dsn and returns its dsn.
+func emptyPostgresDatabase(t *testing.T, dsn, name string) string {
+	t.Helper()
 	ctx := context.Background()
 	server := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
 	defer server.Close()
@@ -149,10 +161,5 @@ func newPostgresDatabase(t *testing.T, dsn, name string) *Store {
 		t.Fatal(err)
 	}
 	u.Path = "/" + name
-	st, err := NewPostgres(ctx, u.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { st.Close() })
-	return st
+	return u.String()
 }
