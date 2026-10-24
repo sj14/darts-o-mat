@@ -91,10 +91,10 @@ func (textsDE) ErrPageTooLong(max int) string {
 }
 func (textsDE) AdminTitle() string { return "Administration" }
 func (textsDE) AdminHint() string {
-	return "Einstellungen dieses Servers für alle, die ihn nutzen. Das zuerst registrierte Konto ist der Admin."
+	return "Einstellungen dieses Servers für alle, die ihn nutzen. Der zuerst registrierte Account ist Admin; Admins können andere Accounts zu Admins machen."
 }
 func (textsDE) AdminLinkHint() string {
-	return "Du bist Admin dieses Servers: Du schreibst Impressum und Datenschutzerklärung."
+	return "Du bist Admin dieses Servers: Du öffnest und schließt die Registrierung, schreibst Impressum und Datenschutzerklärung und bestimmst die anderen Admins."
 }
 func (textsDE) OpenAdmin() string         { return "Administration öffnen" }
 func (textsDE) RegistrationTitle() string { return "Registrierung" }
@@ -115,6 +115,15 @@ func (textsDE) OpenRegistration() string {
 }
 func (textsDE) CloseRegistration() string {
 	return "Registrierung schließen"
+}
+func (textsDE) AdminsTitle() string { return "Admins" }
+func (textsDE) AdminsHint() string {
+	return "Jeder Admin kann alles auf dieser Seite ändern, andere Accounts zu Admins machen und ihnen die Rolle wieder entziehen, auch anderen Admins. Der letzte Admin kann sie nicht abgeben."
+}
+func (textsDE) MakeAdmin() string   { return "Zum Admin machen" }
+func (textsDE) RemoveAdmin() string { return "Admin-Rolle entziehen" }
+func (textsDE) RemoveAdminConfirm(username string) string {
+	return "„" + username + "“ die Admin-Rolle entziehen?"
 }
 
 func (textsDE) OpenGames() string   { return "Offene Spiele" }
@@ -170,7 +179,7 @@ func (textsDE) DeleteAccountConfirm() string {
 }
 func (textsDE) ErrWrongPassword() string { return "Das Passwort ist falsch." }
 func (textsDE) ErrLastAdmin() string {
-	return "Du bist der einzige Admin dieses Servers und kannst deinen Account deshalb nicht löschen: Der Server stünde sonst ohne Admin da."
+	return "Du bist der einzige Admin dieses Servers und kannst deinen Account oder die Admin-Rolle deshalb nicht abgeben: Der Server stünde sonst ohne Admin da. Mach zuerst unter „Administration“ einen anderen Account zum Admin."
 }
 func (textsDE) LeaveGame() string { return "Spiel verlassen" }
 func (textsDE) LeaveGameConfirm() string {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sj14/darts-o-mat/internal/server/auth"
+	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/page"
 	"github.com/sj14/darts-o-mat/internal/server/frontend/view"
 	"github.com/sj14/darts-o-mat/internal/server/service"
@@ -43,7 +44,7 @@ func (c *Controller) showPage(name page.Name) http.HandlerFunc {
 	}
 }
 
-// showAdmin shows the admin page; 404 for everyone but the admin, so it isn't revealed.
+// showAdmin shows the admin page; 404 for everyone but an admin, so it isn't revealed.
 func (c *Controller) showAdmin(w http.ResponseWriter, r *http.Request) {
 	c.renderAdmin(w, r, http.StatusOK, nil, "")
 }
@@ -66,9 +67,15 @@ func (c *Controller) renderAdmin(w http.ResponseWriter, r *http.Request, status 
 		serverError(w, err)
 		return
 	}
+	admins, err := c.svc.Admins(r.Context(), acc)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
 	pages = maps.Clone(pages)
 	maps.Copy(pages, entered)
 	m := view.AdminModel{
+		Admins:       admins,
 		Pages:        pages,
 		Registration: open,
 		Captcha:      c.svc.CaptchaSiteKey() != "",
@@ -87,6 +94,28 @@ func (c *Controller) setRegistration(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, service.ErrForbidden):
 		http.NotFound(w, r)
 	default:
+		serverError(w, err)
+	}
+}
+
+// setAdmin gives an account the admin role or takes it away. Whoever gave up their own role
+// goes to the settings, since the admin page is gone for them.
+func (c *Controller) setAdmin(w http.ResponseWriter, r *http.Request) {
+	acc := auth.Account(r.Context())
+	username, admin := r.FormValue("username"), r.FormValue("admin") == "true"
+	err := c.svc.SetAdmin(r.Context(), acc, username, admin)
+	switch {
+	case err == nil && !admin && account.NormalizeUsername(username) == acc.Username:
+		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	case err == nil:
+		http.Redirect(w, r, "/admin?saved", http.StatusSeeOther)
+	case errors.Is(err, service.ErrForbidden):
+		http.NotFound(w, r)
+	default:
+		if msg, ok := errorText(view.T(r.Context()), err); ok {
+			c.renderAdmin(w, r, http.StatusBadRequest, nil, msg)
+			return
+		}
 		serverError(w, err)
 	}
 }

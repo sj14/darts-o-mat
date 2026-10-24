@@ -3,6 +3,7 @@ package view
 import (
 	"strconv"
 
+	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/page"
 )
 
@@ -21,6 +22,7 @@ templ Page(user string, name page.Name, text string) {
 
 // AdminModel is what the admin page shows.
 type AdminModel struct {
+	Admins       []account.Account    // the admins, by username
 	Pages        map[page.Name]string // the texts of the pages, by name
 	Registration bool                 // whether anyone may create an account
 	Captcha      bool                 // whether registering needs the captcha (start options, not changed here)
@@ -28,8 +30,8 @@ type AdminModel struct {
 	Error        string
 }
 
-// Admin is the page of the server's settings, only for the admin: whether anyone may
-// register and the texts of the pages.
+// Admin is the page of the server's settings, only for admins: whether anyone may register,
+// who is an admin, and the texts of the pages.
 templ Admin(user string, m AdminModel) {
 	@layout(T(ctx).AdminTitle(), user) {
 		<div class="mx-auto max-w-3xl">
@@ -61,6 +63,29 @@ templ Admin(user string, m AdminModel) {
 								}
 							</button>
 						</div>
+					</form>
+				}
+				@panel(T(ctx).AdminsTitle()) {
+					<p class={ hintClass }>{ T(ctx).AdminsHint() }</p>
+					<ul class="mt-2 divide-y divide-white/10">
+						for _, a := range m.Admins {
+							<li class="flex flex-wrap items-center justify-between gap-3 py-3">
+								<span class="font-display text-2xl font-semibold uppercase">{ a.Username }</span>
+								// The last admin can't give up the role, so there is no button.
+								if len(m.Admins) > 1 {
+									<form method="post" action="/admin/admins" data-confirm={ T(ctx).RemoveAdminConfirm(a.Username) } onsubmit="return confirm(this.dataset.confirm)">
+										<input type="hidden" name="username" value={ a.Username }/>
+										<input type="hidden" name="admin" value="false"/>
+										<button type="submit" class={ btnDanger, btnSmall }>{ T(ctx).RemoveAdmin() }</button>
+									</form>
+								}
+							</li>
+						}
+					</ul>
+					<form method="post" action="/admin/admins" class="mt-2 flex gap-2">
+						<input type="hidden" name="admin" value="true"/>
+						<input type="text" name="username" class={ inputClass } placeholder={ T(ctx).Username() } autocapitalize="none" required aria-label={ T(ctx).Username() }/>
+						<button type="submit" class={ btnSecondary, "shrink-0" }>{ T(ctx).MakeAdmin() }</button>
 					</form>
 				}
 				for _, name := range page.Names {

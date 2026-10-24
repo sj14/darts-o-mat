@@ -9,11 +9,15 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect"
 )
 
 var (
 	ErrUsernameTaken = errors.New("username already taken")
 	ErrEmailTaken    = errors.New("email already taken")
+	// ErrLastAdmin means the last admin can't delete their account or give up the role: the
+	// server would be left without one.
+	ErrLastAdmin = errors.New("the last admin can't delete their account or give up the role")
 )
 
 // CreateAccount stores the account together with its player; the first account becomes the
@@ -74,6 +78,47 @@ func (store *Store) SetEmail(ctx context.Context, id int64, email string) error 
 // OtherAdmin says whether an account other than the given one is an admin.
 func (store *Store) OtherAdmin(ctx context.Context, accountID int64) (bool, error) {
 	return store.db.NewSelect().Model((*account.Account)(nil)).Where("admin AND id <> ?", accountID).Exists(ctx)
+}
+
+// ListAdmins returns the admins, by username.
+func (store *Store) ListAdmins(ctx context.Context) ([]account.Account, error) {
+	var admins []account.Account
+	err := store.db.NewSelect().Model(&admins).Where("admin").Order("username").Scan(ctx)
+	return admins, err
+}
+
+// SetAdmin gives an account the admin role or takes it away; ErrLastAdmin if it is the
+// last admin.
+func (store *Store) SetAdmin(ctx context.Context, id int64, admin bool) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if !admin {
+			if err := keepAdmin(ctx, tx, id); err != nil {
+				return err
+			}
+		}
+		_, err := tx.NewUpdate().Model((*account.Account)(nil)).Set("admin = ?", admin).Where("id = ?", id).Exec(ctx)
+		return err
+	})
+}
+
+// keepAdmin returns ErrLastAdmin if the account is the only admin, before the transaction
+// takes the role from it or deletes it. On PostgreSQL it locks the admins' rows (in the
+// order of their IDs, so two transactions don't deadlock): a second transaction waits and
+// then no longer counts the admin the first one took away, so two admins can't each take
+// away one of the last two. SQLite has one connection, its transactions don't overlap.
+func keepAdmin(ctx context.Context, tx bun.Tx, id int64) error {
+	q := tx.NewSelect().Model((*account.Account)(nil)).Column("id").Where("admin").Order("id")
+	if tx.Dialect().Name() == dialect.PG {
+		q = q.For("UPDATE")
+	}
+	var admins []int64
+	if err := q.Scan(ctx, &admins); err != nil {
+		return err
+	}
+	if len(admins) == 1 && admins[0] == id {
+		return ErrLastAdmin
+	}
+	return nil
 }
 
 func (store *Store) GetAccount(ctx context.Context, id int64) (account.Account, error) {

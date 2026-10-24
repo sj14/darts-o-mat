@@ -94,10 +94,10 @@ func (textsEN) ErrPageTooLong(max int) string {
 }
 func (textsEN) AdminTitle() string { return "Administration" }
 func (textsEN) AdminHint() string {
-	return "Settings of this server for everyone who uses it. The first account registered is the admin."
+	return "Settings of this server for everyone who uses it. The first account registered is an admin; admins can make other accounts admins."
 }
 func (textsEN) AdminLinkHint() string {
-	return "You are the admin of this server: you write the imprint and the privacy policy."
+	return "You are an admin of this server: you open and close the registration, write the imprint and the privacy policy and choose the other admins."
 }
 func (textsEN) OpenAdmin() string         { return "Open administration" }
 func (textsEN) RegistrationTitle() string { return "Registration" }
@@ -118,6 +118,15 @@ func (textsEN) OpenRegistration() string {
 }
 func (textsEN) CloseRegistration() string {
 	return "Close registration"
+}
+func (textsEN) AdminsTitle() string { return "Admins" }
+func (textsEN) AdminsHint() string {
+	return "Every admin can change everything on this page, make other accounts admins and take the role away again, also from other admins. The last admin can't give it up."
+}
+func (textsEN) MakeAdmin() string   { return "Make admin" }
+func (textsEN) RemoveAdmin() string { return "Remove admin role" }
+func (textsEN) RemoveAdminConfirm(username string) string {
+	return "Take the admin role from “" + username + "”?"
 }
 
 func (textsEN) OpenGames() string   { return "Open games" }
@@ -173,7 +182,7 @@ func (textsEN) DeleteAccountConfirm() string {
 }
 func (textsEN) ErrWrongPassword() string { return "The password is wrong." }
 func (textsEN) ErrLastAdmin() string {
-	return "You are the only admin of this server, so you can't delete your account: the server would be left without one."
+	return "You are the only admin of this server, so you can't delete your account or give up the admin role: the server would be left without one. First make another account an admin under “Administration”."
 }
 func (textsEN) LeaveGame() string { return "Leave game" }
 func (textsEN) LeaveGameConfirm() string {

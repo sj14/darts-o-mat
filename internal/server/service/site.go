@@ -29,7 +29,7 @@ func (s *Service) RegistrationOpen(ctx context.Context) (bool, error) {
 	return settings.Registration, err
 }
 
-// SetRegistration allows or forbids creating accounts. Only the admin may.
+// SetRegistration allows or forbids creating accounts. Only an admin may.
 func (s *Service) SetRegistration(ctx context.Context, acc account.Account, open bool) error {
 	if err := checkAdmin(acc); err != nil {
 		return err

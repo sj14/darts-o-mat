@@ -32,7 +32,7 @@ func (s *Service) Pages(ctx context.Context) (map[page.Name]string, error) {
 }
 
 // PagesToEdit returns the texts of the pages for the admin page; ErrForbidden for everyone
-// but the admin.
+// but an admin.
 func (s *Service) PagesToEdit(ctx context.Context, acc account.Account) (map[page.Name]string, error) {
 	if err := checkAdmin(acc); err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func (s *Service) PagesToEdit(ctx context.Context, acc account.Account) (map[pag
 	return s.Pages(ctx)
 }
 
-// SetPage changes the text of a page; an empty text takes the page down. Only the admin may.
+// SetPage changes the text of a page; an empty text takes the page down. Only an admin may.
 func (s *Service) SetPage(ctx context.Context, acc account.Account, name page.Name, text string) error {
 	if err := checkAdmin(acc); err != nil {
 		return err

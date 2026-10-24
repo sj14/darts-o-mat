@@ -102,6 +102,11 @@ type Texts interface {
 	RegistrationIsClosed() string
 	OpenRegistration() string
 	CloseRegistration() string
+	AdminsTitle() string
+	AdminsHint() string
+	MakeAdmin() string
+	RemoveAdmin() string
+	RemoveAdminConfirm(username string) string
 	// CaptchaOn and CaptchaOff say on the admin page whether registering needs the captcha,
 	// which the server's start options turn on.
 	CaptchaOn() string

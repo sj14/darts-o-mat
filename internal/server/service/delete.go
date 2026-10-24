@@ -2,13 +2,13 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
+	"github.com/sj14/darts-o-mat/internal/server/store"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -18,9 +18,9 @@ var (
 	ErrGuestBusy = fmt.Errorf("%w: the guest takes part in a running game or tournament", ErrInvalid)
 	// ErrWrongPassword is returned when deleting an account with a wrong password.
 	ErrWrongPassword = fmt.Errorf("%w: wrong password", ErrInvalid)
-	// ErrLastAdmin means the last admin can't delete their account: the server would be
-	// left without one.
-	ErrLastAdmin = errors.New("the last admin can't delete their account")
+	// ErrLastAdmin means the last admin can't delete their account or give up the role: the
+	// server would be left without one.
+	ErrLastAdmin = store.ErrLastAdmin
 )
 
 // DeleteGuest deletes a guest player of the account: it is gone from the lists and the
@@ -109,6 +109,8 @@ func (s *Service) DeleteAccount(ctx context.Context, acc account.Account, passwo
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Asked before leaving the games; the store asks again in its transaction, in case
+	// another admin gives up the role meanwhile.
 	switch last, err := s.LastAdmin(ctx, a); {
 	case err != nil:
 		return err
@@ -121,7 +123,9 @@ func (s *Service) DeleteAccount(ctx context.Context, acc account.Account, passwo
 	return s.store.DeleteAccount(ctx, a)
 }
 
-// LastAdmin says whether the account is the only admin, who can't delete their account.
+// LastAdmin says whether the account is the only admin, who can't delete their account or
+// give up the role. It is for the pages and to refuse early; the store makes sure of it
+// when it changes the role or deletes the account.
 func (s *Service) LastAdmin(ctx context.Context, acc account.Account) (bool, error) {
 	if !acc.Admin {
 		return false, nil
