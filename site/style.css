@@ -58,6 +58,9 @@ h2 { margin: 0 0 1.25rem; font: 800 2.4rem/1.1 var(--display); text-transform: u
 .shot.phone { max-width: 16rem; }
 
 .steps { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
+/* Each program is a pair of cards, its description and its download; side by side the
+   descriptions and the downloads line up in rows. */
+.pair { display: grid; grid-row: span 2; grid-template-rows: subgrid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 1rem; }
 .step h3 { margin: 0 0 0.5rem; font: 800 1.5rem/1.1 var(--display); text-transform: uppercase; color: var(--cream); }
 pre { margin: 0.5rem 0 0; padding: 0.9rem 1rem; overflow-x: auto; border-radius: 0.75rem; background: #000; color: var(--cream); font: 0.9rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
 code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, monospace; }
