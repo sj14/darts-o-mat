@@ -47,8 +47,8 @@ func TestForm(t *testing.T) {
 }
 
 // The forms may differ by one step at first, by one more every FormWiden, and by anything
-// after FormAnyone.
-func TestFormFits(t *testing.T) {
+// after FormAnyone: they fit once one side waited FormWait.
+func TestFormWait(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
 		mode   game.Mode
@@ -67,8 +67,21 @@ func TestFormFits(t *testing.T) {
 		{game.ModeAroundTheClock, 0.40, 0.46, 0, false},
 		{game.ModeAroundTheClock, 0.30, 0.40, time.Minute, true},
 	} {
-		if got := FormFits(c.mode, c.a, c.b, c.waited); got != c.want {
-			t.Errorf("FormFits(%s, %v, %v, %v) = %v, want %v", c.mode, c.a, c.b, c.waited, got, c.want)
+		if got := FormWait(c.mode, c.a, c.b) <= c.waited; got != c.want {
+			t.Errorf("%s: %v and %v after %v fit: %v, want %v", c.mode, c.a, c.b, c.waited, got, c.want)
 		}
+	}
+}
+
+func TestFormWaitValues(t *testing.T) {
+	t.Parallel()
+	if got := FormWait(game.ModeX01, 70, 40); got != 150*time.Second {
+		t.Errorf("40 and 70: %v, want 2m30s (6 steps)", got)
+	}
+	if got := FormWait(game.ModeX01, 50, 52); got != 0 {
+		t.Errorf("50 and 52: %v, want 0", got)
+	}
+	if got := FormWait(game.ModeX01, 20, 90); got != FormAnyone {
+		t.Errorf("20 and 90: %v, want FormAnyone", got)
 	}
 }

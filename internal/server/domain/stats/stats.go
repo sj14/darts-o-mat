@@ -240,7 +240,7 @@ func Form(mode game.Mode, results []Result) (form float64, ok bool) {
 	return 0, false
 }
 
-// How far apart two forms may be (FormFits): FormStep of the mode at first, one more step
+// How far apart two forms may be (FormWait): FormStep of the mode at first, one more step
 // every FormWiden someone waited for an opponent, anyone after FormAnyone.
 const (
 	FormWiden  = 30 * time.Second
@@ -257,15 +257,17 @@ func FormStep(mode game.Mode) float64 {
 	return 5
 }
 
-// FormFits reports whether two forms of the mode are close enough to play each other, when
-// one side has waited that long for an opponent.
-func FormFits(mode game.Mode, a, b float64, waited time.Duration) bool {
-	if waited >= FormAnyone {
-		return true
+// FormWait is how long one side has to have waited for an opponent until two forms of the
+// mode fit to play each other: 0 within one step, one FormWiden more for every further
+// step, at most FormAnyone. As forms don't change while someone waits, the moment two fit
+// is known in advance.
+func FormWait(mode game.Mode, a, b float64) time.Duration {
+	// A little slack, so 0.45 and 0.40 are one step of 0.05 despite rounding.
+	steps := math.Ceil(math.Abs(a-b)/FormStep(mode) - 1e-9)
+	if steps <= 1 {
+		return 0
 	}
-	steps := 1 + int(waited/FormWiden)
-	// A little slack, so 0.45 and 0.40 fit with a step of 0.05 despite rounding.
-	return math.Abs(a-b) <= float64(steps)*FormStep(mode)+1e-9
+	return min(time.Duration(steps-1)*FormWiden, FormAnyone)
 }
 
 // TournamentResult is what one player got out of a tournament that is over: stored like

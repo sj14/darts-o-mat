@@ -41,8 +41,8 @@ func TestQuickMatch(t *testing.T) {
 	if waiting.Started || !IsQuickMatch(waiting.Game) || waiting.Game.TurnSeconds != 60 || !waiting.Game.Open() {
 		t.Fatalf("anna's quick match: started %v, quick %v, %+v; want an open one waiting with a minute per turn", waiting.Started, IsQuickMatch(waiting.Game), waiting.Game.Settings)
 	}
-	if moved, err := s.QuickMatchMove(ctx, anna, waiting.Game.ID); err != nil || moved != waiting.Game.ID {
-		t.Errorf("anna, alone, moves to %d, %v; want to stay", moved, err)
+	if moved, next, err := s.QuickMatchMove(ctx, anna, waiting.Game.ID); err != nil || moved != waiting.Game.ID || !next.IsZero() {
+		t.Errorf("anna, alone, moves to %d, next check %v, %v; want to stay, no check", moved, next, err)
 	}
 	v, err := s.QuickMatch(ctx, ben, game.ModeX01, nil)
 	if err != nil || v.Game.ID != waiting.Game.ID || !v.Started {
@@ -84,15 +84,15 @@ func TestQuickMatchWidens(t *testing.T) {
 	if err != nil || bens.Game.ID == annas.Game.ID || bens.Started {
 		t.Fatalf("ben's quick match: game %d started %v, %v; want one of his own, waiting", bens.Game.ID, bens.Started, err)
 	}
-	if moved, _ := s.QuickMatchMove(ctx, ben, bens.Game.ID); moved != bens.Game.ID {
-		t.Errorf("ben moved at once to %d", moved)
+	if moved, next, _ := s.QuickMatchMove(ctx, ben, bens.Game.ID); moved != bens.Game.ID || !next.Equal(annas.Game.CreatedAt.Add(150*time.Second)) {
+		t.Errorf("ben: moved to %d, next check %v; want to stay until anna's game waited 2m30s (%v)", moved, next, annas.Game.CreatedAt.Add(150*time.Second))
 	}
 
 	offset = 150 * time.Second // 6 steps of 5: a difference of 30 fits
-	if moved, err := s.QuickMatchMove(ctx, anna, annas.Game.ID); err != nil || moved != annas.Game.ID {
-		t.Errorf("anna, the older, moves to %d, %v; want to stay", moved, err)
+	if moved, next, err := s.QuickMatchMove(ctx, anna, annas.Game.ID); err != nil || moved != annas.Game.ID || !next.IsZero() {
+		t.Errorf("anna, the older, moves to %d, next check %v, %v; want to stay, no check", moved, next, err)
 	}
-	moved, err := s.QuickMatchMove(ctx, ben, bens.Game.ID)
+	moved, _, err := s.QuickMatchMove(ctx, ben, bens.Game.ID)
 	if err != nil || moved != annas.Game.ID {
 		t.Fatalf("ben moves to %d, %v; want anna's game", moved, err)
 	}

@@ -1,11 +1,13 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"reflect"
 	"slices"
+	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
@@ -42,11 +44,12 @@ func (s *Service) QuickMatch(ctx context.Context, acc account.Account, mode game
 	if game.NewRules(mode) == nil {
 		return GameView{}, fmt.Errorf("%w: unknown mode %q", ErrInvalid, mode)
 	}
-	candidates, err := s.quickCandidates(ctx, acc, mode, nil)
+	lobbies, err := s.quickLobbies(ctx, acc, mode, nil)
 	if err != nil {
 		return GameView{}, err
 	}
-	switch id, ok, err := s.joinFirst(ctx, acc, candidates, boardID); {
+	ids, _ := fitting(lobbies)
+	switch id, ok, err := s.joinFirst(ctx, acc, ids, boardID); {
 	case err != nil:
 		return GameView{}, err
 	case ok:
@@ -56,53 +59,71 @@ func (s *Service) QuickMatch(ctx context.Context, acc account.Account, mode game
 }
 
 // QuickMatchMove moves the account's player from the quick match they wait in alone to an
-// older waiting one that fits by now, so two who wait find each other without anybody
-// new coming (the waiting page asks every 10 seconds). Only a newer one moves to an older
-// one, so two never move into each other's. It returns the game the player is in
-// afterwards: the same one if nothing fits, or the game isn't a quick match waiting for
-// them alone.
-func (s *Service) QuickMatchMove(ctx context.Context, acc account.Account, gameID int64) (int64, error) {
+// older waiting one that fits by now, so two who wait find each other without anybody new
+// coming. Only a newer one moves to an older one, so two never move into each other's. It
+// returns the game the player is in afterwards (the same one if nothing fits, or the game
+// isn't a quick match waiting for them alone) and when an older one will fit: forms don't
+// change while someone waits, so the waiting page asks once more right then, not all the
+// time. A zero time means none will.
+func (s *Service) QuickMatchMove(ctx context.Context, acc account.Account, gameID int64) (int64, time.Time, error) {
 	v, err := s.Game(ctx, acc, gameID)
 	if err != nil {
-		return 0, err
+		return 0, time.Time{}, err
 	}
 	g := v.Game
 	if v.Started || !IsQuickMatch(g) || len(g.Participants) != 1 || g.Participants[0].PlayerID != acc.PlayerID {
-		return gameID, nil
+		return gameID, time.Time{}, nil
 	}
-	candidates, err := s.quickCandidates(ctx, acc, g.Settings.Mode, &g)
-	if err != nil || len(candidates) == 0 {
-		return gameID, err
+	lobbies, err := s.quickLobbies(ctx, acc, g.Settings.Mode, &g)
+	if err != nil {
+		return 0, time.Time{}, err
+	}
+	ids, next := fitting(lobbies)
+	if len(ids) == 0 {
+		return gameID, next, nil
 	}
 	boardID := g.Participants[0].BoardID
 	if _, err := s.LeaveGame(ctx, acc, gameID); err != nil {
-		return 0, err
+		return 0, time.Time{}, err
 	}
-	if id, ok, err := s.joinFirst(ctx, acc, candidates, boardID); err != nil || ok {
-		return id, err
+	if id, ok, err := s.joinFirst(ctx, acc, ids, boardID); err != nil || ok {
+		return id, time.Time{}, err
 	}
-	// Someone else was faster: search again, or wait in a new one.
+	// Someone else was faster: search again, or wait in a new one, whose page asks anew.
 	v, err = s.QuickMatch(ctx, acc, g.Settings.Mode, boardID)
-	return v.Game.ID, err
+	return v.Game.ID, time.Time{}, err
 }
 
-// quickCandidates returns the waiting quick matches of others in the mode that fit the
-// account's player by now, oldest first; with older, only those older than it. Older goes
-// by the ID, which grows strictly, unlike created_at (SQLite keeps whole seconds).
-func (s *Service) quickCandidates(ctx context.Context, acc account.Account, mode game.Mode, older *game.Game) ([]int64, error) {
+// quickLobbies returns the waiting quick matches of others in the mode, oldest first; with
+// older, only those older than it. Older goes by the ID, which grows strictly, unlike
+// created_at (SQLite keeps whole seconds).
+func (s *Service) quickLobbies(ctx context.Context, acc account.Account, mode game.Mode, older *game.Game) ([]OpenLobby, error) {
 	lobbies, err := s.OpenLobbies(ctx, acc)
 	if err != nil {
 		return nil, err
 	}
-	var ids []int64
+	var quick []OpenLobby
 	for _, l := range lobbies {
-		quick := !l.Tournament && l.Settings.Mode == mode && isQuick(l.Settings, game.Lobby{Seats: l.Seats, BoardOnly: l.BoardOnly})
-		if quick && l.Fits && (older == nil || l.ID < older.ID) {
-			ids = append(ids, l.ID)
+		if !l.Tournament && l.Settings.Mode == mode && isQuick(l.Settings, game.Lobby{Seats: l.Seats, BoardOnly: l.BoardOnly}) && (older == nil || l.ID < older.ID) {
+			quick = append(quick, l)
 		}
 	}
-	slices.Sort(ids)
-	return ids, nil
+	slices.SortFunc(quick, func(a, b OpenLobby) int { return cmp.Compare(a.ID, b.ID) })
+	return quick, nil
+}
+
+// fitting returns the IDs of the lobbies that fit by now, in their order, and when the
+// first of the others will (zero if there are none).
+func fitting(lobbies []OpenLobby) (ids []int64, next time.Time) {
+	for _, l := range lobbies {
+		switch {
+		case l.Fits:
+			ids = append(ids, l.ID)
+		case next.IsZero() || l.FitsAt.Before(next):
+			next = l.FitsAt
+		}
+	}
+	return ids, next
 }
 
 // joinFirst joins the first of the games that still has a seat; ok is false if none had.

@@ -31,8 +31,10 @@ type OpenLobby struct {
 	// Forms are how well the players in Joined play the lobby's mode lately (stats.Form),
 	// of those with enough completed games.
 	Forms map[int64]float64 `json:"forms,omitempty"`
-	// Fits says whether the players' form is close to that of the account's own player, by
-	// how long the lobby has waited (see fits); always without a form on either side.
+	// FitsAt is when the players' form is close enough to that of the account's own player,
+	// as the lobby waits (see fitsAt): its creation without a form on either side. Fits says
+	// whether that time has come.
+	FitsAt    time.Time `json:"fits_at"`
 	Fits      bool      `json:"fits"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -158,22 +160,25 @@ func (s *Service) addForms(ctx context.Context, acc account.Account, lobbies []O
 				lobbies[i].Forms[p.ID] = form
 			}
 		}
-		mine, ok := forms[l.Settings.Mode][acc.PlayerID]
-		lobbies[i].Fits = !ok || lobbies[i].fits(mine, s.now())
+		lobbies[i].FitsAt = l.CreatedAt
+		if mine, ok := forms[l.Settings.Mode][acc.PlayerID]; ok {
+			lobbies[i].FitsAt = lobbies[i].fitsAt(mine)
+		}
+		lobbies[i].Fits = !s.now().Before(lobbies[i].FitsAt)
 	}
 	return nil
 }
 
-// fits reports whether the form of a player fits the lobby by now: the average of the forms
-// of its players who have one is close enough after how long it waited (stats.FormFits).
-// A lobby of players without a form fits anyone.
-func (l OpenLobby) fits(form float64, now time.Time) bool {
+// fitsAt is when the form of a player fits the lobby: once it has waited long enough
+// (stats.FormWait) for the average of the forms of its players who have one. A lobby of
+// players without a form fits anyone from the start.
+func (l OpenLobby) fitsAt(form float64) time.Time {
 	if len(l.Forms) == 0 {
-		return true
+		return l.CreatedAt
 	}
 	var sum float64
 	for _, f := range l.Forms {
 		sum += f
 	}
-	return stats.FormFits(l.Settings.Mode, form, sum/float64(len(l.Forms)), now.Sub(l.CreatedAt))
+	return l.CreatedAt.Add(stats.FormWait(l.Settings.Mode, form, sum/float64(len(l.Forms))))
 }

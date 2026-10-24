@@ -141,17 +141,21 @@ templ boardMenu(v service.GameView) {
 	</details>
 }
 
+// QuickMatchCheck asks after the delay whether an older waiting quick match fits by now
+// (POST /games/{id}/quick): the page goes there if the player was moved, else the answer
+// is this again with the delay until the next one will fit, or nothing if none will.
+templ QuickMatchCheck(gameID int64, after time.Duration) {
+	<div hx-post={ gameURL(gameID, "/quick") } hx-trigger={ "load delay:" + strconv.Itoa(int(after.Seconds())) + "s" } hx-swap="outerHTML"></div>
+}
+
 // lobby turns into the board once the game starts, pushed by the server.
 templ lobby(v service.GameView, errMsg string) {
 	<div id="board" sse-swap="board" hx-swap="outerHTML" data-sound={ soundKind(v) } data-sound-id={ soundID(v) }>
 		@gameTitle(v, nil)
 		@errorAlert(errMsg)
 		if service.IsQuickMatch(v.Game) && v.CanThrow {
-			// A quick match that waits asks every 10 seconds whether an older one fits by
-			// now, and goes there if the player was moved.
-			<div hx-post={ gameURL(v.Game.ID, "/quick") } hx-trigger="every 10s" hx-swap="none">
-				@notice(T(ctx).QuickMatchWaiting())
-			</div>
+			@notice(T(ctx).QuickMatchWaiting())
+			@QuickMatchCheck(v.Game.ID, 0)
 		}
 		@lobbyPanel(gameLobby(T(ctx), v))
 		if !v.Invited {

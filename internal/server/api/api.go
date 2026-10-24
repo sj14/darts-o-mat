@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
@@ -592,21 +593,29 @@ func (a *API) quickMatch(w http.ResponseWriter, r *http.Request) {
 }
 
 // quickMatchMove moves the own player from a quick match they wait in to an older one that
-// fits by now (see service.QuickMatchMove); a client that waits asks every 10 seconds. It
-// answers with the game the player is in afterwards.
+// fits by now (see service.QuickMatchMove). It answers with the game the player is in
+// afterwards and, while they still wait, when to ask again (`check_at`, left out if no
+// older one will fit).
 func (a *API) quickMatchMove(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
 	}
 	acc := auth.Account(r.Context())
-	moved, err := a.svc.QuickMatchMove(r.Context(), acc, id)
+	moved, next, err := a.svc.QuickMatchMove(r.Context(), acc, id)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 	v, err := a.svc.Game(r.Context(), acc, moved)
-	respond(w, http.StatusOK, v, err)
+	resp := struct {
+		Game    service.GameView `json:"game"`
+		CheckAt *time.Time       `json:"check_at,omitempty"`
+	}{Game: v}
+	if !next.IsZero() {
+		resp.CheckAt = &next
+	}
+	respond(w, http.StatusOK, resp, err)
 }
 
 // respondEmpty answers with 204 and no body, or with the error.

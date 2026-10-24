@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/auth"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
@@ -71,22 +72,26 @@ func (c *Controller) quickMatch(w http.ResponseWriter, r *http.Request) {
 }
 
 // quickMatchMove is asked by the page of a quick match that waits for an opponent: if the
-// player moved to an older one that fits by now, htmx goes to its page.
+// player moved to an older one that fits by now, htmx goes to its page; else the page asks
+// again once the next one will fit (a second late, as created_at keeps whole seconds and
+// the clocks of database and server may differ a little), or not at all.
 func (c *Controller) quickMatchMove(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
 	}
-	moved, err := c.svc.QuickMatchMove(r.Context(), auth.Account(r.Context()), id)
+	moved, next, err := c.svc.QuickMatchMove(r.Context(), auth.Account(r.Context()), id)
 	switch {
 	case isNotFound(err):
 		http.NotFound(w, r)
-		return
 	case err != nil:
 		serverError(w, err)
-		return
 	case moved != id:
 		w.Header().Set("HX-Redirect", gameURL(moved))
+		w.WriteHeader(http.StatusNoContent)
+	case next.IsZero():
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		render(w, r, http.StatusOK, view.QuickMatchCheck(id, max(time.Until(next), 0)+time.Second))
 	}
-	w.WriteHeader(http.StatusNoContent)
 }
