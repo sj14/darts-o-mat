@@ -30,6 +30,20 @@ func (store *Store) ListResults(ctx context.Context, playerIDs []int64) ([]stats
 	return results, err
 }
 
+// ListRecentResults returns the stored results of the players in games of the mode, the
+// most recent limit of them per player.
+func (store *Store) ListRecentResults(ctx context.Context, playerIDs []int64, mode game.Mode, limit int) ([]stats.Result, error) {
+	results := []stats.Result{}
+	if len(playerIDs) == 0 {
+		return results, nil
+	}
+	ranked := store.db.NewSelect().Model((*stats.Result)(nil)).ColumnExpr("*").
+		ColumnExpr("ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY game_id DESC) AS n").
+		Where("player_id IN (?)", bun.In(playerIDs)).Where("mode = ?", mode)
+	err := store.db.NewSelect().Model(&results).ModelTableExpr("(?) AS result", ranked).Where("n <= ?", limit).Scan(ctx)
+	return results, err
+}
+
 // ListPositions returns where the cameras saw the player's most recent darts, at most
 // limit of them; with a mode only those of games of that mode.
 func (store *Store) ListPositions(ctx context.Context, playerID int64, mode game.Mode, limit int64) ([]dartboard.Point, error) {

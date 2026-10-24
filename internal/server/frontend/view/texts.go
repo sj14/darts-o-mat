@@ -58,6 +58,12 @@ type Texts interface {
 	OpenGames() string
 	NoOpenGames() string
 	PlayersOfSeats(players, seats int) string
+	// FormAverage and FormHitRate show a player's form in the list of open games (the
+	// three-dart average in X01, the hit rate in around the clock), NewPlayer one with
+	// too few games for it.
+	FormAverage(average string) string
+	FormHitRate(rate string) string
+	NewPlayer() string
 	JoinLobby() string
 	LobbiesHint() string
 	LobbiesShown(shown, total int) string

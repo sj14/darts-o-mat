@@ -724,11 +724,20 @@ func lastTurnOf(t Texts, v service.GameView, playerID int64) (lastTurn, bool) {
 	return lastTurn{}, false
 }
 
-// lobbyPlayers names the players that are in an open game or tournament already.
+// lobbyPlayers names the players that are in an open game or tournament already, each with
+// their form in its mode ("new" without enough games) and their thumbs.
 func lobbyPlayers(ctx context.Context, l service.OpenLobby) string {
+	t := T(ctx)
 	names := make([]string, len(l.Joined))
 	for i, p := range l.Joined {
-		names[i] = displayName(ctx, p)
+		form := t.NewPlayer()
+		if f, ok := l.Forms[p.ID]; ok {
+			form = t.FormAverage(t.Decimal(f))
+			if l.Settings.Mode == game.ModeAroundTheClock {
+				form = t.FormHitRate(t.Percent(f))
+			}
+		}
+		names[i] = displayName(ctx, p) + " (" + form + ")"
 		if r, ok := l.Reputations[p.ID]; ok {
 			names[i] += " 👍 " + T(ctx).Percent(r.Share()) + " (" + strconv.Itoa(r.Total()) + ")"
 		}

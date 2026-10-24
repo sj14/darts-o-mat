@@ -131,7 +131,10 @@ func (textsDE) NoOpenGames() string { return "Zurzeit sucht kein Spiel Mitspiele
 func (textsDE) PlayersOfSeats(players, seats int) string {
 	return strconv.Itoa(players) + " von " + strconv.Itoa(seats) + " Spielern"
 }
-func (textsDE) JoinLobby() string { return "Beitreten" }
+func (textsDE) FormAverage(average string) string { return "Ø " + average }
+func (textsDE) FormHitRate(rate string) string    { return rate + " Treffer" }
+func (textsDE) NewPlayer() string                 { return "neu" }
+func (textsDE) JoinLobby() string                 { return "Beitreten" }
 func (textsDE) LobbiesHint() string {
 	return "Spiele und Turniere, die Mitspieler suchen. Grenze die Liste auf das passende ein und tritt bei: Es startet, sobald alle Plätze besetzt sind."
 }

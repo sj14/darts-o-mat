@@ -210,6 +210,35 @@ func (s *AroundTheClock) add(p Result) {
 	}
 }
 
+// FormGames is how many of a player's most recent completed games of a mode their form is
+// worked out from, so it shows how they play now; MinFormGames is how many it needs.
+const (
+	FormGames    = 20
+	MinFormGames = 3
+)
+
+// Form is how well a player plays a mode lately, to find opponents of about the same
+// strength: the three-dart average in X01, the share of hits in around the clock. Both
+// hardly depend on the game's settings (start score, check-out, bull, multiplier skips),
+// unlike e.g. the darts to finish. results are the player's of the mode, the most recent
+// FormGames of them; ok is false with fewer than MinFormGames.
+func Form(mode game.Mode, results []Result) (form float64, ok bool) {
+	if len(results) < MinFormGames {
+		return 0, false
+	}
+	var s Summary
+	for _, r := range results {
+		s.AddResult(r)
+	}
+	switch mode {
+	case game.ModeX01:
+		return s.X01.Average, true
+	case game.ModeAroundTheClock:
+		return s.AroundTheClock.HitRate, true
+	}
+	return 0, false
+}
+
 // TournamentResult is what one player got out of a tournament that is over: stored like
 // Result (table tournament_stats), once the last match is completed.
 type TournamentResult struct {

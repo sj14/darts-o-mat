@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 )
 
@@ -244,5 +245,47 @@ func TestOutsiderIsRefusedFirst(t *testing.T) {
 	}
 	if own, _ = s.Game(ctx, carl, own.Game.ID); own.Completed {
 		t.Error("a refused accept completed the outsider's own game")
+	}
+}
+
+// The list of open games shows the form of the players in each game's mode, from their
+// stored results, for those with enough games of it.
+func TestOpenLobbyForms(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben, carla := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla")
+
+	var results []stats.Result
+	for id := int64(1000); id < 1003; id++ { // anna: 3 games of X01 at 60, ben only 2
+		results = append(results,
+			stats.Result{GameID: id, PlayerID: anna.PlayerID, Mode: game.ModeX01, Darts: 15, Points: 300},
+			stats.Result{GameID: id + 10, PlayerID: anna.PlayerID, Mode: game.ModeAroundTheClock, Darts: 10, Hits: 5})
+		if id < 1002 {
+			results = append(results, stats.Result{GameID: id, PlayerID: ben.PlayerID, Mode: game.ModeX01, Darts: 15, Points: 300})
+		}
+	}
+	if err := s.store.AddResults(ctx, results); err != nil {
+		t.Fatal(err)
+	}
+
+	g := x01Game(anna.PlayerID)
+	g.Seats = 3
+	v, err := createGame(ctx, s, anna, g, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := joinGame(ctx, s, ben, v.Game.ID, nil); err != nil {
+		t.Fatal(err)
+	}
+	l, err := s.OpenLobbies(ctx, carla)
+	if err != nil || len(l) != 1 {
+		t.Fatalf("carla's open games = %+v, %v; want anna's", l, err)
+	}
+	if form, ok := l[0].Forms[anna.PlayerID]; !ok || form != 60 {
+		t.Errorf("anna's form = %v, %v; want her X01 average 60, not around the clock", form, ok)
+	}
+	if form, ok := l[0].Forms[ben.PlayerID]; ok {
+		t.Errorf("ben has a form with 2 games: %v", form)
 	}
 }

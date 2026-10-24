@@ -10,6 +10,7 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
 ## Game modes
 
 - Game mode segment training (planned 2026-10-14, why `dartboard.Segment` knows the inner and outer single field): e.g. hit a given segment as often as possible. A new mode follows [AGENTS.md → game state](AGENTS.md#game-state).
+- Around the clock where only doubles or only triples count (wished 2026-10-24): a setting of the mode (migration for both databases), the hit rule, the start form, a hint on the keypad; roughly 80–120 lines. Its results are another discipline for the form in the list of open games, see [AGENTS.md → open games](AGENTS.md#open-games): the stored result has to know the variant.
 
 ## Games
 
@@ -17,8 +18,8 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
 - One seat per player is built (2026-10-22, see [AGENTS.md → accounts and players](AGENTS.md#accounts-and-players)): refused with a link. Left out for now: an "abort it and start the new one" offer (leaving a game with others counts in "left early").
 - Lobby as the one way in is built (2026-10-22, see [AGENTS.md → lobby](AGENTS.md#lobby)). Set aside: the game's settings in the lobby instead of the start form (asked 2026-10-22, put off by the user to finish the lobby first; open question: who may change them until when, e.g. only while no other account is in, so strangers aren't surprised); reordering the players in the lobby (the order is drawn at the start for now).
 - Allow others to watch games if they know the link.
-- Play with strangers, what is left (open games, a board per player, leaving, the optional captcha and the limit on failed logins are built, see [AGENTS.md → open games](AGENTS.md#open-games)): board-only lobbies (built 2026-10-20) don't pass the rule on to a tournament's games, see [AGENTS.md → open games](AGENTS.md#open-games), quick match (join the oldest open game with default rules or open one and wait), opponents of about the same strength by their average (decided 2026-10-24 instead of an ELO rating, see [technical](#technical); e.g. shown on the lobby card, as a filter, or for the quick match), rate limits for creating open games.
-- Time per turn (built 2026-10-18, see [AGENTS.md → game state](AGENTS.md#game-state)): show skipped turns and players who left because of it in the history (today a skipped turn has no row, or a "…" after its darts); needs a `Skipped` field per turn in each mode. Maybe a warning on the player's card after the first skipped turn.
+- Play with strangers, what is left (open games, a board per player, leaving, the optional captcha and the limit on failed logins are built, see [AGENTS.md → open games](AGENTS.md#open-games)): board-only lobbies (built 2026-10-20) don't pass the rule on to a tournament's games, see [AGENTS.md → open games](AGENTS.md#open-games), quick match (join the oldest open game with default rules or open one and wait), opponents of about the same strength by their form (decided 2026-10-24 instead of an ELO rating, see [technical](#technical); shown in the list of open games since 2026-10-24, see [AGENTS.md → open games](AGENTS.md#open-games); left: as a filter or for the quick match), rate limits for creating open games.
+- Time per turn (built 2026-10-18, see [AGENTS.md → game state](AGENTS.md#game-state)); set aside 2026-10-24, about 150–200 lines are too much for it for now: show skipped turns and players who left because of it in the history (today a skipped turn has no row, or a "…" after its darts); needs a `Skipped` field per turn in each mode. Maybe a warning on the player's card after the first skipped turn.
 
 ## Tournaments
 

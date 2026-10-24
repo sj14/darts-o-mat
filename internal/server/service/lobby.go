@@ -9,6 +9,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 )
 
@@ -27,7 +28,10 @@ type OpenLobby struct {
 	BoardOnly  bool              `json:"board_only,omitempty"` // everyone needs a board
 	// Reputations are the thumbs of the players in Joined who got enough of them to show.
 	Reputations map[int64]player.Reputation `json:"reputations,omitempty"`
-	CreatedAt   time.Time                   `json:"created_at"`
+	// Forms are how well the players in Joined play the lobby's mode lately (stats.Form),
+	// of those with enough completed games.
+	Forms     map[int64]float64 `json:"forms,omitempty"`
+	CreatedAt time.Time         `json:"created_at"`
 }
 
 // offered reports whether a lobby still takes players. It does as long as someone is in
@@ -106,6 +110,47 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 			}
 		}
 	}
+	if err := s.addForms(ctx, lobbies); err != nil {
+		return nil, err
+	}
 	slices.SortStableFunc(lobbies, func(a, b OpenLobby) int { return b.CreatedAt.Compare(a.CreatedAt) })
 	return lobbies, nil
+}
+
+// addForms fills in the forms of the players in the lobbies, in each lobby's mode.
+func (s *Service) addForms(ctx context.Context, lobbies []OpenLobby) error {
+	ids := map[game.Mode][]int64{}
+	for _, l := range lobbies {
+		for _, p := range l.Joined {
+			ids[l.Settings.Mode] = append(ids[l.Settings.Mode], p.ID)
+		}
+	}
+	forms := map[game.Mode]map[int64]float64{}
+	for mode, players := range ids {
+		results, err := s.store.ListRecentResults(ctx, players, mode, stats.FormGames)
+		if err != nil {
+			return err
+		}
+		byPlayer := map[int64][]stats.Result{}
+		for _, r := range results {
+			byPlayer[r.PlayerID] = append(byPlayer[r.PlayerID], r)
+		}
+		forms[mode] = map[int64]float64{}
+		for id, rs := range byPlayer {
+			if form, ok := stats.Form(mode, rs); ok {
+				forms[mode][id] = form
+			}
+		}
+	}
+	for i, l := range lobbies {
+		for _, p := range l.Joined {
+			if form, ok := forms[l.Settings.Mode][p.ID]; ok {
+				if lobbies[i].Forms == nil {
+					lobbies[i].Forms = map[int64]float64{}
+				}
+				lobbies[i].Forms[p.ID] = form
+			}
+		}
+	}
+	return nil
 }

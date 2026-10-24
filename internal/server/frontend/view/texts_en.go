@@ -134,7 +134,10 @@ func (textsEN) NoOpenGames() string { return "No game is looking for players rig
 func (textsEN) PlayersOfSeats(players, seats int) string {
 	return strconv.Itoa(players) + " of " + strconv.Itoa(seats) + " players"
 }
-func (textsEN) JoinLobby() string { return "Join" }
+func (textsEN) FormAverage(average string) string { return "avg. " + average }
+func (textsEN) FormHitRate(rate string) string    { return rate + " hits" }
+func (textsEN) NewPlayer() string                 { return "new" }
+func (textsEN) JoinLobby() string                 { return "Join" }
 func (textsEN) LobbiesHint() string {
 	return "Games and tournaments that look for players. Narrow the list down to the one that fits and join: it starts as soon as every seat is taken."
 }
