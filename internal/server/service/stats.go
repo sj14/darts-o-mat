@@ -18,7 +18,7 @@ const HeatDarts = 5000
 //
 // Once a game is completed nothing about it changes anymore, so its result per player
 // is stored (stats.Result) the first time it is seen here and added up from then on;
-// only games that aren't stored yet are replayed. Games that are over but not completed
+// only games that aren't stored yet are loaded and replayed. Games that are over but not completed
 // (a dart could still be corrected) don't count yet.
 func (s *Service) Stats(ctx context.Context, acc account.Account, heatMode game.Mode) ([]stats.Summary, error) {
 	players, err := s.store.ListPlayers(ctx, acc.ID, acc.PlayerID)
@@ -60,18 +60,11 @@ func (s *Service) Stats(ctx context.Context, acc account.Account, heatMode game.
 	if err != nil {
 		return nil, err
 	}
-	stored := map[int64]bool{}
-	for _, r := range results {
-		stored[r.GameID] = true
-	}
-	games, err := s.store.ListGames(ctx, acc.ID, acc.PlayerID, 0)
+	games, err := s.store.ListGamesWithoutResults(ctx, acc.ID, acc.PlayerID)
 	if err != nil {
 		return nil, err
 	}
 	for _, g := range games {
-		if g.Aborted() || stored[g.ID] {
-			continue
-		}
 		darts, err := s.store.ListDarts(ctx, g.ID)
 		if err != nil {
 			return nil, err
@@ -102,18 +95,11 @@ func (s *Service) Stats(ctx context.Context, acc account.Account, heatMode game.
 	if err != nil {
 		return nil, err
 	}
-	storedTournaments := map[int64]bool{}
-	for _, r := range tournamentResults {
-		storedTournaments[r.TournamentID] = true
-	}
-	tournaments, err := s.store.ListTournaments(ctx, acc.ID, acc.PlayerID, 0)
+	tournaments, err := s.store.ListTournamentsWithoutResults(ctx, acc.ID, acc.PlayerID)
 	if err != nil {
 		return nil, err
 	}
 	for _, t := range tournaments {
-		if t.Aborted() || storedTournaments[t.ID] {
-			continue
-		}
 		v, err := s.tournamentView(ctx, acc, t)
 		if err != nil {
 			return nil, err

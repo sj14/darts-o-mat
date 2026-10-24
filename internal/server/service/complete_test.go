@@ -211,6 +211,9 @@ func TestStatsOfCompletedGames(t *testing.T) {
 	if got[0].X01.Games != 0 {
 		t.Errorf("a game that can still be corrected counts: %+v", got[0].X01)
 	}
+	if games, _ := s.store.ListGamesWithoutResults(ctx, anna.ID, anna.PlayerID); len(games) != 1 {
+		t.Errorf("games without results = %d, want the one that can still be corrected", len(games))
+	}
 	if got[0].Heat.Darts != 1 {
 		t.Errorf("heat = %+v, want the one camera dart", got[0].Heat)
 	}
@@ -232,5 +235,8 @@ func TestStatsOfCompletedGames(t *testing.T) {
 	}
 	if rs, _ := s.store.ListResults(ctx, []int64{anna.PlayerID}); len(rs) != 1 || rs[0].GameID != v.Game.ID {
 		t.Errorf("stored results = %+v, want one for the game", rs)
+	}
+	if games, _ := s.store.ListGamesWithoutResults(ctx, anna.ID, anna.PlayerID); len(games) != 0 {
+		t.Errorf("games without results = %d, want none: the stored game isn't loaded again", len(games))
 	}
 }

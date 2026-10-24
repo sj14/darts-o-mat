@@ -30,7 +30,6 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
 
 - Heatmap: choose a period (game mode since 2026-10-20), a finer drawing (smooth instead of squares), and the hits per field as numbers; maybe also show which fields were corrected (position and field differ, see [statistics](AGENTS.md#statistics)).
 - Statistics at the end: the game page shows the statistics of the whole game below the history (table, and a heatmap per player for camera darts, since 2026-10-18; a separate statistics page was rejected as it would repeat the table). Still open: the statistics of a single leg after it, and a comparison of the players leg by leg.
-- `service.Stats` loads every game's and tournament's participants (`ListGames`, `ListTournaments`) on each visit; a query only for those without stored results would do.
 - Statistics from the table (`game_stats`) allow trends over time (average per week, last 30 days): not built, needs a date per result (`games.completed_at` or the game's start).
 
 ## Boards and cameras
@@ -53,7 +52,7 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
   - The limit on failed logins (`loginLimiter`): per replica it would allow N failures on each.
   - Presence of friends (`service/presence.go`): who was seen and who streams.
   - The cached pages and site settings (`Service.pages`, `Service.site`): a change on one replica isn't seen by the others.
-  - Migrations run when the store opens, without a lock (`bun_migrations`): replicas starting together would run them twice.
+  - Migrations run when the store opens, without a lock (`bun_migrations`): replicas starting together would run them twice. Decided (2026-10-24): Bun's own lock (`migrate.Migrator.Lock`, table `bun_migration_locks`) instead of one of our own; it doesn't wait but fails, so a replica that starts during a migration restarts until it is done, which is fine at the start. To check when built: a process that dies while holding it leaves the row behind.
 - Unsure: switch the primary IDs to UUIDs.
 - Database migrations are built (2026-10-22, see [AGENTS.md → database](AGENTS.md#database)). Left:
   - Alternative if writing the SQLite half by hand gets too much: [Atlas](https://atlasgo.io) (`migrate diff` for both databases, also rebuilds SQLite tables), a new external tool. Switch to Bun's own once `sqlitedialect` has a schema inspector.

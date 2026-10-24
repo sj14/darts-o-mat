@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 	"github.com/uptrace/bun"
 )
@@ -74,14 +75,30 @@ func (store *Store) GetTournament(ctx context.Context, id int64) (tournament.Tou
 // ListTournaments returns the tournaments with a player of the account (its own player
 // or one of its guests), newest first. A limit of 0 returns all of them.
 func (store *Store) ListTournaments(ctx context.Context, accountID, playerID int64, limit int64) ([]tournament.Tournament, error) {
-	mine := store.db.NewSelect().Model((*tournament.Participant)(nil)).ColumnExpr("participant.tournament_id").
-		Join("JOIN players AS p ON p.id = participant.player_id").
-		Where("p.id = ? OR p.guest_of = ?", playerID, accountID)
-	q := store.db.NewSelect().Where("id IN (?)", mine).Order("id DESC")
+	q := store.db.NewSelect().Where("id IN (?)", store.tournamentsOf(accountID, playerID)).Order("id DESC")
 	if limit > 0 {
 		q = q.Limit(limit)
 	}
 	return store.scanTournaments(ctx, q)
+}
+
+// ListTournamentsWithoutResults returns the tournaments of ListTournaments that may still
+// need their results stored (stats.TournamentResult), newest first: started, not aborted,
+// and without a result in tournament_stats. Whether one is completed its games tell, so the
+// caller still checks that.
+func (store *Store) ListTournamentsWithoutResults(ctx context.Context, accountID, playerID int64) ([]tournament.Tournament, error) {
+	stored := store.db.NewSelect().Model((*stats.TournamentResult)(nil)).Column("tournament_id")
+	return store.scanTournaments(ctx, store.db.NewSelect().Where("id IN (?)", store.tournamentsOf(accountID, playerID)).
+		Where("id NOT IN (?)", stored).Where("started_at IS NOT NULL").Where("aborted_at IS NULL").
+		Order("id DESC"))
+}
+
+// tournamentsOf selects the IDs of the tournaments with a player of the account: its own
+// player or one of its guests.
+func (store *Store) tournamentsOf(accountID, playerID int64) *bun.SelectQuery {
+	return store.db.NewSelect().Model((*tournament.Participant)(nil)).ColumnExpr("participant.tournament_id").
+		Join("JOIN players AS p ON p.id = participant.player_id").
+		Where("p.id = ? OR p.guest_of = ?", playerID, accountID)
 }
 
 // ListUnfinishedTournamentsByPlayer returns the tournaments the player took a seat in

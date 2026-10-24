@@ -7,6 +7,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/board"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/uptrace/bun"
 )
@@ -96,14 +97,29 @@ func (store *Store) GetGame(ctx context.Context, id int64) (game.Game, error) {
 // ListGames returns the most recent games with a player of the account (its own player
 // or one of its guests), newest first. A limit of 0 returns all of them.
 func (store *Store) ListGames(ctx context.Context, accountID, playerID int64, limit int64) ([]game.Game, error) {
-	mine := store.db.NewSelect().Model((*game.Participant)(nil)).ColumnExpr("participant.game_id").
-		Join("JOIN players AS p ON p.id = participant.player_id").
-		Where("p.id = ? OR p.guest_of = ?", playerID, accountID)
-	q := store.db.NewSelect().Where("id IN (?)", mine).Order("id DESC")
+	q := store.db.NewSelect().Where("id IN (?)", store.gamesOf(accountID, playerID)).Order("id DESC")
 	if limit > 0 {
 		q = q.Limit(limit)
 	}
 	return store.scanGames(ctx, q)
+}
+
+// ListGamesWithoutResults returns the games of ListGames that may still need their results
+// stored (stats.Result), newest first: started, not aborted, and without a result in
+// game_stats. Whether one is completed only its replay tells, so the caller still checks that.
+func (store *Store) ListGamesWithoutResults(ctx context.Context, accountID, playerID int64) ([]game.Game, error) {
+	stored := store.db.NewSelect().Model((*stats.Result)(nil)).Column("game_id")
+	return store.scanGames(ctx, store.db.NewSelect().Where("id IN (?)", store.gamesOf(accountID, playerID)).
+		Where("id NOT IN (?)", stored).Where("started_at IS NOT NULL").Where("aborted_at IS NULL").
+		Order("id DESC"))
+}
+
+// gamesOf selects the IDs of the games with a player of the account: its own player or
+// one of its guests.
+func (store *Store) gamesOf(accountID, playerID int64) *bun.SelectQuery {
+	return store.db.NewSelect().Model((*game.Participant)(nil)).ColumnExpr("participant.game_id").
+		Join("JOIN players AS p ON p.id = participant.player_id").
+		Where("p.id = ? OR p.guest_of = ?", playerID, accountID)
 }
 
 // ListUnfinishedGamesByBoard returns the games a player throws on the board in that may
