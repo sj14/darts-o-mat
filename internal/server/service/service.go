@@ -104,6 +104,8 @@ type Service struct {
 	// logins limits the failed logins per username, nil without a limit.
 	logins   *loginLimiter
 	networks *loginLimiter
+	// presence is who is online, for the friends (see Presence).
+	presence presence
 	timers   map[int64]*time.Timer
 	timersMu sync.Mutex
 	// now is the time, replaced in tests.
@@ -126,7 +128,7 @@ type Service struct {
 }
 
 func New(store *store.Store, opts Options) *Service {
-	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, now: time.Now, shuffle: rand.Shuffle, started: time.Now()}
+	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, presence: presence{seen: map[int64]time.Time{}, streams: map[int64]int{}}, now: time.Now, shuffle: rand.Shuffle, started: time.Now()}
 	if s.opts.PasswordCost == 0 {
 		s.opts.PasswordCost = bcrypt.DefaultCost
 	}

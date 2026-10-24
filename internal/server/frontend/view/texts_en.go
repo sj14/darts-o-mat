@@ -414,6 +414,11 @@ func (textsEN) EmailHint() string {
 	return "Optional. Nothing is sent to it yet; it is only stored for the account. Leave it empty to remove it."
 }
 func (textsEN) SaveEmail() string { return "Save" }
+func (textsEN) Incognito() string { return "Incognito" }
+func (textsEN) IncognitoHint() string {
+	return "Your friends see you offline: neither that you are online nor that you are in a game. You still see theirs."
+}
+func (textsEN) AppearOffline() string { return "Appear offline" }
 func (textsEN) ErrInvalidEmail() string {
 	return "Please enter a valid email address, or leave it empty."
 }
@@ -447,6 +452,9 @@ func (textsEN) NoFriendsYet() string    { return "No friends yet." }
 func (textsEN) Remove() string          { return "Remove" }
 func (textsEN) SentRequests() string    { return "Sent requests" }
 func (textsEN) WithdrawRequest() string { return "Withdraw" }
+func (textsEN) PresenceOnline() string  { return "Online" }
+func (textsEN) PresencePlaying() string { return "In a game" }
+func (textsEN) PresenceOffline() string { return "Offline" }
 
 func (textsEN) StatsHint() string {
 	return "Over all finished games and tournaments of you and your guest players."

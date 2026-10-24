@@ -17,6 +17,9 @@ type Friend struct {
 	Username  string `json:"username"`
 	PlayerID  int64  `json:"player_id"` // the account's own player
 	Name      string `json:"name"`      // name of the account's player
+	// Presence is whether the friend is online or playing, only in FriendList.Friends.
+	Presence  Presence `json:"presence,omitempty"`
+	invisible bool     // the account hides its presence (account.Account.Invisible)
 }
 
 type FriendList struct {
@@ -51,7 +54,7 @@ func (s *Service) Friends(ctx context.Context, acc account.Account) (FriendList,
 			list.Outgoing = append(list.Outgoing, friends[i])
 		}
 	}
-	return list, nil
+	return list, s.setPresence(ctx, list.Friends)
 }
 
 // RequestFriend sends a friend request to the account with the username.
@@ -125,7 +128,7 @@ func (s *Service) friends(ctx context.Context, ids []int64) ([]Friend, error) {
 	}
 	byID := map[int64]Friend{}
 	for _, a := range accounts {
-		byID[a.ID] = Friend{AccountID: a.ID, Username: a.Username, PlayerID: a.PlayerID, Name: names[a.PlayerID]}
+		byID[a.ID] = Friend{AccountID: a.ID, Username: a.Username, PlayerID: a.PlayerID, Name: names[a.PlayerID], invisible: a.Invisible}
 	}
 
 	result := []Friend{}

@@ -47,6 +47,17 @@ templ Settings(acc account.Account, p player.Player, guests []player.Player, las
 				</form>
 			}
 			@panel("mt-6") {
+				<h2 class={ labelClass }>{ T(ctx).Incognito() }</h2>
+				<p class={ hintClass }>{ T(ctx).IncognitoHint() }</p>
+				// Like the color: choosing submits at once; without JavaScript the button does.
+				<form method="post" action="/settings/invisible" onchange="this.submit()" class="mt-4 flex flex-wrap items-center gap-3">
+					@checkbox("invisible", "invisible", "1", acc.Invisible) {
+						{ T(ctx).AppearOffline() }
+					}
+					<noscript><button type="submit" class={ btnSecondary }>OK</button></noscript>
+				</form>
+			}
+			@panel("mt-6") {
 				<h2 class={ labelClass }>{ T(ctx).Guests() }</h2>
 				<p class={ hintClass }>{ T(ctx).GuestsHint() }</p>
 				if len(guests) == 0 {

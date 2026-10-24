@@ -128,6 +128,23 @@ func (store *Store) ListUnfinishedGamesByPlayer(ctx context.Context, playerID in
 		Order("id DESC"))
 }
 
+// PlayingPlayers returns which of the players have a seat (accepted) in a running game:
+// started, neither aborted nor completed. A game that is over but not completed yet still
+// counts, as does one the player left; only a replay would tell those apart.
+func (store *Store) PlayingPlayers(ctx context.Context, playerIDs []int64) ([]int64, error) {
+	ids := []int64{}
+	if len(playerIDs) == 0 {
+		return ids, nil
+	}
+	running := store.db.NewSelect().Model((*game.Game)(nil)).Column("id").
+		Where("started_at IS NOT NULL").Where("aborted_at IS NULL").Where("completed_at IS NULL")
+	err := store.db.NewSelect().Model((*game.Participant)(nil)).Distinct().Column("player_id").
+		Where("player_id IN (?)", bun.In(playerIDs)).Where("status = ?", game.InvitationAccepted).
+		Where("game_id IN (?)", running).
+		Scan(ctx, &ids)
+	return ids, err
+}
+
 // ListInvitedGames returns the games a player was invited to and hasn't answered yet,
 // newest first.
 func (store *Store) ListInvitedGames(ctx context.Context, playerID int64) ([]game.Game, error) {

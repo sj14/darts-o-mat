@@ -47,6 +47,12 @@ func (c *Controller) setEmail(w http.ResponseWriter, r *http.Request) {
 	c.respondSettings(w, r, err)
 }
 
+// setInvisible stores whether the account hides its presence from its friends.
+func (c *Controller) setInvisible(w http.ResponseWriter, r *http.Request) {
+	_, err := c.svc.SetInvisible(r.Context(), auth.Account(r.Context()), r.FormValue("invisible") == "1")
+	c.respondSettings(w, r, err)
+}
+
 // deleteAccount deletes the account after its password was entered again, and logs out.
 func (c *Controller) deleteAccount(w http.ResponseWriter, r *http.Request) {
 	if err := c.svc.DeleteAccount(r.Context(), auth.Account(r.Context()), r.FormValue("password")); err != nil {

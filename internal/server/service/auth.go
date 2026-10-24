@@ -175,6 +175,9 @@ func (s *Service) Authenticate(ctx context.Context, token string) (account.Accou
 	if errors.Is(err, store.ErrNotFound) {
 		return account.Account{}, ErrUnauthenticated
 	}
+	if err == nil {
+		s.seen(a.ID)
+	}
 	return a, err
 }
 
@@ -204,4 +207,11 @@ func (s *Service) SetLanguage(ctx context.Context, acc account.Account, lang str
 	}
 	acc.Language = lang
 	return acc, s.store.SetLanguage(ctx, &acc)
+}
+
+// SetInvisible sets whether the account hides from its friends that it is online or
+// playing (incognito): they see it offline.
+func (s *Service) SetInvisible(ctx context.Context, acc account.Account, invisible bool) (account.Account, error) {
+	acc.Invisible = invisible
+	return acc, s.store.SetInvisible(ctx, &acc)
 }

@@ -125,3 +125,9 @@ func notFound(err error) error {
 	}
 	return err
 }
+
+// SetInvisible stores whether the account hides from its friends that it is online.
+func (store *Store) SetInvisible(ctx context.Context, a *account.Account) error {
+	_, err := store.db.NewUpdate().Model(a).Column("invisible").WherePK().Exec(ctx)
+	return err
+}

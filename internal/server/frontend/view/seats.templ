@@ -157,7 +157,7 @@ templ lobbyAdd(m lobbyModel) {
 				<form method="post" action={ templ.URL(m.url("/invitations")) } class="flex flex-wrap items-center gap-2">
 					<select name="username" class={ inputClass, "w-auto!" } aria-label={ T(ctx).InviteFriends() }>
 						for _, f := range m.choices.Friends {
-							<option value={ f.Username }>{ f.Name }</option>
+							<option value={ f.Username }>{ friendChoiceLabel(T(ctx), f) }</option>
 						}
 					</select>
 					<button type="submit" class={ btnSecondary }>{ T(ctx).Invite() }</button>

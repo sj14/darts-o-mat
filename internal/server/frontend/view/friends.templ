@@ -31,20 +31,23 @@ templ Friends(user string, list service.FriendList, errMsg, info string) {
 					</ul>
 				}
 			}
-			@panel("") {
-				@sectionTitle(T(ctx).YourFriends())
-				if len(list.Friends) == 0 {
-					<p class="text-white/50">{ T(ctx).NoFriendsYet() }</p>
-				} else {
-					<ul class="divide-y divide-white/10">
-						for _, f := range list.Friends {
-							@friendItem(f) {
-								@friendAction(f, "/remove", T(ctx).Remove(), btnDanger)
+			// The friends poll every 30 seconds, so their presence stays current.
+			<div id="friend-list" hx-get="/friends" hx-trigger="every 30s" hx-target="this" hx-select="#friend-list" hx-swap="outerHTML">
+				@panel("") {
+					@sectionTitle(T(ctx).YourFriends())
+					if len(list.Friends) == 0 {
+						<p class="text-white/50">{ T(ctx).NoFriendsYet() }</p>
+					} else {
+						<ul class="divide-y divide-white/10">
+							for _, f := range list.Friends {
+								@friendItem(f) {
+									@friendAction(f, "/remove", T(ctx).Remove(), btnDanger)
+								}
 							}
-						}
-					</ul>
+						</ul>
+					}
 				}
-			}
+			</div>
 			if len(list.Outgoing) > 0 {
 				@panel("") {
 					@sectionTitle(T(ctx).SentRequests())
@@ -69,6 +72,9 @@ templ friendItem(f service.Friend) {
 			if f.Name != f.Username {
 				<span class="text-white/40">{ "@" + f.Username }</span>
 			}
+			if f.Presence != "" {
+				@presenceBadge(f.Presence)
+			}
 		</span>
 		<span class="flex gap-2">
 			{ children... }
@@ -80,4 +86,16 @@ templ friendAction(f service.Friend, action, label, class string) {
 	<form method="post" action={ templ.URL("/friends/" + strconv.FormatInt(f.AccountID, 10) + action) }>
 		<button type="submit" class={ class, btnSmall }>{ label }</button>
 	</form>
+}
+
+// presenceBadge shows whether a friend is online, playing or offline.
+templ presenceBadge(p service.Presence) {
+	switch p {
+	case service.PresencePlaying:
+		@statusBadge(presenceText(T(ctx), p), "bg-amber-400/20 text-amber-300")
+	case service.PresenceOnline:
+		@statusBadge(presenceText(T(ctx), p), "bg-board-green/25 text-emerald-300")
+	default:
+		@statusBadge(presenceText(T(ctx), p), "bg-white/10 text-white/50")
+	}
 }

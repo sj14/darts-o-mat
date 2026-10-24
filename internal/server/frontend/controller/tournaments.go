@@ -57,6 +57,7 @@ func (c *Controller) tournamentEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	changes, stop := c.svc.SubscribeTournament(id)
 	defer stop()
+	defer c.svc.Watching(acc)()
 	sse.Stream(w, r, "tournament", changes, func() (string, error) {
 		v, err := c.svc.Tournament(r.Context(), acc, id)
 		if err != nil {

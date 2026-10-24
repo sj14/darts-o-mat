@@ -495,6 +495,26 @@ func boardChoiceLabel(t Texts, b service.BoardView) string {
 	return "📷 " + b.Name
 }
 
+func presenceText(t Texts, p service.Presence) string {
+	switch p {
+	case service.PresencePlaying:
+		return t.PresencePlaying()
+	case service.PresenceOnline:
+		return t.PresenceOnline()
+	default:
+		return t.PresenceOffline()
+	}
+}
+
+// friendChoiceLabel is a friend's label in the lobby's invitation select; it says if
+// the friend is online or playing.
+func friendChoiceLabel(t Texts, f service.Friend) string {
+	if f.Presence == service.PresenceOnline || f.Presence == service.PresencePlaying {
+		return f.Name + " (" + presenceText(t, f.Presence) + ")"
+	}
+	return f.Name
+}
+
 // joinURL is where the button to join an open game or tournament posts to.
 func joinURL(l service.OpenLobby) string {
 	if l.Tournament {

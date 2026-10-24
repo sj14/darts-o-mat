@@ -398,6 +398,11 @@ func (textsDE) EmailHint() string {
 	return "Freiwillig. Es wird noch nichts daran verschickt; sie wird nur beim Account gespeichert. Leer lassen, um sie zu entfernen."
 }
 func (textsDE) SaveEmail() string { return "Speichern" }
+func (textsDE) Incognito() string { return "Inkognito" }
+func (textsDE) IncognitoHint() string {
+	return "Deine Freunde sehen dich offline: weder, dass du online bist, noch dass du spielst. Ihren Status siehst du weiterhin."
+}
+func (textsDE) AppearOffline() string { return "Als offline anzeigen" }
 func (textsDE) ErrInvalidEmail() string {
 	return "Bitte eine gültige E-Mail-Adresse eingeben oder das Feld leer lassen."
 }
@@ -433,6 +438,9 @@ func (textsDE) NoFriendsYet() string    { return "Noch keine Freunde." }
 func (textsDE) Remove() string          { return "Entfernen" }
 func (textsDE) SentRequests() string    { return "Gesendete Anfragen" }
 func (textsDE) WithdrawRequest() string { return "Zurückziehen" }
+func (textsDE) PresenceOnline() string  { return "Online" }
+func (textsDE) PresencePlaying() string { return "Im Spiel" }
+func (textsDE) PresenceOffline() string { return "Offline" }
 
 func (textsDE) StatsHint() string {
 	return "Über alle beendeten Spiele und Turniere von dir und deinen Gastspielern."

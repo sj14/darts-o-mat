@@ -58,6 +58,7 @@ func (c *Controller) gameEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	changes, stop := c.svc.Subscribe(id)
 	defer stop()
+	defer c.svc.Watching(acc)()
 	sse.Stream(w, r, "board", changes, func() (string, error) {
 		v, err := c.svc.Game(r.Context(), acc, id)
 		if err != nil {

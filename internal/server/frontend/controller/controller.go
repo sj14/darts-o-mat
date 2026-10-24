@@ -53,6 +53,7 @@ func (c *Controller) Routes() http.Handler {
 		r.Get("/settings", c.showSettings)
 		r.Post("/settings/color", c.setColor)
 		r.Post("/settings/email", c.setEmail)
+		r.Post("/settings/invisible", c.setInvisible)
 		r.Post("/settings/delete", c.deleteAccount)
 		r.Get("/admin", c.showAdmin)
 		r.Post("/admin/pages/{name}", c.setPage)

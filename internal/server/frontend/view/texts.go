@@ -286,6 +286,9 @@ type Texts interface {
 	EmailOptional() string
 	EmailHint() string
 	SaveEmail() string
+	Incognito() string
+	IncognitoHint() string
+	AppearOffline() string
 	DisplayName() string
 	DisplayNameHint() string
 	PasswordHint() string
@@ -304,6 +307,9 @@ type Texts interface {
 	Remove() string
 	SentRequests() string
 	WithdrawRequest() string
+	PresenceOnline() string
+	PresencePlaying() string
+	PresenceOffline() string
 
 	// Statistics.
 	StatsHint() string

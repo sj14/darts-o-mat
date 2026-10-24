@@ -36,6 +36,9 @@ type Account struct {
 	// Admin may change the settings of the server, e.g. the imprint. The first account
 	// registered is the admin.
 	Admin bool `bun:",notnull,default:false" json:"admin"`
+	// Invisible hides from the account's friends whether it is online or playing: they see
+	// it offline (incognito).
+	Invisible bool `bun:",notnull,default:false" json:"invisible"`
 }
 
 // NormalizeUsername makes usernames case-insensitive.

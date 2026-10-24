@@ -54,6 +54,7 @@ func (a *API) Routes() http.Handler {
 		r.Post("/players", a.createGuest)
 		r.Delete("/players/{id}", a.deleteGuest)
 		r.Put("/account/email", a.setEmail)
+		r.Put("/account/invisible", a.setInvisible)
 		r.Delete("/account", a.deleteAccount)
 		r.Get("/boards", a.listBoards)
 		r.Post("/boards", a.createBoard)
@@ -168,6 +169,19 @@ func (a *API) setEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acc, err := a.svc.SetEmail(r.Context(), auth.Account(r.Context()), req.Email)
+	respond(w, http.StatusOK, acc, err)
+}
+
+// setInvisible sets whether the account hides from its friends that it is online
+// ({"invisible": true}) and returns the account.
+func (a *API) setInvisible(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Invisible bool `json:"invisible"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	acc, err := a.svc.SetInvisible(r.Context(), auth.Account(r.Context()), req.Invisible)
 	respond(w, http.StatusOK, acc, err)
 }
 
