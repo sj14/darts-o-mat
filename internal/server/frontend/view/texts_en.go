@@ -361,6 +361,16 @@ func (textsEN) BullOffOptionHint() string {
 }
 func (textsEN) TurnLimit() string   { return "Time per turn" }
 func (textsEN) NoTurnLimit() string { return "No limit" }
+func (textsEN) QuickMatch() string  { return "Quick match" }
+func (textsEN) QuickMatchHint() string {
+	return "Plays against someone of about your strength: you join a game that waits, or wait for an opponent yourself. The longer the search takes, the bigger the difference may be. X01 501 with double out or Around the Clock, one leg, a minute per turn."
+}
+func (textsEN) FindOpponent() string { return "Find an opponent" }
+func (textsEN) QuickMatchWaiting() string {
+	return "Looking for an opponent of about your strength. The longer you wait, the bigger the difference may be; keep this page open, it starts by itself."
+}
+func (textsEN) Strength() string  { return "Strength" }
+func (textsEN) AboutMine() string { return "About mine" }
 func (textsEN) TurnTime(seconds int) string {
 	switch {
 	case seconds == 60:

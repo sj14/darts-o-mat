@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/sj14/darts-o-mat/internal/server/auth"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/frontend/view"
 	"github.com/sj14/darts-o-mat/internal/server/service"
 )
@@ -52,4 +53,40 @@ func boardFromForm(r *http.Request) (*int64, error) {
 		return nil, fmt.Errorf("%w: invalid board id", service.ErrInvalid)
 	}
 	return &id, nil
+}
+
+// quickMatch puts the account's own player into a quick match of the chosen mode and goes
+// to its page: a game that starts at once, or one where they wait for an opponent.
+func (c *Controller) quickMatch(w http.ResponseWriter, r *http.Request) {
+	boardID, err := boardFromForm(r)
+	var v service.GameView
+	if err == nil {
+		v, err = c.svc.QuickMatch(r.Context(), auth.Account(r.Context()), game.Mode(r.FormValue("mode")), boardID)
+	}
+	if err != nil {
+		c.respondLobby(w, r, service.GameLobby(v.Game.ID), err, true) // the message on the page of the open games
+		return
+	}
+	http.Redirect(w, r, gameURL(v.Game.ID), http.StatusSeeOther)
+}
+
+// quickMatchMove is asked by the page of a quick match that waits for an opponent: if the
+// player moved to an older one that fits by now, htmx goes to its page.
+func (c *Controller) quickMatchMove(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	moved, err := c.svc.QuickMatchMove(r.Context(), auth.Account(r.Context()), id)
+	switch {
+	case isNotFound(err):
+		http.NotFound(w, r)
+		return
+	case err != nil:
+		serverError(w, err)
+		return
+	case moved != id:
+		w.Header().Set("HX-Redirect", gameURL(moved))
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

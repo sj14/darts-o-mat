@@ -146,6 +146,13 @@ templ lobby(v service.GameView, errMsg string) {
 	<div id="board" sse-swap="board" hx-swap="outerHTML" data-sound={ soundKind(v) } data-sound-id={ soundID(v) }>
 		@gameTitle(v, nil)
 		@errorAlert(errMsg)
+		if service.IsQuickMatch(v.Game) && v.CanThrow {
+			// A quick match that waits asks every 10 seconds whether an older one fits by
+			// now, and goes there if the player was moved.
+			<div hx-post={ gameURL(v.Game.ID, "/quick") } hx-trigger="every 10s" hx-swap="none">
+				@notice(T(ctx).QuickMatchWaiting())
+			</div>
+		}
 		@lobbyPanel(gameLobby(T(ctx), v))
 		if !v.Invited {
 			<div class="mt-4">

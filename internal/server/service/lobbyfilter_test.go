@@ -75,14 +75,14 @@ func TestLobbyFilterApply(t *testing.T) {
 
 func TestLobbyFilterFromQuery(t *testing.T) {
 	t.Parallel()
-	q, _ := url.ParseQuery("format=round_robin&mode=x01&start_score=501&out_mode=double&legs=3&sets=2&bull_off=yes&turn_limit=no")
-	want := LobbyFilter{Format: "round_robin", Mode: game.ModeX01, StartScore: 501, OutMode: x01.OutModeDouble, Legs: 3, Sets: 2, BullOff: Yes, TurnLimit: No}
+	q, _ := url.ParseQuery("format=round_robin&mode=x01&start_score=501&out_mode=double&legs=3&sets=2&bull_off=yes&turn_limit=no&form=yes")
+	want := LobbyFilter{Format: "round_robin", Mode: game.ModeX01, StartScore: 501, OutMode: x01.OutModeDouble, Legs: 3, Sets: 2, BullOff: Yes, TurnLimit: No, Fits: true}
 	if got := LobbyFilterFromQuery(q); got != want {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
 
 	// What means nothing is left out, so an old link still shows a list.
-	q, _ = url.ParseQuery("format=chess&mode=poker&start_score=abc&out_mode=triple&legs=0&sets=999&bull_off=maybe&turn_limit=")
+	q, _ = url.ParseQuery("format=chess&mode=poker&start_score=abc&out_mode=triple&legs=0&sets=999&bull_off=maybe&turn_limit=&form=maybe")
 	if got := LobbyFilterFromQuery(q); got.Active() {
 		t.Errorf("nonsense made a filter: %+v", got)
 	}

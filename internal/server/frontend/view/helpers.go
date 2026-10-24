@@ -774,6 +774,14 @@ func filterValue(n int) string {
 	return strconv.Itoa(n)
 }
 
+// formValue is the strength filter as the filter form has it: yes, or empty for any.
+func formValue(fits bool) string {
+	if fits {
+		return string(service.Yes)
+	}
+	return ""
+}
+
 // outModeValue is the check-out mode as the filter form has it: empty for none.
 func outModeValue(m x01.OutMode) string {
 	name, err := m.MarshalText()

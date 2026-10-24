@@ -2,6 +2,7 @@
 package stats
 
 import (
+	"math"
 	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
@@ -237,6 +238,34 @@ func Form(mode game.Mode, results []Result) (form float64, ok bool) {
 		return s.AroundTheClock.HitRate, true
 	}
 	return 0, false
+}
+
+// How far apart two forms may be (FormFits): FormStep of the mode at first, one more step
+// every FormWiden someone waited for an opponent, anyone after FormAnyone.
+const (
+	FormWiden  = 30 * time.Second
+	FormAnyone = 3 * time.Minute
+)
+
+// FormStep is how much two forms of the mode may differ at first, and how much more with
+// every FormWiden of waiting: 5 points of the X01 average, 5 percentage points of the
+// around the clock hit rate.
+func FormStep(mode game.Mode) float64 {
+	if mode == game.ModeAroundTheClock {
+		return 0.05
+	}
+	return 5
+}
+
+// FormFits reports whether two forms of the mode are close enough to play each other, when
+// one side has waited that long for an opponent.
+func FormFits(mode game.Mode, a, b float64, waited time.Duration) bool {
+	if waited >= FormAnyone {
+		return true
+	}
+	steps := 1 + int(waited/FormWiden)
+	// A little slack, so 0.45 and 0.40 fit with a step of 0.05 despite rounding.
+	return math.Abs(a-b) <= float64(steps)*FormStep(mode)+1e-9
 }
 
 // TournamentResult is what one player got out of a tournament that is over: stored like

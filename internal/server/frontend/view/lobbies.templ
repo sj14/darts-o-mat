@@ -28,10 +28,30 @@ templ Lobbies(m LobbiesModel) {
 		@pageTitle(T(ctx).OpenGames(), T(ctx).LobbiesHint())
 		@alert(m.Error)
 		@panel("mb-6") {
+			@quickMatch(boardsOfViews(m.Boards))
+		}
+		@panel("mb-6") {
 			@lobbyFilter(m.Filter)
 		}
 		@lobbyList(m)
 	}
+}
+
+// quickMatch finds an opponent of about the same strength with fixed rules: into a game
+// that waits, or a new one to wait in.
+templ quickMatch(boards []board.Board) {
+	<form method="post" action="/lobbies/quick" class="flex flex-col gap-3">
+		@sectionTitle(T(ctx).QuickMatch())
+		<p class={ hintClass }>{ T(ctx).QuickMatchHint() }</p>
+		<div class="flex flex-wrap items-center gap-2">
+			<select name="mode" class={ inputClass, "w-auto! py-2!" } aria-label={ T(ctx).GameMode() }>
+				<option value={ string(game.ModeX01) }>X01</option>
+				<option value={ string(game.ModeAroundTheClock) }>{ T(ctx).AroundTheClock() }</option>
+			</select>
+			@boardSelect(boards, false)
+			<button type="submit" class={ btnPrimary }>{ T(ctx).FindOpponent() }</button>
+		</div>
+	</form>
 }
 
 // lobbyFilter is the form with a choice per setting of a game; "any" leaves it out.
@@ -76,6 +96,9 @@ templ lobbyFilter(f service.LobbyFilter) {
 			@filterSelect("board_only", T(ctx).BoardRequired(), string(f.BoardOnly), []filterOption{
 				{string(service.Yes), T(ctx).FilterYes()},
 				{string(service.No), T(ctx).FilterNo()},
+			})
+			@filterSelect("form", T(ctx).Strength(), formValue(f.Fits), []filterOption{
+				{string(service.Yes), T(ctx).AboutMine()},
 			})
 		</div>
 		<noscript><button type="submit" class={ btnSecondary, "mt-3" }>OK</button></noscript>

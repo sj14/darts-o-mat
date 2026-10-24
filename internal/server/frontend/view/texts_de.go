@@ -347,6 +347,16 @@ func (textsDE) BullOffOptionHint() string {
 }
 func (textsDE) TurnLimit() string   { return "Zeit pro Zug" }
 func (textsDE) NoTurnLimit() string { return "Unbegrenzt" }
+func (textsDE) QuickMatch() string  { return "Schnelles Spiel" }
+func (textsDE) QuickMatchHint() string {
+	return "Spielt gegen jemanden, der ungefähr so stark ist wie du: Du trittst einem wartenden Spiel bei oder wartest selbst auf einen Gegner. Je länger die Suche dauert, desto größer darf der Unterschied sein. X01 501 mit Double-Out oder Around the Clock, ein Leg, eine Minute pro Zug."
+}
+func (textsDE) FindOpponent() string { return "Gegner suchen" }
+func (textsDE) QuickMatchWaiting() string {
+	return "Suche einen Gegner, der ungefähr so stark ist wie du. Je länger du wartest, desto größer darf der Unterschied sein; lass die Seite offen, das Spiel startet von selbst."
+}
+func (textsDE) Strength() string  { return "Spielstärke" }
+func (textsDE) AboutMine() string { return "Ungefähr wie meine" }
 func (textsDE) TurnTime(seconds int) string {
 	switch {
 	case seconds == 60:

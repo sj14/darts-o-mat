@@ -253,6 +253,13 @@ type Texts interface {
 	BullOffOptionHint() string
 	TurnLimit() string
 	NoTurnLimit() string
+	// Quick match and the strength filter in the list of open games.
+	QuickMatch() string
+	QuickMatchHint() string
+	FindOpponent() string
+	QuickMatchWaiting() string
+	Strength() string
+	AboutMine() string
 	TurnTime(seconds int) string
 	TurnLimitHint(skips int) string
 	TurnTimeLeft() string

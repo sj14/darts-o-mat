@@ -45,3 +45,30 @@ func TestForm(t *testing.T) {
 		t.Errorf("around the clock form = %v, %v; want 0.4 (40 hits in 100 darts)", form, ok)
 	}
 }
+
+// The forms may differ by one step at first, by one more every FormWiden, and by anything
+// after FormAnyone.
+func TestFormFits(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		mode   game.Mode
+		a, b   float64
+		waited time.Duration
+		want   bool
+	}{
+		{game.ModeX01, 50, 55, 0, true},
+		{game.ModeX01, 50, 56, 0, false},
+		{game.ModeX01, 50, 60, 29 * time.Second, false},
+		{game.ModeX01, 50, 60, 30 * time.Second, true},
+		{game.ModeX01, 40, 70, 150 * time.Second, true}, // 6 steps
+		{game.ModeX01, 20, 90, 179 * time.Second, false},
+		{game.ModeX01, 20, 90, FormAnyone, true},
+		{game.ModeAroundTheClock, 0.40, 0.45, 0, true},
+		{game.ModeAroundTheClock, 0.40, 0.46, 0, false},
+		{game.ModeAroundTheClock, 0.30, 0.40, time.Minute, true},
+	} {
+		if got := FormFits(c.mode, c.a, c.b, c.waited); got != c.want {
+			t.Errorf("FormFits(%s, %v, %v, %v) = %v, want %v", c.mode, c.a, c.b, c.waited, got, c.want)
+		}
+	}
+}

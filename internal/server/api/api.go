@@ -70,10 +70,12 @@ func (a *API) Routes() http.Handler {
 		r.Post("/games/{id}/takeout", a.takeout)
 		r.Post("/games/{id}/ratings", a.ratePlayer)
 		r.Post("/games/{id}/leave", a.leaveGame)
+		r.Post("/games/{id}/quick", a.quickMatchMove)
 		r.Post("/games/{id}/board", a.useBoard)
 		r.Post("/games/{id}/bull-off", a.decideBullOff)
 
 		r.Get("/lobbies", a.listLobbies)
+		r.Post("/lobbies/quick", a.quickMatch)
 		a.lobbyRoutes(r, "/games", service.GameLobby)
 		a.lobbyRoutes(r, "/tournaments", service.TournamentLobby)
 		r.Get("/tournaments", a.listTournaments)
@@ -573,6 +575,38 @@ func optionalBoard(w http.ResponseWriter, r *http.Request) (*int64, bool) {
 func (a *API) listLobbies(w http.ResponseWriter, r *http.Request) {
 	lobbies, err := a.svc.OpenLobbies(r.Context(), auth.Account(r.Context()))
 	respond(w, http.StatusOK, service.LobbyFilterFromQuery(r.URL.Query()).Apply(lobbies), err)
+}
+
+// quickMatch puts the own player into a quick match of the mode (see service.QuickMatch):
+// {"mode": "x01", "board_id": 1}, the board optional.
+func (a *API) quickMatch(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Mode    game.Mode `json:"mode"`
+		BoardID *int64    `json:"board_id"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	v, err := a.svc.QuickMatch(r.Context(), auth.Account(r.Context()), req.Mode, req.BoardID)
+	respond(w, http.StatusOK, v, err)
+}
+
+// quickMatchMove moves the own player from a quick match they wait in to an older one that
+// fits by now (see service.QuickMatchMove); a client that waits asks every 10 seconds. It
+// answers with the game the player is in afterwards.
+func (a *API) quickMatchMove(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	acc := auth.Account(r.Context())
+	moved, err := a.svc.QuickMatchMove(r.Context(), acc, id)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	v, err := a.svc.Game(r.Context(), acc, moved)
+	respond(w, http.StatusOK, v, err)
 }
 
 // respondEmpty answers with 204 and no body, or with the error.

@@ -30,8 +30,11 @@ type OpenLobby struct {
 	Reputations map[int64]player.Reputation `json:"reputations,omitempty"`
 	// Forms are how well the players in Joined play the lobby's mode lately (stats.Form),
 	// of those with enough completed games.
-	Forms     map[int64]float64 `json:"forms,omitempty"`
-	CreatedAt time.Time         `json:"created_at"`
+	Forms map[int64]float64 `json:"forms,omitempty"`
+	// Fits says whether the players' form is close to that of the account's own player, by
+	// how long the lobby has waited (see fits); always without a form on either side.
+	Fits      bool      `json:"fits"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // offered reports whether a lobby still takes players. It does as long as someone is in
@@ -110,17 +113,21 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 			}
 		}
 	}
-	if err := s.addForms(ctx, lobbies); err != nil {
+	if err := s.addForms(ctx, acc, lobbies); err != nil {
 		return nil, err
 	}
 	slices.SortStableFunc(lobbies, func(a, b OpenLobby) int { return b.CreatedAt.Compare(a.CreatedAt) })
 	return lobbies, nil
 }
 
-// addForms fills in the forms of the players in the lobbies, in each lobby's mode.
-func (s *Service) addForms(ctx context.Context, lobbies []OpenLobby) error {
+// addForms fills in the forms of the players in the lobbies, in each lobby's mode, and
+// whether each lobby fits the account's own player (OpenLobby.Fits).
+func (s *Service) addForms(ctx context.Context, acc account.Account, lobbies []OpenLobby) error {
 	ids := map[game.Mode][]int64{}
 	for _, l := range lobbies {
+		if len(ids[l.Settings.Mode]) == 0 {
+			ids[l.Settings.Mode] = []int64{acc.PlayerID}
+		}
 		for _, p := range l.Joined {
 			ids[l.Settings.Mode] = append(ids[l.Settings.Mode], p.ID)
 		}
@@ -151,6 +158,22 @@ func (s *Service) addForms(ctx context.Context, lobbies []OpenLobby) error {
 				lobbies[i].Forms[p.ID] = form
 			}
 		}
+		mine, ok := forms[l.Settings.Mode][acc.PlayerID]
+		lobbies[i].Fits = !ok || lobbies[i].fits(mine, s.now())
 	}
 	return nil
+}
+
+// fits reports whether the form of a player fits the lobby by now: the average of the forms
+// of its players who have one is close enough after how long it waited (stats.FormFits).
+// A lobby of players without a form fits anyone.
+func (l OpenLobby) fits(form float64, now time.Time) bool {
+	if len(l.Forms) == 0 {
+		return true
+	}
+	var sum float64
+	for _, f := range l.Forms {
+		sum += f
+	}
+	return stats.FormFits(l.Settings.Mode, form, sum/float64(len(l.Forms)), now.Sub(l.CreatedAt))
 }
