@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/sj14/darts-o-mat/internal/common/buildinfo"
 	"github.com/sj14/darts-o-mat/internal/common/sse"
 	"github.com/sj14/darts-o-mat/internal/common/update"
 	"github.com/sj14/darts-o-mat/internal/server/api"
@@ -118,8 +119,27 @@ func serve(ctx context.Context, addr string, h http.Handler) {
 			log.Printf("stop the server: %v", err)
 		}
 	}()
-	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+	// Listen first, so the line saying the server runs only comes once the port is taken.
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("darts-o-mat %s is running on %s", buildinfo.Version(), pageURL(ln.Addr()))
+	if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
 	<-stopped
+}
+
+// pageURL is the address of the web interface for the log, with localhost when the server
+// listens on all interfaces.
+func pageURL(addr net.Addr) string {
+	host, port, err := net.SplitHostPort(addr.String())
+	if err != nil {
+		return addr.String()
+	}
+	if net.ParseIP(host).IsUnspecified() {
+		host = "localhost"
+	}
+	return "http://" + net.JoinHostPort(host, port)
 }
