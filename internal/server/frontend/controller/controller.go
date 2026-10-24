@@ -28,7 +28,6 @@ func New(svc *service.Service) *Controller {
 func (c *Controller) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(i18n.Middleware)
-	r.Use(c.withPages)
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServerFS(static.FS)))
 	r.Get("/login", c.showLogin)
 	r.Post("/login", c.login)

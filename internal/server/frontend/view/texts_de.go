@@ -81,11 +81,13 @@ func (textsDE) About() string { return "Über darts-o-mat" }
 func (textsDE) Imprint() string { return "Impressum" }
 func (textsDE) Privacy() string { return "Datenschutz" }
 func (textsDE) PageHint() string {
-	return "Klartext, Zeilenumbrüche bleiben erhalten. Sobald es einen Text gibt, verlinkt ihn die Fußzeile jeder Seite, auch für Besucher ohne Anmeldung; ein leerer Text nimmt die Seite wieder heraus."
+	return "Klartext, Zeilenumbrüche bleiben erhalten. Die Fußzeile jeder Seite verlinkt sie, auch für Besucher ohne Anmeldung; ohne Text sagt die Seite, dass es noch keinen gibt."
 }
-func (textsDE) SavePage() string { return "Speichern" }
-func (textsDE) ShowPage() string { return "Seite ansehen" }
-func (textsDE) Saved() string    { return "Gespeichert." }
+func (textsDE) NoImprint() string { return "Dieser Server hat noch kein Impressum." }
+func (textsDE) NoPrivacy() string { return "Dieser Server hat noch keine Datenschutzerklärung." }
+func (textsDE) SavePage() string  { return "Speichern" }
+func (textsDE) ShowPage() string  { return "Seite ansehen" }
+func (textsDE) Saved() string     { return "Gespeichert." }
 func (textsDE) ErrPageTooLong(max int) string {
 	return "Der Text ist zu lang, höchstens " + strconv.Itoa(max) + " Zeichen."
 }

@@ -17,9 +17,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
-	"github.com/sj14/darts-o-mat/internal/server/domain/page"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
-	"github.com/sj14/darts-o-mat/internal/server/domain/site"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/store"
 	"golang.org/x/crypto/bcrypt"
@@ -100,12 +98,12 @@ type Service struct {
 	// tournaments notifies about changed tournaments, by ID: their own changes and those
 	// of their games.
 	tournaments notify.Hub[int64]
-	// timers end the turn of a game with a time limit, by game ID (see watchTurn).
 	// logins limits the failed logins per username, nil without a limit.
 	logins   *loginLimiter
 	networks *loginLimiter
 	// presence is who is online, for the friends (see Presence).
 	presence presence
+	// timers end the turn of a game with a time limit, by game ID (see watchTurn).
 	timers   map[int64]*time.Timer
 	timersMu sync.Mutex
 	// now is the time, replaced in tests.
@@ -119,12 +117,6 @@ type Service struct {
 	// dummyHash is compared against when a username doesn't exist, so a failed login takes
 	// the same time whether the username exists or not.
 	dummyHash []byte
-	// pages are the texts of the pages, read once (see Pages); SetPage replaces the map.
-	pages   map[page.Name]string
-	pagesMu sync.Mutex
-	// site are the admin's settings, read once (see Site); SetRegistration replaces them.
-	site   *site.Settings
-	siteMu sync.Mutex
 }
 
 func New(store *store.Store, opts Options) *Service {

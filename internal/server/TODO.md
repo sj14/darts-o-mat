@@ -52,7 +52,6 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
   - The timers that end a turn with a time limit (`Service.timers`, `watchTurn`): exactly one replica has to own a game's timer, also after a replica stops.
   - The limit on failed logins (`loginLimiter`): per replica it would allow N failures on each.
   - Presence of friends (`service/presence.go`): who was seen and who streams.
-  - The cached pages and site settings (`Service.pages`, `Service.site`): a change on one replica isn't seen by the others.
 - Unsure: switch the primary IDs to UUIDs.
 - Database migrations are built (2026-10-22, see [AGENTS.md → database](AGENTS.md#database)). Left:
   - Alternative if writing the SQLite half by hand gets too much: [Atlas](https://atlasgo.io) (`migrate diff` for both databases, also rebuilds SQLite tables), a new external tool. Switch to Bun's own once `sqlitedialect` has a schema inspector.

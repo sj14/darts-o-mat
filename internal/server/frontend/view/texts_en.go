@@ -84,11 +84,13 @@ func (textsEN) About() string { return "About darts-o-mat" }
 func (textsEN) Imprint() string { return "Imprint" }
 func (textsEN) Privacy() string { return "Privacy policy" }
 func (textsEN) PageHint() string {
-	return "Plain text, line breaks stay. Once it has a text the footer of every page links it, also for visitors who aren't logged in; an empty text takes the page down."
+	return "Plain text, line breaks stay. The footer of every page links it, also for visitors who aren't logged in; without a text the page says that there is none yet."
 }
-func (textsEN) SavePage() string { return "Save" }
-func (textsEN) ShowPage() string { return "Show page" }
-func (textsEN) Saved() string    { return "Saved." }
+func (textsEN) NoImprint() string { return "This server has no imprint yet." }
+func (textsEN) NoPrivacy() string { return "This server has no privacy policy yet." }
+func (textsEN) SavePage() string  { return "Save" }
+func (textsEN) ShowPage() string  { return "Show page" }
+func (textsEN) Saved() string     { return "Saved." }
 func (textsEN) ErrPageTooLong(max int) string {
 	return "The text is too long, at most " + strconv.Itoa(max) + " characters."
 }

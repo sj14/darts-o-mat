@@ -93,6 +93,9 @@ type Texts interface {
 	Imprint() string
 	Privacy() string
 	PageHint() string
+	// NoImprint and NoPrivacy stand on the page while it has no text.
+	NoImprint() string
+	NoPrivacy() string
 	SavePage() string
 	ShowPage() string
 	Saved() string

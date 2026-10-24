@@ -7,14 +7,18 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/page"
 )
 
-// Page shows the imprint or the privacy policy, plain text with its line breaks. user is
-// empty for visitors who aren't logged in.
+// Page shows the imprint or the privacy policy, plain text with its line breaks, or that it
+// has no text yet. user is empty for visitors who aren't logged in.
 templ Page(user string, name page.Name, text string) {
 	@layout(pageTitleOf(ctx, name), user) {
 		<div class="mx-auto max-w-3xl">
 			@pageTitle(pageTitleOf(ctx, name), "")
 			@panel("") {
-				<div class="whitespace-pre-line break-words text-white/80">{ text }</div>
+				if text == "" {
+					<p class="text-white/50">{ pageMissingOf(ctx, name) }</p>
+				} else {
+					<div class="whitespace-pre-line break-words text-white/80">{ text }</div>
+				}
 			}
 		</div>
 	}

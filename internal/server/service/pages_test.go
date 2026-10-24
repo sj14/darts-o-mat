@@ -44,14 +44,39 @@ func TestPages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// A new service reads them from the database.
+	// Another service on the same database, like another replica, sees them at once.
 	for _, svc := range []*Service{s, New(s.store, s.opts)} {
-		pages, err := svc.Pages(ctx)
+		pages, err := svc.PagesToEdit(ctx, admin)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if len(pages) != 1 || pages[page.Imprint] != "Anna\nStreet 1" {
 			t.Errorf("pages = %q, want only the imprint", pages)
 		}
+		if text, err := svc.Page(ctx, page.Imprint); err != nil || text != "Anna\nStreet 1" {
+			t.Errorf("imprint = %q, %v", text, err)
+		}
+		if text, err := svc.Page(ctx, page.Privacy); err != nil || text != "" {
+			t.Errorf("privacy policy taken down = %q, %v; want no text", text, err)
+		}
+	}
+}
+
+// The registration setting is read from the database each time, so a change through one
+// service (replica) holds for the others.
+func TestRegistrationSharedByReplicas(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newService(t)
+	admin := register(t, s, "anna")
+	other := New(s.store, s.opts)
+	if open, err := other.RegistrationOpen(ctx); err != nil || !open {
+		t.Fatalf("registration of a new server = %v, %v; want open", open, err)
+	}
+	if err := s.SetRegistration(ctx, admin, false); err != nil {
+		t.Fatal(err)
+	}
+	if open, err := other.RegistrationOpen(ctx); err != nil || open {
+		t.Errorf("the other replica: registration open = %v, %v; want closed", open, err)
 	}
 }

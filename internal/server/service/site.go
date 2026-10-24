@@ -4,28 +4,12 @@ import (
 	"context"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
-	"github.com/sj14/darts-o-mat/internal/server/domain/site"
 )
 
-// Site returns the admin's settings of the server. They are read from the database once and
-// then kept in memory, like the pages.
-func (s *Service) Site(ctx context.Context) (site.Settings, error) {
-	s.siteMu.Lock()
-	defer s.siteMu.Unlock()
-	if s.site != nil {
-		return *s.site, nil
-	}
-	settings, err := s.store.SiteSettings(ctx)
-	if err != nil {
-		return site.Settings{}, err
-	}
-	s.site = &settings
-	return settings, nil
-}
-
-// RegistrationOpen says whether anyone may create an account.
+// RegistrationOpen says whether anyone may create an account. The setting is read from the
+// database every time, so every replica follows what an admin saved.
 func (s *Service) RegistrationOpen(ctx context.Context) (bool, error) {
-	settings, err := s.Site(ctx)
+	settings, err := s.store.SiteSettings(ctx)
 	return settings.Registration, err
 }
 
@@ -34,17 +18,10 @@ func (s *Service) SetRegistration(ctx context.Context, acc account.Account, open
 	if err := checkAdmin(acc); err != nil {
 		return err
 	}
-	settings, err := s.Site(ctx)
+	settings, err := s.store.SiteSettings(ctx)
 	if err != nil {
 		return err
 	}
 	settings.Registration = open
-
-	s.siteMu.Lock()
-	defer s.siteMu.Unlock()
-	if err := s.store.SetSiteSettings(ctx, settings); err != nil {
-		return err
-	}
-	s.site = &settings
-	return nil
+	return s.store.SetSiteSettings(ctx, settings)
 }

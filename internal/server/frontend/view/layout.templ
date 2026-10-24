@@ -4,6 +4,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/common/buildinfo"
 	"github.com/sj14/darts-o-mat/internal/common/update"
 	"github.com/sj14/darts-o-mat/internal/common/i18n"
+	"github.com/sj14/darts-o-mat/internal/server/domain/page"
 )
 
 // layout is the frame of every page, in the dark pub look (Tailwind, see tailwind.css).
@@ -69,7 +70,7 @@ templ layout(title, user string) {
 			<footer class="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-white/40">
 				<a href={ templ.URL(buildinfo.ProjectURL) } class="hover:text-white/70" target="_blank" rel="noopener">darts-o-mat { buildinfo.Version() }</a>
 				<a href="/about" class="ml-3 hover:text-white/70">{ T(ctx).About() }</a>
-				for _, name := range footerPages(ctx) {
+				for _, name := range page.Names {
 					<a href={ templ.URL(PagePath(name)) } class="ml-3 hover:text-white/70">{ pageTitleOf(ctx, name) }</a>
 				}
 				if v, ok := update.Available(); ok {

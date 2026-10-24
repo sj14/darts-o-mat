@@ -2,7 +2,6 @@ package controller
 
 import (
 	"errors"
-	"log"
 	"maps"
 	"net/http"
 
@@ -14,33 +13,22 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/service"
 )
 
-// withPages tells the footer which pages have a text.
-func (c *Controller) withPages(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		pages, err := c.svc.Pages(r.Context())
-		if err != nil {
-			log.Printf("pages: %v", err)
-		}
-		next.ServeHTTP(w, r.WithContext(view.WithPages(r.Context(), pages)))
-	})
-}
-
-// showPage shows the imprint or the privacy policy, 404 while it has no text. Search engines
-// don't list it (noindex), so the operator's name and address aren't found through them.
+// showPage shows the imprint or the privacy policy; while it has no text, the page says so
+// with 404. Search engines don't list it (noindex), so the operator's name and address
+// aren't found through them.
 func (c *Controller) showPage(name page.Name) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		pages, err := c.svc.Pages(r.Context())
+		text, err := c.svc.Page(r.Context(), name)
 		if err != nil {
 			serverError(w, err)
 			return
 		}
-		text := pages[name]
+		status := http.StatusOK
 		if text == "" {
-			http.NotFound(w, r)
-			return
+			status = http.StatusNotFound
 		}
 		w.Header().Set("X-Robots-Tag", "noindex")
-		render(w, r, http.StatusOK, view.Page(auth.Account(r.Context()).Username, name, text))
+		render(w, r, status, view.Page(auth.Account(r.Context()).Username, name, text))
 	}
 }
 
@@ -72,7 +60,6 @@ func (c *Controller) renderAdmin(w http.ResponseWriter, r *http.Request, status 
 		serverError(w, err)
 		return
 	}
-	pages = maps.Clone(pages)
 	maps.Copy(pages, entered)
 	m := view.AdminModel{
 		Admins:       admins,
