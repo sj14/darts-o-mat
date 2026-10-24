@@ -48,12 +48,18 @@ templ Landing(registration bool, user string) {
 					<a href="/login" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>{ T(ctx).Login() }</a>
 					if registration {
 						<a href="/register" class={ btnSecondary, "px-6 py-3 font-display text-2xl uppercase" }>{ T(ctx).Register() }</a>
+					} else {
+						// Greyed out instead of left out, so nobody looks for it.
+						<button type="button" class={ btnSecondary, "cursor-not-allowed hover:bg-transparent px-6 py-3 font-display text-2xl uppercase" } title={ T(ctx).RegistrationClosed() } disabled>{ T(ctx).Register() }</button>
 					}
 				} else {
 					<a href="/" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>{ T(ctx).HomeTitle() }</a>
 				}
 				<a href={ templ.URL(T(ctx).ProjectPageURL()) } class={ btnSecondary, "px-6 py-3 font-display text-2xl uppercase" } target="_blank" rel="noopener">{ T(ctx).ProjectPage() }</a>
 			</div>
+			if user == "" && !registration {
+				<p class="mx-auto mt-3 max-w-2xl text-sm text-white/50">{ T(ctx).RegistrationClosed() }</p>
+			}
 			<p class="mx-auto mt-3 max-w-2xl text-sm text-white/50">{ T(ctx).ProjectPageHint() }</p>
 			<div class="mt-10 grid gap-4 text-left sm:grid-cols-2 lg:grid-cols-4">
 				for i := range 4 {
@@ -82,6 +88,8 @@ templ Login(m AuthModel) {
 			</form>
 			if m.Registration {
 				<p class="text-center text-white/60">{ T(ctx).NoAccountYet() } <a href="/register" class={ linkClass }>{ T(ctx).Register() }</a></p>
+			} else {
+				<p class="text-center text-white/60">{ T(ctx).NoAccountYet() } { T(ctx).RegistrationClosed() }</p>
 			}
 		}
 	}

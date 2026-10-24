@@ -417,7 +417,7 @@ func (textsDE) DisplayNameHint() string {
 func (textsDE) PasswordHint() string  { return "Mindestens 8 Zeichen." }
 func (textsDE) CreateAccount() string { return "Account anlegen" }
 func (textsDE) RegistrationClosed() string {
-	return "Die Registrierung ist auf diesem Server abgeschaltet."
+	return "Dieser Server nimmt gerade keine neuen Registrierungen an."
 }
 func (textsDE) AlreadyRegistered() string { return "Schon registriert?" }
 

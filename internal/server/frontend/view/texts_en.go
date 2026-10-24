@@ -428,10 +428,12 @@ func (textsEN) DisplayName() string { return "Display name" }
 func (textsEN) DisplayNameHint() string {
 	return "Your name in games. Leave it empty to use the username."
 }
-func (textsEN) PasswordHint() string       { return "At least 8 characters." }
-func (textsEN) CreateAccount() string      { return "Create account" }
-func (textsEN) RegistrationClosed() string { return "Registration is turned off on this server." }
-func (textsEN) AlreadyRegistered() string  { return "Already registered?" }
+func (textsEN) PasswordHint() string  { return "At least 8 characters." }
+func (textsEN) CreateAccount() string { return "Create account" }
+func (textsEN) RegistrationClosed() string {
+	return "This server doesn't take new registrations at the moment."
+}
+func (textsEN) AlreadyRegistered() string { return "Already registered?" }
 
 func (textsEN) FriendsHint() string {
 	return "You can only invite friends to games. A friendship counts once the other side accepts your request."

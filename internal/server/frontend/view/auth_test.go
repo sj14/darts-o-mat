@@ -3,6 +3,7 @@ package view
 import (
 	"bytes"
 	"context"
+	"html"
 	"strings"
 	"testing"
 )
@@ -24,5 +25,27 @@ func TestRegisterShowsTheCaptchaOnlyWithAKey(t *testing.T) {
 	page := render(AuthModel{CaptchaSiteKey: "0x4AAAsite"})
 	if !strings.Contains(page, `data-sitekey="0x4AAAsite"`) || !strings.Contains(page, "challenges.cloudflare.com/turnstile/v0/api.js") {
 		t.Error("the registration page with a key has no widget")
+	}
+}
+
+// With the registration closed the landing page still shows the register button, greyed out,
+// and the landing and login pages say why.
+func TestClosedRegistrationIsShown(t *testing.T) {
+	t.Parallel()
+	closed := T(context.Background()).RegistrationClosed()
+	var landing, login bytes.Buffer
+	if err := Landing(false, "").Render(context.Background(), &landing); err != nil {
+		t.Fatal(err)
+	}
+	if err := Login(AuthModel{}).Render(context.Background(), &login); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(landing.String(), "disabled>"+T(context.Background()).Register()) || strings.Contains(landing.String(), `href="/register"`) {
+		t.Error("the landing page doesn't grey out the register button")
+	}
+	for name, page := range map[string]string{"landing": landing.String(), "login": login.String()} {
+		if !strings.Contains(page, html.EscapeString(closed)) {
+			t.Errorf("the %s page doesn't say that the registration is closed", name)
+		}
 	}
 }
