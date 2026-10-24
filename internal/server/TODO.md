@@ -48,6 +48,14 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
 - Mail sending (e.g. password reset, confirm the email): the optional email of an account is stored, unique and changeable already, but not confirmed and nothing is sent ([AGENTS.md → email](AGENTS.md#deleting-guests-and-accounts)). Like the captcha it has to stay optional (SMTP settings by flag or environment, nothing without them), see the [root document](../../AGENTS.md#from-the-home-server-to-saas). Decided 2026-10-18: no single flag for a "public" setup; every feature for the big case is switched on by itself.
 - Failed logins: a list of trusted proxies or the number of hops for `X-Forwarded-For` chains (today the last value of one header counts), and a captcha only after failures, see [AGENTS.md → failed logins](AGENTS.md#failed-logins).
 - A captcha for logging in was left out on purpose (2026-10-18): every login would pay for it and the API couldn't use it; the limit on failed logins does that job.
+- Several replicas of the server (aim set 2026-10-24, long term, see the [root document](../../AGENTS.md#from-the-home-server-to-saas)): needs a concept first. Several replicas only work with PostgreSQL (SQLite is one file in one process), and the Helm chart would get `replicaCount` and a `RollingUpdate` instead of `Recreate`. What lives in the process today and would have to be shared or moved:
+  - Live updates: `notify.Hub` of games and tournaments in `Service` (a dart through one replica has to reach the pages streaming from another); options from the [root document](../../AGENTS.md#technologies): NATS, or PostgreSQL's LISTEN/NOTIFY.
+  - The lock that orders darts and seats (`Service.mu`): a lock in the database instead (e.g. a PostgreSQL advisory lock per game, or `SELECT … FOR UPDATE`).
+  - The timers that end a turn with a time limit (`Service.timers`, `watchTurn`): exactly one replica has to own a game's timer, also after a replica stops.
+  - The limit on failed logins (`loginLimiter`): per replica it would allow N failures on each.
+  - Presence of friends (`service/presence.go`): who was seen and who streams.
+  - The cached pages and site settings (`Service.pages`, `Service.site`): a change on one replica isn't seen by the others.
+  - Migrations run when the store opens, without a lock (`bun_migrations`): replicas starting together would run them twice.
 - Unsure: switch the primary IDs to UUIDs.
 - Database migrations are built (2026-10-22, see [AGENTS.md → database](AGENTS.md#database)). Left:
   - Alternative if writing the SQLite half by hand gets too much: [Atlas](https://atlasgo.io) (`migrate diff` for both databases, also rebuilds SQLite tables), a new external tool. Switch to Bun's own once `sqlitedialect` has a schema inspector.

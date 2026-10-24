@@ -107,6 +107,12 @@ func serve(ctx context.Context, addr string, h http.Handler) {
 		ReadHeaderTimeout: readHeaderTimeout,
 		BaseContext:       func(net.Listener) context.Context { return sse.WithShutdown(context.Background(), streams) },
 	}
+	// HTTP/2 without TLS (h2c) besides HTTP/1.1, for a reverse proxy that speaks it to the
+	// server (Caddy, Traefik, Envoy): the live streams share its connections. Browsers only
+	// speak HTTP/2 over TLS, so they keep HTTP/1.1 here.
+	srv.Protocols = new(http.Protocols)
+	srv.Protocols.SetHTTP1(true)
+	srv.Protocols.SetUnencryptedHTTP2(true)
 	srv.RegisterOnShutdown(func() { close(streams) })
 	stopped := make(chan struct{})
 	go func() {
