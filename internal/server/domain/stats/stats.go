@@ -36,14 +36,12 @@ type Record struct {
 
 type X01 struct {
 	Record
-	Darts           int     `json:"darts"`
-	Points          uint64  `json:"points"`
-	Average         float64 `json:"average"` // points per three darts
-	HighestTurn     uint64  `json:"highest_turn"`
-	Turns100        int     `json:"turns_100"`
-	Turns140        int     `json:"turns_140"`
-	Turns180        int     `json:"turns_180"`
-	HighestCheckout uint64  `json:"highest_checkout"`
+	Darts           int       `json:"darts"`
+	Points          uint64    `json:"points"`
+	Average         float64   `json:"average"` // points per three darts
+	HighestTurn     uint64    `json:"highest_turn"`
+	Turns           x01.Turns `json:"turns"` // per step of x01.TurnScores
+	HighestCheckout uint64    `json:"highest_checkout"`
 }
 
 type AroundTheClock struct {
@@ -87,10 +85,10 @@ type Result struct {
 	// X01: points scored, the turns by their points and the highest finish.
 	Points      uint64
 	HighestTurn uint64
-	Turns100    int
-	Turns140    int
-	Turns180    int
 	Checkout    uint64
+	// The turns per step of x01.TurnScores, a column each (see Turns). Games completed
+	// before 60+ and 170+ were counted have 0 there and their 170 to 179 in Turns140.
+	Turns60, Turns100, Turns140, Turns170, Turns180 int
 	// Around the clock: darts that hit the target.
 	Hits int
 }
@@ -139,7 +137,7 @@ func resultOf(state game.State, playerID int64) (Result, bool) {
 		r.Mode = game.ModeX01
 		r.Darts, r.Points = p.Stats.Darts, p.Stats.Points
 		r.HighestTurn, r.Checkout = p.Stats.HighestTurn, p.Stats.Checkout
-		r.Turns100, r.Turns140, r.Turns180 = p.Stats.Turns100, p.Stats.Turns140, p.Stats.Turns180
+		r.setTurns(p.Stats.Turns)
 	case aroundtheclock.State:
 		p, _ := st.Player(playerID)
 		r.Mode = game.ModeAroundTheClock
@@ -197,9 +195,7 @@ func (s *X01) add(p Result) {
 		s.Average = float64(s.Points) * 3 / float64(s.Darts)
 	}
 	s.HighestTurn = max(s.HighestTurn, p.HighestTurn)
-	s.Turns100 += p.Turns100
-	s.Turns140 += p.Turns140
-	s.Turns180 += p.Turns180
+	s.Turns.Add(p.Turns())
 	s.HighestCheckout = max(s.HighestCheckout, p.Checkout)
 }
 
@@ -331,4 +327,13 @@ func (s *Summary) AddQuit(q Quit) {
 // or tournament left.
 func (r Record) Any() bool {
 	return r.Games > 0 || r.GamesLeft > 0 || r.TournamentsLeft > 0
+}
+
+// Turns returns the turns per step of x01.TurnScores.
+func (r Result) Turns() x01.Turns {
+	return x01.Turns{r.Turns60, r.Turns100, r.Turns140, r.Turns170, r.Turns180}
+}
+
+func (r *Result) setTurns(t x01.Turns) {
+	r.Turns60, r.Turns100, r.Turns140, r.Turns170, r.Turns180 = t[0], t[1], t[2], t[3], t[4]
 }

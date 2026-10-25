@@ -89,21 +89,34 @@ type Stats struct {
 	Points      uint64  `json:"points"`  // scored; busted turns score 0
 	Average     float64 `json:"average"` // points per three darts
 	HighestTurn uint64  `json:"highest_turn"`
-	Turns100    int     `json:"turns_100"` // turns scoring 100 to 139
-	Turns140    int     `json:"turns_140"` // turns scoring 140 to 179
-	Turns180    int     `json:"turns_180"`
+	Turns       Turns   `json:"turns"`
 	Checkout    uint64  `json:"checkout"` // points of the highest finishing turn, 0 until finished
 }
 
+// TurnScores are the steps turns are counted by: 60+, 100+, 140+, 170+ and 180. A turn
+// counts in the highest step it reaches, so 100+ are turns of 100 to 139.
+var TurnScores = [...]uint64{60, 100, 140, 170, 180}
+
+// Turns counts the turns per step of TurnScores.
+type Turns [len(TurnScores)]int
+
+// Add adds the counts of other turns.
+func (t *Turns) Add(o Turns) {
+	for i := range t {
+		t[i] += o[i]
+	}
+}
+
+// Of180 is the number of 180s.
+func (t Turns) Of180() int { return t[len(t)-1] }
+
 func (s *Stats) addTurn(points uint64) {
 	s.HighestTurn = max(s.HighestTurn, points)
-	switch {
-	case points == 180:
-		s.Turns180++
-	case points >= 140:
-		s.Turns140++
-	case points >= 100:
-		s.Turns100++
+	for i := len(TurnScores) - 1; i >= 0; i-- {
+		if points >= TurnScores[i] {
+			s.Turns[i]++
+			break
+		}
 	}
 }
 

@@ -33,7 +33,7 @@ templ Stats(user string, summaries []stats.Summary, heatMode game.Mode) {
 								<div class="mb-3 grid grid-cols-3 gap-2">
 									@statTile(T(ctx).Decimal(s.X01.Average), T(ctx).Average3())
 									@statTile(strconv.FormatUint(s.X01.HighestTurn, 10), T(ctx).Highest())
-									@statTile(strconv.Itoa(s.X01.Turns180), T(ctx).Count180())
+									@statTile(strconv.Itoa(s.X01.Turns.Of180()), T(ctx).Count180())
 								</div>
 								<dl class="divide-y divide-white/5 text-sm">
 									@statRow(T(ctx).GamesWinsLegs(), strconv.Itoa(s.X01.Games)+" / "+strconv.Itoa(s.X01.Wins)+" / "+strconv.Itoa(s.X01.Legs))
@@ -44,7 +44,7 @@ templ Stats(user string, summaries []stats.Summary, heatMode game.Mode) {
 										@statRow(T(ctx).TournamentsWon(), strconv.Itoa(s.X01.Tournaments)+" / "+strconv.Itoa(s.X01.TournamentWins))
 									}
 									@statRow(T(ctx).Darts(), strconv.Itoa(s.X01.Darts))
-									@statRow("100+ / 140+", strconv.Itoa(s.X01.Turns100)+" / "+strconv.Itoa(s.X01.Turns140))
+									@statRow(turnCounts(s.X01.Turns))
 									@statRow(T(ctx).HighestFinish(), orDash(s.X01.HighestCheckout > 0, strconv.FormatUint(s.X01.HighestCheckout, 10)))
 									@statRow(T(ctx).BestLeg(), orDash(s.X01.BestLeg > 0, T(ctx).NDarts(s.X01.BestLeg)))
 									@statRow(T(ctx).AvgLegTime(), orDash(s.X01.AvgLeg > 0, clock(s.X01.AvgLeg)))

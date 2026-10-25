@@ -435,9 +435,9 @@ templ gameStats(v service.GameView) {
 								<th class="py-2 text-right font-semibold" title={ T(ctx).AverageHint() }>Ø</th>
 								<th class="py-2 text-right font-semibold">{ T(ctx).Darts() }</th>
 								<th class="py-2 text-right font-semibold">{ T(ctx).Highest() }</th>
-								<th class="py-2 text-right font-semibold">100+</th>
-								<th class="py-2 text-right font-semibold">140+</th>
-								<th class="py-2 text-right font-semibold">180</th>
+								for i := range x01.TurnScores {
+									<th class="py-2 text-right font-semibold">{ turnLabel(i) }</th>
+								}
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -447,9 +447,9 @@ templ gameStats(v service.GameView) {
 									<td class="py-2 text-right">{ T(ctx).Decimal(ps.Stats.Average) }</td>
 									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Darts) }</td>
 									<td class="py-2 text-right">{ strconv.FormatUint(ps.Stats.HighestTurn, 10) }</td>
-									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Turns100) }</td>
-									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Turns140) }</td>
-									<td class="py-2 text-right">{ strconv.Itoa(ps.Stats.Turns180) }</td>
+									for _, n := range ps.Stats.Turns {
+										<td class="py-2 text-right">{ strconv.Itoa(n) }</td>
+									}
 								</tr>
 							}
 						</tbody>

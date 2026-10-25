@@ -808,3 +808,22 @@ func numberOptions(from, to int) []filterOption {
 func showMode(selected, m game.Mode) bool {
 	return selected == "" || selected == m
 }
+
+// turnLabel names a step of x01.TurnScores: 60+, …, 180 (which can't be exceeded).
+func turnLabel(i int) string {
+	label := strconv.FormatUint(x01.TurnScores[i], 10)
+	if i < len(x01.TurnScores)-1 {
+		label += "+"
+	}
+	return label
+}
+
+// turnCounts lists the turns per step below 180, e.g. "12 / 5 / 1 / 0" for 60+ to 170+;
+// the 180s have a tile of their own.
+func turnCounts(t x01.Turns) (label, value string) {
+	var labels, values []string
+	for i, n := range t[:len(t)-1] {
+		labels, values = append(labels, turnLabel(i)), append(values, strconv.Itoa(n))
+	}
+	return strings.Join(labels, " / "), strings.Join(values, " / ")
+}

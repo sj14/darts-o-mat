@@ -216,7 +216,7 @@ func Stats(user string, summaries []stats.Summary, heatMode game.Mode) templ.Com
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = statTile(strconv.Itoa(s.X01.Turns180), T(ctx).Count180()).Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = statTile(strconv.Itoa(s.X01.Turns.Of180()), T(ctx).Count180()).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -244,7 +244,7 @@ func Stats(user string, summaries []stats.Summary, heatMode game.Mode) templ.Com
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = statRow("100+ / 140+", strconv.Itoa(s.X01.Turns100)+" / "+strconv.Itoa(s.X01.Turns140)).Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = statRow(turnCounts(s.X01.Turns)).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}

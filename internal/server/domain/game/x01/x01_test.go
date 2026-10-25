@@ -221,7 +221,7 @@ func TestStats(t *testing.T) {
 	}
 
 	p1 := st.Players[0].Stats
-	if p1.Darts != 6 || p1.Average != 159.5 || p1.HighestTurn != 180 || p1.Turns180 != 1 || p1.Turns100 != 1 || p1.Turns140 != 0 {
+	if p1.Darts != 6 || p1.Average != 159.5 || p1.HighestTurn != 180 || p1.Turns != (Turns{0, 1, 0, 0, 1}) {
 		t.Errorf("player 1 stats = %+v", p1)
 	}
 	// The open turn counts its darts for the average, but not as a turn yet.
@@ -243,7 +243,7 @@ func TestStatsBustAndCheckout(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := st.Players[0].Stats
-	if p.Darts != 5 || p.Checkout != 100 || p.HighestTurn != 100 || p.Turns100 != 1 || p.Average != 60 {
+	if p.Darts != 5 || p.Checkout != 100 || p.HighestTurn != 100 || p.Turns != (Turns{0, 1, 0, 0, 0}) || p.Average != 60 {
 		t.Errorf("stats = %+v", p)
 	}
 }
@@ -303,7 +303,7 @@ func TestPlayLogWaitForTakeout(t *testing.T) {
 		t.Errorf("waiting=%v current=%d darts=%d, want player 1 waiting after 3 darts", st.WaitingForTakeout, *st.CurrentPlayerID, st.DartsInTurn)
 	}
 	// The turn is over while waiting: it counts in the stats and the history.
-	if got := st.Players[0].Stats; got.Turns180 != 1 || got.HighestTurn != 180 {
+	if got := st.Players[0].Stats; got.Turns.Of180() != 1 || got.HighestTurn != 180 {
 		t.Errorf("stats while waiting = %+v, want the 180 counted", got)
 	}
 	if !st.Turns[0].Complete {
@@ -374,5 +374,17 @@ func TestStatsPointsAfterBust(t *testing.T) {
 	st, _ := Play(Settings{StartScore: 30, OutMode: OutModeDouble}, []int64{1}, []throw.Dart{hit(20, 1), hit(20, 1)})
 	if got := st.Players[0].Stats.Points; got != 0 {
 		t.Errorf("points = %d, want 0 after a bust", got)
+	}
+}
+
+// A turn counts in the highest step it reaches; below 60 in none.
+func TestStatsTurnSteps(t *testing.T) {
+	t.Parallel()
+	var s Stats
+	for _, points := range []uint64{0, 59, 60, 99, 100, 139, 140, 169, 170, 179, 180} {
+		s.addTurn(points)
+	}
+	if want := (Turns{2, 2, 2, 2, 1}); s.Turns != want {
+		t.Errorf("turns = %v, want %v", s.Turns, want)
 	}
 }

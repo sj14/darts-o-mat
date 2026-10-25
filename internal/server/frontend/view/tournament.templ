@@ -240,7 +240,7 @@ templ tournamentStatsRow(v service.TournamentView, s stats.Summary) {
 			}
 			<td class="py-2 text-right tabular-nums">{ orDash(s.X01.Darts > 0, T(ctx).Decimal(s.X01.Average)) }</td>
 			<td class="py-2 text-right tabular-nums">{ orDash(s.X01.Darts > 0, strconv.FormatUint(s.X01.HighestTurn, 10)) }</td>
-			<td class="py-2 text-right tabular-nums">{ strconv.Itoa(s.X01.Turns180) }</td>
+			<td class="py-2 text-right tabular-nums">{ strconv.Itoa(s.X01.Turns.Of180()) }</td>
 			<td class="py-2 text-right tabular-nums">{ orDash(s.X01.HighestCheckout > 0, strconv.FormatUint(s.X01.HighestCheckout, 10)) }</td>
 			<td class="py-2 text-right tabular-nums">{ orDash(s.X01.BestLeg > 0, strconv.Itoa(s.X01.BestLeg)) }</td>
 		} else {
