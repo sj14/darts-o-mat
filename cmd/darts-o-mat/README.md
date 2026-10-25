@@ -81,7 +81,7 @@ With the [Helm](https://helm.sh) chart (one pod, the games in a volume):
 helm install darts oci://ghcr.io/sj14/charts/darts-o-mat
 ```
 
-Common settings, e.g. `helm install darts … --set ingress.enabled=true --set ingress.hosts[0].host=darts.example.com --set ingress.hosts[0].paths[0].path=/`. For PostgreSQL instead of the volume: `--set config.database=postgres --set config.postgres.dsn='postgres://…'` (or `config.postgres.existingSecret`). Only with PostgreSQL the server can run in several pods, e.g. `--set replicaCount=3`; an update then replaces them one by one without a break. All options with their comments: [`deploy/helm/darts-o-mat/values.yaml`](../../deploy/helm/darts-o-mat/values.yaml).
+Common settings, e.g. `helm install darts … --set ingress.enabled=true --set ingress.hosts[0].host=darts.example.com --set ingress.hosts[0].paths[0].path=/`. For PostgreSQL instead of the volume: `--set config.database=postgres --set postgresql.enabled=true` starts a simple PostgreSQL along with it; for a PostgreSQL server of your own instead `--set config.database=postgres --set config.postgres.dsn='postgres://…'` (or `config.postgres.existingSecret`). Only with PostgreSQL the server can run in several pods, e.g. `--set replicaCount=3`; an update then replaces them one by one without a break. All options with their comments: [`deploy/helm/darts-o-mat/values.yaml`](../../deploy/helm/darts-o-mat/values.yaml).
 
 ### With PostgreSQL instead of a file
 
@@ -92,6 +92,8 @@ docker run -d --name darts-postgres -e POSTGRES_PASSWORD=geheim -e POSTGRES_DB=d
 ```sh
 go run ./cmd/darts-o-mat -db postgres -dsn "postgres://postgres:geheim@localhost:5432/darts-o-mat?sslmode=disable"
 ```
+
+Instead of `-dsn` the environment variable `DARTS_O_MAT_DSN` works too, better for the password: options show up in the list of processes.
 
 ## Updates
 

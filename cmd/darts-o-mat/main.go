@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"flag"
@@ -28,7 +29,7 @@ import (
 func main() {
 	var (
 		dbType           = flag.String("db", "sqlite", "database to use: sqlite or postgres")
-		dbDSN            = flag.String("dsn", "file:darts-o-mat.db", "data source name of the database")
+		dbDSN            = flag.String("dsn", cmp.Or(os.Getenv("DARTS_O_MAT_DSN"), "file:darts-o-mat.db"), "data source name of the database (or $DARTS_O_MAT_DSN, better for a password: flags show up in the process list)")
 		addr             = flag.String("addr", ":3000", "address to listen on")
 		maxLoginFailures = flag.Int("max-login-failures", 10, "failed logins a username may have within 15 minutes before it is locked for a while (a network may have 5 times as many); 0 is no limit")
 		clientIPHeader   = flag.String("client-ip-header", "", "behind a proxy: the header it passes the client's address in, e.g. X-Forwarded-For; only if all requests come through it")

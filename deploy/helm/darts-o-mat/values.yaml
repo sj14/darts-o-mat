@@ -41,28 +41,71 @@ securityContext:
     drop:
       - ALL
 
-# How the server runs, see the flags of darts-o-mat (-db, -dsn). Whether anyone may register
-# is set by the admin in the web interface.
+# How the server runs, see the flags of darts-o-mat; every environment variable of the
+# server is set here. Whether anyone may register is set by the admin in the web interface.
 config:
-  # sqlite: a file in the volume /data (persistence below), good for a home installation.
-  # postgres: a PostgreSQL server of your own, then nothing is stored in the pod.
+  # sqlite: a file in the volume /data (sqlite.persistence below), good for a home installation.
+  # postgres: PostgreSQL, either the chart's own (postgresql.enabled below) or a server
+  # of your own (config.postgres); then nothing is stored in the server's pod.
   database: sqlite
+  # A PostgreSQL server of your own (with postgresql.enabled=false): its data source name
+  # ($DARTS_O_MAT_DSN), e.g. postgres://darts:secret@postgres:5432/darts?sslmode=disable.
+  # Kept in a Secret of this chart; or name a Secret of your own instead.
   postgres:
-    # The data source name, e.g. postgres://darts:secret@postgres:5432/darts?sslmode=disable.
-    # Kept in a Secret of this chart; or name a Secret of your own instead.
     dsn: ""
     existingSecret: ""
     existingSecretKey: dsn
+  # Only for servers strangers can register on: registering needs a Cloudflare Turnstile
+  # check. Both keys or none ($DARTS_O_MAT_TURNSTILE_SITE_KEY and
+  # $DARTS_O_MAT_TURNSTILE_SECRET_KEY); the secret key is kept in a Secret of this chart,
+  # or name a Secret of your own instead.
+  turnstile:
+    siteKey: ""
+    secretKey: ""
+    existingSecret: ""
+    existingSecretKey: secret-key
 
-# The SQLite database. Without it the data is gone when the pod is replaced.
-persistence:
-  enabled: true
-  # Use a claim you created yourself.
-  existingClaim: ""
-  storageClass: ""
-  accessMode: ReadWriteOnce
-  size: 1Gi
-  annotations: {}
+# The volume of the SQLite database (config.database=sqlite), mounted at /data. Without it
+# the data is gone when the pod is replaced.
+sqlite:
+  persistence:
+    enabled: true
+    # Use a claim you created yourself.
+    existingClaim: ""
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    annotations: {}
+
+# A simple PostgreSQL of the chart: one pod (StatefulSet) with its own volume, for
+# config.database=postgres without a server of your own. Its volume stays when the chart
+# is uninstalled. For backups, high availability or tuning use a server of your own.
+postgresql:
+  enabled: false
+  image:
+    repository: postgres
+    tag: "18"
+    pullPolicy: IfNotPresent
+  auth:
+    username: darts-o-mat
+    database: darts-o-mat
+    # Empty: a random password is made at the install and kept in a Secret, which stays
+    # when the chart is uninstalled (the volume still needs it). It becomes part of the
+    # data source name, so only letters and digits. Or name a Secret of your own.
+    password: ""
+    existingSecret: ""
+    existingSecretKey: password
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
 
 service:
   type: ClusterIP

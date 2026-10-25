@@ -1,16 +1,12 @@
 {{- $postgres := eq .Values.config.database "postgres" }}
-{{- if not (has .Values.config.database (list "sqlite" "postgres")) }}
-{{- fail "config.database must be sqlite or postgres" }}
-{{- end }}
-{{- if and (not $postgres) (gt (int .Values.replicaCount) 1) }}
-{{- fail "replicaCount above 1 needs config.database=postgres: SQLite is one file for one process" }}
-{{- end }}
+{{- include "darts-o-mat.validate" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "darts-o-mat.fullname" . }}
   labels:
     {{- include "darts-o-mat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
 spec:
   replicas: {{ .Values.replicaCount }}
   strategy:
@@ -24,19 +20,23 @@ spec:
   selector:
     matchLabels:
       {{- include "darts-o-mat.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: server
   template:
     metadata:
       annotations:
-        {{- if $postgres }}
-        {{- if .Values.config.postgres.dsn }}
-        checksum/dsn: {{ .Values.config.postgres.dsn | sha256sum }}
+        # A secret changed in the values restarts the pods.
+        {{- with .Values.config.postgres.dsn }}
+        checksum/dsn: {{ . | sha256sum }}
         {{- end }}
+        {{- with .Values.config.turnstile.secretKey }}
+        checksum/turnstile: {{ . | sha256sum }}
         {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
         {{- include "darts-o-mat.labels" . | nindent 8 }}
+        app.kubernetes.io/component: server
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -62,23 +62,38 @@ spec:
           args:
             - -addr=:3000
             - -db={{ .Values.config.database }}
-            {{- if $postgres }}
-            - -dsn=$(DARTS_O_MAT_DSN)
-            {{- end }}
             {{- if .Values.pprof.enabled }}
             - -pprof=localhost:{{ .Values.pprof.port }}
             {{- end }}
             {{- with .Values.extraArgs }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- if or $postgres .Values.extraEnv }}
+          {{- if or $postgres .Values.config.turnstile.siteKey .Values.extraEnv }}
           env:
-            {{- if $postgres }}
+            {{- if .Values.postgresql.enabled }}
+            - name: DARTS_O_MAT_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "darts-o-mat.postgresqlSecret" . }}
+                  key: {{ .Values.postgresql.auth.existingSecretKey }}
+            # The chart's PostgreSQL, with the password of the variable above.
+            - name: DARTS_O_MAT_DSN
+              value: "postgres://{{ .Values.postgresql.auth.username }}:$(DARTS_O_MAT_POSTGRES_PASSWORD)@{{ include "darts-o-mat.postgresql" . }}:5432/{{ .Values.postgresql.auth.database }}?sslmode=disable"
+            {{- else if $postgres }}
             - name: DARTS_O_MAT_DSN
               valueFrom:
                 secretKeyRef:
                   name: {{ include "darts-o-mat.dsnSecret" . }}
                   key: {{ .Values.config.postgres.existingSecretKey }}
+            {{- end }}
+            {{- if .Values.config.turnstile.siteKey }}
+            - name: DARTS_O_MAT_TURNSTILE_SITE_KEY
+              value: {{ .Values.config.turnstile.siteKey | quote }}
+            - name: DARTS_O_MAT_TURNSTILE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "darts-o-mat.turnstileSecret" . }}
+                  key: {{ .Values.config.turnstile.existingSecretKey }}
             {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
@@ -114,9 +129,9 @@ spec:
       volumes:
         {{- if not $postgres }}
         - name: data
-          {{- if .Values.persistence.enabled }}
+          {{- if .Values.sqlite.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ .Values.persistence.existingClaim | default (include "darts-o-mat.fullname" .) }}
+            claimName: {{ .Values.sqlite.persistence.existingClaim | default (include "darts-o-mat.fullname" .) }}
           {{- else }}
           emptyDir: {}
           {{- end }}

@@ -46,3 +46,4 @@ jobs:
       - run: helm lint deploy/helm/darts-o-mat
       - run: helm template t deploy/helm/darts-o-mat > /dev/null
       - run: helm template t deploy/helm/darts-o-mat --set config.database=postgres --set config.postgres.dsn=postgres://u:p@h/db --set replicaCount=3 > /dev/null
+      - run: helm template t deploy/helm/darts-o-mat --set config.database=postgres --set postgresql.enabled=true --set config.turnstile.siteKey=s --set config.turnstile.secretKey=x --set pprof.enabled=true > /dev/null

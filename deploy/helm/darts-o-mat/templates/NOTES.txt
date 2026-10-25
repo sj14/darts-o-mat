@@ -17,10 +17,16 @@ Open it on this computer:
 then visit http://localhost:8080 and create an account ("Register").
 {{- end }}
 
-{{- if eq .Values.config.database "sqlite" }}
-{{- if not .Values.persistence.enabled }}
+{{- if .Values.postgresql.enabled }}
 
-The games are kept in the pod only (persistence.enabled=false): they are gone when it is replaced.
+The games are in the chart's PostgreSQL ({{ include "darts-o-mat.postgresql" . }}). Its volume and the
+Secret with its password stay when the chart is uninstalled; delete both to start afresh.
+{{- end }}
+
+{{- if eq .Values.config.database "sqlite" }}
+{{- if not .Values.sqlite.persistence.enabled }}
+
+The games are kept in the pod only (sqlite.persistence.enabled=false): they are gone when it is replaced.
 {{- end }}
 {{- end }}
 

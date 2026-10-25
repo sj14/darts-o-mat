@@ -1,4 +1,4 @@
-{{- if and (eq .Values.config.database "sqlite") .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+{{- if and (eq .Values.config.database "sqlite") .Values.sqlite.persistence.enabled (not .Values.sqlite.persistence.existingClaim) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -8,16 +8,16 @@ metadata:
   annotations:
     # Keep the games when the release is uninstalled.
     helm.sh/resource-policy: keep
-    {{- with .Values.persistence.annotations }}
+    {{- with .Values.sqlite.persistence.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   accessModes:
-    - {{ .Values.persistence.accessMode }}
-  {{- if .Values.persistence.storageClass }}
-  storageClassName: {{ .Values.persistence.storageClass | quote }}
+    - {{ .Values.sqlite.persistence.accessMode }}
+  {{- if .Values.sqlite.persistence.storageClass }}
+  storageClassName: {{ .Values.sqlite.persistence.storageClass | quote }}
   {{- end }}
   resources:
     requests:
-      storage: {{ .Values.persistence.size }}
+      storage: {{ .Values.sqlite.persistence.size }}
 {{- end }}
