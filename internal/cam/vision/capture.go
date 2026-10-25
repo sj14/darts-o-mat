@@ -30,10 +30,11 @@ var ErrNotConnected = errors.New("not connected")
 // OpenCameras opens the cameras of a calibration, in the calibration's order. Each camera
 // is found among the devices with its DeviceName by comparing their views with the
 // reference images, so it doesn't matter which USB port it is plugged into. A camera
-// that isn't connected stays nil, with ErrNotConnected in problems. If the views of a
-// device name don't match the references (e.g. a camera was moved), those cameras are
-// opened in device order with ErrAmbiguousCameras in problems: they need to be
-// calibrated again. The exposure is locked once it settled.
+// that isn't connected stays nil, with ErrNotConnected in problems (or the read error of
+// a device that opened but delivered no frame). If the views of a device name don't
+// match the references (e.g. a camera was moved), those cameras are opened in device
+// order with ErrAmbiguousCameras in problems: they need to be calibrated again. The
+// exposure is locked once it settled.
 //
 // All cameras of the calibration are assigned together, so identical cameras of several
 // boards are told apart as well as those of one. opts says how to open each camera; the
@@ -95,17 +96,27 @@ func openGroup(calib Calibration, indexes []int, devices []camera.Device, opts f
 		fail(cmp.Or(openErr, ErrNotConnected))
 		return
 	}
-	frames, err := settle(candidates)
-	if err != nil {
-		closeAll(candidates)
-		fail(err)
+	// A device that fails to deliver (e.g. it drops off the USB just now) is left out,
+	// so it doesn't take the others with it; its camera stays without a device.
+	frames, errs := settle(candidates)
+	var views, refs []image.Image
+	var readErr error
+	ok := candidates[:0]
+	for f, c := range candidates {
+		if errs[f] != nil {
+			c.Close()
+			readErr = errs[f]
+			continue
+		}
+		ok = append(ok, c)
+		views = append(views, frames[f])
+	}
+	candidates = ok
+	if len(candidates) == 0 {
+		fail(readErr)
 		return
 	}
 
-	var views, refs []image.Image
-	for _, f := range frames {
-		views = append(views, f)
-	}
 	for _, i := range indexes {
 		ref, err := calib.LoadReference(calib.Cameras[i])
 		if err != nil {
@@ -138,7 +149,7 @@ func openGroup(calib Calibration, indexes []int, devices []camera.Device, opts f
 		var err error
 		i := indexes[r]
 		if f < 0 {
-			problems[i] = ErrNotConnected
+			problems[i] = cmp.Or(readErr, ErrNotConnected)
 			continue
 		}
 		cams[i], problems[i], used[f] = candidates[f], mismatch, true
@@ -165,10 +176,10 @@ func OpenCamera(id string, opts camera.Options) (*camera.Camera, *image.RGBA, er
 	if err != nil {
 		return nil, nil, err
 	}
-	frames, err := settle([]*camera.Camera{cam})
-	if err != nil {
+	frames, errs := settle([]*camera.Camera{cam})
+	if errs[0] != nil {
 		cam.Close()
-		return nil, nil, err
+		return nil, nil, errs[0]
 	}
 	return cam, frames[0], nil
 }
@@ -181,20 +192,19 @@ func closeAll(cams []*camera.Camera) {
 
 // settle waits until the cameras have adjusted their exposure, then locks it, so a
 // hand in front of a camera doesn't change its whole image (seen when pulling darts
-// out). It returns a frame of each camera. Cameras that can't lock keep adjusting.
-func settle(cams []*camera.Camera) ([]*image.RGBA, error) {
+// out). It returns a frame of each camera, or why it delivered none. Cameras that can't
+// lock keep adjusting.
+func settle(cams []*camera.Camera) ([]*image.RGBA, []error) {
 	deadline := time.Now().Add(maxSettleTime) // for all cameras: they adjust at the same time
 	time.Sleep(settleTime)
 	frames := make([]*image.RGBA, len(cams))
+	errs := make([]error, len(cams))
 	for i, c := range cams {
-		img, err := settled(c, deadline)
-		if err != nil {
-			return nil, err
+		if frames[i], errs[i] = settled(c, deadline); errs[i] == nil {
+			_ = c.LockExposure() // without the lock, detection works as before
 		}
-		frames[i] = img
-		_ = c.LockExposure() // without the lock, detection works as before
 	}
-	return frames, nil
+	return frames, errs
 }
 
 // settled reads frames until the camera's brightness stops changing or the deadline
