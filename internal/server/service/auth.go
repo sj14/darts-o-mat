@@ -196,7 +196,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (account.Accou
 		return account.Account{}, ErrUnauthenticated
 	}
 	if err == nil {
-		s.seen(a.ID)
+		s.seen(ctx, a)
 	}
 	return a, err
 }

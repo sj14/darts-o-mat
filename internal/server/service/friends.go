@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/store"
@@ -18,8 +19,9 @@ type Friend struct {
 	PlayerID  int64  `json:"player_id"` // the account's own player
 	Name      string `json:"name"`      // name of the account's player
 	// Presence is whether the friend is online or playing, only in FriendList.Friends.
-	Presence  Presence `json:"presence,omitempty"`
-	invisible bool     // the account hides its presence (account.Account.Invisible)
+	Presence  Presence   `json:"presence,omitempty"`
+	invisible bool       // the account hides its presence (account.Account.Invisible)
+	lastSeen  *time.Time // account.Account.LastSeenAt
 }
 
 type FriendList struct {
@@ -131,7 +133,7 @@ func (s *Service) friends(ctx context.Context, ids []int64) ([]Friend, error) {
 	}
 	byID := map[int64]Friend{}
 	for _, a := range accounts {
-		byID[a.ID] = Friend{AccountID: a.ID, Username: a.Username, PlayerID: a.PlayerID, Name: names[a.PlayerID], invisible: a.Invisible}
+		byID[a.ID] = Friend{AccountID: a.ID, Username: a.Username, PlayerID: a.PlayerID, Name: names[a.PlayerID], invisible: a.Invisible, lastSeen: a.LastSeenAt}
 	}
 
 	result := []Friend{}

@@ -176,3 +176,9 @@ func (store *Store) SetInvisible(ctx context.Context, a *account.Account) error 
 	_, err := store.db.NewUpdate().Model(a).Column("invisible").WherePK().Exec(ctx)
 	return err
 }
+
+// SetLastSeen stores when the account was last online.
+func (store *Store) SetLastSeen(ctx context.Context, accountID int64, t time.Time) error {
+	_, err := store.db.NewUpdate().Model((*account.Account)(nil)).Set("last_seen_at = ?", t).Where("id = ?", accountID).Exec(ctx)
+	return err
+}

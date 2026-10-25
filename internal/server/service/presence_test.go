@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 )
@@ -10,8 +11,20 @@ func TestPresence(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
+	// The clock, also read by the live stream's goroutine.
+	var mu sync.Mutex
 	now := time.Now()
-	s.now = func() time.Time { return now }
+	s.now = func() time.Time {
+		mu.Lock()
+		defer mu.Unlock()
+		return now
+	}
+	advance := func(d time.Duration) {
+		mu.Lock()
+		defer mu.Unlock()
+		now = now.Add(d)
+	}
+	s.watchEvery = 10 * time.Millisecond
 	anna, ben, cara, dora := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara"), register(t, s, "dora")
 	befriend(t, s, anna, ben)
 	befriend(t, s, anna, cara)
@@ -50,7 +63,7 @@ func TestPresence(t *testing.T) {
 
 	check(map[string]Presence{"ben": PresenceOffline, "cara": PresenceOffline})
 
-	s.seen(ben.ID)
+	s.seen(ctx, ben)
 	check(map[string]Presence{"ben": PresenceOnline, "cara": PresenceOffline})
 
 	v, err := createGame(ctx, s, ben, x01Game(ben.PlayerID), []string{"cara"})
@@ -71,18 +84,26 @@ func TestPresence(t *testing.T) {
 	}
 	check(map[string]Presence{"ben": PresenceOffline, "cara": PresencePlaying})
 
-	now = now.Add(time.Hour) // the stream keeps cara online however long it is open
-	s.seen(ben.ID)
-	check(map[string]Presence{"ben": PresenceOffline, "cara": PresencePlaying})
+	// The stream keeps cara online however long it is open: it notes the time every
+	// watchEvery.
+	advance(time.Hour)
+	s.seen(ctx, ben)
+	for deadline := time.Now().Add(time.Second); presences()["cara"] != PresencePlaying; {
+		if time.Now().After(deadline) {
+			t.Fatal("the stream doesn't keep cara online")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	check(map[string]Presence{"ben": PresenceOffline})
 	stop()
-	now = now.Add(onlineFor - time.Second)
+	advance(onlineFor - time.Second)
 	check(map[string]Presence{"cara": PresencePlaying})
-	now = now.Add(time.Second)
+	advance(time.Second)
 	check(map[string]Presence{"cara": PresenceOffline})
 
 	if _, err := s.SetInvisible(ctx, ben, false); err != nil {
 		t.Fatal(err)
 	}
-	s.seen(ben.ID)
+	s.seen(ctx, ben)
 	check(map[string]Presence{"ben": PresencePlaying})
 }

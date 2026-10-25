@@ -105,8 +105,9 @@ type Service struct {
 	// logins limits the failed logins per username, nil without a limit.
 	logins   *loginLimiter
 	networks *loginLimiter
-	// presence is who is online, for the friends (see Presence).
-	presence presence
+	// watchEvery is how often a live stream notes that its account is online (seenEvery,
+	// shorter in tests).
+	watchEvery time.Duration
 	// timers end the turn of a game with a time limit, by game ID (see watchTurn).
 	timers   map[int64]*time.Timer
 	timersMu sync.Mutex
@@ -121,7 +122,7 @@ type Service struct {
 }
 
 func New(store *store.Store, opts Options) *Service {
-	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, presence: presence{seen: map[int64]time.Time{}, streams: map[int64]int{}}, now: time.Now, shuffle: rand.Shuffle}
+	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, watchEvery: seenEvery, now: time.Now, shuffle: rand.Shuffle}
 	if s.opts.PasswordCost == 0 {
 		s.opts.PasswordCost = bcrypt.DefaultCost
 	}

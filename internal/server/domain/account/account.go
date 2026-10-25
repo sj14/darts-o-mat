@@ -39,6 +39,10 @@ type Account struct {
 	// Invisible hides from the account's friends whether it is online or playing: they see
 	// it offline (incognito).
 	Invisible bool `bun:",notnull,default:false" json:"invisible"`
+	// LastSeenAt is when the account last made a request or had a page with live updates
+	// open, for its friends (written at most once a minute); nil if never. Not in the API:
+	// the friends only see whether it is online.
+	LastSeenAt *time.Time `bun:",nullzero" json:"-"`
 }
 
 // NormalizeUsername makes usernames case-insensitive.
