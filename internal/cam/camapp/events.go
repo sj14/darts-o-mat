@@ -15,11 +15,12 @@ import (
 	"github.com/sj14/darts-o-mat/internal/cam/vision"
 )
 
-// maxEvents is how many detections of a board are shown. Their frames are kept in memory
-// as JPEG (about 1.2 MB per detection with three cameras at 1280×720), not on disk: a
-// Raspberry Pi's SD card would be written ~1 GB on a long evening. Not as images either:
-// those took about 22 MB per detection, 1.6 GB in all (2026-10-13).
-const maxEvents = 20
+// maxEvents is how many detections of a board are shown: a turn (takeout and three
+// darts) and one more, enough to trace each dart of it (see Traces). Their frames are
+// kept in memory as JPEG (about 1.2 MB per detection with three cameras at 1280×720),
+// not on disk: a Raspberry Pi's SD card would be written ~1 GB on a long evening. Not
+// as images either: those took about 22 MB per detection (2026-10-13).
+const maxEvents = 5
 
 // Event is a detection, as kept to show it. Its frames are JPEG, see EventFrame.
 type Event struct {

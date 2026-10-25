@@ -2,6 +2,7 @@ package camapp
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/png"
 	"os"
@@ -48,7 +49,7 @@ func TestEventFramesInMemory(t *testing.T) {
 		t.Error("frames of a detection no longer shown are still there")
 	}
 	data, e, ok := a.EventFrame(maxEvents+2, 1, "after")
-	if !ok || e.FrameName(1, "after", ".jpg") != "022-cam2-after.jpg" {
+	if !ok || e.FrameName(1, "after", ".jpg") != fmt.Sprintf("%03d-cam2-after.jpg", maxEvents+2) {
 		t.Fatalf("newest detection's frame: %v, %q", ok, e.FrameName(1, "after", ".jpg"))
 	}
 	if img, err := DecodeJPEG(data); err != nil || img.Bounds().Dx() != 4 {

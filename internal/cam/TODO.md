@@ -20,7 +20,7 @@ Open tasks of the [camera](../../cmd/darts-o-cam/README.md). Tasks of the whole 
 
 ## Debugging
 
-- Debug images: the frames of the last 20 detections are kept in memory (JPEG), can be downloaded on the event page and traced step by step ("Detection in detail"); `-save` keeps all. Maybe later: make the number configurable in the web interface.
+- Debug images: the frames of the last 5 detections per board are kept in memory (JPEG), can be downloaded on the event page and traced step by step ("Detection in detail"); `-save` keeps all. Maybe later: make the number configurable in the web interface.
 
 ## Running on other systems
 
