@@ -31,8 +31,11 @@ type BoardChoice struct {
 // it broke: from then on they enter their darts by hand, as if they had played without a
 // board from the start (the game stops waiting for takeouts if no one else has a board).
 func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID int64, boardID *int64) (GameView, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return GameView{}, err
+	}
+	defer unlock()
 	v, err := s.Game(ctx, acc, gameID)
 	if err != nil {
 		return GameView{}, err
@@ -153,7 +156,7 @@ func (s *Service) checkBoardFree(ctx context.Context, boardID, keep int64) error
 }
 
 // freeBoard takes the board from the players of the running games on it, except the game
-// keep, which continue without it. The caller holds s.mu.
+// keep, which continue without it. The caller holds the lock (s.lock).
 func (s *Service) freeBoard(ctx context.Context, boardID, keep int64) error {
 	b, err := s.store.GetBoard(ctx, boardID)
 	if err != nil {

@@ -113,8 +113,11 @@ func (s *Service) TournamentInvitations(ctx context.Context, acc account.Account
 // player of the match may start it; its players accepted the tournament, so they don't
 // have to accept the game, and throw on the boards they chose for the tournament.
 func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64, match int) (GameView, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return GameView{}, err
+	}
+	defer unlock()
 	v, err := s.Tournament(ctx, acc, id)
 	if err != nil {
 		return GameView{}, err
@@ -166,7 +169,7 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 // completePrevious completes the games of the tournament that are over but can still be
 // corrected and that one of the match's players played in: starting the next match accepts
 // them (user's decision 2026-10-20), also for the player who doesn't start it. Whoever won
-// them is in the match already. The caller holds s.mu.
+// them is in the match already. The caller holds the lock (s.lock).
 func (s *Service) completePrevious(ctx context.Context, st tournament.State, m tournament.Match) error {
 	for _, prev := range st.Matches {
 		if prev.Result == nil || !prev.Result.Unconfirmed || !slices.ContainsFunc(m.PlayerIDs[:], func(id int64) bool { return slices.Contains(prev.PlayerIDs[:], id) }) {

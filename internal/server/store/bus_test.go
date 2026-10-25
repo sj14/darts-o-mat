@@ -2,10 +2,11 @@ package store
 
 import (
 	"context"
-	"os"
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/sj14/darts-o-mat/internal/server/store/storetest"
 )
 
 // A notification published through one replica reaches the listener of another, and the
@@ -13,13 +14,9 @@ import (
 // DARTS_O_MAT_TEST_POSTGRES like TestPostgresMigrationsMatchModels.
 func TestBusPostgres(t *testing.T) {
 	t.Parallel()
-	dsn := os.Getenv("DARTS_O_MAT_TEST_POSTGRES")
-	if dsn == "" {
-		t.Skip("DARTS_O_MAT_TEST_POSTGRES isn't set")
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	dsn = emptyPostgresDatabase(t, dsn, "darts_o_mat_bus")
+	dsn := storetest.Postgres(t, "darts_o_mat_bus")
 	// Two stores on the same database, like two replicas.
 	sender, receiver := openPostgres(t, dsn), openPostgres(t, dsn)
 

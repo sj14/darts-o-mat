@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strings"
 	"time"
@@ -16,6 +17,10 @@ const (
 	// busPing is how long the listener waits without a notification before it checks the
 	// connection with one of its own (an empty payload).
 	busPing = 15 * time.Second
+	// busStart is how often the listener notifies itself until the first notification
+	// arrives, and busStartTries how often before it gives up on the connection.
+	busStart      = 100 * time.Millisecond
+	busStartTries = 100
 	// busRetry is the pause before connecting again after the connection was lost.
 	busRetry = time.Second
 )
@@ -55,46 +60,30 @@ func (b *Bus) Listen(ctx context.Context, receive func(keys []string), missed fu
 	}
 }
 
-// listen listens on one connection until it fails or ctx is done. A connection that
-// silently went away (e.g. a lost host) would block forever, so when nothing came for
-// busPing it notifies itself, and if that doesn't come either the connection counts as
-// lost.
+// listen listens on one connection until it fails or ctx is done.
+//
+// The driver sends LISTEN without waiting for its answer, so a notification sent right
+// after it may still be lost: the listener only counts as listening once a notification
+// arrived, and it notifies itself until one does. Only then it calls missed, so whatever
+// changed before is covered by it and everything after is received.
 func (b *Bus) listen(ctx context.Context, receive func(keys []string), missed func()) error {
 	ln := pgdriver.NewListener(b.store.db)
 	if err := ln.Listen(ctx, busChannel); err != nil {
 		ln.Close()
 		return err
 	}
-	missed()
-
 	heard := make(chan struct{}, 1)
 	done := make(chan struct{})
 	defer close(done)
 	go func() {
 		// Closing the listener ends the Receive that waits.
 		defer ln.Close()
-		pinged := false
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-done:
-				return
-			case <-heard:
-				pinged = false
-			case <-time.After(busPing):
-				if pinged {
-					log.Print("listen for changes: no answer to a ping")
-					return
-				}
-				pinged = true
-				if err := pgdriver.Notify(ctx, b.store.db, busChannel, ""); err != nil {
-					log.Printf("listen for changes: ping: %v", err)
-				}
-			}
+		if err := b.ping(ctx, heard, done); err != nil {
+			log.Printf("listen for changes: %v", err)
 		}
 	}()
 
+	listening := false
 	for {
 		_, payload, err := ln.Receive(ctx)
 		if err != nil {
@@ -104,8 +93,43 @@ func (b *Bus) listen(ctx context.Context, receive func(keys []string), missed fu
 		case heard <- struct{}{}:
 		default:
 		}
+		if !listening {
+			listening = true
+			missed()
+		}
 		if payload != "" {
 			receive(strings.Fields(payload))
+		}
+	}
+}
+
+// ping notifies the listener (an empty payload) until it heard something, every busStart,
+// and later whenever nothing came for busPing: a connection that silently went away (e.g.
+// a lost host) would wait forever. It returns, and the connection counts as lost, when the
+// listener doesn't hear the pings, or when ctx is done or the listener stopped (done).
+func (b *Bus) ping(ctx context.Context, heard, done <-chan struct{}) error {
+	listening, pinged := false, 0
+	for {
+		wait := busPing
+		if !listening {
+			wait = busStart
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-done:
+			return nil
+		case <-heard:
+			listening, pinged = true, 0
+			continue
+		case <-time.After(wait):
+		}
+		if (listening && pinged > 0) || pinged >= busStartTries {
+			return errors.New("no answer to a ping")
+		}
+		pinged++
+		if err := pgdriver.Notify(ctx, b.store.db, busChannel, ""); err != nil {
+			log.Printf("listen for changes: ping: %v", err)
 		}
 	}
 }

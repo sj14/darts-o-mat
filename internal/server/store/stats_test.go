@@ -8,6 +8,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
+	"github.com/sj14/darts-o-mat/internal/server/store/storetest"
 )
 
 // ListRecentResults gives each player's most recent results of the mode, at most the limit,
@@ -22,8 +23,8 @@ func TestListRecentResults(t *testing.T) {
 	t.Cleanup(func() { st.Close() })
 	testListRecentResults(t, st)
 
-	if dsn := os.Getenv("DARTS_O_MAT_TEST_POSTGRES"); dsn != "" {
-		testListRecentResults(t, newPostgresDatabase(t, dsn, "darts_o_mat_recent_results"))
+	if os.Getenv(storetest.PostgresEnv) != "" {
+		testListRecentResults(t, newPostgresDatabase(t, "darts_o_mat_recent_results"))
 	}
 }
 

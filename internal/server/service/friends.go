@@ -72,8 +72,11 @@ func (s *Service) RequestFriend(ctx context.Context, acc account.Account, userna
 		return fmt.Errorf("%w: you can't befriend yourself", ErrInvalid)
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 
 	existing, err := s.store.GetFriendship(ctx, acc.ID, other.ID)
 	switch {

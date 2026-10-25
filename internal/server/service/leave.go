@@ -30,8 +30,11 @@ var ErrCantLeave = turn.ErrCantLeave
 //
 // A player can't leave while bulling off.
 func (s *Service) LeaveGame(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return GameView{}, err
+	}
+	defer unlock()
 	v, err := s.Game(ctx, acc, gameID)
 	if err != nil {
 		return GameView{}, err
@@ -59,7 +62,7 @@ func (s *Service) LeaveGame(ctx context.Context, acc account.Account, gameID int
 	return s.leave(ctx, acc, v)
 }
 
-// leave is LeaveGame after the checks. The caller holds s.mu.
+// leave is LeaveGame after the checks. The caller holds the lock (s.lock).
 func (s *Service) leave(ctx context.Context, acc account.Account, v GameView) (GameView, error) {
 	gameID := v.Game.ID
 	if !v.Started { // still in the lobby
@@ -114,8 +117,11 @@ func (s *Service) leave(ctx context.Context, acc account.Account, v GameView) (G
 // they are removed (the returned view is empty then); once it is running, it ends for everyone (user's decision
 // 2026-10-18): it is aborted with its running games, its finished games stay.
 func (s *Service) LeaveTournament(ctx context.Context, acc account.Account, id int64) (TournamentView, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return TournamentView{}, err
+	}
+	defer unlock()
 	t, err := s.store.GetTournament(ctx, id)
 	if err != nil {
 		return TournamentView{}, err
@@ -144,7 +150,7 @@ func (s *Service) LeaveTournament(ctx context.Context, acc account.Account, id i
 	return v, err
 }
 
-// leaveTournament is the leaving of a tournament that isn't over. The caller holds s.mu.
+// leaveTournament is the leaving of a tournament that isn't over. The caller holds the lock (s.lock).
 // Only if the player chose to leave (voluntary) a running tournament counts as left in
 // their statistics, not when their account is deleted.
 func (s *Service) leaveTournament(ctx context.Context, acc account.Account, t tournament.Tournament, voluntary bool) error {

@@ -10,7 +10,7 @@ import (
 
 // completeGame stores that the game is completed: afterwards its darts can't be undone or
 // corrected anymore, and its result counts. It tells its subscribers. The caller holds
-// s.mu.
+// the lock (s.lock).
 func (s *Service) completeGame(ctx context.Context, g *game.Game) error {
 	now := s.now()
 	g.CompletedAt = &now
@@ -28,7 +28,7 @@ func (s *Service) completeGame(ctx context.Context, g *game.Game) error {
 // account left or is only invited to. Only games with a dart in the last
 // game.CompleteAfter can be affected, older finished games are completed by the time
 // anyway. The games that are still running aren't touched, so an account can play on
-// several boards at once. The caller holds s.mu.
+// several boards at once. The caller holds the lock (s.lock).
 func (s *Service) completeFinished(ctx context.Context, acc account.Account) error {
 	games, err := s.store.ListGamesWithDartsSince(ctx, acc.ID, acc.PlayerID, s.now().Add(-game.CompleteAfter-time.Minute))
 	if err != nil {

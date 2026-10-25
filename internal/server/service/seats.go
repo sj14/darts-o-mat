@@ -165,7 +165,7 @@ func (s *Service) lobbyFor(ctx context.Context, acc account.Account, ref LobbyRe
 // one and starting a match. For each seat: its board (checkSeatBoard), and that the
 // player has no seat elsewhere (checkPlayersFree; the tournament keep doesn't count).
 // Then the games the account finished are completed (going on accepts their result),
-// and write stores the seats. The caller holds s.mu.
+// and write stores the seats. The caller holds the lock (s.lock).
 func (s *Service) takeSeats(ctx context.Context, acc account.Account, st seat, seats []game.Participant, keep int64, write func() error) error {
 	for _, p := range seats {
 		if err := s.checkSeatBoard(ctx, acc, st, p.BoardID); err != nil {
@@ -194,12 +194,15 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 	if err := g.Validate(); err != nil {
 		return GameView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return GameView{}, err
+	}
+	defer unlock()
 	if err := s.checkOwnPlayers(ctx, acc, g.PlayerIDs()); err != nil {
 		return GameView{}, err
 	}
-	err := s.takeSeats(ctx, acc, seat{lobby: g.Lobby, holdsBoards: true}, g.Participants, 0, func() error {
+	err = s.takeSeats(ctx, acc, seat{lobby: g.Lobby, holdsBoards: true}, g.Participants, 0, func() error {
 		if err := s.store.CreateGame(ctx, &g); err != nil {
 			return err
 		}
@@ -220,8 +223,11 @@ func (s *Service) CreateTournament(ctx context.Context, acc account.Account, t t
 	if err := t.Validate(); err != nil {
 		return TournamentView{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return TournamentView{}, err
+	}
+	defer unlock()
 	if err := s.checkOwnPlayers(ctx, acc, []int64{playerID}); err != nil {
 		return TournamentView{}, err
 	}
@@ -245,8 +251,11 @@ func firstPlayer(acc account.Account, playerID int64) int64 {
 // in, on the board its other players there throw on (the first of them); SetSeatBoard
 // changes it.
 func (s *Service) AddPlayer(ctx context.Context, acc account.Account, ref LobbyRef, playerID int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	l, pt, err := s.lobbyFor(ctx, acc, ref)
 	if err != nil {
 		return err
@@ -276,8 +285,11 @@ func (s *Service) AddPlayer(ctx context.Context, acc account.Account, ref LobbyR
 // left it is as if the account left (LeaveGame, LeaveTournament), and a lobby nobody is in
 // anymore is deleted.
 func (s *Service) RemovePlayer(ctx context.Context, acc account.Account, ref LobbyRef, playerID int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	l, pt, err := s.lobbyFor(ctx, acc, ref)
 	if err != nil {
 		return err
@@ -291,8 +303,11 @@ func (s *Service) RemovePlayer(ctx context.Context, acc account.Account, ref Lob
 // Invite invites a friend of the account to a lobby it plays in; the friend's player
 // takes the seat once they accept (Accept).
 func (s *Service) Invite(ctx context.Context, acc account.Account, ref LobbyRef, username string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	l, pt, err := s.lobbyFor(ctx, acc, ref)
 	if err != nil {
 		return err
@@ -317,8 +332,11 @@ func (s *Service) Invite(ctx context.Context, acc account.Account, ref LobbyRef,
 // Accept accepts the invitation of the account's own player to a lobby, on the board if
 // one is given (one of the account's, or one other players throw on).
 func (s *Service) Accept(ctx context.Context, acc account.Account, ref LobbyRef, boardID *int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	l, pt, err := s.lobbyFor(ctx, acc, ref)
 	if err != nil {
 		return err
@@ -342,8 +360,11 @@ func (s *Service) Accept(ctx context.Context, acc account.Account, ref LobbyRef,
 
 // Decline declines the invitation of the account's own player to a lobby.
 func (s *Service) Decline(ctx context.Context, acc account.Account, ref LobbyRef) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	l, pt, err := s.lobbyFor(ctx, acc, ref)
 	if err != nil {
 		return err
@@ -356,8 +377,11 @@ func (s *Service) Decline(ctx context.Context, acc account.Account, ref LobbyRef
 
 // Withdraw lets a player of a lobby take back an invitation nobody answered yet.
 func (s *Service) Withdraw(ctx context.Context, acc account.Account, ref LobbyRef, playerID int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	l, pt, err := s.lobbyFor(ctx, acc, ref)
 	if err != nil {
 		return err
@@ -376,8 +400,11 @@ func (s *Service) Withdraw(ctx context.Context, acc account.Account, ref LobbyRe
 // on). Those that aren't open stay hidden (ErrNotFound); whoever takes the last seat
 // starts it.
 func (s *Service) Join(ctx context.Context, acc account.Account, ref LobbyRef, boardID *int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	l, err := s.loadLobby(ctx, ref)
 	if err != nil {
 		return err
@@ -399,8 +426,11 @@ func (s *Service) Join(ctx context.Context, acc account.Account, ref LobbyRef, b
 // SetSeatBoard puts a player of the account in a lobby on a board, or takes them off theirs
 // with nil, like UseBoard does in a running game.
 func (s *Service) SetSeatBoard(ctx context.Context, acc account.Account, ref LobbyRef, playerID int64, boardID *int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	l, pt, err := s.lobbyFor(ctx, acc, ref)
 	if err != nil {
 		return err
@@ -428,8 +458,11 @@ func (s *Service) SetSeatBoard(ctx context.Context, acc account.Account, ref Lob
 // is pending and no seat is free (ErrNotReady); a tournament needs enough players
 // (tournament.ErrPlayerCount). The throwing order, or the draw, is drawn then.
 func (s *Service) Start(ctx context.Context, acc account.Account, ref LobbyRef) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	l, pt, err := s.lobbyFor(ctx, acc, ref)
 	if err != nil {
 		return err
@@ -448,7 +481,7 @@ func (s *Service) Start(ctx context.Context, acc account.Account, ref LobbyRef) 
 }
 
 // addSeat stores a new seat of the lobby, takes its board for a game, and starts an open
-// one with its last seat. The caller holds s.mu.
+// one with its last seat. The caller holds the lock (s.lock).
 func (s *Service) addSeat(ctx context.Context, l lobby, p game.Participant) error {
 	var err error
 	if l.ref.Tournament {
@@ -463,7 +496,7 @@ func (s *Service) addSeat(ctx context.Context, l lobby, p game.Participant) erro
 }
 
 // removeSeat takes a player out of the lobby; one nobody is in anymore is deleted. The
-// caller holds s.mu.
+// caller holds the lock (s.lock).
 func (s *Service) removeSeat(ctx context.Context, l lobby, playerID int64) error {
 	var err error
 	if l.ref.Tournament {
@@ -479,7 +512,7 @@ func (s *Service) removeSeat(ctx context.Context, l lobby, playerID int64) error
 
 // seatsChanged starts an open game or tournament whose last seat was just taken (one
 // that isn't open waits for a player to start it) and tells whoever looks at it. The
-// caller holds s.mu.
+// caller holds the lock (s.lock).
 func (s *Service) seatsChanged(ctx context.Context, ref LobbyRef) error {
 	l, err := s.loadLobby(ctx, ref)
 	if errors.Is(err, store.ErrNotFound) { // nobody is left in it
@@ -499,7 +532,7 @@ func (s *Service) seatsChanged(ctx context.Context, ref LobbyRef) error {
 }
 
 // start draws the order of the players and starts the game or tournament. The caller
-// holds s.mu.
+// holds the lock (s.lock).
 func (s *Service) start(ctx context.Context, ref LobbyRef) error {
 	if ref.Tournament {
 		t, err := s.store.GetTournament(ctx, ref.ID)
@@ -519,7 +552,7 @@ func (s *Service) start(ctx context.Context, ref LobbyRef) error {
 
 // startGame starts a game: the throwing order is drawn (not for a tournament's match,
 // whose order its schedule gives), the first turn's time begins and every replica sets
-// its timer. The caller holds s.mu.
+// its timer. The caller holds the lock (s.lock).
 func (s *Service) startGame(ctx context.Context, gameID int64) error {
 	g, err := s.store.GetGame(ctx, gameID)
 	if err != nil {

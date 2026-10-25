@@ -28,8 +28,11 @@ var (
 // stay as they were (user's decision 2026-10-18: the others' statistics don't change). It
 // is refused while the guest is in a running game or tournament (ErrGuestBusy).
 func (s *Service) DeleteGuest(ctx context.Context, acc account.Account, playerID int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	players, err := s.store.ListPlayers(ctx, acc.ID, acc.PlayerID)
 	if err != nil {
 		return err
@@ -107,8 +110,11 @@ func (s *Service) DeleteAccount(ctx context.Context, acc account.Account, passwo
 	if bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(password)) != nil {
 		return ErrWrongPassword
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	// Asked before leaving the games; the store asks again in its transaction, in case
 	// another admin gives up the role meanwhile.
 	switch last, err := s.LastAdmin(ctx, a); {

@@ -18,6 +18,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
+	"github.com/sj14/darts-o-mat/internal/server/store/storetest"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -134,17 +135,14 @@ func sqliteSchema(t *testing.T, db *bun.DB) string {
 }
 
 // The PostgreSQL migrations give the schema of the structs: Bun's AutoMigrator finds nothing
-// to change. Needs a PostgreSQL database that may be emptied, e.g.
-//
-//	docker run --rm -e POSTGRES_PASSWORD=test -p 5432:5432 postgres
-//	DARTS_O_MAT_TEST_POSTGRES=postgres://postgres:test@localhost:5432/postgres?sslmode=disable go test ./internal/server/store
+// to change. Needs a PostgreSQL database that may be emptied (storetest.PostgresEnv).
 //
 // When it fails, it prints the SQL that is missing: the start of a new migration.
 func TestPostgresMigrationsMatchModels(t *testing.T) {
 	t.Parallel()
-	dsn := os.Getenv("DARTS_O_MAT_TEST_POSTGRES")
+	dsn := os.Getenv(storetest.PostgresEnv)
 	if dsn == "" {
-		t.Skip("DARTS_O_MAT_TEST_POSTGRES isn't set")
+		t.Skip(storetest.PostgresEnv + " isn't set")
 	}
 	ctx := context.Background()
 	db := bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn))), pgdialect.New())
@@ -181,12 +179,8 @@ func TestPostgresMigrationsMatchModels(t *testing.T) {
 // database of its own.
 func TestPostgresMigrationsConcurrently(t *testing.T) {
 	t.Parallel()
-	dsn := os.Getenv("DARTS_O_MAT_TEST_POSTGRES")
-	if dsn == "" {
-		t.Skip("DARTS_O_MAT_TEST_POSTGRES isn't set")
-	}
 	ctx := context.Background()
-	dsn = emptyPostgresDatabase(t, dsn, "darts_o_mat_migrate_concurrently")
+	dsn := storetest.Postgres(t, "darts_o_mat_migrate_concurrently")
 
 	const replicas = 4
 	errs := make(chan error, replicas)

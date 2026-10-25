@@ -78,9 +78,12 @@ func TestOneSeatPerPlayer(t *testing.T) {
 	}
 
 	// A seat the account takes no part in stays hidden: ben waits in his own lobby.
-	s.mu.Lock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = s.checkPlayersFree(ctx, cara, []int64{ben.PlayerID}, 0)
-	s.mu.Unlock()
+	unlock()
 	if g, tr, ok := busyIn(err); !ok || g != 0 || tr != 0 {
 		t.Errorf("ben busy, seen by cara: %v, want PlayerBusyError without a link", err)
 	}

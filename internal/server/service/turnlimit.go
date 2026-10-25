@@ -72,8 +72,12 @@ func (s *Service) watchTurn(g game.Game) {
 // player leaves it).
 func (s *Service) endTurn(gameID int64) {
 	ctx := context.Background()
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		log.Printf("lock: %v", err)
+		return
+	}
+	defer unlock()
 	g, err := s.store.GetGame(ctx, gameID)
 	if err != nil {
 		log.Printf("end the turn of game %d: %v", gameID, err)
@@ -110,7 +114,7 @@ func (s *Service) endTurn(gameID int64) {
 }
 
 // endGameOf aborts a game that too few players are left in, and the tournament it is a
-// match of. The caller holds s.mu.
+// match of. The caller holds the lock (s.lock).
 func (s *Service) endGameOf(ctx context.Context, g game.Game) error {
 	if g.TournamentID == nil {
 		return s.abortGame(ctx, &g)

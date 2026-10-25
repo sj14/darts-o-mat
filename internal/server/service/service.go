@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand/v2"
 	"slices"
 	"sync"
@@ -93,8 +94,8 @@ type Options struct {
 type Service struct {
 	store *store.Store
 	opts  Options
-	// mu serializes changes to the darts and players of games, so two darts
-	// can't both pass the replay check against the same previous state.
+	// mu serializes changes to the darts and players of games in this process, so two
+	// darts can't both pass the replay check against the same previous state; see lock.
 	mu sync.Mutex
 	// games notifies about changed games, by ID.
 	games notify.Hub[int64]
@@ -337,7 +338,7 @@ func (s *Service) Invitations(ctx context.Context, acc account.Account) ([]GameV
 	return s.views(ctx, acc, open)
 }
 
-// abortGame marks the game as aborted and tells its subscribers. The caller holds s.mu.
+// abortGame marks the game as aborted and tells its subscribers. The caller holds the lock (s.lock).
 func (s *Service) abortGame(ctx context.Context, g *game.Game) error {
 	now := s.now()
 	g.AbortedAt = &now
@@ -475,8 +476,11 @@ func (s *Service) storeTakeout(ctx context.Context, g *game.Game, v GameView) er
 // subscribers. Changes are applied one at a time, so change sees the current darts in
 // v and two darts can't both pass the replay check against the same state.
 func (s *Service) changeGame(ctx context.Context, acc account.Account, gameID int64, change func(g *game.Game, v GameView) error) (GameView, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return GameView{}, err
+	}
+	defer unlock()
 	v, err := s.throwableGame(ctx, acc, gameID)
 	if err != nil {
 		return GameView{}, err
@@ -492,8 +496,11 @@ func (s *Service) changeGame(ctx context.Context, acc account.Account, gameID in
 // changeByCameras is changeGame for what a board's cameras report: it isn't done by an
 // account, so there are no rights to check and the view has nothing of a viewer.
 func (s *Service) changeByCameras(ctx context.Context, gameID int64, change func(g *game.Game, v GameView) error) (GameView, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return GameView{}, err
+	}
+	defer unlock()
 	g, err := s.store.GetGame(ctx, gameID)
 	if err != nil {
 		return GameView{}, err
@@ -510,7 +517,7 @@ func (s *Service) changeByCameras(ctx context.Context, gameID int64, change func
 }
 
 // throwableGame returns the view of the game if the account may enter darts right now.
-// The caller holds s.mu.
+// The caller holds the lock (s.lock).
 func (s *Service) throwableGame(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
 	v, err := s.Game(ctx, acc, gameID)
 	if err != nil {
@@ -657,3 +664,27 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	}
 	return v, nil
 }
+
+// lock orders the changes of games and seats: in this process with mu, across the
+// replicas with the store's lock (on PostgreSQL), taken in this order so that only one
+// request per replica waits for the database. Call unlock when the change is done.
+func (s *Service) lock(ctx context.Context) (unlock func(), err error) {
+	s.mu.Lock()
+	release, err := s.store.Lock(ctx)
+	if err != nil {
+		s.mu.Unlock()
+		return nil, fmt.Errorf("lock: %w", err)
+	}
+	locked := time.Now()
+	return func() {
+		release()
+		s.mu.Unlock()
+		if held := time.Since(locked); held > slowLock {
+			log.Printf("held the lock for %v", held)
+		}
+	}, nil
+}
+
+// slowLock is how long the lock may be held before it is logged: all changes of games and
+// seats wait for it, across all replicas.
+const slowLock = 100 * time.Millisecond

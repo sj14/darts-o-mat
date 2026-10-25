@@ -2,16 +2,13 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"net/url"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
-	"github.com/uptrace/bun/driver/pgdriver"
+	"github.com/sj14/darts-o-mat/internal/server/store/storetest"
 )
 
 // The unique index keeps an email to one account even when the check before it is skipped,
@@ -82,12 +79,8 @@ func TestKeepLastAdmin(t *testing.T) {
 // empties the schema.
 func TestKeepLastAdminPostgres(t *testing.T) {
 	t.Parallel()
-	dsn := os.Getenv("DARTS_O_MAT_TEST_POSTGRES")
-	if dsn == "" {
-		t.Skip("DARTS_O_MAT_TEST_POSTGRES isn't set")
-	}
 	ctx := context.Background()
-	st := newPostgresDatabase(t, dsn, "darts_o_mat_keep_last_admin")
+	st := newPostgresDatabase(t, "darts_o_mat_keep_last_admin")
 	anna, ben := createAccount(t, st, "anna"), createAccount(t, st, "ben")
 	if err := st.SetAdmin(ctx, ben.ID, true); err != nil {
 		t.Fatal(err)
@@ -132,29 +125,9 @@ func createAccount(t *testing.T, st *Store, username string) account.Account {
 	return a
 }
 
-// newPostgresDatabase makes an empty database with the name on the PostgreSQL server of
-// dsn and opens the store on it.
-func newPostgresDatabase(t *testing.T, dsn, name string) *Store {
+// newPostgresDatabase makes an empty database with the name (storetest.Postgres) and opens
+// the store on it.
+func newPostgresDatabase(t *testing.T, name string) *Store {
 	t.Helper()
-	return openPostgres(t, emptyPostgresDatabase(t, dsn, name))
-}
-
-// emptyPostgresDatabase makes an empty database with the name on the PostgreSQL server of
-// dsn and returns its dsn.
-func emptyPostgresDatabase(t *testing.T, dsn, name string) string {
-	t.Helper()
-	ctx := context.Background()
-	server := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	defer server.Close()
-	for _, query := range []string{"DROP DATABASE IF EXISTS " + name + " WITH (FORCE)", "CREATE DATABASE " + name} {
-		if _, err := server.ExecContext(ctx, query); err != nil {
-			t.Fatal(err)
-		}
-	}
-	u, err := url.Parse(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	u.Path = "/" + name
-	return u.String()
+	return openPostgres(t, storetest.Postgres(t, name))
 }

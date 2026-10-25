@@ -32,7 +32,7 @@ func (e PlayerBusyError) Unwrap() error {
 // they didn't leave, or a tournament that is neither over nor aborted, also between its
 // matches. The tournament keep (0 for none) doesn't count: StartMatch starts its matches.
 // A game that is over doesn't count though it can still be corrected (going on completes
-// it). The caller holds s.mu.
+// it). The caller holds the lock (s.lock).
 func (s *Service) checkPlayersFree(ctx context.Context, acc account.Account, playerIDs []int64, keep int64) error {
 	for _, id := range playerIDs {
 		games, err := s.store.ListUnfinishedGamesByPlayer(ctx, id)
