@@ -593,6 +593,34 @@ func TestDetectDartBesideHiddenInGroup(t *testing.T) {
 	}
 }
 
+// A T18 right beside the dart before it (2026-10-25, events 40–41, cam3): its point is
+// free, 6.7 px from the earlier dart's change, but within the margin left out around it.
+// Counted as hidden, the camera that saw the triple best was dropped, and the other
+// camera's S18 decided (see hiddenDistance).
+func TestDetectDartBesideFreeNextToEarlier(t *testing.T) {
+	t.Parallel()
+	frames := func(n string) (*image.RGBA, *image.RGBA) {
+		return loadRGBA(t, "testdata/throws/"+n+"-cam3-before.jpg"), loadRGBA(t, "testdata/throws/"+n+"-cam3-after.jpg")
+	}
+	before, after := frames("040")
+	_, earlier, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, nil)
+	if err != nil {
+		t.Fatalf("event 040: %v", err)
+	}
+	before, after = frames("041")
+	d, _, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := dartboard.Point{X: 868, Y: 318} // where the point enters the board
+	if dist(d.Tip, want) > 4 {
+		t.Errorf("tip at %.0f,%.0f px, want %.0f,%.0f", d.Tip.X, d.Tip.Y, want.X, want.Y)
+	}
+	if d.Hidden {
+		t.Error("the tip is free next to the earlier dart, not hidden by it")
+	}
+}
+
 // fillRect paints a rectangle.
 func fillRect(img *image.RGBA, r image.Rectangle, c color.RGBA) {
 	for y := r.Min.Y; y < r.Max.Y; y++ {

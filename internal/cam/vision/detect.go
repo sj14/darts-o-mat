@@ -68,7 +68,7 @@ type Detection struct {
 	Axis   dartboard.Point // unit vector from the tip towards the flight, in image pixels
 	// Hidden tells that the tip found ends on a dart thrown earlier: the dart's point
 	// may be behind it, and the tip is just where it disappears (2026-10-13, event 37:
-	// 7 mm too far inside, a T20 behind two darts in the 20).
+	// 7 mm too far inside, a T20 behind two darts in the 20). See hiddenDistance.
 	Hidden bool
 }
 
@@ -91,6 +91,19 @@ type Mask struct {
 
 func (m *Mask) at(x, y int) bool {
 	return x >= 0 && y >= 0 && x < m.W && y < m.H && m.Pix[y*m.W+x]
+}
+
+// near reports whether a pixel within r pixels of p is set.
+func (m *Mask) near(p dartboard.Point, r int) bool {
+	cx, cy := int(math.Round(p.X)), int(math.Round(p.Y))
+	for y := cy - r; y <= cy+r; y++ {
+		for x := cx - r; x <= cx+r; x++ {
+			if (x-cx)*(x-cx)+(y-cy)*(y-cy) <= r*r && m.at(x, y) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Count returns the number of changed pixels.
@@ -175,12 +188,11 @@ func DetectDart(before, after *image.RGBA, opts DetectOptions, scale float64) (D
 // without them if the change isn't shaped like a dart, see detect. It also returns the
 // changed area of this dart.
 func DetectDartBeside(before, after *image.RGBA, opts DetectOptions, scale float64, earlier []image.Point) (Detection, []image.Point, error) {
-	return detect(before, after, opts.pixels(scale), dartsMask(before.Bounds(), earlier, scale), nil)
+	return detect(before, after, opts.pixels(scale), dartsMask(before.Bounds(), earlier), nil)
 }
 
-// dartsMask marks the changed pixels of the darts thrown earlier, widened by dartMargin;
-// nil without any.
-func dartsMask(b image.Rectangle, earlier []image.Point, scale float64) *Mask {
+// dartsMask marks the changed pixels of the darts thrown earlier; nil without any.
+func dartsMask(b image.Rectangle, earlier []image.Point) *Mask {
 	if len(earlier) == 0 {
 		return nil
 	}
@@ -188,15 +200,23 @@ func dartsMask(b image.Rectangle, earlier []image.Point, scale float64) *Mask {
 	for _, p := range earlier {
 		darts.Pix[p.Y*darts.W+p.X] = true
 	}
-	return darts.dilate(length(dartMargin, scale))
+	return darts
 }
+
+// hiddenDistance is how close a tip has to be to the changed pixels of a dart thrown
+// earlier to count as hidden by it (Detection.Hidden). A point that disappears behind
+// a dart ends where that dart's change begins, both blurred: 2.3 px at the reference
+// scale (2026-10-22, event 211, cam3). The wider dartMargin is too much: a T18 free
+// beside the dart before it (2026-10-25, event 41, cam3: 6.7 px away) counted as
+// hidden, so the camera that saw the triple best was dropped.
+var hiddenDistance = px(4)
 
 // detect is DetectDart that also returns the changed area, so the watcher compares the
 // images only once per camera.
 //
-// darts marks where darts thrown earlier are in the image (nil: none). If the change
-// isn't shaped like a dart, it tries again without the changes there: a dart hit by the
-// new one moves, its outline changes too and can merge with the new dart into one piece
+// darts marks the changed pixels of the darts thrown earlier (nil: none). If the change
+// isn't shaped like a dart, it tries again without the changes there, widened by
+// dartMargin (the earlier dart may have moved a little): a dart hit by the new one moves, its outline changes too and can merge with the new dart into one piece
 // that is too wide (2026-10-13, event 95: two parallel darts, elongation 3.1). Only then,
 // because a new dart in front of an old one in the image would lose pixels.
 //
@@ -211,26 +231,27 @@ func detect(before, after *image.RGBA, p detectParams, darts *Mask, tr *Trace) (
 		return d, area, err
 	}
 	if err == nil {
-		d.Hidden = darts.at(int(math.Round(d.Tip.X)), int(math.Round(d.Tip.Y)))
+		d.Hidden = darts.near(d.Tip, p.hiddenDistance)
 	}
 	if err != ErrNotElongated {
 		return d, area, err
 	}
+	widened := darts.dilate(p.dartMargin)
 	without := &Mask{W: mask.W, H: mask.H, Pix: slices.Clone(mask.Pix)}
-	for i, set := range darts.Pix {
+	for i, set := range widened.Pix {
 		if set {
 			without.Pix[i] = false
 		}
 	}
 	retry := tr
 	if tr != nil {
-		retry = &Trace{Changed: tr.Changed, Earlier: darts, Retried: true}
+		retry = &Trace{Changed: tr.Changed, Earlier: widened, Retried: true}
 	}
 	if d2, area2, err2 := detectIn(without, p, retry); err2 == nil && len(area2) >= retryMinAreas*p.minPixels {
 		if tr != nil {
 			*tr = *retry
 		}
-		d2.Hidden = darts.at(int(math.Round(d2.Tip.X)), int(math.Round(d2.Tip.Y)))
+		d2.Hidden = darts.near(d2.Tip, p.hiddenDistance)
 		return d2, area2, nil
 	}
 	return d, area, err

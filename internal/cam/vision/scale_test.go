@@ -34,12 +34,11 @@ func TestDefaultsInPixels(t *testing.T) {
 	t.Parallel()
 	got := DefaultWatchOptions.pixels(ReferenceScale)
 	want := watchParams{
-		detect:          detectParams{diff: 25, weak: 12, blur: 2, gap: 3, minPixels: 150, minSpeck: 15, minElongation: 4, axisDistance: 12},
+		detect:          detectParams{diff: 25, weak: 12, blur: 2, gap: 3, minPixels: 150, minSpeck: 15, minElongation: 4, axisDistance: 12, dartMargin: 5, hiddenDistance: 4},
 		sampleStep:      4,
 		motionThreshold: 40,
 		motionSamples:   40,
 		takeoutSamples:  4000,
-		dartMargin:      5,
 	}
 	if got != want {
 		t.Errorf("defaults at the reference scale = %+v, want %+v", got, want)

@@ -176,16 +176,17 @@ func analyze(args []string) error {
 	if err != nil {
 		return err
 	}
-	calib, opts := cfg.Calibration(*configDir), cfg.Boards[0].Detection.Detect // of the first board
+	calib, watch := cfg.Calibration(*configDir), cfg.Boards[0].Detection // of the first board
+	opts := watch.Detect
 	events, err := savedEvents(*dir)
 	if err != nil {
 		return err
 	}
 	// The images of the empty board, to tell darts pulled out like the detection does.
-	var empty []*image.RGBA
+	empty := map[string]*image.RGBA{}
 	for _, cam := range calib.Cameras {
-		if img, err := calib.LoadEmpty(cam); err == nil && img != nil {
-			empty = append(empty, img)
+		if img, err := calib.LoadEmpty(cam); err == nil {
+			empty[cam.Name] = img
 		}
 	}
 	// The changed pixels of the darts found per camera since the last takeout, like the
@@ -198,6 +199,10 @@ func analyze(args []string) error {
 			area          []image.Point
 		}
 		var cams []frames
+		// Like the detection: only if every camera with frames has an image of the empty
+		// board (a camera that delivered none, e.g. one left out, doesn't count).
+		withEmpty := true
+		takeout := false // a change too large for a dart, like the detection tells it first
 		for _, cam := range calib.Cameras {
 			prefix := filepath.Join(*dir, fmt.Sprintf("%03d-%s", n, cam.Name))
 			before, err1 := readImage(prefix + "-before.jpg")
@@ -209,19 +214,25 @@ func analyze(args []string) error {
 			if err != nil {
 				return err
 			}
-			cams = append(cams, frames{cam, before, after, vision.ChangedArea(before, after, opts, vision.PixelScale(m.ToBoard))})
+			scale := vision.PixelScale(m.ToBoard)
+			cams = append(cams, frames{cam, before, after, vision.ChangedArea(before, after, opts, scale)})
+			takeout = takeout || watch.Takeout(before, after, scale)
+			withEmpty = withEmpty && empty[cam.Name] != nil
 		}
-		if len(cams) == len(empty) && len(cams) > 0 {
-			var before, after []*image.RGBA
+		withEmpty = withEmpty && len(cams) > 0
+		if !takeout && withEmpty {
+			var before, after, empties []*image.RGBA
 			var areas [][]image.Point
 			for _, c := range cams {
 				before, after, areas = append(before, c.before), append(after, c.after), append(areas, c.area)
+				empties = append(empties, empty[c.cam.Name])
 			}
-			if vision.PulledOut(before, after, empty, areas) {
-				fmt.Printf("event %d: darts pulled out\n", n)
-				clear(earlier)
-				continue
-			}
+			takeout = vision.PulledOut(before, after, empties, areas)
+		}
+		if takeout {
+			fmt.Printf("event %d: darts pulled out\n", n)
+			clear(earlier)
+			continue
 		}
 
 		var tips []vision.Tip
@@ -261,7 +272,7 @@ func analyze(args []string) error {
 		switch p, err := vision.FuseTips(tips); {
 		case err == nil:
 			fmt.Printf("event %d: %s at %.0f,%.0f mm (%.1f mm from the center)\n", n, dartboard.Score(p).String(), p.X, p.Y, p.Radius())
-		case len(cams) == len(empty):
+		case withEmpty:
 			fmt.Printf("event %d: a miss no camera located (nothing was pulled out)\n", n)
 		default:
 			clear(earlier) // no dart anywhere: most likely the darts were pulled out

@@ -44,19 +44,23 @@ type detectParams struct {
 	minSpeck      int
 	minElongation float64
 	axisDistance  int
+	// dartMargin and hiddenDistance are about the darts thrown earlier, see detect.
+	dartMargin, hiddenDistance int
 }
 
 // pixels converts the options for a camera with the given scale (pixels per mm).
 func (o DetectOptions) pixels(scale float64) detectParams {
 	return detectParams{
-		diff:          o.DiffThreshold,
-		weak:          o.WeakThreshold,
-		blur:          length(o.Blur, scale),
-		gap:           length(o.Gap, scale),
-		minPixels:     area(o.MinArea, scale),
-		minSpeck:      area(o.MinSpeck, scale),
-		minElongation: o.MinElongation,
-		axisDistance:  length(o.AxisDistance, scale),
+		diff:           o.DiffThreshold,
+		weak:           o.WeakThreshold,
+		blur:           length(o.Blur, scale),
+		gap:            length(o.Gap, scale),
+		minPixels:      area(o.MinArea, scale),
+		minSpeck:       area(o.MinSpeck, scale),
+		minElongation:  o.MinElongation,
+		axisDistance:   length(o.AxisDistance, scale),
+		dartMargin:     length(dartMargin, scale),
+		hiddenDistance: length(hiddenDistance, scale),
 	}
 }
 
@@ -67,8 +71,6 @@ type watchParams struct {
 	motionThreshold int
 	// motionSamples and takeoutSamples are areas as numbers of sampled pixels.
 	motionSamples, takeoutSamples int
-	// dartMargin is how far around a dart its pixels are remembered, see Watcher.rememberDart.
-	dartMargin int
 }
 
 func (o WatchOptions) pixels(scale float64) watchParams {
@@ -82,7 +84,6 @@ func (o WatchOptions) pixels(scale float64) watchParams {
 		motionThreshold: int(o.MotionThreshold),
 		motionSamples:   samples(o.MotionArea),
 		takeoutSamples:  samples(o.TakeoutArea),
-		dartMargin:      length(dartMargin, scale),
 	}
 }
 

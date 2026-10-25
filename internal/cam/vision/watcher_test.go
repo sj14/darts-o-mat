@@ -241,6 +241,40 @@ func TestWatcherRemovedExposure(t *testing.T) {
 	}
 }
 
+// With two cameras (2026-10-25, events 39–40, Linux): during the takeout cam3 adjusted
+// its exposure and voted for a throw, cam1 saw the takeout; the tie must not be decided
+// by cam3's far larger changed area. The throw after it stays a throw.
+func TestWatcherRemovedExposureTwoCameras(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("long; runs without -short, e.g. in CI")
+	}
+	for _, tt := range []struct {
+		event   string
+		removed bool
+	}{
+		{"039", true},  // the takeout
+		{"040", false}, // the throw after it
+	} {
+		t.Run(tt.event, func(t *testing.T) {
+			var before, after, empty []*image.RGBA
+			var areas [][]image.Point
+			for _, c := range []string{"cam1", "cam3"} {
+				name := "testdata/throws/" + tt.event + "-" + c + "-"
+				b, a := loadRGBA(t, name+"before.jpg"), loadRGBA(t, name+"after.jpg")
+				before, after = append(before, b), append(after, a)
+				empty = append(empty, loadRGBA(t, "testdata/exposure/two-"+c+"-empty.jpg"))
+				areas = append(areas, ChangedArea(b, a, DefaultDetectOptions, ReferenceScale))
+			}
+			w := NewWatcher(nil, DefaultWatchOptions)
+			w.Empty = empty
+			if got := w.removed(before, after, areas); got != tt.removed {
+				t.Errorf("removed = %v, want %v", got, tt.removed)
+			}
+		})
+	}
+}
+
 // A change no camera finds a dart in, that isn't darts pulled out either (told by the
 // empty board), is a miss without a position: e.g. a dart far out in the surround,
 // where the cameras took a thin change along the board's rim for it (2026-10-13).

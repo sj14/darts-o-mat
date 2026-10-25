@@ -2,6 +2,7 @@ package vision
 
 import (
 	"image"
+	"math"
 	"slices"
 	"sync"
 
@@ -37,8 +38,9 @@ var DefaultWatchOptions = WatchOptions{
 	TakeoutArea:     px2(4000 * 4 * 4),
 }
 
-// dartMargin is how far around a dart its pixels are remembered, because the dart may
-// move a little when the next one hits (5 px on the development board).
+// dartMargin is how far around an earlier dart's pixels its place is taken to reach,
+// because the dart may move a little when the next one hits (5 px on the development
+// board): for the retry without the earlier darts (detect) and Watcher.removed.
 var dartMargin = px(5)
 
 // MaxBoardRadius is the radius of the whole board including the number ring, in mm.
@@ -113,7 +115,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 
 	moving := false
 	for i, f := range frames {
-		if w.changedSamples(i, w.prev[i], f) > w.params[i].motionSamples {
+		if w.params[i].changedSamples(w.prev[i], f) > w.params[i].motionSamples {
 			moving = true
 		}
 	}
@@ -140,9 +142,8 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 
 	changed, takeout := false, false
 	for i, f := range frames {
-		n := w.changedSamples(i, ref[i], f)
-		changed = changed || n > w.params[i].motionSamples
-		takeout = takeout || n > w.params[i].takeoutSamples
+		changed = changed || w.params[i].changedSamples(ref[i], f) > w.params[i].motionSamples
+		takeout = takeout || w.params[i].takeout(ref[i], f)
 	}
 	if !changed {
 		return nil // e.g. a shadow passed by
@@ -217,8 +218,9 @@ func (w *Watcher) removed(before, after []*image.RGBA, areas [][]image.Point) bo
 	for i, area := range areas {
 		total += len(area)
 		if i < len(w.darts) && w.darts[i] != nil {
+			darts := w.darts[i].dilate(w.params[i].detect.dartMargin)
 			for _, p := range area {
-				if w.darts[i].at(p.X, p.Y) {
+				if darts.at(p.X, p.Y) {
 					inside++
 				}
 			}
@@ -233,8 +235,13 @@ func (w *Watcher) removed(before, after []*image.RGBA, areas [][]image.Point) bo
 func PulledOut(before, after, empty []*image.RGBA, areas [][]image.Point) bool {
 	// Each camera votes on its own: one camera whose exposure changed while a hand was
 	// in front of it differs from the empty board almost everywhere and would outweigh
-	// the others in a sum (seen on a real takeout: 0.06 and 0.08 vs. 1.9).
-	var votes, cameras, beforeSum, afterSum int
+	// the others in a sum (seen on a real takeout: 0.06 and 0.08 vs. 1.9). A tie is
+	// broken by the cameras' ratios after/before (their geometric mean below 1), so
+	// each camera counts once there too: with two cameras, cam3 changed its exposure
+	// over 387,649 px (2026-10-25, event 39), and the sums made the takeout a dart
+	// (ratios 0.08 and 2.84).
+	var votes, cameras int
+	var logRatios float64
 	for i, area := range areas {
 		if len(area) == 0 {
 			continue
@@ -250,11 +257,10 @@ func PulledOut(before, after, empty []*image.RGBA, areas [][]image.Point) bool {
 			votes++
 		}
 		cameras++
-		beforeSum += beforeDiff
-		afterSum += afterDiff
+		logRatios += math.Log(float64(afterDiff+1) / float64(beforeDiff+1))
 	}
 	if votes*2 == cameras {
-		return afterSum < beforeSum // a tie
+		return logRatios < 0 // a tie
 	}
 	return votes*2 > cameras
 }
@@ -275,8 +281,8 @@ func (w *Watcher) takeout(before, after []*image.RGBA) *Event {
 	return &Event{Kind: EventTakeout, Before: before, After: after}
 }
 
-// rememberDart marks where a new dart is in a camera's image, with some margin,
-// because the dart may move a little when the next one hits.
+// rememberDart marks where a new dart is in a camera's image: its changed pixels. Where
+// a dart may have moved to when the next one hit is added when needed (dartMargin).
 func (w *Watcher) rememberDart(camera int, bounds image.Rectangle, area []image.Point) {
 	for len(w.darts) <= camera {
 		w.darts = append(w.darts, nil)
@@ -284,21 +290,25 @@ func (w *Watcher) rememberDart(camera int, bounds image.Rectangle, area []image.
 	if w.darts[camera] == nil {
 		w.darts[camera] = &Mask{W: bounds.Dx(), H: bounds.Dy(), Pix: make([]bool, bounds.Dx()*bounds.Dy())}
 	}
-	m := &Mask{W: bounds.Dx(), H: bounds.Dy(), Pix: make([]bool, bounds.Dx()*bounds.Dy())}
 	for _, p := range area {
-		m.Pix[p.Y*m.W+p.X] = true
-	}
-	grown := m.dilate(w.params[camera].dartMargin)
-	for i, set := range grown.Pix {
-		if set {
-			w.darts[camera].Pix[i] = true
-		}
+		w.darts[camera].Pix[p.Y*w.darts[camera].W+p.X] = true
 	}
 }
 
+// Takeout reports whether the change between two frames of a camera is so large that it
+// is a hand or darts being pulled out, not a new dart (TakeoutArea). scale is the
+// camera's pixels per board millimetre (see PixelScale).
+func (o WatchOptions) Takeout(before, after *image.RGBA, scale float64) bool {
+	return o.pixels(scale).takeout(before, after)
+}
+
+func (p watchParams) takeout(before, after *image.RGBA) bool {
+	return p.changedSamples(before, after) > p.takeoutSamples
+}
+
 // changedSamples counts the sampled pixels that changed clearly between two frames of a camera.
-func (w *Watcher) changedSamples(camera int, a, b *image.RGBA) int {
-	step, threshold := w.params[camera].sampleStep, w.params[camera].motionThreshold
+func (p watchParams) changedSamples(a, b *image.RGBA) int {
+	step, threshold := p.sampleStep, p.motionThreshold
 	n := 0
 	bounds := a.Bounds()
 	for y := bounds.Min.Y; y < bounds.Max.Y; y += step {

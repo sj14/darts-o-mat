@@ -12,7 +12,7 @@ import (
 // detection looks wrong. Only TraceDart records one; the detection itself doesn't.
 type Trace struct {
 	Changed *Mask // the pixels that changed (Diff)
-	Earlier *Mask // where darts thrown earlier are (widened), nil without
+	Earlier *Mask // the changed pixels of darts thrown earlier (widened if Retried), nil without
 	// Retried is set when the change wasn't shaped like a dart and the detection ran
 	// again without the changes at earlier darts (see detect); the rest is that run's.
 	Retried bool
@@ -40,7 +40,7 @@ type Line struct {
 // TraceDart is DetectDartBeside recording its steps.
 func TraceDart(before, after *image.RGBA, opts DetectOptions, scale float64, earlier []image.Point) Trace {
 	var tr Trace
-	tr.Tip, _, tr.Err = detect(before, after, opts.pixels(scale), dartsMask(before.Bounds(), earlier, scale), &tr)
+	tr.Tip, _, tr.Err = detect(before, after, opts.pixels(scale), dartsMask(before.Bounds(), earlier), &tr)
 	return tr
 }
 
