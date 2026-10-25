@@ -182,3 +182,19 @@ func (store *Store) SetLastSeen(ctx context.Context, accountID int64, t time.Tim
 	_, err := store.db.NewUpdate().Model((*account.Account)(nil)).Set("last_seen_at = ?", t).Where("id = ?", accountID).Exec(ctx)
 	return err
 }
+
+// LastSeen returns when the accounts were last online, by account ID; an account that
+// never was is missing.
+func (store *Store) LastSeen(ctx context.Context, accountIDs []int64) (map[int64]time.Time, error) {
+	seen := map[int64]time.Time{}
+	if len(accountIDs) == 0 {
+		return seen, nil
+	}
+	var accounts []account.Account
+	err := store.db.NewSelect().Model(&accounts).Column("id", "last_seen_at").
+		Where("id IN (?)", bun.In(accountIDs)).Where("last_seen_at IS NOT NULL").Scan(ctx)
+	for _, a := range accounts {
+		seen[a.ID] = *a.LastSeenAt
+	}
+	return seen, err
+}

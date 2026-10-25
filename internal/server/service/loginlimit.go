@@ -6,8 +6,6 @@ import (
 	"net/netip"
 	"strings"
 	"time"
-
-	"github.com/sj14/darts-o-mat/internal/server/store"
 )
 
 // ErrTooManyLogins means the username had too many failed logins lately, so even the
@@ -22,30 +20,30 @@ const networkFactor = 5
 const loginWindow = 15 * time.Minute
 
 // loginLimiter counts the failed logins per key (a username or a network) in the last
-// loginWindow. They are stored in the database, so all replicas count together and a
-// restart doesn't forget them; prefix tells the kinds of keys apart.
+// loginWindow, in Options.LoginFailures (the database), so all replicas count together
+// and a restart doesn't forget them; prefix tells the kinds of keys apart.
 type loginLimiter struct {
-	store  *store.Store
-	prefix string
-	max    int
+	failures LoginFailures
+	prefix   string
+	max      int
 }
 
 // blocked reports whether the key has used up its failed logins at now. Blocked attempts
 // aren't counted, so the block ends loginWindow after the last counted failure and can't
 // be extended by trying on.
 func (l *loginLimiter) blocked(ctx context.Context, key string, now time.Time) (bool, error) {
-	n, err := l.store.CountLoginFailures(ctx, l.prefix+key, now.Add(-loginWindow))
+	n, err := l.failures.CountLoginFailures(ctx, l.prefix+key, now.Add(-loginWindow))
 	return n >= l.max, err
 }
 
 // fail counts a failed login; the failures older than the window are forgotten on the way.
 func (l *loginLimiter) fail(ctx context.Context, key string, now time.Time) error {
-	return l.store.AddLoginFailure(ctx, l.prefix+key, now, now.Add(-loginWindow))
+	return l.failures.AddLoginFailure(ctx, l.prefix+key, now, now.Add(-loginWindow))
 }
 
 // reset forgets the failures of a key after a login that worked.
 func (l *loginLimiter) reset(ctx context.Context, key string) error {
-	return l.store.ResetLoginFailures(ctx, l.prefix+key)
+	return l.failures.ResetLoginFailures(ctx, l.prefix+key)
 }
 
 // limitLogins limits the failed logins per username to max, and per network to
@@ -54,8 +52,8 @@ func (s *Service) limitLogins(max int) {
 	s.opts.MaxLoginFailures = max
 	s.logins, s.networks = nil, nil
 	if max > 0 {
-		s.logins = &loginLimiter{store: s.store, prefix: "user:", max: max}
-		s.networks = &loginLimiter{store: s.store, prefix: "network:", max: networkFactor * max}
+		s.logins = &loginLimiter{failures: s.opts.LoginFailures, prefix: "user:", max: max}
+		s.networks = &loginLimiter{failures: s.opts.LoginFailures, prefix: "network:", max: networkFactor * max}
 	}
 }
 

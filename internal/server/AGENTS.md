@@ -95,6 +95,8 @@ Logged-out visitors of `/` get a landing page (`view.Landing`: name, one sentenc
 
 Several replicas of the server only work with PostgreSQL. With SQLite the server is one process, and everything below stays inside it. What replicas still lack is in the [TODO](TODO.md#technical).
 
+**One interface per concern** (`service/replicas.go`; the bus in `service/events.go`), so each could later be served by another service (e.g. Redis or NATS) without touching the others: `Bus` (live updates), `Locker` (the lock), `LoginFailures`, `LastSeen` (presence) and `ServerStart`. They are fields of `Options`. Without a bus the notifications stay in the process; every other interface left nil uses the database (`store.Store`), its only implementation so far, checked at compile time in `replicas.go`. The interfaces exist with one implementation on purpose, so the seams stay visible while the code changes.
+
 - **Live updates** (`service/events.go`): a change is published as keys through `Service.publish`: `g42` for a game, `t7` for a tournament, `c42` for the turn of a game with a time limit. Every replica, this one included, passes what it receives to its own `notify.Hub`s (`Service.receive`), so there is one way in. Without a bus (`Options.Bus` nil, SQLite) `publish` calls `receive` directly.
   - With PostgreSQL, `main` sets `store.Bus`: `LISTEN/NOTIFY` on the channel `darts_o_mat`, with the keys of one change in one payload, sent after the change is stored.
   - `Service.Listen` runs the listener on a connection of its own (`pgdriver.Listener`; doesn't work through PgBouncer in transaction pooling). When nothing came for 15 s it notifies itself; if that doesn't arrive either, it counts the connection as lost and connects again.

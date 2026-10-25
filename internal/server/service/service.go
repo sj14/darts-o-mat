@@ -85,6 +85,12 @@ type Options struct {
 	// Bus carries the live updates to the other replicas of the server; nil keeps them in
 	// the process (one replica).
 	Bus Bus
+	// Lock, LoginFailures, LastSeen and ServerStart keep what the replicas share besides
+	// the live updates (see replicas.go); nil uses the database.
+	Lock          Locker
+	LoginFailures LoginFailures
+	LastSeen      LastSeen
+	ServerStart   ServerStart
 	// PasswordCost is the bcrypt cost of the password hashes, 0 for bcrypt.DefaultCost.
 	// Only tests set it: a hash takes about 85 ms at the default, and they register and
 	// log in a lot.
@@ -123,6 +129,18 @@ type Service struct {
 
 func New(store *store.Store, opts Options) *Service {
 	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, watchEvery: seenEvery, now: time.Now, shuffle: rand.Shuffle}
+	if s.opts.Lock == nil {
+		s.opts.Lock = store
+	}
+	if s.opts.LoginFailures == nil {
+		s.opts.LoginFailures = store
+	}
+	if s.opts.LastSeen == nil {
+		s.opts.LastSeen = store
+	}
+	if s.opts.ServerStart == nil {
+		s.opts.ServerStart = store
+	}
 	if s.opts.PasswordCost == 0 {
 		s.opts.PasswordCost = bcrypt.DefaultCost
 	}
@@ -568,7 +586,7 @@ func (s *Service) build(ctx context.Context, g game.Game) (GameView, error) {
 		}
 	}
 	if d, ok := g.TurnDeadline(v.Darts, v.Common()); ok {
-		started, err := s.store.Started(ctx)
+		started, err := s.opts.ServerStart.Started(ctx)
 		if err != nil {
 			return GameView{}, err
 		}
@@ -668,11 +686,12 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 }
 
 // lock orders the changes of games and seats: in this process with mu, across the
-// replicas with the store's lock (on PostgreSQL), taken in this order so that only one
-// request per replica waits for the database. Call unlock when the change is done.
+// replicas with Options.Lock (the database's: an advisory lock on PostgreSQL), taken in
+// this order so that only one request per replica waits for it. Call unlock when the
+// change is done.
 func (s *Service) lock(ctx context.Context) (unlock func(), err error) {
 	s.mu.Lock()
-	release, err := s.store.Lock(ctx)
+	release, err := s.opts.Lock.Lock(ctx)
 	if err != nil {
 		s.mu.Unlock()
 		return nil, fmt.Errorf("lock: %w", err)

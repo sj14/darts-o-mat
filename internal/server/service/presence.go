@@ -22,19 +22,21 @@ const (
 // onlineFor is how long an account counts as online after its last request.
 const onlineFor = 5 * time.Minute
 
-// seenEvery is how often an account's last request is stored at most
-// (account.Account.LastSeenAt), and how often an open live stream stores it.
+// seenEvery is how often an account's last request is stored at most (Options.LastSeen),
+// and how often an open live stream stores it.
 const seenEvery = time.Minute
 
-// seen notes a request of the account (Authenticate). It is stored in the database, so
-// every replica knows it, but only if the stored time is older than seenEvery: one write a
-// minute, not one per request.
+// seen notes a request of the account (Authenticate) in Options.LastSeen, so every replica
+// knows it, but only if the stored time is older than seenEvery: one write a minute, not
+// one per request. The stored time comes with the account the session loaded
+// (account.Account.LastSeenAt, the database's column), so this costs no query; with
+// another LastSeen it stays empty and every request writes.
 func (s *Service) seen(ctx context.Context, a account.Account) {
 	now := s.now()
 	if a.LastSeenAt != nil && now.Sub(*a.LastSeenAt) < seenEvery {
 		return
 	}
-	if err := s.store.SetLastSeen(ctx, a.ID, now); err != nil {
+	if err := s.opts.LastSeen.SetLastSeen(ctx, a.ID, now); err != nil {
 		log.Printf("note that account %d was seen: %v", a.ID, err)
 	}
 }
@@ -45,7 +47,7 @@ func (s *Service) seen(ctx context.Context, a account.Account) {
 func (s *Service) Watching(acc account.Account) (stop func()) {
 	stopped, done := make(chan struct{}), make(chan struct{})
 	note := func() {
-		if err := s.store.SetLastSeen(context.Background(), acc.ID, s.now()); err != nil {
+		if err := s.opts.LastSeen.SetLastSeen(context.Background(), acc.ID, s.now()); err != nil {
 			log.Printf("note that account %d was seen: %v", acc.ID, err)
 		}
 	}
@@ -70,18 +72,23 @@ func (s *Service) Watching(acc account.Account) (stop func()) {
 	}
 }
 
-// online reports whether the account was seen lately (a request, or a live stream open).
-func (s *Service) online(lastSeen *time.Time) bool {
-	return lastSeen != nil && s.now().Sub(*lastSeen) < onlineFor
-}
-
 // setPresence fills in the presence of the friends: offline if invisible or not online,
 // else playing if their own player has a seat in a running game.
 func (s *Service) setPresence(ctx context.Context, friends []Friend) error {
+	var ids []int64
+	for _, f := range friends {
+		if !f.invisible {
+			ids = append(ids, f.AccountID)
+		}
+	}
+	seen, err := s.opts.LastSeen.LastSeen(ctx, ids)
+	if err != nil {
+		return err
+	}
 	var online []int64
 	for i, f := range friends {
 		friends[i].Presence = PresenceOffline
-		if !f.invisible && s.online(f.lastSeen) {
+		if last, ok := seen[f.AccountID]; ok && s.now().Sub(last) < onlineFor { // not asked for the invisible
 			friends[i].Presence = PresenceOnline
 			online = append(online, f.PlayerID)
 		}

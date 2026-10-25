@@ -20,7 +20,7 @@ const resumeWithin = 24 * time.Hour
 // (GameView.TurnDeadline; the latest start of any replica counts), and sets the turn
 // timers (ResumeTurnLimits). Call it once when the server starts.
 func (s *Service) ServerStarted(ctx context.Context) error {
-	if err := s.store.SetStarted(ctx, s.now()); err != nil {
+	if err := s.opts.ServerStart.SetStarted(ctx, s.now()); err != nil {
 		return err
 	}
 	return s.ResumeTurnLimits(ctx)
