@@ -59,6 +59,7 @@ The documents are split by area and link to each other. The READMEs of the two p
 - When something changes that affects users (starting, game modes, usage), update the matching README as well.
 - **Keep the `TODO.md` files up to date**: with every change, remove what is done, reword what is only partly done, and add what was left out or decided against for now (with the date and the reason). Check them before you report a task as finished.
 - Open tasks live in a `TODO.md` per area, next to its `AGENTS.md`: a task of a single part goes into its folder, one that concerns several parts or the whole project into the root [`TODO.md`](TODO.md), which links to the others.
+- **No test tasks in the `TODO.md` files:** nothing like "try it on the real board", "check it with other setups" or "not tested yet: …". What isn't verified is stated in the matching `AGENTS.md` instead (see [about these documents](#about-these-documents)).
 
 ## Code quality
 
