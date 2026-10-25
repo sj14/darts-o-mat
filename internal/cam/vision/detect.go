@@ -225,6 +225,11 @@ var hiddenDistance = px(4)
 // where they were taken out, as that is where it was cut, not its point (2026-10-25,
 // event 19, cam3: a piece of the shaft beside a group in the 18 ended in the 20).
 //
+// The area returned is the whole change, also after the retry: the watcher tells a
+// takeout by it, and darts pulled out change exactly where the retry leaves out (2026-10-25,
+// event 149: cam3's remnant of 3557 px of 26,697 looked like a throw, ratio 2.14 instead
+// of 0.20, and the takeout scored a 12). It also holds where a knocked dart moved to.
+//
 // tr, if not nil, records the steps (see Trace).
 func detect(before, after *image.RGBA, p detectParams, darts *Mask, tr *Trace) (Detection, []image.Point, error) {
 	mask := Diff(before, after, p.diff, p.weak, p.blur)
@@ -260,7 +265,7 @@ func detect(before, after *image.RGBA, p detectParams, darts *Mask, tr *Trace) (
 		if tr != nil {
 			*tr = *retry
 		}
-		return d2, area2, nil
+		return d2, area, nil
 	}
 	return d, area, err
 }

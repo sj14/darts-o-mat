@@ -549,9 +549,13 @@ func TestDetectDartBesideMovedDart(t *testing.T) {
 	if _, err := DetectDart(before, after, DefaultDetectOptions, ReferenceScale); err != ErrNotElongated {
 		t.Fatalf("without the earlier darts: %v, want ErrNotElongated", err)
 	}
-	d, _, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier)
+	d, area, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier)
 	if err != nil {
 		t.Fatalf("with the earlier darts: %v", err)
+	}
+	// The watcher tells a takeout by the whole change, not by what the retry left.
+	if whole := ChangedArea(before, after, DefaultDetectOptions, ReferenceScale); len(area) != len(whole) {
+		t.Errorf("area of %d px, want the whole change of %d px", len(area), len(whole))
 	}
 	want := dartboard.Point{X: 985, Y: 320} // where the point enters the board, at the double's wire
 	if dist(d.Tip, want) > 4 {
