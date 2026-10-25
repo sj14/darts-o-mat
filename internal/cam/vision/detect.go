@@ -215,10 +215,13 @@ var hiddenDistance = px(4)
 // images only once per camera.
 //
 // darts marks the changed pixels of the darts thrown earlier (nil: none). If the change
-// isn't shaped like a dart, it tries again without the changes there, widened by
-// dartMargin (the earlier dart may have moved a little): a dart hit by the new one moves, its outline changes too and can merge with the new dart into one piece
+// isn't shaped like a dart, it tries again without the changes there: a dart hit by the
+// new one moves, its outline changes too and can merge with the new dart into one piece
 // that is too wide (2026-10-13, event 95: two parallel darts, elongation 3.1). Only then,
-// because a new dart in front of an old one in the image would lose pixels.
+// because a new dart in front of an old one in the image would lose pixels. First
+// without their own pixels, then widened by dartMargin (the earlier dart may have moved a
+// little): the widened area can take the point of a new dart touching an earlier one with
+// it (2026-10-25, event 83, cam3: an S13 parallel to the S13 before it, a miss).
 //
 // Beside earlier darts, a find that may not be the new dart doesn't count (see
 // besideMinAreas): a small one that ends on them, and one the retry left whose tip ends
@@ -250,22 +253,27 @@ func detect(before, after *image.RGBA, p detectParams, darts *Mask, tr *Trace) (
 	if err != ErrNotElongated {
 		return d, area, err
 	}
-	widened := darts.dilate(p.dartMargin)
-	without := &Mask{W: mask.W, H: mask.H, Pix: slices.Clone(mask.Pix)}
-	for i, set := range widened.Pix {
-		if set {
-			without.Pix[i] = false
+	for _, margin := range []int{0, p.dartMargin} {
+		left := darts
+		if margin > 0 {
+			left = darts.dilate(margin)
 		}
-	}
-	retry := tr
-	if tr != nil {
-		retry = &Trace{Changed: tr.Changed, Earlier: widened, Retried: true}
-	}
-	if d2, area2, err2 := detectIn(without, p, retry); err2 == nil && len(area2) >= besideMinAreas*p.minPixels && !widened.near(d2.Tip, p.hiddenDistance) {
+		without := &Mask{W: mask.W, H: mask.H, Pix: slices.Clone(mask.Pix)}
+		for i, set := range left.Pix {
+			if set {
+				without.Pix[i] = false
+			}
+		}
+		retry := tr
 		if tr != nil {
-			*tr = *retry
+			retry = &Trace{Changed: tr.Changed, Earlier: left, Retried: true}
 		}
-		return d2, area, nil
+		if d2, area2, err2 := detectIn(without, p, retry); err2 == nil && len(area2) >= besideMinAreas*p.minPixels && !left.near(d2.Tip, p.hiddenDistance) {
+			if tr != nil {
+				*tr = *retry
+			}
+			return d2, area, nil
+		}
 	}
 	return d, area, err
 }

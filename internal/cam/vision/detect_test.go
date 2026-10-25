@@ -625,6 +625,35 @@ func TestDetectDartBesideFreeNextToEarlier(t *testing.T) {
 	}
 }
 
+// A dart parallel to and touching the one in the 13 before it (2026-10-25, events
+// 81–83, cam3): their flights merge, so the change isn't shaped like a dart. Leaving out
+// the earlier darts widened by dartMargin also left out the new dart's free point; their
+// own pixels are left out first (see detect).
+func TestDetectDartBesideTouchingEarlier(t *testing.T) {
+	t.Parallel()
+	frames := func(n string) (*image.RGBA, *image.RGBA) {
+		return loadRGBA(t, "testdata/throws/"+n+"-cam3-before.jpg"), loadRGBA(t, "testdata/throws/"+n+"-cam3-after.jpg")
+	}
+	var earlier []image.Point
+	for _, n := range []string{"081", "082"} {
+		before, after := frames(n)
+		_, area, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier)
+		if err != nil {
+			t.Fatalf("event %s: %v", n, err)
+		}
+		earlier = append(earlier, area...)
+	}
+	before, after := frames("083")
+	d, _, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := dartboard.Point{X: 790, Y: 417} // where the point enters the board
+	if dist(d.Tip, want) > 4 {
+		t.Errorf("tip at %.0f,%.0f px, want %.0f,%.0f", d.Tip.X, d.Tip.Y, want.X, want.Y)
+	}
+}
+
 // The third dart into a group in the 18 (2026-10-25, events 17–19, cam3): the change
 // merges with the earlier darts, and the retry without them leaves a piece of the shaft
 // whose "tip" ends where they were taken out, in the 20. That is where it was cut, not
