@@ -81,6 +81,9 @@ type Options struct {
 	ClientIPHeader string
 	// Captcha checks that registrations come from a person; nil checks nothing.
 	Captcha captcha.Verifier
+	// Bus carries the live updates to the other replicas of the server; nil keeps them in
+	// the process (one replica).
+	Bus Bus
 	// PasswordCost is the bcrypt cost of the password hashes, 0 for bcrypt.DefaultCost.
 	// Only tests set it: a hash takes about 85 ms at the default, and they register and
 	// log in a lot.

@@ -29,6 +29,16 @@ func (s *Service) ResumeTurnLimits(ctx context.Context) error {
 	return nil
 }
 
+// watchGame sets the timer for the turn of a game that was changed, see watchTurn.
+func (s *Service) watchGame(gameID int64) {
+	g, err := s.store.GetGame(context.Background(), gameID)
+	if err != nil {
+		log.Printf("turn timer of game %d: %v", gameID, err)
+		return
+	}
+	s.watchTurn(g)
+}
+
 // watchTurn sets the timer for the turn of a game that was changed, replacing the
 // previous one. The timer ends the turn if the player takes longer than the game's limit
 // (game.Settings.TurnSeconds); it is a log entry like a dart, since the server replays

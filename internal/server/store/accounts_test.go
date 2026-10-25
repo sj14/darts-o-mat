@@ -136,12 +136,7 @@ func createAccount(t *testing.T, st *Store, username string) account.Account {
 // dsn and opens the store on it.
 func newPostgresDatabase(t *testing.T, dsn, name string) *Store {
 	t.Helper()
-	st, err := NewPostgres(context.Background(), emptyPostgresDatabase(t, dsn, name))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { st.Close() })
-	return st
+	return openPostgres(t, emptyPostgresDatabase(t, dsn, name))
 }
 
 // emptyPostgresDatabase makes an empty database with the name on the PostgreSQL server of

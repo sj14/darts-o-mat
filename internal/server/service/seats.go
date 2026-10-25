@@ -518,8 +518,8 @@ func (s *Service) start(ctx context.Context, ref LobbyRef) error {
 }
 
 // startGame starts a game: the throwing order is drawn (not for a tournament's match,
-// whose order its schedule gives), the first turn's time begins and its timer is set. The
-// caller holds s.mu.
+// whose order its schedule gives), the first turn's time begins and every replica sets
+// its timer. The caller holds s.mu.
 func (s *Service) startGame(ctx context.Context, gameID int64) error {
 	g, err := s.store.GetGame(ctx, gameID)
 	if err != nil {
@@ -533,14 +533,14 @@ func (s *Service) startGame(ctx context.Context, gameID int64) error {
 	if err := s.store.StartGame(ctx, &g); err != nil {
 		return err
 	}
-	s.watchTurn(g)
+	s.publish(turnKeys(g)...)
 	return nil
 }
 
 // notifyLobby tells whoever looks at the game or tournament that it changed.
 func (s *Service) notifyLobby(ref LobbyRef) {
 	if ref.Tournament {
-		s.tournaments.Notify(ref.ID)
+		s.notifyTournament(ref.ID)
 	} else {
 		s.notify(ref.ID)
 	}

@@ -160,7 +160,7 @@ func (s *Service) leaveEverything(ctx context.Context, a account.Account) error 
 		t := v.Tournament
 		if v.Invited {
 			if err = s.store.RemoveTournamentParticipant(ctx, t.ID, a.PlayerID); err == nil {
-				s.tournaments.Notify(t.ID)
+				s.notifyTournament(t.ID)
 			}
 		} else {
 			err = s.leaveTournament(ctx, a, t, false)
@@ -194,6 +194,6 @@ func (s *Service) abortTournament(ctx context.Context, t *tournament.Tournament)
 			}
 		}
 	}
-	s.tournaments.Notify(t.ID)
+	s.notifyTournament(t.ID)
 	return nil
 }

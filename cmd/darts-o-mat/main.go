@@ -69,6 +69,10 @@ func main() {
 	}
 
 	opts := service.Options{MaxLoginFailures: *maxLoginFailures, ClientIPHeader: *clientIPHeader}
+	if *dbType == "postgres" {
+		// Replicas need PostgreSQL; its LISTEN/NOTIFY carries the live updates between them.
+		opts.Bus = repo.Bus()
+	}
 	switch {
 	case *turnstileSite != "" && *turnstileSecret != "":
 		opts.Captcha = captcha.NewTurnstile(*turnstileSite, *turnstileSecret)
@@ -79,6 +83,7 @@ func main() {
 	if err := svc.ResumeTurnLimits(ctx); err != nil {
 		log.Fatalf("failed to set the turn timers: %v", err)
 	}
+	go svc.Listen(ctx)
 	r.Mount("/api", api.New(svc).Routes())
 	r.Mount("/", controller.New(svc).Routes())
 

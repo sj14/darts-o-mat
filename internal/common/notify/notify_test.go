@@ -35,3 +35,20 @@ func TestHub(t *testing.T) {
 		t.Error("a key without subscribers is kept")
 	}
 }
+
+func TestHubNotifyAll(t *testing.T) {
+	t.Parallel()
+	var h Hub[int]
+	one, stopOne := h.Subscribe(1)
+	defer stopOne()
+	two, stopTwo := h.Subscribe(2)
+	defer stopTwo()
+	h.NotifyAll()
+	for _, ch := range []<-chan struct{}{one, two} {
+		select {
+		case <-ch:
+		default:
+			t.Error("a subscriber wasn't notified")
+		}
+	}
+}

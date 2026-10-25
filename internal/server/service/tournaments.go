@@ -159,7 +159,7 @@ func (s *Service) StartMatch(ctx context.Context, acc account.Account, id int64,
 	if err != nil {
 		return GameView{}, err
 	}
-	s.tournaments.Notify(id)
+	s.notifyTournament(id)
 	return s.Game(ctx, acc, g.ID)
 }
 

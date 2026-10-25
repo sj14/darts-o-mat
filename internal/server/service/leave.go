@@ -158,7 +158,7 @@ func (s *Service) leaveTournament(ctx context.Context, acc account.Account, t to
 				return err
 			}
 		}
-		s.tournaments.Notify(t.ID)
+		s.notifyTournament(t.ID)
 		return nil
 	}
 	if err := s.abortTournament(ctx, &t); err != nil {

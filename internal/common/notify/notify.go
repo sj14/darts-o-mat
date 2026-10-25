@@ -86,3 +86,17 @@ func (h *Hub[K]) Notify(key K) {
 		s.Notify()
 	}
 }
+
+// NotifyAll tells the subscribers of every key about a change, e.g. when changes may
+// have been missed.
+func (h *Hub[K]) NotifyAll() {
+	h.mu.Lock()
+	signals := make([]*Signal, 0, len(h.signals))
+	for _, s := range h.signals {
+		signals = append(signals, s)
+	}
+	h.mu.Unlock()
+	for _, s := range signals {
+		s.Notify()
+	}
+}
