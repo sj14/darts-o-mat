@@ -12,7 +12,7 @@ func TestHeat(t *testing.T) {
 	if h.Darts != 3 || h.Max != 2 || len(h.Cells) != 2 {
 		t.Fatalf("heat = %+v; want 3 darts (the far one left out) in 2 cells, 2 in the fullest", h)
 	}
-	if c := h.Cells[1]; c.Count != 2 || c.X != 4 || c.Y != 4 {
-		t.Errorf("cell = %+v; want the square from 0 to 8 mm with 2 darts", c)
+	if c := h.Cells[1]; c.Count != 2 || c.X != HeatCellSize/2 || c.Y != HeatCellSize/2 {
+		t.Errorf("cell = %+v; want the square from 0 to %g mm with 2 darts", c, HeatCellSize)
 	}
 }

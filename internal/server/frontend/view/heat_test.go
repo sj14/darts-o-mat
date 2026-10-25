@@ -35,11 +35,11 @@ func TestHeatImage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b := img.Bounds(); b.Dx() != heatPixels || b.Dy() != heatPixels {
-		t.Fatalf("image %v, want %d×%d", b, heatPixels, heatPixels)
+	if b := img.Bounds(); b.Dx() != 2*heatHalf || b.Dy() != 2*heatHalf {
+		t.Fatalf("image %v, want %d×%d", b, 2*heatHalf, 2*heatHalf)
 	}
 	alpha := func(p dartboard.Point) uint32 {
-		x, y := heatHalf+int(math.Round(p.X/heatPixel)), heatHalf-int(math.Round(p.Y/heatPixel))
+		x, y := heatHalf+int(math.Floor(p.X/heatPixel)), heatHalf-1-int(math.Floor(p.Y/heatPixel))
 		_, _, _, a := img.At(x, y).RGBA()
 		return a >> 8
 	}

@@ -7,10 +7,10 @@ import (
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
 )
 
-// HeatCellSize is the side of a square of the heatmap in mm: small enough to tell the
-// triple ring (8 mm wide) from its neighbours, large enough to keep the number of
-// squares small.
-const HeatCellSize = 8.0
+// HeatCellSize is the side of a square of the heatmap in mm: as fine as the drawing's
+// smallest spread (see view.heatSpread), so a group of many darts stays sharp, and
+// coarse enough to keep the number of squares small.
+const HeatCellSize = 4.0
 
 // HeatReach is how far from the bull a position still counts (mm): the board is 170 mm
 // wide, a dart further out is a miss that doesn't tell anything about the aim.
