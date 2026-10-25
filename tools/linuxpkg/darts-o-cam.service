@@ -12,11 +12,8 @@ ExecStart=/usr/bin/darts-o-cam -ui none -addr :8090 -dir /var/lib/darts-o-cam
 DynamicUser=yes
 # The cameras.
 SupplementaryGroups=video
-# Configuration and calibration in /var/lib/darts-o-cam, the frames of the last
-# detections in /var/cache/darts-o-cam.
+# Configuration and calibration in /var/lib/darts-o-cam.
 StateDirectory=darts-o-cam
-CacheDirectory=darts-o-cam
-Environment=XDG_CACHE_HOME=/var/cache
 Restart=on-failure
 
 [Install]

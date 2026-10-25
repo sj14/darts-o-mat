@@ -12,7 +12,6 @@ import (
 	"image/png"
 	"log"
 	"net/http"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -871,20 +870,19 @@ func (ui *UI) eventPage(w http.ResponseWriter, r *http.Request) {
 func (ui *UI) eventImage(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
 	i, _ := strconv.Atoi(chi.URLParam(r, "i"))
-	path, ok := ui.app.EventFrame(id, i, "after")
+	data, e, ok := ui.app.EventFrame(id, i, "after")
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
-	e, _ := ui.app.Event(id)
-	frame, err := camapp.ReadJPEG(path)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	tip, found := e.Tips[i]
 	if !found {
-		http.ServeFile(w, r, path)
+		serveJPEG(w, data)
+		return
+	}
+	frame, err := camapp.DecodeJPEG(data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	vision.DrawCross(frame, tip, 12, color.RGBA{0, 255, 0, 255})
@@ -901,13 +899,20 @@ func (ui *UI) eventImage(w http.ResponseWriter, r *http.Request) {
 func (ui *UI) eventFrame(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
 	i, _ := strconv.Atoi(chi.URLParam(r, "i"))
-	path, ok := ui.app.EventFrame(id, i, chi.URLParam(r, "kind"))
+	kind := chi.URLParam(r, "kind")
+	data, e, ok := ui.app.EventFrame(id, i, kind)
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
-	w.Header().Set("Content-Disposition", `attachment; filename="`+filepath.Base(path)+`"`)
-	http.ServeFile(w, r, path)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+e.FrameName(i, kind)+`"`)
+	serveJPEG(w, data)
+}
+
+// serveJPEG answers with a JPEG as it is.
+func serveJPEG(w http.ResponseWriter, data []byte) {
+	w.Header().Set("Content-Type", "image/jpeg")
+	_, _ = w.Write(data)
 }
 
 func render(w http.ResponseWriter, r *http.Request, c templ.Component) {
@@ -923,9 +928,8 @@ func writeJPEG(w http.ResponseWriter, img image.Image) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("Cache-Control", "no-store")
-	_, _ = w.Write(buf.Bytes())
+	serveJPEG(w, buf.Bytes())
 }
 
 // traceFor returns the detection of an event computed again with its steps, computing it

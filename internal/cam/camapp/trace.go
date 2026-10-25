@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/jpeg"
-	"os"
 	"slices"
 
 	"github.com/sj14/darts-o-mat/internal/cam/vision"
@@ -81,7 +79,7 @@ func (a *App) Traces(id int) ([]CameraTrace, error) {
 	return traces, nil
 }
 
-// traceInput returns a camera's saved frames of an event and its current scale.
+// traceInput returns a camera's kept frames of an event and its current scale.
 func (a *App) traceInput(calib vision.Calibration, e Event, camera int, name string) (before, after *image.RGBA, scale float64, err error) {
 	cam, err := calib.Camera(name)
 	if err != nil {
@@ -91,25 +89,11 @@ func (a *App) traceInput(calib vision.Calibration, e Event, camera int, name str
 	if err != nil {
 		return nil, nil, 0, fmt.Errorf("%s isn't calibrated: %w", name, err)
 	}
-	if before, err = ReadJPEG(a.framePath(e, camera, "before")); err != nil {
+	if before, err = e.frame(camera, "before"); err != nil {
 		return nil, nil, 0, err
 	}
-	if after, err = ReadJPEG(a.framePath(e, camera, "after")); err != nil {
+	if after, err = e.frame(camera, "after"); err != nil {
 		return nil, nil, 0, err
 	}
 	return before, after, vision.PixelScale(toBoard), nil
-}
-
-// ReadJPEG loads a saved frame.
-func ReadJPEG(path string) (*image.RGBA, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	img, err := jpeg.Decode(f)
-	if err != nil {
-		return nil, err
-	}
-	return vision.ToRGBA(img), nil
 }

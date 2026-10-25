@@ -64,7 +64,7 @@ Starts darts-o-cam and its web interface, where the cameras are added and calibr
 	}
 	ui := fs.String("ui", defaultUI, "how to show the web interface: window (a window of its own; closing it stops darts-o-cam), browser, or none (default none without a display)")
 	verbose := fs.Bool("v", false, "log whenever the board starts moving")
-	saveDir := fs.String("save", "", "directory to keep the camera frames of every detection in, for debugging (default: only the last ones, in the cache directory)")
+	saveDir := fs.String("save", "", "directory to keep the camera frames of every detection in, for debugging (default: only the last ones, in memory)")
 	pprofAddr := fs.String("pprof", "", profiling.Usage)
 	_ = fs.Parse(args)
 	if !slices.Contains([]string{"window", "browser", "none"}, *ui) {
@@ -87,15 +87,7 @@ Starts darts-o-cam and its web interface, where the cameras are added and calibr
 		return fmt.Errorf("web interface: %w", err)
 	}
 	log.Printf("configuration in %s", *dir)
-	opts := camapp.Options{FrameDir: *saveDir, KeepFrames: *saveDir != "", Verbose: *verbose}
-	if *saveDir == "" {
-		cache, err := os.UserCacheDir()
-		if err != nil {
-			return err
-		}
-		opts.FrameDir = filepath.Join(cache, "darts-o-cam", "events")
-	}
-	app, err := camapp.New(*dir, opts)
+	app, err := camapp.New(*dir, camapp.Options{SaveDir: *saveDir, Verbose: *verbose})
 	if err != nil {
 		return err
 	}

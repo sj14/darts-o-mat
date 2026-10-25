@@ -47,12 +47,10 @@ type App struct {
 
 // Options are settings of darts-o-cam that aren't kept in the configuration.
 type Options struct {
-	// FrameDir is where the frames of the detections are saved (before and after, per
-	// camera), e.g. in the user's cache directory; empty: a folder "events" in the
-	// configuration directory. Unless KeepFrames, only the frames of the detections shown
-	// are kept, and the folder is emptied at the start (the numbers start over).
-	FrameDir   string
-	KeepFrames bool
+	// SaveDir, if set, is where the frames of every detection are saved too (before and
+	// after, per camera), for debugging; otherwise darts-o-cam writes nothing while it
+	// detects (see maxEvents).
+	SaveDir string
 	// Verbose logs whenever the board starts moving.
 	Verbose bool
 }
@@ -75,16 +73,10 @@ func New(dir string, opts Options) (*App, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	if opts.FrameDir == "" {
-		opts.FrameDir = filepath.Join(dir, "events")
-	}
-	if !opts.KeepFrames {
-		if err := os.RemoveAll(opts.FrameDir); err != nil {
+	if opts.SaveDir != "" {
+		if err := os.MkdirAll(opts.SaveDir, 0o755); err != nil {
 			return nil, err
 		}
-	}
-	if err := os.MkdirAll(opts.FrameDir, 0o755); err != nil {
-		return nil, err
 	}
 	a := &App{dir: dir, opts: opts, cfg: cfg, cams: map[string]*boardCamera{}, runs: map[int]*run{}, snaps: map[string]*snapshot{}, statuses: map[int]Status{}, reports: map[int]reportResult{}}
 	a.mu.Lock()

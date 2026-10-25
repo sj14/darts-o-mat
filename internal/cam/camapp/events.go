@@ -1,6 +1,7 @@
 package camapp
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -13,12 +14,13 @@ import (
 	"github.com/sj14/darts-o-mat/internal/cam/vision"
 )
 
-// maxEvents is how many detections of a board are shown. Their frames are on disk (about 1.2 MB
-// per detection with three cameras at 1280×720), only the rest is kept in memory: in
-// memory the frames took about 22 MB per detection, 1.6 GB in all (2026-10-13).
+// maxEvents is how many detections of a board are shown. Their frames are kept in memory
+// as JPEG (about 1.2 MB per detection with three cameras at 1280×720), not on disk: a
+// Raspberry Pi's SD card would be written ~1 GB on a long evening. Not as images either:
+// those took about 22 MB per detection, 1.6 GB in all (2026-10-13).
 const maxEvents = 20
 
-// Event is a detection, as kept to show it. Its frames are on disk, see EventFrame.
+// Event is a detection, as kept to show it. Its frames are JPEG, see EventFrame.
 type Event struct {
 	ID int
 	// BoardID is the board it was detected at.
@@ -34,6 +36,14 @@ type Event struct {
 	Game      int64
 	ReportErr error
 	Sending   bool
+
+	frames map[frameKey][]byte // JPEG
+}
+
+// frameKey names a camera's frame of a detection: kind is one of frameKinds.
+type frameKey struct {
+	camera int
+	kind   string
 }
 
 // reportResult is what became of reporting an event, see setReport.
@@ -96,8 +106,8 @@ func (a *App) Event(id int) (Event, bool) {
 	return Event{}, false
 }
 
-// AddEvent saves a detection's frames and keeps the rest to show it. It returns its ID,
-// a new one unless e has one from newEventID.
+// AddEvent keeps a detection to show it, its frames as JPEG (and with Options.SaveDir
+// also on disk). It returns its ID, a new one unless e has one from newEventID.
 func (a *App) AddEvent(e Event) int {
 	if e.ID == 0 {
 		e.ID = a.newEventID()
@@ -106,8 +116,11 @@ func (a *App) AddEvent(e Event) int {
 		e.Time = time.Now()
 	}
 
-	if err := a.saveFrames(e.ID, e.Cameras, e.Before, e.After); err != nil {
-		log.Printf("save the frames of event %d: %v", e.ID, err)
+	e.frames = encodeFrames(e.Before, e.After)
+	if a.opts.SaveDir != "" {
+		if err := a.saveFrames(e); err != nil {
+			log.Printf("save the frames of event %d: %v", e.ID, err)
+		}
 	}
 	withoutFrames := *e.Event
 	withoutFrames.Before, withoutFrames.After = nil, nil
@@ -118,28 +131,17 @@ func (a *App) AddEvent(e Event) int {
 		e.apply(r)
 		delete(a.reports, e.ID)
 	}
-	// Frames are saved in the background, a later detection may be done first.
+	// Frames are encoded in the background, a later detection may be done first.
 	i, _ := slices.BinarySearchFunc(a.events, e.ID, func(x Event, id int) int { return x.ID - id })
 	a.events = slices.Insert(a.events, i, e)
-	var dropped []Event
 	if own := a.boardEvents(e.BoardID); len(own) > maxEvents {
 		old := own[:len(own)-maxEvents]
 		a.events = slices.DeleteFunc(a.events, func(x Event) bool {
 			return slices.ContainsFunc(old, func(o Event) bool { return o.ID == x.ID })
 		})
-		if !a.opts.KeepFrames {
-			dropped = old
-		}
 	}
 	a.evMu.Unlock()
 	a.newEvent.Notify()
-	for _, d := range dropped {
-		for i := range d.Cameras {
-			for _, kind := range frameKinds {
-				_ = os.Remove(a.framePath(d, i, kind))
-			}
-		}
-	}
 	return e.ID
 }
 
@@ -149,48 +151,56 @@ func (a *App) WatchEvents() (<-chan struct{}, func()) {
 	return a.newEvent.Subscribe()
 }
 
-// frameKinds are the frames saved per camera of a detection.
+// frameKinds are the frames kept per camera of a detection.
 var frameKinds = []string{"before", "after"}
 
-// framePath returns the file of a camera's frame of a detection, named like
-// 003-cam1-before.jpg, as darts-o-cam analyze reads them.
-func (a *App) framePath(e Event, camera int, kind string) string {
-	return filepath.Join(a.opts.FrameDir, fmt.Sprintf("%03d-%s-%s.jpg", e.ID, e.Cameras[camera], kind))
-}
-
-func (a *App) saveFrames(id int, names []string, before, after []*image.RGBA) error {
-	e := Event{ID: id, Cameras: names}
-	for i := range names {
-		for _, f := range []struct {
-			kind   string
-			frames []*image.RGBA
-		}{{"before", before}, {"after", after}} {
-			if i >= len(f.frames) || f.frames[i] == nil {
+// encodeFrames returns the frames before and after a detection as JPEG.
+func encodeFrames(before, after []*image.RGBA) map[frameKey][]byte {
+	frames := map[frameKey][]byte{}
+	for kind, imgs := range map[string][]*image.RGBA{"before": before, "after": after} {
+		for i, img := range imgs {
+			if img == nil {
 				continue
 			}
-			if err := WriteJPEG(a.framePath(e, i, f.kind), f.frames[i]); err != nil {
-				return err
+			var buf bytes.Buffer
+			if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: JPEGQuality}); err != nil {
+				continue // only a frame larger than JPEG allows
 			}
+			frames[frameKey{i, kind}] = buf.Bytes()
+		}
+	}
+	return frames
+}
+
+// FrameName returns the file name of a camera's frame of a detection, like
+// 003-cam1-before.jpg, as darts-o-cam analyze reads them.
+func (e Event) FrameName(camera int, kind string) string {
+	return fmt.Sprintf("%03d-%s-%s.jpg", e.ID, e.Cameras[camera], kind)
+}
+
+// saveFrames writes a detection's frames into Options.SaveDir.
+func (a *App) saveFrames(e Event) error {
+	for k, data := range e.frames {
+		if err := os.WriteFile(filepath.Join(a.opts.SaveDir, e.FrameName(k.camera, k.kind)), data, 0o644); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-// EventFrame returns the file of a camera's frame before or after a detection
-// (kind "before" or "after"); false if there is no such detection, camera or frame.
-func (a *App) EventFrame(id, camera int, kind string) (string, bool) {
+// EventFrame returns a camera's frame before or after a detection (kind "before" or
+// "after") as JPEG, and the detection; false if there is no such detection, camera or
+// frame.
+func (a *App) EventFrame(id, camera int, kind string) ([]byte, Event, bool) {
 	e, ok := a.Event(id)
-	if !ok || camera < 0 || camera >= len(e.Cameras) || !slices.Contains(frameKinds, kind) {
-		return "", false
+	if !ok || camera < 0 || camera >= len(e.Cameras) {
+		return nil, Event{}, false
 	}
-	path := a.framePath(e, camera, kind)
-	if _, err := os.Stat(path); err != nil {
-		return "", false // not saved (yet)
-	}
-	return path, true
+	data, ok := e.frames[frameKey{camera, kind}]
+	return data, e, ok
 }
 
-// JPEGQuality is the quality frames are saved with: high, so the detection on them works
+// JPEGQuality is the quality frames are kept with: high, so the detection on them works
 // like on the original frames.
 const JPEGQuality = 95
 
@@ -205,4 +215,22 @@ func WriteJPEG(path string, img image.Image) error {
 		return err
 	}
 	return f.Close()
+}
+
+// DecodeJPEG decodes a kept frame.
+func DecodeJPEG(data []byte) (*image.RGBA, error) {
+	img, err := jpeg.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	return vision.ToRGBA(img), nil
+}
+
+// frame decodes a camera's frame of the detection (kind "before" or "after").
+func (e Event) frame(camera int, kind string) (*image.RGBA, error) {
+	data, ok := e.frames[frameKey{camera, kind}]
+	if !ok {
+		return nil, fmt.Errorf("no frame %s of %s", kind, e.Cameras[camera])
+	}
+	return DecodeJPEG(data)
 }
