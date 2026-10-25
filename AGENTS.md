@@ -7,7 +7,6 @@ The `AGENTS.md` files describe the project as it is meant to be now: what exists
 - **Everything here was decided with the user.** Don't deviate from a rule or a design described here on your own; ask first.
 - **No history.** When and how something came about, what it replaced, who wished for it: that is in git. No dates, no "user's decision", no "before, …" in these files. Measurements keep their numbers and the events or test data they were taken on, not their date.
 - **What was considered and dropped** stays, with its reason, in a "Rejected" section of the document it concerns, so it isn't proposed again.
-- **What isn't verified** (not run on Windows, not installed on a real Linux, …) is said plainly; it is part of the current state.
 - **Open work** and what was set aside goes into the `TODO.md` files, with date and reason (see [documentation](#documentation)).
 
 ## Goal
@@ -59,7 +58,7 @@ The documents are split by area and link to each other. The READMEs of the two p
 - When something changes that affects users (starting, game modes, usage), update the matching README as well.
 - **Keep the `TODO.md` files up to date**: with every change, remove what is done, reword what is only partly done, and add what was left out or decided against for now (with the date and the reason). Check them before you report a task as finished.
 - Open tasks live in a `TODO.md` per area, next to its `AGENTS.md`: a task of a single part goes into its folder, one that concerns several parts or the whole project into the root [`TODO.md`](TODO.md), which links to the others.
-- **No test tasks in the `TODO.md` files:** nothing like "try it on the real board", "check it with other setups" or "not tested yet: …". What isn't verified is stated in the matching `AGENTS.md` instead (see [about these documents](#about-these-documents)).
+- **Nothing about testing in the `TODO.md` and `AGENTS.md` files:** no tasks like "try it on the real board" or "check it with other setups", and no notes on what isn't tested or verified yet.
 
 ## Code quality
 
