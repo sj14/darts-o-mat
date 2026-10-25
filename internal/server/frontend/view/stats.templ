@@ -100,8 +100,8 @@ templ statRow(label, value string) {
 	</div>
 }
 
-// heatmap shows where the cameras saw a player's darts: the board, faded, with a square
-// per place that got a dart, the more the stronger.
+// heatmap shows where the cameras saw a player's darts: the board, faded, under how
+// densely they landed (heatImage).
 templ heatmap(h stats.Heat) {
 	<div class="mt-6">
 		<h3 class={ labelClass }>{ T(ctx).Heatmap() }</h3>
@@ -116,9 +116,7 @@ templ heatmap(h stats.Heat) {
 							<path d={ s.Path } fill={ s.Fill } stroke={ boardWire } stroke-width="0.8"></path>
 						}
 					</g>
-					for _, c := range heatCells(h) {
-						<rect x={ c.X } y={ c.Y } width="8" height="8" fill={ boardTarget } fill-opacity={ c.Opacity }></rect>
-					}
+					<image href={ heatImage(h) } x={ heatPos } y={ heatPos } width={ heatSize } height={ heatSize } preserveAspectRatio="none"></image>
 					for _, n := range boardNumbers {
 						<text x={ n.X } y={ n.Y } fill="#e9dcc0" fill-opacity="0.7" font-size="24" font-family="ui-sans-serif, system-ui, sans-serif" font-weight="800" text-anchor="middle" dominant-baseline="central">{ n.Text }</text>
 					}
