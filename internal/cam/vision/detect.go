@@ -220,6 +220,11 @@ var hiddenDistance = px(4)
 // that is too wide (2026-10-13, event 95: two parallel darts, elongation 3.1). Only then,
 // because a new dart in front of an old one in the image would lose pixels.
 //
+// Beside earlier darts, a find that may not be the new dart doesn't count (see
+// besideMinAreas): a small one that ends on them, and one the retry left whose tip ends
+// where they were taken out, as that is where it was cut, not its point (2026-10-25,
+// event 19, cam3: a piece of the shaft beside a group in the 18 ended in the 20).
+//
 // tr, if not nil, records the steps (see Trace).
 func detect(before, after *image.RGBA, p detectParams, darts *Mask, tr *Trace) (Detection, []image.Point, error) {
 	mask := Diff(before, after, p.diff, p.weak, p.blur)
@@ -232,6 +237,10 @@ func detect(before, after *image.RGBA, p detectParams, darts *Mask, tr *Trace) (
 	}
 	if err == nil {
 		d.Hidden = darts.near(d.Tip, p.hiddenDistance)
+		if d.Hidden && len(area) < besideMinAreas*p.minPixels {
+			return Detection{}, area, ErrNoDart
+		}
+		return d, area, nil
 	}
 	if err != ErrNotElongated {
 		return d, area, err
@@ -247,23 +256,24 @@ func detect(before, after *image.RGBA, p detectParams, darts *Mask, tr *Trace) (
 	if tr != nil {
 		retry = &Trace{Changed: tr.Changed, Earlier: widened, Retried: true}
 	}
-	if d2, area2, err2 := detectIn(without, p, retry); err2 == nil && len(area2) >= retryMinAreas*p.minPixels {
+	if d2, area2, err2 := detectIn(without, p, retry); err2 == nil && len(area2) >= besideMinAreas*p.minPixels && !widened.near(d2.Tip, p.hiddenDistance) {
 		if tr != nil {
 			*tr = *retry
 		}
-		d2.Hidden = darts.near(d2.Tip, p.hiddenDistance)
 		return d2, area2, nil
 	}
 	return d, area, err
 }
 
-// retryMinAreas is how many times MinArea the dart must be that is found when the earlier
-// darts' pixels are taken out (see detect): what is left of a change can be a sliver along
-// an earlier dart's edge (2026-10-18, event 199, cam3: 484 px of a change of 10,131 px,
-// its "tip" 25 mm from where the other cameras saw it). The smallest of 45 real darts
-// (events 181 to 199 and the test throws) had 1357 px, MinArea is 150 px, so five times
-// it, 750 px, lies between them.
-const retryMinAreas = 5
+// besideMinAreas is how many times MinArea a dart found beside earlier darts must be when
+// it ends on them or is what the retry left (see detect): what is left of a change can be
+// a sliver along an earlier dart's edge (2026-10-18, event 199, cam3: 484 px of a change
+// of 10,131 px, its "tip" 25 mm from where the other cameras saw it), and a camera that
+// hardly sees the new dart behind the earlier ones only a speck at them (2026-10-25,
+// event 19, cam2: 152 px, 50 mm off). The smallest of 45 real darts (events 181 to 199
+// and the test throws) had 1357 px, MinArea is 150 px, so five times it, 750 px, lies
+// between them.
+const besideMinAreas = 5
 
 // detectIn finds the dart's tip in the changed pixels.
 func detectIn(mask *Mask, p detectParams, tr *Trace) (Detection, []image.Point, error) {

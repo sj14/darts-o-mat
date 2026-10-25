@@ -621,6 +621,30 @@ func TestDetectDartBesideFreeNextToEarlier(t *testing.T) {
 	}
 }
 
+// The third dart into a group in the 18 (2026-10-25, events 17–19, cam3): the change
+// merges with the earlier darts, and the retry without them leaves a piece of the shaft
+// whose "tip" ends where they were taken out, in the 20. That is where it was cut, not
+// the dart's point, so the camera sees no dart (see detect).
+func TestDetectDartBesideRetryEndsOnEarlier(t *testing.T) {
+	t.Parallel()
+	frames := func(n string) (*image.RGBA, *image.RGBA) {
+		return loadRGBA(t, "testdata/throws/"+n+"-cam3-before.jpg"), loadRGBA(t, "testdata/throws/"+n+"-cam3-after.jpg")
+	}
+	var earlier []image.Point
+	for _, n := range []string{"017", "018"} {
+		before, after := frames(n)
+		_, area, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier)
+		if err != nil {
+			t.Fatalf("event %s: %v", n, err)
+		}
+		earlier = append(earlier, area...)
+	}
+	before, after := frames("019")
+	if d, _, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier); err != ErrNotElongated {
+		t.Errorf("tip at %.0f,%.0f px, %v; want ErrNotElongated", d.Tip.X, d.Tip.Y, err)
+	}
+}
+
 // fillRect paints a rectangle.
 func fillRect(img *image.RGBA, r image.Rectangle, c color.RGBA) {
 	for y := r.Min.Y; y < r.Max.Y; y++ {
@@ -642,12 +666,20 @@ func TestDetectDartBesideSliverIsNoDart(t *testing.T) {
 	after := image.NewRGBA(bounds)
 	copy(after.Pix, before.Pix)
 
-	// An earlier dart's blob (wide: the change isn't shaped like a dart), and beside it a
-	// thin line of a few hundred px that only the retry without the blob leaves.
+	// An earlier dart's blob (wide: the change isn't shaped like a dart), and left of it a
+	// thin line of a few hundred px that only the retry without the blob leaves, sloping
+	// down away from the blob, so its tip is the end away from it.
+	red := color.RGBA{200, 40, 40, 255}
 	blob := image.Rect(200, 150, 330, 280)
-	sliver := image.Rect(330, 214, 330+dartMargin2px()+60, 218)
-	fillRect(after, blob, color.RGBA{200, 40, 40, 255})
-	fillRect(after, sliver, color.RGBA{200, 40, 40, 255})
+	sloping := func(r image.Rectangle) {
+		for x := r.Min.X; x < r.Max.X; x++ {
+			dy := (r.Max.X - x) / 8
+			fillRect(after, image.Rect(x, r.Min.Y+dy, x+1, r.Max.Y+dy), red)
+		}
+	}
+	sliver := image.Rect(200-dartMargin2px()-60, 214, 200, 218)
+	fillRect(after, blob, red)
+	sloping(sliver)
 	var earlier []image.Point
 	for y := blob.Min.Y; y < blob.Max.Y; y++ {
 		for x := blob.Min.X; x < blob.Max.X; x++ {
@@ -660,8 +692,7 @@ func TestDetectDartBesideSliverIsNoDart(t *testing.T) {
 		t.Error("a sliver of a few hundred pixels counted as a dart")
 	}
 	// The same piece as wide as a real dart (over 1000 px) does.
-	big := image.Rect(sliver.Min.X, 214, sliver.Max.X, 232)
-	fillRect(after, big, color.RGBA{200, 40, 40, 255})
+	sloping(image.Rect(sliver.Min.X, 214, sliver.Max.X, 232))
 	if _, _, err := DetectDartBeside(before, after, DefaultDetectOptions, ReferenceScale, earlier); err != nil {
 		t.Errorf("a piece of over 1000 px: %v, want a dart", err)
 	}
