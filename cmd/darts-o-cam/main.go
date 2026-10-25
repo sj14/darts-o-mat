@@ -56,16 +56,14 @@ Starts darts-o-cam and its web interface, where the cameras are added and calibr
 	if err != nil {
 		return err
 	}
-	dir := fs.String("dir", defaultDir, "directory for the configuration and the cameras' images")
-	addr := fs.String("addr", "localhost:8090", "address of the web interface; e.g. :8090 to reach it from other devices (it has no login)")
-	defaultUI := "none"
-	if hasDisplay() {
-		defaultUI = "window"
-	}
-	ui := fs.String("ui", defaultUI, "how to show the web interface: window (a window of its own; closing it stops darts-o-cam), browser, or none (default none without a display)")
-	verbose := fs.Bool("v", false, "log whenever the board starts moving")
-	saveDir := fs.String("save", "", "directory to keep the camera frames of every detection in as PNG, for debugging (default: only the last ones, in memory)")
-	pprofAddr := fs.String("pprof", "", profiling.Usage)
+	var (
+		dir       = fs.String("dir", defaultDir, "directory for the configuration and the cameras' images")
+		addr      = fs.String("addr", "localhost:8090", "address of the web interface; e.g. :8090 to reach it from other devices (it has no login)")
+		ui        = fs.String("ui", defaultUI(), "how to show the web interface: window (a window of its own; closing it stops darts-o-cam), browser, or none (default none without a display)")
+		verbose   = fs.Bool("v", false, "log whenever the board starts moving")
+		saveDir   = fs.String("save", "", "directory to keep the camera frames of every detection in as PNG, for debugging (default: only the last ones, in memory)")
+		pprofAddr = fs.String("pprof", "", profiling.Usage)
+	)
 	_ = fs.Parse(args)
 	if !slices.Contains([]string{"window", "browser", "none"}, *ui) {
 		return fmt.Errorf("-ui must be window, browser or none, not %q", *ui)
@@ -131,6 +129,15 @@ Starts darts-o-cam and its web interface, where the cameras are added and calibr
 	return nil
 }
 
+// defaultUI is how the web interface is shown by default: in a window of its own on a
+// desktop, else not at all.
+func defaultUI() string {
+	if hasDisplay() {
+		return "window"
+	}
+	return "none"
+}
+
 func openOrLog(url string) {
 	if err := openBrowser(url); err != nil {
 		log.Printf("open the browser: %v", err)
@@ -156,9 +163,11 @@ func analyze(args []string) error {
 	if err != nil {
 		return err
 	}
-	configDir := fs.String("config", defaultDir, "directory with the configuration of the cameras")
-	dir := fs.String("dir", ".", "directory with the frames saved with -save")
-	out := fs.String("out", "", "directory for the annotated images (default: -dir)")
+	var (
+		configDir = fs.String("config", defaultDir, "directory with the configuration of the cameras")
+		dir       = fs.String("dir", ".", "directory with the frames saved with -save")
+		out       = fs.String("out", "", "directory for the annotated images (default: -dir)")
+	)
 	_ = fs.Parse(args)
 	if *out == "" {
 		*out = *dir
