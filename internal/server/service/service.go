@@ -115,16 +115,13 @@ type Service struct {
 	// shuffle draws the order of the players when a game or tournament starts, like
 	// rand.Shuffle; replaced in tests.
 	shuffle func(n int, swap func(i, j int))
-	// started is when the server started: no turn ends earlier than its time after it
-	// (see GameView.TurnDeadline).
-	started time.Time
 	// dummyHash is compared against when a username doesn't exist, so a failed login takes
 	// the same time whether the username exists or not.
 	dummyHash []byte
 }
 
 func New(store *store.Store, opts Options) *Service {
-	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, presence: presence{seen: map[int64]time.Time{}, streams: map[int64]int{}}, now: time.Now, shuffle: rand.Shuffle, started: time.Now()}
+	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, presence: presence{seen: map[int64]time.Time{}, streams: map[int64]int{}}, now: time.Now, shuffle: rand.Shuffle}
 	if s.opts.PasswordCost == 0 {
 		s.opts.PasswordCost = bcrypt.DefaultCost
 	}
@@ -150,9 +147,9 @@ type GameView struct {
 	// BoardNames are the names of the boards the players throw on, by player.
 	BoardNames map[int64]string `json:"board_names,omitempty"`
 	// TurnDeadline is when the turn of the player who is up ends, nil without a limit
-	// (game.Game.TurnDeadline). It is never earlier than the turn's time after the server
-	// started (user's wish 2026-10-20): the time it was down for a restart or an update
-	// doesn't cost anyone a turn.
+	// (game.Game.TurnDeadline). It is never earlier than the turn's time after a server
+	// last started (Service.ServerStarted; one time for all replicas): the time it was down for a
+	// restart or an update doesn't cost anyone a turn.
 	TurnDeadline *time.Time `json:"turn_deadline,omitempty"`
 
 	// The following fields depend on the account the view was created for.
@@ -570,7 +567,11 @@ func (s *Service) build(ctx context.Context, g game.Game) (GameView, error) {
 		}
 	}
 	if d, ok := g.TurnDeadline(v.Darts, v.Common()); ok {
-		if earliest := s.started.Add(time.Duration(g.TurnSeconds) * time.Second); d.Before(earliest) {
+		started, err := s.store.Started(ctx)
+		if err != nil {
+			return GameView{}, err
+		}
+		if earliest := started.Add(time.Duration(g.TurnSeconds) * time.Second); d.Before(earliest) {
 			d = earliest
 		}
 		v.TurnDeadline = &d

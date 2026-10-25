@@ -102,9 +102,15 @@ func TestTurnLimitAfterRestart(t *testing.T) {
 
 	// The server was down for five minutes and starts again.
 	offset = 5 * time.Minute
-	s.started = s.now()
-	if v, _ = s.Game(ctx, anna, id); v.TurnDeadline == nil || !v.TurnDeadline.Equal(s.started.Add(time.Minute)) {
-		t.Fatalf("deadline after the start %v, want a minute after it (%v)", v.TurnDeadline, s.started.Add(time.Minute))
+	if err := s.ServerStarted(ctx); err != nil {
+		t.Fatal(err)
+	}
+	started, err := s.store.Started(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, _ = s.Game(ctx, anna, id); v.TurnDeadline == nil || !v.TurnDeadline.Equal(started.Add(time.Minute)) {
+		t.Fatalf("deadline after the start %v, want a minute after it (%v)", v.TurnDeadline, started.Add(time.Minute))
 	}
 	s.endTurn(id)
 	if v, _ = s.Game(ctx, anna, id); len(v.Darts) != 0 {

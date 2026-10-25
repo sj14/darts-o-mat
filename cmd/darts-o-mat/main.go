@@ -80,8 +80,8 @@ func main() {
 		log.Fatal("turnstile needs both the site key and the secret key")
 	}
 	svc := service.New(repo, opts)
-	if err := svc.ResumeTurnLimits(ctx); err != nil {
-		log.Fatalf("failed to set the turn timers: %v", err)
+	if err := svc.ServerStarted(ctx); err != nil {
+		log.Fatalf("failed to start: %v", err)
 	}
 	go svc.Listen(ctx)
 	r.Mount("/api", api.New(svc).Routes())

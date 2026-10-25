@@ -47,6 +47,7 @@ var models = []any{
 	(*tournament.Participant)(nil),
 	(*page.Page)(nil),
 	(*site.Settings)(nil),
+	(*serverStart)(nil),
 }
 
 // The SQLite migrations, written by hand, give the same schema as the structs: tables,

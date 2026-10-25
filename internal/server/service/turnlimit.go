@@ -16,8 +16,19 @@ import (
 // when the server starts. Older games get theirs with the next change.
 const resumeWithin = 24 * time.Hour
 
-// ResumeTurnLimits sets the timers of the running games with a time limit for turns. The
-// server has no timers of its own after it started, so call it once at the start.
+// ServerStarted stores that the server started, so no turn ends earlier than its time after it
+// (GameView.TurnDeadline; the latest start of any replica counts), and sets the turn
+// timers (ResumeTurnLimits). Call it once when the server starts.
+func (s *Service) ServerStarted(ctx context.Context) error {
+	if err := s.store.SetStarted(ctx, s.now()); err != nil {
+		return err
+	}
+	return s.ResumeTurnLimits(ctx)
+}
+
+// ResumeTurnLimits sets the timers of the running games with a time limit for turns: a
+// process has none after it started, nor after it may have missed notifications
+// (Service.missed).
 func (s *Service) ResumeTurnLimits(ctx context.Context) error {
 	games, err := s.store.ListTimedGames(ctx, s.now().Add(-resumeWithin))
 	if err != nil {
