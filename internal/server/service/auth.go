@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -114,22 +115,41 @@ func (s *Service) Login(ctx context.Context, username, password string) (string,
 	username = account.NormalizeUsername(username)
 	network := networkOf(ctx)
 	now := s.now()
-	if s.logins != nil && (s.logins.blocked(username, now) || network != "" && s.networks.blocked(network, now)) {
-		return "", account.Account{}, ErrTooManyLogins
+	if s.logins == nil {
+		return s.login(ctx, username, password)
+	}
+	if blocked, err := s.loginBlocked(ctx, username, network, now); err != nil || blocked {
+		if err == nil {
+			err = ErrTooManyLogins
+		}
+		return "", account.Account{}, err
 	}
 	token, a, err := s.login(ctx, username, password)
-	if s.logins != nil {
-		switch {
-		case errors.Is(err, ErrUnauthenticated):
-			s.logins.fail(username, now)
-			if network != "" {
-				s.networks.fail(network, now)
-			}
-		case err == nil:
-			s.logins.reset(username)
+	// Counting is done after the answer is known; if storing it fails, the answer stays.
+	var countErr error
+	switch {
+	case errors.Is(err, ErrUnauthenticated):
+		countErr = s.logins.fail(ctx, username, now)
+		if network != "" {
+			countErr = errors.Join(countErr, s.networks.fail(ctx, network, now))
 		}
+	case err == nil:
+		countErr = s.logins.reset(ctx, username)
+	}
+	if countErr != nil {
+		log.Printf("count the failed logins: %v", countErr)
 	}
 	return token, a, err
+}
+
+// loginBlocked reports whether the username, or the network if it is known, used up its
+// failed logins.
+func (s *Service) loginBlocked(ctx context.Context, username, network string, now time.Time) (bool, error) {
+	blocked, err := s.logins.blocked(ctx, username, now)
+	if err != nil || blocked || network == "" {
+		return blocked, err
+	}
+	return s.networks.blocked(ctx, network, now)
 }
 
 func (s *Service) login(ctx context.Context, username, password string) (string, account.Account, error) {

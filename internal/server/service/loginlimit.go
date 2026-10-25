@@ -5,8 +5,9 @@ import (
 	"errors"
 	"net/netip"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/sj14/darts-o-mat/internal/server/store"
 )
 
 // ErrTooManyLogins means the username had too many failed logins lately, so even the
@@ -20,57 +21,31 @@ const networkFactor = 5
 // loginWindow is how long a failed login counts.
 const loginWindow = 15 * time.Minute
 
-// loginLimiter counts the failed logins per username in the last loginWindow. It lives in
-// memory, like the rest of the server's live state (there is one process), so a restart
-// forgets the counts.
+// loginLimiter counts the failed logins per key (a username or a network) in the last
+// loginWindow. They are stored in the database, so all replicas count together and a
+// restart doesn't forget them; prefix tells the kinds of keys apart.
 type loginLimiter struct {
-	max      int
-	mu       sync.Mutex
-	failures map[string][]time.Time
+	store  *store.Store
+	prefix string
+	max    int
 }
 
-// blocked reports whether the username has used up its failed logins at now. Blocked
-// attempts aren't counted, so the block ends loginWindow after the last counted failure
-// and can't be extended by trying on.
-func (l *loginLimiter) blocked(username string, now time.Time) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return len(l.recent(username, now)) >= l.max
+// blocked reports whether the key has used up its failed logins at now. Blocked attempts
+// aren't counted, so the block ends loginWindow after the last counted failure and can't
+// be extended by trying on.
+func (l *loginLimiter) blocked(ctx context.Context, key string, now time.Time) (bool, error) {
+	n, err := l.store.CountLoginFailures(ctx, l.prefix+key, now.Add(-loginWindow))
+	return n >= l.max, err
 }
 
-// fail counts a failed login.
-func (l *loginLimiter) fail(username string, now time.Time) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if len(l.failures) >= 1000 { // names that don't exist count as well: forget the old ones
-		for name := range l.failures {
-			l.recent(name, now)
-		}
-	}
-	l.failures[username] = append(l.recent(username, now), now)
+// fail counts a failed login; the failures older than the window are forgotten on the way.
+func (l *loginLimiter) fail(ctx context.Context, key string, now time.Time) error {
+	return l.store.AddLoginFailure(ctx, l.prefix+key, now, now.Add(-loginWindow))
 }
 
-// reset forgets the failures of a username after a login that worked.
-func (l *loginLimiter) reset(username string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	delete(l.failures, username)
-}
-
-// recent returns the failures of the username within the window and drops older ones.
-// The caller holds l.mu.
-func (l *loginLimiter) recent(username string, now time.Time) []time.Time {
-	times := l.failures[username]
-	i := 0
-	for i < len(times) && now.Sub(times[i]) >= loginWindow {
-		i++
-	}
-	if i == len(times) {
-		delete(l.failures, username)
-		return nil
-	}
-	l.failures[username] = times[i:]
-	return times[i:]
+// reset forgets the failures of a key after a login that worked.
+func (l *loginLimiter) reset(ctx context.Context, key string) error {
+	return l.store.ResetLoginFailures(ctx, l.prefix+key)
 }
 
 // limitLogins limits the failed logins per username to max, and per network to
@@ -79,8 +54,8 @@ func (s *Service) limitLogins(max int) {
 	s.opts.MaxLoginFailures = max
 	s.logins, s.networks = nil, nil
 	if max > 0 {
-		s.logins = &loginLimiter{max: max, failures: map[string][]time.Time{}}
-		s.networks = &loginLimiter{max: networkFactor * max, failures: map[string][]time.Time{}}
+		s.logins = &loginLimiter{store: s.store, prefix: "user:", max: max}
+		s.networks = &loginLimiter{store: s.store, prefix: "network:", max: networkFactor * max}
 	}
 }
 

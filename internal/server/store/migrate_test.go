@@ -48,6 +48,7 @@ var models = []any{
 	(*page.Page)(nil),
 	(*site.Settings)(nil),
 	(*serverStart)(nil),
+	(*loginFailure)(nil),
 }
 
 // The SQLite migrations, written by hand, give the same schema as the structs: tables,
@@ -82,6 +83,10 @@ func TestSQLiteMigrationsMatchModels(t *testing.T) {
 	}
 	if _, err := fromModels.NewCreateIndex().Model((*account.Account)(nil)).Index("accounts_email_key").
 		Column("email").Unique().Where("email <> ''").Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fromModels.NewCreateIndex().Model((*loginFailure)(nil)).Index("login_failures_key_failed_at").
+		Column("key", "failed_at").Exec(ctx); err != nil {
 		t.Fatal(err)
 	}
 

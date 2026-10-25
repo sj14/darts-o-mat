@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -108,5 +109,27 @@ func TestReplicasPostgres(t *testing.T) {
 	}
 	if got := v.State.Common().Round; got != 2 {
 		t.Errorf("round %d, want 2 after both played a visit", got)
+	}
+}
+
+// The failed logins count across the replicas: three through two replicas use up a limit of
+// three on both. Needs storetest.PostgresEnv.
+func TestReplicasLoginLimitPostgres(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	replicas := newReplicas(t, "darts_o_mat_replicas_logins", 2)
+	register(t, replicas[0], "anna")
+	for i, s := range replicas {
+		s.limitLogins(3)
+		for range 2 - i {
+			if _, _, err := s.Login(ctx, "anna", "wrong-password"); !errors.Is(err, ErrUnauthenticated) {
+				t.Fatalf("failed login: got %v, want ErrUnauthenticated", err)
+			}
+		}
+	}
+	for i, s := range replicas {
+		if _, _, err := s.Login(ctx, "anna", "password"); !errors.Is(err, ErrTooManyLogins) {
+			t.Errorf("replica %d: got %v, want ErrTooManyLogins", i+1, err)
+		}
 	}
 }
