@@ -1,5 +1,9 @@
-# Values of the darts-o-mat chart. The server keeps its live updates in memory, so there
-# is always exactly one replica (no replicaCount, no autoscaling).
+# Values of the darts-o-mat chart.
+
+# More than one replica only with config.database=postgres: the replicas share the
+# database, which also carries their live updates (LISTEN/NOTIFY) and orders the darts.
+# With SQLite there is exactly one, and an update stops it before the new one starts.
+replicaCount: 1
 
 image:
   repository: ghcr.io/sj14/darts-o-mat

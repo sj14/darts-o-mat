@@ -45,4 +45,4 @@ jobs:
       - uses: azure/setup-helm@v4
       - run: helm lint deploy/helm/darts-o-mat
       - run: helm template t deploy/helm/darts-o-mat > /dev/null
-      - run: helm template t deploy/helm/darts-o-mat --set config.database=postgres --set config.postgres.dsn=postgres://u:p@h/db > /dev/null
+      - run: helm template t deploy/helm/darts-o-mat --set config.database=postgres --set config.postgres.dsn=postgres://u:p@h/db --set replicaCount=3 > /dev/null

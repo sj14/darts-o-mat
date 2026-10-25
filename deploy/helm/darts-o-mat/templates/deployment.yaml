@@ -2,6 +2,9 @@
 {{- if not (has .Values.config.database (list "sqlite" "postgres")) }}
 {{- fail "config.database must be sqlite or postgres" }}
 {{- end }}
+{{- if and (not $postgres) (gt (int .Values.replicaCount) 1) }}
+{{- fail "replicaCount above 1 needs config.database=postgres: SQLite is one file for one process" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -9,11 +12,15 @@ metadata:
   labels:
     {{- include "darts-o-mat.labels" . | nindent 4 }}
 spec:
-  # One replica: live updates and the order of darts are kept in the process.
-  replicas: 1
-  # The SQLite volume can only be used by one pod at a time.
+  replicas: {{ .Values.replicaCount }}
   strategy:
+    {{- if $postgres }}
+    # The replicas share PostgreSQL: a new pod starts before the old one stops.
+    type: RollingUpdate
+    {{- else }}
+    # The SQLite volume can only be used by one pod at a time.
     type: Recreate
+    {{- end }}
   selector:
     matchLabels:
       {{- include "darts-o-mat.selectorLabels" . | nindent 6 }}
