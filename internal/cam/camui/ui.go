@@ -905,7 +905,7 @@ func (ui *UI) eventFrame(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	w.Header().Set("Content-Disposition", `attachment; filename="`+e.FrameName(i, kind)+`"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+e.FrameName(i, kind, ".jpg")+`"`)
 	serveJPEG(w, data)
 }
 

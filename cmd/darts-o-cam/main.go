@@ -64,7 +64,7 @@ Starts darts-o-cam and its web interface, where the cameras are added and calibr
 	}
 	ui := fs.String("ui", defaultUI, "how to show the web interface: window (a window of its own; closing it stops darts-o-cam), browser, or none (default none without a display)")
 	verbose := fs.Bool("v", false, "log whenever the board starts moving")
-	saveDir := fs.String("save", "", "directory to keep the camera frames of every detection in, for debugging (default: only the last ones, in memory)")
+	saveDir := fs.String("save", "", "directory to keep the camera frames of every detection in as PNG, for debugging (default: only the last ones, in memory)")
 	pprofAddr := fs.String("pprof", "", profiling.Usage)
 	_ = fs.Parse(args)
 	if !slices.Contains([]string{"window", "browser", "none"}, *ui) {
@@ -197,8 +197,8 @@ func analyze(args []string) error {
 		takeout := false // a change too large for a dart, like the detection tells it first
 		for _, cam := range calib.Cameras {
 			prefix := filepath.Join(*dir, fmt.Sprintf("%03d-%s", n, cam.Name))
-			before, err1 := readImage(prefix + "-before.jpg")
-			after, err2 := readImage(prefix + "-after.jpg")
+			before, err1 := readFrame(prefix + "-before")
+			after, err2 := readFrame(prefix + "-after")
 			if err1 != nil || err2 != nil {
 				continue
 			}
@@ -271,27 +271,46 @@ func analyze(args []string) error {
 		}
 	}
 	if len(events) == 0 {
-		return fmt.Errorf("no saved frames (like 001-cam1-before.jpg) in %s", *dir)
+		return fmt.Errorf("no saved frames (like 001-cam1-before.png) in %s", *dir)
 	}
 	return nil
 }
 
+// frameExts are the formats of saved frames: PNG from -save, JPEG downloaded from the
+// event page.
+var frameExts = []string{".png", ".jpg"}
+
 // savedEvents returns the numbers of the events with frames in dir, e.g. 30 for
-// 030-cam1-before.jpg, in order.
+// 030-cam1-before.png, in order.
 func savedEvents(dir string) ([]int, error) {
-	files, err := filepath.Glob(filepath.Join(dir, "*-before.jpg"))
-	if err != nil {
-		return nil, err
-	}
 	var events []int
-	for _, f := range files {
-		var n int
-		if _, err := fmt.Sscanf(filepath.Base(f), "%d-", &n); err == nil && !slices.Contains(events, n) {
-			events = append(events, n)
+	for _, ext := range frameExts {
+		files, err := filepath.Glob(filepath.Join(dir, "*-before"+ext))
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range files {
+			var n int
+			if _, err := fmt.Sscanf(filepath.Base(f), "%d-", &n); err == nil && !slices.Contains(events, n) {
+				events = append(events, n)
+			}
 		}
 	}
 	slices.Sort(events)
 	return events, nil
+}
+
+// readFrame reads a saved frame, path without the extension: the PNG if there is one,
+// else the JPEG.
+func readFrame(path string) (*image.RGBA, error) {
+	var err error
+	for _, ext := range frameExts {
+		var img *image.RGBA
+		if img, err = readImage(path + ext); err == nil {
+			return img, nil
+		}
+	}
+	return nil, err
 }
 
 func readImage(path string) (*image.RGBA, error) {

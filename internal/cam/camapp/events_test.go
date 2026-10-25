@@ -1,7 +1,9 @@
 package camapp
 
 import (
+	"bytes"
 	"image"
+	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
@@ -46,8 +48,8 @@ func TestEventFramesInMemory(t *testing.T) {
 		t.Error("frames of a detection no longer shown are still there")
 	}
 	data, e, ok := a.EventFrame(maxEvents+2, 1, "after")
-	if !ok || e.FrameName(1, "after") != "022-cam2-after.jpg" {
-		t.Fatalf("newest detection's frame: %v, %q", ok, e.FrameName(1, "after"))
+	if !ok || e.FrameName(1, "after", ".jpg") != "022-cam2-after.jpg" {
+		t.Fatalf("newest detection's frame: %v, %q", ok, e.FrameName(1, "after", ".jpg"))
 	}
 	if img, err := DecodeJPEG(data); err != nil || img.Bounds().Dx() != 4 {
 		t.Errorf("frame isn't the JPEG of the detection's frame: %v", err)
@@ -67,11 +69,12 @@ func TestEventFramesInMemory(t *testing.T) {
 	}
 }
 
-// With -save, the frames of all detections are written, also kept from earlier starts.
+// With -save, the frames of all detections are written as PNG, lossless, so darts-o-cam
+// analyze computes what the detection did; those of earlier starts stay.
 func TestEventFramesSaved(t *testing.T) {
 	t.Parallel()
 	saveDir := t.TempDir()
-	old := filepath.Join(saveDir, "099-cam1-before.jpg")
+	old := filepath.Join(saveDir, "099-cam1-before.png")
 	if err := os.WriteFile(old, []byte("old"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -80,11 +83,33 @@ func TestEventFramesSaved(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer a.Close()
-	for range maxEvents + 2 {
+	first := event()
+	noisy := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	for i := range noisy.Pix {
+		noisy.Pix[i] = byte(i * 37)
+		if i%4 == 3 {
+			noisy.Pix[i] = 255 // opaque, like a camera's frame
+		}
+	}
+	first.After = []*image.RGBA{noisy, noisy}
+	a.AddEvent(first)
+	for range maxEvents + 1 {
 		a.AddEvent(event())
 	}
 	if got := len(files(t, saveDir)); got != (maxEvents+2)*2*2+1 {
 		t.Errorf("%d frames on disk, want all %d plus the old one", got, (maxEvents+2)*2*2)
+	}
+	f, err := os.Open(filepath.Join(saveDir, "001-cam2-after.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	saved, err := png.Decode(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(vision.ToRGBA(saved).Pix, noisy.Pix) {
+		t.Error("the saved frame differs from the detection's")
 	}
 }
 

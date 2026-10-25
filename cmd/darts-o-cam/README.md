@@ -61,6 +61,6 @@ The footer of the interface says "Version … available" when there is a newer r
 `go run ./cmd/darts-o-cam -h` shows all options. Useful when something goes wrong:
 
 - A detection looks wrong? Open it in the overview: "Detection in detail" shows step by step what each camera found – the changed pixels, the dart, its axis and the tip – drawn into its image, with a zoom around the tip. Under each camera, "Before" and "After" download its whole images of that throw. The images of the last 20 throws are only kept while darts-o-cam runs, nothing is written to disk (good for a Raspberry Pi's SD card).
-- `-v` logs every motion, `-save <folder>` keeps the camera images of every throw in that folder instead. These images can show people in the room – keep that in mind before sharing them.
+- `-v` logs every motion, `-save <folder>` keeps the camera images of every throw in that folder, as PNG (exact, larger). These images can show people in the room – keep that in mind before sharing them.
 - `go run ./cmd/darts-o-cam analyze -dir <folder>` explains what was detected in saved or downloaded images.
 - `-pprof localhost:6060` serves Go's profiles (CPU, memory, goroutines) for `go tool pprof http://localhost:6060/debug/pprof/profile`, to see where the detection spends its time. Keep it on `localhost`: there is no login.

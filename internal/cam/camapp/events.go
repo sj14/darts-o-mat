@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	"image/png"
 	"log"
 	"os"
 	"path/filepath"
@@ -40,7 +41,7 @@ type Event struct {
 	frames map[frameKey][]byte // JPEG
 }
 
-// frameKey names a camera's frame of a detection: kind is one of frameKinds.
+// frameKey names a camera's frame of a detection: kind is "before" or "after".
 type frameKey struct {
 	camera int
 	kind   string
@@ -106,8 +107,9 @@ func (a *App) Event(id int) (Event, bool) {
 	return Event{}, false
 }
 
-// AddEvent keeps a detection to show it, its frames as JPEG (and with Options.SaveDir
-// also on disk). It returns its ID, a new one unless e has one from newEventID.
+// AddEvent keeps a detection to show it, its frames as JPEG (with Options.SaveDir also
+// on disk as PNG, see saveFrames). It returns its ID, a new one unless e has one from
+// newEventID.
 func (a *App) AddEvent(e Event) int {
 	if e.ID == 0 {
 		e.ID = a.newEventID()
@@ -116,12 +118,8 @@ func (a *App) AddEvent(e Event) int {
 		e.Time = time.Now()
 	}
 
-	e.frames = encodeFrames(e.Before, e.After)
-	if a.opts.SaveDir != "" {
-		if err := a.saveFrames(e); err != nil {
-			log.Printf("save the frames of event %d: %v", e.ID, err)
-		}
-	}
+	before, after := e.Before, e.After
+	e.frames = encodeFrames(before, after)
 	withoutFrames := *e.Event
 	withoutFrames.Before, withoutFrames.After = nil, nil
 	e.Event = &withoutFrames
@@ -142,6 +140,12 @@ func (a *App) AddEvent(e Event) int {
 	}
 	a.evMu.Unlock()
 	a.newEvent.Notify()
+
+	if a.opts.SaveDir != "" {
+		if err := a.saveFrames(e, before, after); err != nil {
+			log.Printf("save the frames of event %d: %v", e.ID, err)
+		}
+	}
 	return e.ID
 }
 
@@ -151,41 +155,60 @@ func (a *App) WatchEvents() (<-chan struct{}, func()) {
 	return a.newEvent.Subscribe()
 }
 
-// frameKinds are the frames kept per camera of a detection.
-var frameKinds = []string{"before", "after"}
-
-// encodeFrames returns the frames before and after a detection as JPEG.
-func encodeFrames(before, after []*image.RGBA) map[frameKey][]byte {
-	frames := map[frameKey][]byte{}
+// eachFrame calls f with every frame of a detection, before and after per camera, until
+// f returns an error.
+func eachFrame(before, after []*image.RGBA, f func(frameKey, *image.RGBA) error) error {
 	for kind, imgs := range map[string][]*image.RGBA{"before": before, "after": after} {
 		for i, img := range imgs {
 			if img == nil {
 				continue
 			}
-			var buf bytes.Buffer
-			if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: JPEGQuality}); err != nil {
-				continue // only a frame larger than JPEG allows
+			if err := f(frameKey{i, kind}, img); err != nil {
+				return err
 			}
-			frames[frameKey{i, kind}] = buf.Bytes()
 		}
 	}
+	return nil
+}
+
+// encodeFrames returns the frames before and after a detection as JPEG.
+func encodeFrames(before, after []*image.RGBA) map[frameKey][]byte {
+	frames := map[frameKey][]byte{}
+	_ = eachFrame(before, after, func(k frameKey, img *image.RGBA) error {
+		var buf bytes.Buffer
+		// Fails only for a frame larger than JPEG allows: then it isn't kept.
+		if jpeg.Encode(&buf, img, &jpeg.Options{Quality: JPEGQuality}) == nil {
+			frames[k] = buf.Bytes()
+		}
+		return nil
+	})
 	return frames
 }
 
 // FrameName returns the file name of a camera's frame of a detection, like
-// 003-cam1-before.jpg, as darts-o-cam analyze reads them.
-func (e Event) FrameName(camera int, kind string) string {
-	return fmt.Sprintf("%03d-%s-%s.jpg", e.ID, e.Cameras[camera], kind)
+// 003-cam1-before.jpg for ext ".jpg", as darts-o-cam analyze reads them.
+func (e Event) FrameName(camera int, kind, ext string) string {
+	return fmt.Sprintf("%03d-%s-%s%s", e.ID, e.Cameras[camera], kind, ext)
 }
 
-// saveFrames writes a detection's frames into Options.SaveDir.
-func (a *App) saveFrames(e Event) error {
-	for k, data := range e.frames {
-		if err := os.WriteFile(filepath.Join(a.opts.SaveDir, e.FrameName(k.camera, k.kind)), data, 0o644); err != nil {
+// saveFrames writes a detection's frames into Options.SaveDir as PNG: lossless, so
+// darts-o-cam analyze computes exactly what the detection did. A JPEG changed the result
+// in borderline cases (2026-10-22, event 211: cam1 found a dart live, not in the JPEGs),
+// but a PNG takes about 3 times as long to encode (~0.6 s per detection with three
+// cameras), too much for every detection, so only with -save.
+func (a *App) saveFrames(e Event, before, after []*image.RGBA) error {
+	enc := png.Encoder{CompressionLevel: png.BestSpeed} // hardly larger than the default, 25 % faster
+	return eachFrame(before, after, func(k frameKey, img *image.RGBA) error {
+		f, err := os.Create(filepath.Join(a.opts.SaveDir, e.FrameName(k.camera, k.kind, ".png")))
+		if err != nil {
 			return err
 		}
-	}
-	return nil
+		err = enc.Encode(f, img)
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+		return err
+	})
 }
 
 // EventFrame returns a camera's frame before or after a detection (kind "before" or
