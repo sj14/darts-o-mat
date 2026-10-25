@@ -153,6 +153,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	}
 
 	// Each camera is evaluated once, all at the same time: it takes a while per frame.
+	after := make([]*image.RGBA, len(frames)) // with the exposure of ref
 	changes := make([]*Mask, len(frames))
 	areas := make([][]image.Point, len(frames))
 	detections := make([]Detection, len(frames))
@@ -165,14 +166,14 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		}
 		wg.Go(func() {
 			p := w.params[i].detect
-			changes[i] = p.changed(ref[i], f)
+			after[i], changes[i] = p.compare(ref[i], f)
 			detections[i], areas[i], errs[i] = detect(changes[i], p, darts, nil)
 		})
 	}
 	wg.Wait()
 
 	// Comparing images can't tell a dart that appeared from one that disappeared.
-	if w.removed(ref, frames, changes) {
+	if w.removed(ref, after, changes) {
 		return w.takeout(ref, frames)
 	}
 
@@ -236,7 +237,7 @@ func (w *Watcher) removed(before, after []*image.RGBA, changed []*Mask) bool {
 }
 
 // PulledOut reports whether a change took darts out of the board rather than adding
-// one: the changed pixels (per camera, see Changed) look more like the empty board
+// one: the changed pixels (per camera, see Compare) look more like the empty board
 // afterwards. Comparing images can't tell a dart that appeared from one that disappeared.
 //
 // All changed pixels, not only the dart's area: darts pulled out change where they were,

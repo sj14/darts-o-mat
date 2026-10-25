@@ -555,7 +555,8 @@ func TestDetectDartBesideMovedDart(t *testing.T) {
 	}
 	// The area remembered as this dart is the first attempt's, not what the retry left: it
 	// also holds where the knocked dart moved to.
-	if _, whole := dartArea(Changed(before, after, DefaultDetectOptions, ReferenceScale), DefaultDetectOptions.pixels(ReferenceScale), nil); len(area) != len(whole) {
+	_, changed := Compare(before, after, DefaultDetectOptions, ReferenceScale)
+	if _, whole := dartArea(changed, DefaultDetectOptions.pixels(ReferenceScale), nil); len(area) != len(whole) {
 		t.Errorf("area of %d px, want the first attempt's %d px", len(area), len(whole))
 	}
 	want := dartboard.Point{X: 985, Y: 320} // where the point enters the board, at the double's wire

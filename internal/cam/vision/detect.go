@@ -201,7 +201,8 @@ func DetectDart(before, after *image.RGBA, opts DetectOptions, scale float64) (D
 // changed area of this dart.
 func DetectDartBeside(before, after *image.RGBA, opts DetectOptions, scale float64, earlier []image.Point) (Detection, []image.Point, error) {
 	p := opts.pixels(scale)
-	return detect(p.changed(before, after), p, dartsMask(before.Bounds(), earlier), nil)
+	_, changed := p.compare(before, after)
+	return detect(changed, p, dartsMask(before.Bounds(), earlier), nil)
 }
 
 // dartsMask marks the changed pixels of the darts thrown earlier; nil without any.
@@ -224,7 +225,7 @@ func dartsMask(b image.Rectangle, earlier []image.Point) *Mask {
 // hidden, so the camera that saw the triple best was dropped.
 var hiddenDistance = px(4)
 
-// detect is DetectDart on the changed pixels (see Changed), so the watcher compares the
+// detect is DetectDart on the changed pixels (see Compare), so the watcher compares the
 // images only once per camera and decides on the same pixels whether darts were pulled
 // out (see PulledOut). It also returns the dart's area, which the watcher remembers as
 // an earlier dart.
@@ -313,13 +314,15 @@ func detectIn(mask *Mask, p detectParams, tr *Trace) (Detection, []image.Point, 
 	return d, area, err
 }
 
-// Changed returns the pixels that changed between two frames, as DetectDart sees them.
-func Changed(before, after *image.RGBA, opts DetectOptions, scale float64) *Mask {
-	return opts.pixels(scale).changed(before, after)
+// Compare compares two frames of a camera as DetectDart does: it returns after with the
+// exposure of before (see matchExposure) and the pixels that changed between them.
+func Compare(before, after *image.RGBA, opts DetectOptions, scale float64) (*image.RGBA, *Mask) {
+	return opts.pixels(scale).compare(before, after)
 }
 
-func (p detectParams) changed(before, after *image.RGBA) *Mask {
-	return Diff(before, after, p.diff, p.weak, p.blur)
+func (p detectParams) compare(before, after *image.RGBA) (*image.RGBA, *Mask) {
+	after = matchExposure(before, after)
+	return after, Diff(before, after, p.diff, p.weak, p.blur)
 }
 
 // dartArea finds the pixels of the new dart. The changed area often falls apart: a dark

@@ -188,6 +188,7 @@ func analyze(args []string) error {
 		type frames struct {
 			cam           vision.CameraCalibration
 			before, after *image.RGBA
+			matched       *image.RGBA // after with the exposure of before
 			changed       *vision.Mask
 		}
 		var cams []frames
@@ -207,7 +208,8 @@ func analyze(args []string) error {
 				return err
 			}
 			scale := vision.PixelScale(m.ToBoard)
-			cams = append(cams, frames{cam, before, after, vision.Changed(before, after, opts, scale)})
+			matched, changed := vision.Compare(before, after, opts, scale)
+			cams = append(cams, frames{cam, before, after, matched, changed})
 			takeout = takeout || watch.Takeout(before, after, scale)
 			withEmpty = withEmpty && empty[cam.Name] != nil
 		}
@@ -216,7 +218,7 @@ func analyze(args []string) error {
 			var before, after, empties []*image.RGBA
 			var changes []*vision.Mask
 			for _, c := range cams {
-				before, after, changes = append(before, c.before), append(after, c.after), append(changes, c.changed)
+				before, after, changes = append(before, c.before), append(after, c.matched), append(changes, c.changed)
 				empties = append(empties, empty[c.cam.Name])
 			}
 			takeout = vision.PulledOut(before, after, empties, changes)
