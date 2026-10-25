@@ -200,11 +200,26 @@ func TestWatcherRemovedReal(t *testing.T) {
 			after := loadRGBA(t, "testdata/throws/"+tt.event+"-"+tt.camera+"-after.jpg")
 			w := NewWatcher(nil, DefaultWatchOptions)
 			w.Empty = []*image.RGBA{loadRGBA(t, "testdata/"+tt.camera+"-empty.jpg")}
-			area := ChangedArea(before, after, DefaultDetectOptions, ReferenceScale)
-			if got := w.removed([]*image.RGBA{before}, []*image.RGBA{after}, [][]image.Point{area}); got != tt.removed {
+			changed := Changed(before, after, DefaultDetectOptions, ReferenceScale)
+			if got := w.removed([]*image.RGBA{before}, []*image.RGBA{after}, []*Mask{changed}); got != tt.removed {
 				t.Errorf("removed = %v, want %v", got, tt.removed)
 			}
 		})
+	}
+}
+
+// Three darts pulled out (2026-10-25, event 9, cam2): the dart-shaped part of the change
+// is a sliver of 243 px that looked like a throw (ratio 1.85); all changed pixels show the
+// takeout. Its own empty board, as calibrated then.
+func TestWatcherRemovedAllChangedPixels(t *testing.T) {
+	t.Parallel()
+	before := loadRGBA(t, "testdata/throws/009-cam2-before.jpg")
+	after := loadRGBA(t, "testdata/throws/009-cam2-after.jpg")
+	w := NewWatcher(nil, DefaultWatchOptions)
+	w.Empty = []*image.RGBA{loadRGBA(t, "testdata/throws/009-cam2-empty.jpg")}
+	changed := Changed(before, after, DefaultDetectOptions, ReferenceScale)
+	if !w.removed([]*image.RGBA{before}, []*image.RGBA{after}, []*Mask{changed}) {
+		t.Error("darts pulled out counted as a throw")
 	}
 }
 
@@ -224,17 +239,17 @@ func TestWatcherRemovedExposure(t *testing.T) {
 	} {
 		t.Run(tt.event, func(t *testing.T) {
 			var before, after, empty []*image.RGBA
-			var areas [][]image.Point
+			var changes []*Mask
 			for c := 1; c <= 3; c++ {
 				name := fmt.Sprintf("testdata/exposure/%s-cam%d-", tt.event, c)
 				b, a := loadRGBA(t, name+"before.jpg"), loadRGBA(t, name+"after.jpg")
 				before, after = append(before, b), append(after, a)
 				empty = append(empty, loadRGBA(t, fmt.Sprintf("testdata/exposure/cam%d-empty.jpg", c)))
-				areas = append(areas, ChangedArea(b, a, DefaultDetectOptions, ReferenceScale))
+				changes = append(changes, Changed(b, a, DefaultDetectOptions, ReferenceScale))
 			}
 			w := NewWatcher(nil, DefaultWatchOptions)
 			w.Empty = empty
-			if got := w.removed(before, after, areas); got != tt.removed {
+			if got := w.removed(before, after, changes); got != tt.removed {
 				t.Errorf("removed = %v, want %v", got, tt.removed)
 			}
 		})
@@ -258,17 +273,17 @@ func TestWatcherRemovedExposureTwoCameras(t *testing.T) {
 	} {
 		t.Run(tt.event, func(t *testing.T) {
 			var before, after, empty []*image.RGBA
-			var areas [][]image.Point
+			var changes []*Mask
 			for _, c := range []string{"cam1", "cam3"} {
 				name := "testdata/throws/" + tt.event + "-" + c + "-"
 				b, a := loadRGBA(t, name+"before.jpg"), loadRGBA(t, name+"after.jpg")
 				before, after = append(before, b), append(after, a)
 				empty = append(empty, loadRGBA(t, "testdata/exposure/two-"+c+"-empty.jpg"))
-				areas = append(areas, ChangedArea(b, a, DefaultDetectOptions, ReferenceScale))
+				changes = append(changes, Changed(b, a, DefaultDetectOptions, ReferenceScale))
 			}
 			w := NewWatcher(nil, DefaultWatchOptions)
 			w.Empty = empty
-			if got := w.removed(before, after, areas); got != tt.removed {
+			if got := w.removed(before, after, changes); got != tt.removed {
 				t.Errorf("removed = %v, want %v", got, tt.removed)
 			}
 		})

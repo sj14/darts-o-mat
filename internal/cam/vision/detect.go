@@ -5,6 +5,7 @@ import (
 	"errors"
 	"image"
 	"image/draw"
+	"iter"
 	"math"
 	"slices"
 
@@ -117,6 +118,17 @@ func (m *Mask) Count() int {
 	return n
 }
 
+// points yields the changed pixels.
+func (m *Mask) points() iter.Seq[image.Point] {
+	return func(yield func(image.Point) bool) {
+		for i, set := range m.Pix {
+			if set && !yield(image.Pt(i%m.W, i/m.W)) {
+				return
+			}
+		}
+	}
+}
+
 // Diff returns the pixels where any color channel differs by more than threshold,
 // plus the pixels above weak that are connected to them (hysteresis).
 // Colors matter: a silver dart on the red or green bull has about the same brightness.
@@ -188,7 +200,8 @@ func DetectDart(before, after *image.RGBA, opts DetectOptions, scale float64) (D
 // without them if the change isn't shaped like a dart, see detect. It also returns the
 // changed area of this dart.
 func DetectDartBeside(before, after *image.RGBA, opts DetectOptions, scale float64, earlier []image.Point) (Detection, []image.Point, error) {
-	return detect(before, after, opts.pixels(scale), dartsMask(before.Bounds(), earlier), nil)
+	p := opts.pixels(scale)
+	return detect(p.changed(before, after), p, dartsMask(before.Bounds(), earlier), nil)
 }
 
 // dartsMask marks the changed pixels of the darts thrown earlier; nil without any.
@@ -211,8 +224,10 @@ func dartsMask(b image.Rectangle, earlier []image.Point) *Mask {
 // hidden, so the camera that saw the triple best was dropped.
 var hiddenDistance = px(4)
 
-// detect is DetectDart that also returns the changed area, so the watcher compares the
-// images only once per camera.
+// detect is DetectDart on the changed pixels (see Changed), so the watcher compares the
+// images only once per camera and decides on the same pixels whether darts were pulled
+// out (see PulledOut). It also returns the dart's area, which the watcher remembers as
+// an earlier dart.
 //
 // darts marks the changed pixels of the darts thrown earlier (nil: none). If the change
 // isn't shaped like a dart, it tries again without the changes there: a dart hit by the
@@ -228,14 +243,11 @@ var hiddenDistance = px(4)
 // where they were taken out, as that is where it was cut, not its point (2026-10-25,
 // event 19, cam3: a piece of the shaft beside a group in the 18 ended in the 20).
 //
-// The area returned is the whole change, also after the retry: the watcher tells a
-// takeout by it, and darts pulled out change exactly where the retry leaves out (2026-10-25,
-// event 149: cam3's remnant of 3557 px of 26,697 looked like a throw, ratio 2.14 instead
-// of 0.20, and the takeout scored a 12). It also holds where a knocked dart moved to.
+// The area returned is the first attempt's, also after the retry: it also holds where a
+// knocked dart moved to.
 //
 // tr, if not nil, records the steps (see Trace).
-func detect(before, after *image.RGBA, p detectParams, darts *Mask, tr *Trace) (Detection, []image.Point, error) {
-	mask := Diff(before, after, p.diff, p.weak, p.blur)
+func detect(mask *Mask, p detectParams, darts *Mask, tr *Trace) (Detection, []image.Point, error) {
 	if tr != nil {
 		tr.Changed, tr.Earlier = mask, darts
 	}
@@ -301,11 +313,13 @@ func detectIn(mask *Mask, p detectParams, tr *Trace) (Detection, []image.Point, 
 	return d, area, err
 }
 
-// ChangedArea returns the changed pixels that DetectDart looks at, e.g. to debug a detection.
-func ChangedArea(before, after *image.RGBA, opts DetectOptions, scale float64) []image.Point {
-	p := opts.pixels(scale)
-	_, area := dartArea(Diff(before, after, p.diff, p.weak, p.blur), p, nil)
-	return area
+// Changed returns the pixels that changed between two frames, as DetectDart sees them.
+func Changed(before, after *image.RGBA, opts DetectOptions, scale float64) *Mask {
+	return opts.pixels(scale).changed(before, after)
+}
+
+func (p detectParams) changed(before, after *image.RGBA) *Mask {
+	return Diff(before, after, p.diff, p.weak, p.blur)
 }
 
 // dartArea finds the pixels of the new dart. The changed area often falls apart: a dark

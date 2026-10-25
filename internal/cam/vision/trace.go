@@ -40,7 +40,8 @@ type Line struct {
 // TraceDart is DetectDartBeside recording its steps.
 func TraceDart(before, after *image.RGBA, opts DetectOptions, scale float64, earlier []image.Point) Trace {
 	var tr Trace
-	tr.Tip, _, tr.Err = detect(before, after, opts.pixels(scale), dartsMask(before.Bounds(), earlier), &tr)
+	p := opts.pixels(scale)
+	tr.Tip, _, tr.Err = detect(p.changed(before, after), p, dartsMask(before.Bounds(), earlier), &tr)
 	return tr
 }
 

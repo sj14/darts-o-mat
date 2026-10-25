@@ -188,7 +188,7 @@ func analyze(args []string) error {
 		type frames struct {
 			cam           vision.CameraCalibration
 			before, after *image.RGBA
-			area          []image.Point
+			changed       *vision.Mask
 		}
 		var cams []frames
 		// Like the detection: only if every camera with frames has an image of the empty
@@ -207,19 +207,19 @@ func analyze(args []string) error {
 				return err
 			}
 			scale := vision.PixelScale(m.ToBoard)
-			cams = append(cams, frames{cam, before, after, vision.ChangedArea(before, after, opts, scale)})
+			cams = append(cams, frames{cam, before, after, vision.Changed(before, after, opts, scale)})
 			takeout = takeout || watch.Takeout(before, after, scale)
 			withEmpty = withEmpty && empty[cam.Name] != nil
 		}
 		withEmpty = withEmpty && len(cams) > 0
 		if !takeout && withEmpty {
 			var before, after, empties []*image.RGBA
-			var areas [][]image.Point
+			var changes []*vision.Mask
 			for _, c := range cams {
-				before, after, areas = append(before, c.before), append(after, c.after), append(areas, c.area)
+				before, after, changes = append(before, c.before), append(after, c.after), append(changes, c.changed)
 				empties = append(empties, empty[c.cam.Name])
 			}
-			takeout = vision.PulledOut(before, after, empties, areas)
+			takeout = vision.PulledOut(before, after, empties, changes)
 		}
 		if takeout {
 			fmt.Printf("event %d: darts pulled out\n", n)
@@ -233,11 +233,13 @@ func analyze(args []string) error {
 			scale := vision.PixelScale(m.ToBoard)
 			annotated := image.NewRGBA(c.after.Bounds())
 			copy(annotated.Pix, c.after.Pix)
-			for _, p := range c.area {
-				annotated.SetRGBA(p.X, p.Y, color.RGBA{255, 0, 0, 255})
+			for i, set := range c.changed.Pix {
+				if set {
+					annotated.SetRGBA(i%c.changed.W, i/c.changed.W, color.RGBA{255, 0, 0, 255})
+				}
 			}
 
-			line := fmt.Sprintf("event %d %s: changed %d px", n, c.cam.Name, len(c.area))
+			line := fmt.Sprintf("event %d %s: changed %d px", n, c.cam.Name, c.changed.Count())
 			if d, dartArea, err := vision.DetectDartBeside(c.before, c.after, opts, scale, earlier[c.cam.Name]); err != nil {
 				line += ", " + err.Error()
 			} else {

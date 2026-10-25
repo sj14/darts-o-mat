@@ -153,6 +153,7 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 	}
 
 	// Each camera is evaluated once, all at the same time: it takes a while per frame.
+	changes := make([]*Mask, len(frames))
 	areas := make([][]image.Point, len(frames))
 	detections := make([]Detection, len(frames))
 	errs := make([]error, len(frames))
@@ -162,12 +163,16 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 		if i < len(w.darts) {
 			darts = w.darts[i]
 		}
-		wg.Go(func() { detections[i], areas[i], errs[i] = detect(ref[i], f, w.params[i].detect, darts, nil) })
+		wg.Go(func() {
+			p := w.params[i].detect
+			changes[i] = p.changed(ref[i], f)
+			detections[i], areas[i], errs[i] = detect(changes[i], p, darts, nil)
+		})
 	}
 	wg.Wait()
 
 	// Comparing images can't tell a dart that appeared from one that disappeared.
-	if w.removed(ref, frames, areas) {
+	if w.removed(ref, frames, changes) {
 		return w.takeout(ref, frames)
 	}
 
@@ -208,21 +213,22 @@ func (w *Watcher) Feed(frames []*image.RGBA) *Event {
 
 // removed reports whether the change took darts away rather than adding one.
 // With images of the empty board: see PulledOut. Without them: the change lies mostly
-// where darts seen earlier are.
-func (w *Watcher) removed(before, after []*image.RGBA, areas [][]image.Point) bool {
+// where darts seen earlier are. changed are the changed pixels per camera.
+func (w *Watcher) removed(before, after []*image.RGBA, changed []*Mask) bool {
 	if len(w.Empty) == len(after) {
-		return PulledOut(before, after, w.Empty, areas)
+		return PulledOut(before, after, w.Empty, changed)
 	}
 
 	var inside, total int
-	for i, area := range areas {
-		total += len(area)
+	for i, m := range changed {
+		var darts *Mask
 		if i < len(w.darts) && w.darts[i] != nil {
-			darts := w.darts[i].dilate(w.params[i].detect.dartMargin)
-			for _, p := range area {
-				if darts.at(p.X, p.Y) {
-					inside++
-				}
+			darts = w.darts[i].dilate(w.params[i].detect.dartMargin)
+		}
+		for p := range m.points() {
+			total++
+			if darts != nil && darts.at(p.X, p.Y) {
+				inside++
 			}
 		}
 	}
@@ -230,9 +236,15 @@ func (w *Watcher) removed(before, after []*image.RGBA, areas [][]image.Point) bo
 }
 
 // PulledOut reports whether a change took darts out of the board rather than adding
-// one: the changed areas (per camera) look more like the empty board afterwards. Comparing
-// images can't tell a dart that appeared from one that disappeared.
-func PulledOut(before, after, empty []*image.RGBA, areas [][]image.Point) bool {
+// one: the changed pixels (per camera, see Changed) look more like the empty board
+// afterwards. Comparing images can't tell a dart that appeared from one that disappeared.
+//
+// All changed pixels, not only the dart's area: darts pulled out change where they were,
+// while the area is the dart-shaped part of the change, after a takeout some sliver
+// (2026-10-25, event 9: cam1 and cam2 voted with 479 and 243 px, ratios 1.18 and 1.85,
+// for a throw; with all changed pixels cam2 and cam3 vote for the takeout, 0.18 and
+// 0.16, and only cam1, whose exposure changed over 257,335 px, for a throw).
+func PulledOut(before, after, empty []*image.RGBA, changed []*Mask) bool {
 	// Each camera votes on its own: one camera whose exposure changed while a hand was
 	// in front of it differs from the empty board almost everywhere and would outweigh
 	// the others in a sum (seen on a real takeout: 0.06 and 0.08 vs. 1.9). A tie is
@@ -242,14 +254,15 @@ func PulledOut(before, after, empty []*image.RGBA, areas [][]image.Point) bool {
 	// (ratios 0.08 and 2.84).
 	var votes, cameras int
 	var logRatios float64
-	for i, area := range areas {
-		if len(area) == 0 {
-			continue
-		}
-		var beforeDiff, afterDiff int
-		for _, p := range area {
+	for i, m := range changed {
+		var n, beforeDiff, afterDiff int
+		for p := range m.points() {
+			n++
 			beforeDiff += pixelDiff(before[i], empty[i], p)
 			afterDiff += pixelDiff(after[i], empty[i], p)
+		}
+		if n == 0 {
+			continue
 		}
 		// Measured on real events: about 0.05 for darts pulled out (0.55 when a
 		// neighboring dart moved, too), 4 to 17 for darts thrown.
