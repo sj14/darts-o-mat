@@ -23,6 +23,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/cam/camui"
 	"github.com/sj14/darts-o-mat/internal/cam/vision"
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
+	"github.com/sj14/darts-o-mat/internal/common/profiling"
 	"github.com/sj14/darts-o-mat/internal/common/update"
 )
 
@@ -64,6 +65,7 @@ Starts darts-o-cam and its web interface, where the cameras are added and calibr
 	ui := fs.String("ui", defaultUI, "how to show the web interface: window (a window of its own; closing it stops darts-o-cam), browser, or none (default none without a display)")
 	verbose := fs.Bool("v", false, "log whenever the board starts moving")
 	saveDir := fs.String("save", "", "directory to keep the camera frames of every detection in, for debugging (default: only the last ones, in the cache directory)")
+	pprofAddr := fs.String("pprof", "", profiling.Usage)
 	_ = fs.Parse(args)
 	if !slices.Contains([]string{"window", "browser", "none"}, *ui) {
 		return fmt.Errorf("-ui must be window, browser or none, not %q", *ui)
@@ -102,6 +104,9 @@ Starts darts-o-cam and its web interface, where the cameras are added and calibr
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	update.Start(ctx)
 	defer stop()
+	if err := profiling.Start(ctx, *pprofAddr); err != nil {
+		return fmt.Errorf("profiling: %w", err)
+	}
 	// Requests end with the program, also the overview's open stream of detections.
 	srv := &http.Server{Handler: camui.New(app).Routes(), BaseContext: func(net.Listener) context.Context { return ctx }}
 	go func() {

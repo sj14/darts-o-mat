@@ -107,7 +107,7 @@ One Go module for the project: the programs' `main` packages are in `cmd/` (`cmd
 
 Because the compiler doesn't keep the programs apart, `internal/common/layout_test.go` does: `common` imports neither `server` nor `cam`, `server` not `cam`, `cam` not `server`. `common` is what both programs share and must stay small and free of what only one needs; what only the server knows (the game's log entry `throw.Dart` with its database tags) stays in `internal/server/domain/throw`, so the camera doesn't compile in the database library.
 
-- [`common`](internal/common): what both programs share: `dartboard` (board geometry, `Segment` and `Hit`, the dart as the cameras report it), `i18n`, `notify`, `sse`, `buildinfo`, `update`, `static`
+- [`common`](internal/common): what both programs share: `dartboard` (board geometry, `Segment` and `Hit`, the dart as the cameras report it), `i18n`, `notify`, `sse`, `buildinfo`, `update`, `profiling`, `static`
 - [`server`](internal/server/AGENTS.md): the web server (main package in [`cmd/darts-o-mat`](cmd/darts-o-mat); `api`, `auth`, `captcha`, `service`, `store`, `domain`, `frontend`)
 - [`cam`](internal/cam/AGENTS.md): the camera app (main package in [`cmd/darts-o-cam`](cmd/darts-o-cam); `camapp`, `camui`, `vision`, `camera`)
 - [`tools`](tools): packaging and generators, see below
@@ -120,6 +120,7 @@ In detail:
 - `internal/server/domain`: domain logic (board, players, darts, game modes X01 and Around the Clock, tournaments, the texts of the imprint and privacy pages, the admin's settings of the server); `internal/common/dartboard` (board geometry) is used by server and camera
 - `internal/server/store`: persistence (server)
 - `internal/common/update`: finds out whether a newer release exists (GitHub, once a day) for the footers of server and camera, see [the rule above](#from-the-home-server-to-saas) (server, camera)
+- `internal/common/profiling`: serves Go's profiles (`net/http/pprof`) on an address of its own with `-pprof` (server, camera), off by default; the web interfaces never serve them, since the profiles have no login
 - `internal/server/captcha`: the optional check that a registration comes from a person (Cloudflare Turnstile), see [server → captcha](internal/server/AGENTS.md#captcha) (server)
 - `internal/common/i18n`: language of the web interfaces (negotiation, request context), see [languages](#languages)
 - `internal/common/notify`: tells subscribers about changes (`Signal`, `Hub` by key); `internal/common/sse`: streams Server-Sent Events for htmx (`Stream`, with keepalive); both used by server and camera

@@ -65,6 +65,9 @@ spec:
             {{- if $postgres }}
             - -dsn=$(DARTS_O_MAT_DSN)
             {{- end }}
+            {{- if .Values.pprof.enabled }}
+            - -pprof=localhost:{{ .Values.pprof.port }}
+            {{- end }}
             {{- with .Values.extraArgs }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

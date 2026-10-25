@@ -119,6 +119,13 @@ readinessProbe:
     path: /login
     port: http
 
+# Go's profiles (CPU, memory, goroutines) for developers, on localhost in the pod only:
+# kubectl port-forward deploy/<release>-darts-o-mat 6060, then e.g.
+# go tool pprof http://localhost:6060/debug/pprof/profile
+pprof:
+  enabled: false
+  port: 6060
+
 # More flags and environment variables of the server.
 extraArgs: []
 extraEnv: []
