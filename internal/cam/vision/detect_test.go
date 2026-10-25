@@ -523,6 +523,24 @@ func TestDetectIgnoresSpeckBelowTip(t *testing.T) {
 	}
 }
 
+// A black barrel in front of a black field doesn't change the image, so barrel and
+// point come apart from flight and shaft; the pieces below on the dart's axis are still
+// the dart (2026-10-25, darts-o-cam event 407, cam1: an S9 scored 12, the tip at the
+// end of the shaft, off the double).
+func TestDetectBlackBarrelOnBlack(t *testing.T) {
+	t.Parallel()
+	before := loadRGBA(t, "testdata/throws/407-cam1-before.jpg")
+	after := loadRGBA(t, "testdata/throws/407-cam1-after.jpg")
+	d, err := DetectDart(before, after, DefaultDetectOptions, ReferenceScale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := dartboard.Point{X: 542, Y: 287} // where the point enters the board
+	if dist := math.Hypot(d.Tip.X-want.X, d.Tip.Y-want.Y); dist > 4 {
+		t.Errorf("tip at %.0f,%.0f px, want %.0f,%.0f (off by %.0f px)", d.Tip.X, d.Tip.Y, want.X, want.Y, dist)
+	}
+}
+
 // A dart hit by the next one moves a little; its outline then changes too, merges with
 // the new dart and makes the change too wide to be a dart. Real D1 next to a dart in
 // the 1 (2026-10-13, cam1 of event 95, after 93 and 94 since the takeout): with the

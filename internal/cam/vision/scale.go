@@ -46,6 +46,7 @@ type detectParams struct {
 	axisDistance  int
 	// dartMargin and hiddenDistance are about the darts thrown earlier, see detect.
 	dartMargin, hiddenDistance int
+	barrelGap                  int // see dartArea
 }
 
 // pixels converts the options for a camera with the given scale (pixels per mm).
@@ -61,6 +62,7 @@ func (o DetectOptions) pixels(scale float64) detectParams {
 		axisDistance:   length(o.AxisDistance, scale),
 		dartMargin:     length(dartMargin, scale),
 		hiddenDistance: length(hiddenDistance, scale),
+		barrelGap:      length(barrelGap, scale),
 	}
 }
 

@@ -325,6 +325,12 @@ func (p detectParams) compare(before, after *image.RGBA) (*image.RGBA, *Mask) {
 	return after, Diff(before, after, p.diff, p.weak, p.blur)
 }
 
+// barrelGap is how far below the dart found so far a piece on its axis may start and
+// still belong to it (see dartArea). The gaps that black barrels left in front of black
+// fields were 7 to 25 px (events 15 to 407 of 2026-10-25); color noise at a ring's edge
+// 56 px below a real tip (2026-10-13) became the tip when it counted.
+var barrelGap = px(35)
+
 // dartArea finds the pixels of the new dart. The changed area often falls apart: a dark
 // shaft on a black field doesn't show, so flight and barrel become separate pieces. The
 // seed is the largest elongated piece: barrel and point; a piece that includes the flight
@@ -332,10 +338,11 @@ func (p detectParams) compare(before, after *image.RGBA) (*image.RGBA, *Mask) {
 // is only half as long (2026-10-14, event 4: a dart passing behind an earlier dart's
 // flight fell apart, its barrel piece had 3.9 in the lower half and 7.4 as a whole).
 // Pieces on the seed's axis above its lower end, like the flight, belong to the dart;
-// specks elsewhere don't. Below the seed is
-// board: a speck there on the axis (color noise at a ring's edge, 56 px below a real
-// dart's tip, 2026-10-13) would become the tip. Small gaps in the point are bridged
-// already (GapRadius); no real throw had a piece of the dart below the seed.
+// specks elsewhere don't. Pieces on the axis below it belong to it too while each
+// starts at most barrelGap below the dart so far: a black barrel in front of a black
+// field doesn't change at all, and the barrel in front of a white ring and the point
+// come apart from the seed (2026-10-25, event 407, cam1: the tip at the end of the
+// shaft, 219 mm from the center, instead of in the 9). Farther below is board.
 func dartArea(mask *Mask, p detectParams, tr *Trace) (seed, area []image.Point) {
 	var comps [][]image.Point
 	for _, c := range mask.componentsBridging(p.gap) {
@@ -379,16 +386,36 @@ func dartArea(mask *Mask, p detectParams, tr *Trace) (seed, area []image.Point) 
 	axis = downwards(axis)
 	end := extent(seed, axis) // the seed's lower end along the axis
 	area = slices.Clone(seed) // its own center may be off the axis, e.g. with a big flight
+	type piece struct {
+		pts   []image.Point
+		start float64
+	}
+	var below []piece
 	for i, c := range comps {
 		if i == seedIndex {
 			continue
 		}
 		cc, _, _ := principalAxis(c)
 		// Distance of the piece's center from the axis line, and where the piece starts.
-		onAxis := math.Abs((cc.X-center.X)*axis.Y-(cc.Y-center.Y)*axis.X) <= float64(p.axisDistance)
-		if onAxis && -extent(c, dartboard.Point{X: -axis.X, Y: -axis.Y}) <= end {
-			area = append(area, c...)
+		if math.Abs((cc.X-center.X)*axis.Y-(cc.Y-center.Y)*axis.X) > float64(p.axisDistance) {
+			continue
 		}
+		start := -extent(c, dartboard.Point{X: -axis.X, Y: -axis.Y})
+		if start <= end {
+			area = append(area, c...)
+		} else {
+			below = append(below, piece{c, start})
+		}
+	}
+	// Below the seed from the top, as long as each piece continues the dart.
+	slices.SortFunc(below, func(a, b piece) int { return cmp.Compare(a.start, b.start) })
+	low := extent(area, axis)
+	for _, b := range below {
+		if b.start-low > float64(p.barrelGap) {
+			break
+		}
+		area = append(area, b.pts...)
+		low = max(low, extent(b.pts, axis))
 	}
 	return seed, area
 }

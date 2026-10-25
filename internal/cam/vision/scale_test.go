@@ -34,7 +34,7 @@ func TestDefaultsInPixels(t *testing.T) {
 	t.Parallel()
 	got := DefaultWatchOptions.pixels(ReferenceScale)
 	want := watchParams{
-		detect:          detectParams{diff: 25, weak: 12, blur: 2, gap: 3, minPixels: 150, minSpeck: 15, minElongation: 4, axisDistance: 12, dartMargin: 5, hiddenDistance: 4},
+		detect:          detectParams{diff: 25, weak: 12, blur: 2, gap: 3, minPixels: 150, minSpeck: 15, minElongation: 4, axisDistance: 12, dartMargin: 5, hiddenDistance: 4, barrelGap: 35},
 		sampleStep:      4,
 		motionThreshold: 40,
 		motionSamples:   40,
