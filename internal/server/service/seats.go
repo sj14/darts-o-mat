@@ -186,8 +186,18 @@ func (s *Service) takeSeats(ctx context.Context, acc account.Account, st seat, s
 // guest, e.g. while the account's own player plays on another board), on the board if one
 // is given. Its other players are added and friends invited in the lobby (AddPlayer,
 // Invite), then a player starts it (Start). Nobody owns the game: the account has no more
-// rights in it than the others.
+// rights in it than the others. The settings become the account's last of the mode, which
+// the start form shows again (NewSettings).
 func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Game, playerID int64, boardID *int64) (GameView, error) {
+	v, err := s.createGame(ctx, acc, g, playerID, boardID)
+	if err != nil {
+		return v, err
+	}
+	return v, s.store.SetLastSettings(ctx, acc.ID, v.Game.Settings)
+}
+
+// createGame is CreateGame without remembering the settings: a quick match has its own.
+func (s *Service) createGame(ctx context.Context, acc account.Account, g game.Game, playerID int64, boardID *int64) (GameView, error) {
 	g.ID, g.StartedAt, g.CompletedAt, g.AbortedAt, g.TournamentID = 0, nil, nil, nil, nil
 	g.Settings = g.Settings.WithDefaults()
 	g.Participants = []game.Participant{{PlayerID: firstPlayer(acc, playerID), Status: game.InvitationAccepted, BoardID: boardID}}
@@ -214,7 +224,8 @@ func (s *Service) CreateGame(ctx context.Context, acc account.Account, g game.Ga
 	return s.Game(ctx, acc, g.ID)
 }
 
-// CreateTournament creates a tournament in its lobby, like CreateGame.
+// CreateTournament creates a tournament in its lobby, like CreateGame, and remembers its
+// settings as well.
 func (s *Service) CreateTournament(ctx context.Context, acc account.Account, t tournament.Tournament, playerID int64, boardID *int64) (TournamentView, error) {
 	t.ID, t.StartedAt, t.CompletedAt, t.AbortedAt = 0, nil, nil, nil
 	t.Settings = t.Settings.WithDefaults()
@@ -233,6 +244,9 @@ func (s *Service) CreateTournament(ctx context.Context, acc account.Account, t t
 	}
 	seats := []game.Participant{{PlayerID: playerID, BoardID: boardID}}
 	if err := s.takeSeats(ctx, acc, seat{lobby: t.Lobby}, seats, 0, func() error { return s.store.CreateTournament(ctx, &t) }); err != nil {
+		return TournamentView{}, err
+	}
+	if err := s.store.SetLastSettings(ctx, acc.ID, t.Settings); err != nil {
 		return TournamentView{}, err
 	}
 	return s.tournamentView(ctx, acc, t)

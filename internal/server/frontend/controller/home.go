@@ -28,6 +28,12 @@ func (c *Controller) renderHome(w http.ResponseWriter, r *http.Request, status i
 	ctx := r.Context()
 	m := view.HomeModel{Account: auth.Account(ctx), Mode: mode, Error: failed}
 	var err error
+	if mode != "" {
+		if m.Settings, err = c.svc.NewSettings(ctx, m.Account, mode); err != nil {
+			serverError(w, err)
+			return
+		}
+	}
 	if m.Players, err = c.svc.Players(ctx, m.Account); err != nil {
 		serverError(w, err)
 		return

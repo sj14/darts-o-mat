@@ -49,6 +49,7 @@ var models = []any{
 	(*site.Settings)(nil),
 	(*serverStart)(nil),
 	(*loginFailure)(nil),
+	(*lastSettings)(nil),
 }
 
 // The SQLite migrations, written by hand, give the same schema as the structs: tables,

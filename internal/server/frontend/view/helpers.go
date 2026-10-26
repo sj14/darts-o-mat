@@ -827,3 +827,12 @@ func turnCounts(t x01.Turns) (label, value string) {
 	}
 	return strings.Join(labels, " / "), strings.Join(values, " / ")
 }
+
+// rulesOf returns the rules of the settings if they are R's, else R's zero value.
+func rulesOf[R any](s game.Settings) R {
+	if r, ok := any(s.Rules).(*R); ok {
+		return *r
+	}
+	var zero R
+	return zero
+}

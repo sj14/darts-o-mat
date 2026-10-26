@@ -14,6 +14,8 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/board"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game/aroundtheclock"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 	"github.com/sj14/darts-o-mat/internal/server/service"
@@ -30,7 +32,10 @@ type HomeModel struct {
 	Tournaments           []service.TournamentView
 	TournamentInvitations []service.TournamentView
 	Mode                  game.Mode // selected mode of the new game, empty until the user picked one
-	Error                 Alert
+	// Settings are preselected in the form of the mode: the account's last of it, see
+	// service.NewSettings.
+	Settings game.Settings
+	Error    Alert
 }
 
 func Home(m HomeModel) templ.Component {
@@ -78,7 +83,7 @@ func Home(m HomeModel) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).FriendRequests(len(m.Friends.Incoming)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 34, Col: 53}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 39, Col: 53}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -113,7 +118,7 @@ func Home(m HomeModel) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).Show())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 36, Col: 71}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 41, Col: 71}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -253,7 +258,7 @@ func invitations(views []service.GameView) templ.Component {
 				var templ_7745c5c3_Var10 templ.SafeURL
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(gameURL(v.Game.ID, "")))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 69, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 74, Col: 49}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -266,7 +271,7 @@ func invitations(views []service.GameView) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(T(ctx), v.Game.Settings))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 69, Col: 163}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 74, Col: 163}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -279,7 +284,7 @@ func invitations(views []service.GameView) templ.Component {
 				var templ_7745c5c3_Var12 string
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).WithPlayers(playerNames(ctx, v, v.Game.PlayerIDs())))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 70, Col: 102}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 75, Col: 102}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 				if templ_7745c5c3_Err != nil {
@@ -361,7 +366,7 @@ func tournamentInvitations(views []service.TournamentView) templ.Component {
 				var templ_7745c5c3_Var15 templ.SafeURL
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(tournamentURL(v.Tournament.ID, "")))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 86, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 91, Col: 61}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -374,7 +379,7 @@ func tournamentInvitations(views []service.TournamentView) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(formatName(T(ctx), v.Tournament.Format))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 86, Col: 185}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 91, Col: 185}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -387,7 +392,7 @@ func tournamentInvitations(views []service.TournamentView) templ.Component {
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(T(ctx), v.Tournament.Settings))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 87, Col: 83}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 92, Col: 83}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -400,7 +405,7 @@ func tournamentInvitations(views []service.TournamentView) templ.Component {
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).PlayerCount(len(v.Players)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 87, Col: 125}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 92, Col: 125}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -463,7 +468,7 @@ func answerInvitation(base string, boards []board.Board, required bool) templ.Co
 		var templ_7745c5c3_Var20 templ.SafeURL
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(base + "/accept"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 100, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 105, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
@@ -502,7 +507,7 @@ func answerInvitation(base string, boards []board.Board, required bool) templ.Co
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).Accept())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 102, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 107, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
@@ -515,7 +520,7 @@ func answerInvitation(base string, boards []board.Board, required bool) templ.Co
 		var templ_7745c5c3_Var24 templ.SafeURL
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(base + "/decline"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 104, Col: 59}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 109, Col: 59}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 		if templ_7745c5c3_Err != nil {
@@ -550,7 +555,7 @@ func answerInvitation(base string, boards []board.Board, required bool) templ.Co
 		var templ_7745c5c3_Var27 string
 		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).Decline())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 105, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 110, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 		if templ_7745c5c3_Err != nil {
@@ -613,7 +618,7 @@ func recentGames(views []service.GameView) templ.Component {
 				var templ_7745c5c3_Var30 templ.SafeURL
 				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(gameURL(v.Game.ID, "")))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 116, Col: 48}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 121, Col: 48}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 				if templ_7745c5c3_Err != nil {
@@ -626,7 +631,7 @@ func recentGames(views []service.GameView) templ.Component {
 				var templ_7745c5c3_Var31 string
 				templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(modeLabel(T(ctx), v.Game.Settings))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 118, Col: 102}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 123, Col: 102}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 				if templ_7745c5c3_Err != nil {
@@ -665,7 +670,7 @@ func recentGames(views []service.GameView) templ.Component {
 				var templ_7745c5c3_Var32 string
 				templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(playerNames(ctx, v, v.Game.PlayerIDs()))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 130, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 135, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 				if templ_7745c5c3_Err != nil {
@@ -741,7 +746,7 @@ func fieldset(label string) templ.Component {
 		var templ_7745c5c3_Var36 string
 		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 141, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 146, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 		if templ_7745c5c3_Err != nil {
@@ -842,7 +847,7 @@ func formatChoice() templ.Component {
 			var templ_7745c5c3_Var41 string
 			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).TournamentHint(tournament.MinPlayers, tournament.MaxPlayers))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 154, Col: 94}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 159, Col: 94}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 			if templ_7745c5c3_Err != nil {
@@ -862,8 +867,9 @@ func formatChoice() templ.Component {
 	})
 }
 
-// legsChoice picks how many legs win the game, and optionally how many sets.
-func legsChoice() templ.Component {
+// legsChoice picks how many legs win the game, and optionally how many sets, with those of
+// s preselected.
+func legsChoice(s game.Settings) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -900,12 +906,12 @@ func legsChoice() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = choice("legs", "1", T(ctx).OneLeg(), true).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = choice("legs", "1", T(ctx).OneLeg(), s.Legs == 1).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, n := range []int{2, 3, 4, 5} {
-				templ_7745c5c3_Err = choice("legs", strconv.Itoa(n), "First to "+strconv.Itoa(n), false).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = choice("legs", strconv.Itoa(n), "First to "+strconv.Itoa(n), s.Legs == n).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -939,7 +945,7 @@ func legsChoice() templ.Component {
 			var templ_7745c5c3_Var46 string
 			templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).LegsHint())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 167, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 173, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 			if templ_7745c5c3_Err != nil {
@@ -971,12 +977,12 @@ func legsChoice() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = choice("sets", "1", T(ctx).NoSets(), true).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = choice("sets", "1", T(ctx).NoSets(), s.Sets == 1).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, n := range []int{2, 3, 4, 5} {
-				templ_7745c5c3_Err = choice("sets", strconv.Itoa(n), "First to "+strconv.Itoa(n), false).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = choice("sets", strconv.Itoa(n), "First to "+strconv.Itoa(n), s.Sets == n).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1010,7 +1016,7 @@ func legsChoice() templ.Component {
 			var templ_7745c5c3_Var50 string
 			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).SetsHint())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 176, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 182, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 			if templ_7745c5c3_Err != nil {
@@ -1053,7 +1059,7 @@ func legsChoice() templ.Component {
 				var templ_7745c5c3_Var53 string
 				templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).BullOff())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 180, Col: 21}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 186, Col: 21}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 				if templ_7745c5c3_Err != nil {
@@ -1066,7 +1072,7 @@ func legsChoice() templ.Component {
 				var templ_7745c5c3_Var54 string
 				templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).BullOffOptionHint())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 180, Col: 80}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 186, Col: 80}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 				if templ_7745c5c3_Err != nil {
@@ -1078,7 +1084,7 @@ func legsChoice() templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = checkbox("bull-off", "bull_off", "on", false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var52), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = checkbox("bull-off", "bull_off", "on", s.BullOff).Render(templ.WithChildren(ctx, templ_7745c5c3_Var52), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1104,12 +1110,12 @@ func legsChoice() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = choice("turn_seconds", "0", T(ctx).NoTurnLimit(), true).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = choice("turn_seconds", "0", T(ctx).NoTurnLimit(), s.TurnSeconds == 0).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, n := range []int{30, 60, 120, 300} {
-				templ_7745c5c3_Err = choice("turn_seconds", strconv.Itoa(n), T(ctx).TurnTime(n), false).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = choice("turn_seconds", strconv.Itoa(n), T(ctx).TurnTime(n), s.TurnSeconds == n).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1143,7 +1149,7 @@ func legsChoice() templ.Component {
 			var templ_7745c5c3_Var58 string
 			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).TurnLimitHint(game.MaxSkips))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 190, Col: 62}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 196, Col: 62}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 			if templ_7745c5c3_Err != nil {
@@ -1225,7 +1231,7 @@ func participants(m HomeModel) templ.Component {
 				var templ_7745c5c3_Var63 string
 				templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.ResolveAttributeValue(T(ctx).Players())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 200, Col: 89}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 206, Col: 89}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var63)
 				if templ_7745c5c3_Err != nil {
@@ -1243,7 +1249,7 @@ func participants(m HomeModel) templ.Component {
 					var templ_7745c5c3_Var64 string
 					templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.FormatInt(p.ID, 10))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 202, Col: 48}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 208, Col: 48}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var64)
 					if templ_7745c5c3_Err != nil {
@@ -1256,7 +1262,7 @@ func participants(m HomeModel) templ.Component {
 					var templ_7745c5c3_Var65 string
 					templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(p.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 202, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 208, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
 					if templ_7745c5c3_Err != nil {
@@ -1296,7 +1302,7 @@ func participants(m HomeModel) templ.Component {
 				var templ_7745c5c3_Var68 string
 				templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).FirstPlayerHint())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 205, Col: 52}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 211, Col: 52}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
 				if templ_7745c5c3_Err != nil {
@@ -1340,7 +1346,7 @@ func participants(m HomeModel) templ.Component {
 				var templ_7745c5c3_Var71 string
 				templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).AllowStrangers())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 210, Col: 28}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 216, Col: 28}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
 				if templ_7745c5c3_Err != nil {
@@ -1359,7 +1365,7 @@ func participants(m HomeModel) templ.Component {
 			var templ_7745c5c3_Var72 string
 			templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).StrangerSeats())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 213, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 219, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
 			if templ_7745c5c3_Err != nil {
@@ -1406,7 +1412,7 @@ func participants(m HomeModel) templ.Component {
 				var templ_7745c5c3_Var76 string
 				templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).BoardOnlyOption())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 218, Col: 30}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 224, Col: 30}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
 				if templ_7745c5c3_Err != nil {
@@ -1447,7 +1453,7 @@ func participants(m HomeModel) templ.Component {
 			var templ_7745c5c3_Var79 string
 			templ_7745c5c3_Var79, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).StrangersHint())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 221, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 227, Col: 49}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var79))
 			if templ_7745c5c3_Err != nil {
@@ -1482,7 +1488,7 @@ func participants(m HomeModel) templ.Component {
 			var templ_7745c5c3_Var82 string
 			templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).BoardOnlyHint())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 222, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 228, Col: 49}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
 			if templ_7745c5c3_Err != nil {
@@ -1587,7 +1593,7 @@ func newGame(m HomeModel) templ.Component {
 			var templ_7745c5c3_Var86 string
 			templ_7745c5c3_Var86, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).NewGame())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 242, Col: 111}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 248, Col: 111}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var86))
 			if templ_7745c5c3_Err != nil {
@@ -1615,6 +1621,7 @@ func newGame(m HomeModel) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
+				rules := rulesOf[x01.Settings](m.Settings)
 				templ_7745c5c3_Var87 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -1631,8 +1638,8 @@ func newGame(m HomeModel) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					for _, score := range []int{301, 501, 701} {
-						templ_7745c5c3_Err = choice("start_score", strconv.Itoa(score), strconv.Itoa(score), score == 501).Render(ctx, templ_7745c5c3_Buffer)
+					for _, score := range []uint64{301, 501, 701} {
+						templ_7745c5c3_Err = choice("start_score", strconv.FormatUint(score, 10), strconv.FormatUint(score, 10), rules.StartScore == score).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1663,15 +1670,15 @@ func newGame(m HomeModel) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = choice("out_mode", "single", T(ctx).AnyDart(), false).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = choice("out_mode", "single", T(ctx).AnyDart(), rules.OutMode == x01.OutModeSingle).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = choice("out_mode", "double", T(ctx).Double(), true).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = choice("out_mode", "double", T(ctx).Double(), rules.OutMode == x01.OutModeDouble).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = choice("out_mode", "master", T(ctx).DoubleOrTriple(), false).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = choice("out_mode", "master", T(ctx).DoubleOrTriple(), rules.OutMode == x01.OutModeMaster).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1689,7 +1696,7 @@ func newGame(m HomeModel) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = legsChoice().Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = legsChoice(m.Settings).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1726,7 +1733,7 @@ func newGame(m HomeModel) templ.Component {
 				var templ_7745c5c3_Var91 string
 				templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).StartMode("X01"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 269, Col: 120}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 276, Col: 120}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var91))
 				if templ_7745c5c3_Err != nil {
@@ -1741,6 +1748,7 @@ func newGame(m HomeModel) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
+				rules := rulesOf[aroundtheclock.Settings](m.Settings)
 				templ_7745c5c3_Var92 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -1772,7 +1780,7 @@ func newGame(m HomeModel) templ.Component {
 						var templ_7745c5c3_Var94 string
 						templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).BullAtTheEnd())
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 278, Col: 32}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 286, Col: 32}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var94))
 						if templ_7745c5c3_Err != nil {
@@ -1780,7 +1788,7 @@ func newGame(m HomeModel) templ.Component {
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = checkbox("atc-bull", "bull", "on", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var93), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = checkbox("atc-bull", "bull", "on", rules.Bull).Render(templ.WithChildren(ctx, templ_7745c5c3_Var93), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1799,7 +1807,7 @@ func newGame(m HomeModel) templ.Component {
 						var templ_7745c5c3_Var96 string
 						templ_7745c5c3_Var96, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).SkipsRule())
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 281, Col: 29}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 289, Col: 29}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var96))
 						if templ_7745c5c3_Err != nil {
@@ -1807,7 +1815,7 @@ func newGame(m HomeModel) templ.Component {
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = checkbox("atc-skips", "multiplier_skips", "on", false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var95), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = checkbox("atc-skips", "multiplier_skips", "on", rules.MultiplierSkips).Render(templ.WithChildren(ctx, templ_7745c5c3_Var95), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1825,7 +1833,7 @@ func newGame(m HomeModel) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = legsChoice().Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = legsChoice(m.Settings).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1862,7 +1870,7 @@ func newGame(m HomeModel) templ.Component {
 				var templ_7745c5c3_Var99 string
 				templ_7745c5c3_Var99, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).StartMode(T(ctx).AroundTheClock()))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 289, Col: 138}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 297, Col: 138}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var99))
 				if templ_7745c5c3_Err != nil {
@@ -1880,7 +1888,7 @@ func newGame(m HomeModel) templ.Component {
 				var templ_7745c5c3_Var100 string
 				templ_7745c5c3_Var100, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).ChooseMode())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 293, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 301, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var100))
 				if templ_7745c5c3_Err != nil {
@@ -1940,7 +1948,7 @@ func modeTile(mode, selected game.Mode, title, description, symbol string) templ
 		var templ_7745c5c3_Var103 templ.SafeURL
 		templ_7745c5c3_Var103, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL("/?mode=" + string(mode)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 301, Col: 44}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 309, Col: 44}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var103))
 		if templ_7745c5c3_Err != nil {
@@ -1953,7 +1961,7 @@ func modeTile(mode, selected game.Mode, title, description, symbol string) templ
 		var templ_7745c5c3_Var104 string
 		templ_7745c5c3_Var104, templ_7745c5c3_Err = templ.ResolveAttributeValue("/?mode=" + string(mode))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 302, Col: 35}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 310, Col: 35}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var104)
 		if templ_7745c5c3_Err != nil {
@@ -1989,7 +1997,7 @@ func modeTile(mode, selected game.Mode, title, description, symbol string) templ
 		var templ_7745c5c3_Var106 string
 		templ_7745c5c3_Var106, templ_7745c5c3_Err = templ.JoinStringErrs(symbol)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 314, Col: 176}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 322, Col: 176}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var106))
 		if templ_7745c5c3_Err != nil {
@@ -2002,7 +2010,7 @@ func modeTile(mode, selected game.Mode, title, description, symbol string) templ
 		var templ_7745c5c3_Var107 string
 		templ_7745c5c3_Var107, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 315, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 323, Col: 69}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var107))
 		if templ_7745c5c3_Err != nil {
@@ -2015,7 +2023,7 @@ func modeTile(mode, selected game.Mode, title, description, symbol string) templ
 		var templ_7745c5c3_Var108 string
 		templ_7745c5c3_Var108, templ_7745c5c3_Err = templ.JoinStringErrs(description)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 316, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 324, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var108))
 		if templ_7745c5c3_Err != nil {
@@ -2089,7 +2097,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var111 string
 				templ_7745c5c3_Var111, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).CameraTokenFor(newToken.BoardName))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 334, Col: 125}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 342, Col: 125}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var111))
 				if templ_7745c5c3_Err != nil {
@@ -2102,7 +2110,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var112 string
 				templ_7745c5c3_Var112, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).TokenShownOnce())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 335, Col: 46}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 343, Col: 46}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var112))
 				if templ_7745c5c3_Err != nil {
@@ -2115,7 +2123,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var113 string
 				templ_7745c5c3_Var113, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).Server())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 337, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 345, Col: 49}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var113))
 				if templ_7745c5c3_Err != nil {
@@ -2128,7 +2136,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var114 string
 				templ_7745c5c3_Var114, templ_7745c5c3_Err = templ.JoinStringErrs(newToken.Server)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 338, Col: 72}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 346, Col: 72}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var114))
 				if templ_7745c5c3_Err != nil {
@@ -2141,7 +2149,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var115 string
 				templ_7745c5c3_Var115, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).CameraToken())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 339, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 347, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var115))
 				if templ_7745c5c3_Err != nil {
@@ -2154,7 +2162,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var116 string
 				templ_7745c5c3_Var116, templ_7745c5c3_Err = templ.JoinStringErrs(newToken.Token)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 340, Col: 71}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 348, Col: 71}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var116))
 				if templ_7745c5c3_Err != nil {
@@ -2167,7 +2175,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var117 string
 				templ_7745c5c3_Var117, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).CalibrationHint())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 342, Col: 69}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 350, Col: 69}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var117))
 				if templ_7745c5c3_Err != nil {
@@ -2189,7 +2197,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var119 templ.SafeURL
 				templ_7745c5c3_Var119, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(T(ctx).ProjectPageURL() + "#start"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 342, Col: 127}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 350, Col: 127}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var119))
 				if templ_7745c5c3_Err != nil {
@@ -2215,7 +2223,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var121 string
 				templ_7745c5c3_Var121, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).DownloadCam())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 342, Col: 203}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 350, Col: 203}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var121))
 				if templ_7745c5c3_Err != nil {
@@ -2251,7 +2259,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 						var templ_7745c5c3_Var123 string
 						templ_7745c5c3_Var123, templ_7745c5c3_Err = templ.JoinStringErrs(b.Name)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 351, Col: 82}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 359, Col: 82}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var123))
 						if templ_7745c5c3_Err != nil {
@@ -2274,7 +2282,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 						var templ_7745c5c3_Var124 templ.SafeURL
 						templ_7745c5c3_Var124, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/token"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 357, Col: 100}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 365, Col: 100}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var124))
 						if templ_7745c5c3_Err != nil {
@@ -2310,7 +2318,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 							var templ_7745c5c3_Var127 string
 							templ_7745c5c3_Var127, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).NewCameraToken())
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 360, Col: 37}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 368, Col: 37}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var127))
 							if templ_7745c5c3_Err != nil {
@@ -2320,7 +2328,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 							var templ_7745c5c3_Var128 string
 							templ_7745c5c3_Var128, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).CreateCameraToken())
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 362, Col: 40}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 370, Col: 40}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var128))
 							if templ_7745c5c3_Err != nil {
@@ -2334,7 +2342,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 						var templ_7745c5c3_Var129 templ.SafeURL
 						templ_7745c5c3_Var129, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL("/boards/" + strconv.FormatInt(b.ID, 10) + "/delete"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 366, Col: 101}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 374, Col: 101}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var129))
 						if templ_7745c5c3_Err != nil {
@@ -2369,7 +2377,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 						var templ_7745c5c3_Var132 string
 						templ_7745c5c3_Var132, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).Delete())
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 367, Col: 79}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 375, Col: 79}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var132))
 						if templ_7745c5c3_Err != nil {
@@ -2414,7 +2422,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var135 string
 				templ_7745c5c3_Var135, templ_7745c5c3_Err = templ.ResolveAttributeValue(T(ctx).BoardNameExample())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 375, Col: 96}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 383, Col: 96}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var135)
 				if templ_7745c5c3_Err != nil {
@@ -2427,7 +2435,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var136 string
 				templ_7745c5c3_Var136, templ_7745c5c3_Err = templ.ResolveAttributeValue(T(ctx).BoardName())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 375, Col: 139}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 383, Col: 139}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var136)
 				if templ_7745c5c3_Err != nil {
@@ -2462,7 +2470,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var139 string
 				templ_7745c5c3_Var139, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).Add())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 376, Col: 62}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 384, Col: 62}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var139))
 				if templ_7745c5c3_Err != nil {

@@ -24,8 +24,8 @@ func anonymize(ctx context.Context, db bun.IDB, where string, arg any) error {
 }
 
 // DeleteAccount deletes an account with what only it needs: its login, sessions,
-// friendships and requests, boards with their camera tokens. Its player and its guests
-// are anonymized (AnonymizePlayer). Games and tournaments stay as they are. The last admin
+// friendships and requests, boards with their camera tokens, the settings of its last
+// games. Its player and its guests are anonymized (AnonymizePlayer). Games and tournaments stay as they are. The last admin
 // can't be deleted (ErrLastAdmin).
 func (store *Store) DeleteAccount(ctx context.Context, a account.Account) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
@@ -42,6 +42,9 @@ func (store *Store) DeleteAccount(ctx context.Context, a account.Account) error 
 			return err
 		}
 		if _, err := tx.NewDelete().Model((*account.Friendship)(nil)).Where("requester_id = ? OR addressee_id = ?", a.ID, a.ID).Exec(ctx); err != nil {
+			return err
+		}
+		if _, err := tx.NewDelete().Model((*lastSettings)(nil)).Where("account_id = ?", a.ID).Exec(ctx); err != nil {
 			return err
 		}
 		boards := tx.NewSelect().Model((*board.Board)(nil)).Column("id").Where("account_id = ?", a.ID)

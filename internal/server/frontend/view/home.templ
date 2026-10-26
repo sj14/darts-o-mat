@@ -6,6 +6,8 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/board"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game/aroundtheclock"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 	"github.com/sj14/darts-o-mat/internal/server/service"
@@ -22,6 +24,9 @@ type HomeModel struct {
 	Tournaments           []service.TournamentView
 	TournamentInvitations []service.TournamentView
 	Mode        game.Mode // selected mode of the new game, empty until the user picked one
+	// Settings are preselected in the form of the mode: the account's last of it, see
+	// service.NewSettings.
+	Settings game.Settings
 	Error       Alert
 }
 
@@ -155,36 +160,37 @@ templ formatChoice() {
 	}
 }
 
-// legsChoice picks how many legs win the game, and optionally how many sets.
-templ legsChoice() {
+// legsChoice picks how many legs win the game, and optionally how many sets, with those of
+// s preselected.
+templ legsChoice(s game.Settings) {
 	@fieldset(T(ctx).Legs()) {
 		<div class="flex flex-wrap gap-2">
-			@choice("legs", "1", T(ctx).OneLeg(), true)
+			@choice("legs", "1", T(ctx).OneLeg(), s.Legs == 1)
 			for _, n := range []int{2, 3, 4, 5} {
-				@choice("legs", strconv.Itoa(n), "First to "+strconv.Itoa(n), false)
+				@choice("legs", strconv.Itoa(n), "First to "+strconv.Itoa(n), s.Legs == n)
 			}
 		</div>
 		<p class={ hintClass }>{ T(ctx).LegsHint() }</p>
 	}
 	@fieldset(T(ctx).Sets()) {
 		<div class="flex flex-wrap gap-2">
-			@choice("sets", "1", T(ctx).NoSets(), true)
+			@choice("sets", "1", T(ctx).NoSets(), s.Sets == 1)
 			for _, n := range []int{2, 3, 4, 5} {
-				@choice("sets", strconv.Itoa(n), "First to "+strconv.Itoa(n), false)
+				@choice("sets", strconv.Itoa(n), "First to "+strconv.Itoa(n), s.Sets == n)
 			}
 		</div>
 		<p class={ hintClass }>{ T(ctx).SetsHint() }</p>
 	}
 	@fieldset(T(ctx).WhoStarts()) {
-		@checkbox("bull-off", "bull_off", "on", false) {
+		@checkbox("bull-off", "bull_off", "on", s.BullOff) {
 			{ T(ctx).BullOff() } <span class="text-white/40">{ T(ctx).BullOffOptionHint() }</span>
 		}
 	}
 	@fieldset(T(ctx).TurnLimit()) {
 		<div class="flex flex-wrap gap-2">
-			@choice("turn_seconds", "0", T(ctx).NoTurnLimit(), true)
+			@choice("turn_seconds", "0", T(ctx).NoTurnLimit(), s.TurnSeconds == 0)
 			for _, n := range []int{30, 60, 120, 300} {
-				@choice("turn_seconds", strconv.Itoa(n), T(ctx).TurnTime(n), false)
+				@choice("turn_seconds", strconv.Itoa(n), T(ctx).TurnTime(n), s.TurnSeconds == n)
 			}
 		</div>
 		<p class={ hintClass }>{ T(ctx).TurnLimitHint(game.MaxSkips) }</p>
@@ -248,22 +254,23 @@ templ newGame(m HomeModel) {
 				case game.ModeX01:
 					<form method="post" action="/games" class="flex flex-col gap-5">
 						<input type="hidden" name="mode" value="x01"/>
+						{{ rules := rulesOf[x01.Settings](m.Settings) }}
 						@fieldset(T(ctx).StartScore()) {
 							<div class="flex flex-wrap gap-2">
-								for _, score := range []int{301, 501, 701} {
-									@choice("start_score", strconv.Itoa(score), strconv.Itoa(score), score == 501)
+								for _, score := range []uint64{301, 501, 701} {
+									@choice("start_score", strconv.FormatUint(score, 10), strconv.FormatUint(score, 10), rules.StartScore == score)
 								}
 							</div>
 						}
 						@fieldset(T(ctx).CheckOutWith()) {
 							<div class="flex flex-wrap gap-2">
-								@choice("out_mode", "single", T(ctx).AnyDart(), false)
-								@choice("out_mode", "double", T(ctx).Double(), true)
-								@choice("out_mode", "master", T(ctx).DoubleOrTriple(), false)
+								@choice("out_mode", "single", T(ctx).AnyDart(), rules.OutMode == x01.OutModeSingle)
+								@choice("out_mode", "double", T(ctx).Double(), rules.OutMode == x01.OutModeDouble)
+								@choice("out_mode", "master", T(ctx).DoubleOrTriple(), rules.OutMode == x01.OutModeMaster)
 							</div>
 						}
 						@formatChoice()
-						@legsChoice()
+						@legsChoice(m.Settings)
 						@participants(m)
 						<div>
 							<button type="submit" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>{ T(ctx).StartMode("X01") }</button>
@@ -272,18 +279,19 @@ templ newGame(m HomeModel) {
 				case game.ModeAroundTheClock:
 					<form method="post" action="/games" class="flex flex-col gap-5">
 						<input type="hidden" name="mode" value="around_the_clock"/>
+						{{ rules := rulesOf[aroundtheclock.Settings](m.Settings) }}
 						@fieldset(T(ctx).Rules()) {
 							<div class="flex flex-col gap-1">
-								@checkbox("atc-bull", "bull", "on", true) {
+								@checkbox("atc-bull", "bull", "on", rules.Bull) {
 									{ T(ctx).BullAtTheEnd() }
 								}
-								@checkbox("atc-skips", "multiplier_skips", "on", false) {
+								@checkbox("atc-skips", "multiplier_skips", "on", rules.MultiplierSkips) {
 									{ T(ctx).SkipsRule() }
 								}
 							</div>
 						}
 						@formatChoice()
-						@legsChoice()
+						@legsChoice(m.Settings)
 						@participants(m)
 						<div>
 							<button type="submit" class={ btnPrimary, "px-6 py-3 font-display text-2xl uppercase" }>{ T(ctx).StartMode(T(ctx).AroundTheClock()) }</button>

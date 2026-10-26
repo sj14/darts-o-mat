@@ -55,7 +55,7 @@ func (s *Service) QuickMatch(ctx context.Context, acc account.Account, mode game
 	case ok:
 		return s.Game(ctx, acc, id)
 	}
-	return s.CreateGame(ctx, acc, game.Game{Settings: QuickSettings(mode), Lobby: game.Lobby{Seats: 2}}, 0, boardID)
+	return s.createGame(ctx, acc, game.Game{Settings: QuickSettings(mode), Lobby: game.Lobby{Seats: 2}}, 0, boardID)
 }
 
 // QuickMatchMove moves the account's player from the quick match they wait in alone to an

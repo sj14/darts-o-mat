@@ -140,6 +140,9 @@ func TestDeleteAccount(t *testing.T) {
 	if _, err := s.store.GetBoard(ctx, keller.ID); err == nil {
 		t.Error("ben's board is still there")
 	}
+	if _, ok, _ := s.store.LastSettings(ctx, ben.ID, game.ModeX01); ok {
+		t.Error("the settings of ben's last game are still there")
+	}
 
 	if v, _ := s.Game(ctx, anna, done.Game.ID); !v.Common().GameOver || len(v.Players) != 2 || !playerDeleted(v, ben.PlayerID) {
 		t.Errorf("the finished game: over %v, ben deleted %v; want it kept with ben as a deleted player", v.Common().GameOver, playerDeleted(v, ben.PlayerID))
