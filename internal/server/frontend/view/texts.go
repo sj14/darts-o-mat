@@ -148,6 +148,15 @@ type Texts interface {
 	DeleteAccountButton() string
 	DeleteAccountConfirm() string
 	ErrWrongPassword() string
+	ChangePasswordTitle() string
+	ChangePasswordHint() string
+	CurrentPassword() string
+	NewPassword() string
+	ChangePasswordButton() string
+	PasswordChanged() string
+	ErrInvalidPassword() string
+	ErrTooManyGuests(max int) string
+	ErrTooManyFriends(max int) string
 	ErrLastAdmin() string
 	LeaveGame() string
 	LeaveGameConfirm() string

@@ -56,6 +56,7 @@ func (a *API) Routes() http.Handler {
 		r.Delete("/players/{id}", a.deleteGuest)
 		r.Put("/account/email", a.setEmail)
 		r.Put("/account/invisible", a.setInvisible)
+		r.Put("/account/password", a.changePassword)
 		r.Delete("/account", a.deleteAccount)
 		r.Get("/boards", a.listBoards)
 		r.Post("/boards", a.createBoard)
@@ -186,6 +187,19 @@ func (a *API) setInvisible(w http.ResponseWriter, r *http.Request) {
 	}
 	acc, err := a.svc.SetInvisible(r.Context(), auth.Account(r.Context()), req.Invisible)
 	respond(w, http.StatusOK, acc, err)
+}
+
+// changePassword sets a new password after checking the current one (JSON {"current": …,
+// "password": …}); the account's other sessions are logged out, this one stays.
+func (a *API) changePassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Current  string `json:"current"`
+		Password string `json:"password"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	respondEmpty(w, auth.ChangePassword(r, a.svc, req.Current, req.Password))
 }
 
 // deleteAccount deletes the account after checking its password (JSON {"password": …}),

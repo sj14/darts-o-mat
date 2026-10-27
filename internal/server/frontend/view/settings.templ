@@ -11,12 +11,13 @@ import (
 // email and delete its guests (guests are made in the lobby of a game); the admin finds the
 // admin page there.
 // Settings is the account's settings page. lastAdmin says the account is the only admin,
-// who can't delete their account.
-templ Settings(acc account.Account, p player.Player, guests []player.Player, lastAdmin bool, errMsg string) {
+// who can't delete their account; info confirms a change.
+templ Settings(acc account.Account, p player.Player, guests []player.Player, lastAdmin bool, errMsg, info string) {
 	@layout(T(ctx).NavSettings(), acc.Username) {
 		<div class="mx-auto max-w-3xl">
 			@pageTitle(T(ctx).NavSettings(), "")
 			@errorAlert(errMsg)
+			@notice(info)
 			@panel("") {
 				<h2 class={ labelClass }>{ T(ctx).AccentColor() }</h2>
 				<p class={ hintClass }>{ T(ctx).AccentColorHint() }</p>
@@ -44,6 +45,17 @@ templ Settings(acc account.Account, p player.Player, guests []player.Player, las
 				<form method="post" action="/settings/email" class="mt-4 flex flex-wrap items-center gap-3">
 					<input type="email" name="email" value={ acc.Email } class={ inputClass, "max-w-xs" } autocomplete="email" autocapitalize="none" aria-label={ T(ctx).Email() }/>
 					<button type="submit" class={ btnSecondary }>{ T(ctx).SaveEmail() }</button>
+				</form>
+			}
+			@panel("mt-6") {
+				<h2 class={ labelClass }>{ T(ctx).ChangePasswordTitle() }</h2>
+				<p class={ hintClass }>{ T(ctx).ChangePasswordHint() }</p>
+				<form method="post" action="/settings/password" class="mt-4 flex flex-wrap items-center gap-3">
+					// The username lets password managers know which login to update.
+					<input type="text" name="username" value={ acc.Username } autocomplete="username" class="hidden" aria-hidden="true" tabindex="-1"/>
+					<input type="password" name="current" class={ inputClass, "max-w-xs" } placeholder={ T(ctx).CurrentPassword() } autocomplete="current-password" required aria-label={ T(ctx).CurrentPassword() }/>
+					<input type="password" name="password" class={ inputClass, "max-w-xs" } placeholder={ T(ctx).NewPassword() } autocomplete="new-password" minlength="8" required aria-label={ T(ctx).NewPassword() }/>
+					<button type="submit" class={ btnSecondary }>{ T(ctx).ChangePasswordButton() }</button>
 				</form>
 			}
 			@panel("mt-6") {

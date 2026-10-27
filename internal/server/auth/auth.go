@@ -86,6 +86,16 @@ func Logout(w http.ResponseWriter, r *http.Request, svc *service.Service) error 
 	return nil
 }
 
+// ChangePassword sets the account's new password (see service.ChangePassword); the
+// session of the request stays logged in.
+func ChangePassword(r *http.Request, svc *service.Service, current, password string) error {
+	var token string
+	if cookie, err := r.Cookie(cookieName); err == nil {
+		token = cookie.Value
+	}
+	return svc.ChangePassword(r.Context(), Account(r.Context()), current, password, token)
+}
+
 // IsHTTPS tells whether the browser reached the server over HTTPS, also when a reverse proxy
 // terminates it (X-Forwarded-Proto: https; a proxy that doesn't set it makes the session
 // cookie go out without Secure).

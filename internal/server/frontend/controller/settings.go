@@ -10,10 +10,14 @@ import (
 )
 
 func (c *Controller) showSettings(w http.ResponseWriter, r *http.Request) {
-	c.renderSettings(w, r, http.StatusOK, "")
+	var info string
+	if r.URL.Query().Has("password-changed") {
+		info = view.T(r.Context()).PasswordChanged()
+	}
+	c.renderSettings(w, r, http.StatusOK, "", info)
 }
 
-func (c *Controller) renderSettings(w http.ResponseWriter, r *http.Request, status int, errMsg string) {
+func (c *Controller) renderSettings(w http.ResponseWriter, r *http.Request, status int, errMsg, info string) {
 	acc := auth.Account(r.Context())
 	players, err := c.svc.Players(r.Context(), acc) // its own player first, then its guests
 	if err == nil && len(players) == 0 {
@@ -28,7 +32,7 @@ func (c *Controller) renderSettings(w http.ResponseWriter, r *http.Request, stat
 		serverError(w, err)
 		return
 	}
-	render(w, r, status, view.Settings(acc, players[0], players[1:], lastAdmin, errMsg))
+	render(w, r, status, view.Settings(acc, players[0], players[1:], lastAdmin, errMsg, info))
 }
 
 // setColor stores the accent color of the account's player and shows the settings again.
@@ -53,6 +57,17 @@ func (c *Controller) setInvisible(w http.ResponseWriter, r *http.Request) {
 	c.respondSettings(w, r, err)
 }
 
+// changePassword sets a new password after the current one was entered; the account's
+// other sessions are logged out.
+func (c *Controller) changePassword(w http.ResponseWriter, r *http.Request) {
+	err := auth.ChangePassword(r, c.svc, r.FormValue("current"), r.FormValue("password"))
+	if err != nil {
+		c.respondSettings(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/settings?password-changed", http.StatusSeeOther)
+}
+
 // deleteAccount deletes the account after its password was entered again, and logs out.
 func (c *Controller) deleteAccount(w http.ResponseWriter, r *http.Request) {
 	if err := c.svc.DeleteAccount(r.Context(), auth.Account(r.Context()), r.FormValue("password")); err != nil {
@@ -74,7 +89,7 @@ func (c *Controller) respondSettings(w http.ResponseWriter, r *http.Request, err
 		return
 	}
 	if msg, ok := errorText(view.T(r.Context()), err); ok {
-		c.renderSettings(w, r, http.StatusBadRequest, msg)
+		c.renderSettings(w, r, http.StatusBadRequest, msg, "")
 		return
 	}
 	serverError(w, err)

@@ -182,7 +182,24 @@ func (textsDE) DeleteAccountButton() string { return "Meinen Account löschen" }
 func (textsDE) DeleteAccountConfirm() string {
 	return "Deinen Account wirklich löschen? Das lässt sich nicht rückgängig machen."
 }
-func (textsDE) ErrWrongPassword() string { return "Das Passwort ist falsch." }
+func (textsDE) ErrWrongPassword() string    { return "Das Passwort ist falsch." }
+func (textsDE) ChangePasswordTitle() string { return "Passwort" }
+func (textsDE) ChangePasswordHint() string {
+	return "Gib dein aktuelles Passwort und ein neues mit mindestens 8 Zeichen ein. Hier bleibst du angemeldet, überall sonst wirst du abgemeldet."
+}
+func (textsDE) CurrentPassword() string      { return "Aktuelles Passwort" }
+func (textsDE) NewPassword() string          { return "Neues Passwort" }
+func (textsDE) ChangePasswordButton() string { return "Passwort ändern" }
+func (textsDE) PasswordChanged() string      { return "Dein Passwort wurde geändert." }
+func (textsDE) ErrInvalidPassword() string {
+	return "Das Passwort muss 8 bis 72 Zeichen lang sein."
+}
+func (textsDE) ErrTooManyGuests(max int) string {
+	return "Du kannst höchstens " + strconv.Itoa(max) + " Gäste haben. Lösche Gäste, die du nicht mehr brauchst, unter „Einstellungen“."
+}
+func (textsDE) ErrTooManyFriends(max int) string {
+	return "Du kannst höchstens " + strconv.Itoa(max) + " Freunde haben, gesendete Anfragen mitgezählt. Entferne erst einen Freund oder ziehe eine Anfrage zurück."
+}
 func (textsDE) ErrLastAdmin() string {
 	return "Du bist der einzige Admin dieses Servers und kannst deinen Account oder die Admin-Rolle deshalb nicht abgeben: Der Server stünde sonst ohne Admin da. Mach zuerst unter „Administration“ einen anderen Account zum Admin."
 }

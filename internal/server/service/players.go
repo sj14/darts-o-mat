@@ -16,6 +16,12 @@ func (s *Service) Players(ctx context.Context, acc account.Account) ([]player.Pl
 	return s.store.ListPlayers(ctx, acc.ID, acc.PlayerID)
 }
 
+// MaxGuests is how many guests an account can have; deleted ones don't count.
+const MaxGuests = 100
+
+// ErrTooManyGuests means the account has MaxGuests guests already.
+var ErrTooManyGuests = fmt.Errorf("%w: at most %d guests", ErrInvalid, MaxGuests)
+
 // CreateGuest creates a guest player that only the account can add to its games.
 func (s *Service) CreateGuest(ctx context.Context, acc account.Account, name string) (player.Player, error) {
 	p := player.Player{Name: strings.TrimSpace(name), GuestOf: &acc.ID}
@@ -25,6 +31,9 @@ func (s *Service) CreateGuest(ctx context.Context, acc account.Account, name str
 	existing, err := s.Players(ctx, acc)
 	if err != nil {
 		return p, err
+	}
+	if len(existing)-1 >= MaxGuests { // the first is the account's own player
+		return p, ErrTooManyGuests
 	}
 	if slices.ContainsFunc(existing, func(e player.Player) bool { return strings.EqualFold(e.Name, p.Name) }) {
 		return p, ErrGuestNameTaken

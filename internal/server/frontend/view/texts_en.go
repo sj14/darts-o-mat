@@ -185,7 +185,24 @@ func (textsEN) DeleteAccountButton() string { return "Delete my account" }
 func (textsEN) DeleteAccountConfirm() string {
 	return "Really delete your account? This can't be undone."
 }
-func (textsEN) ErrWrongPassword() string { return "The password is wrong." }
+func (textsEN) ErrWrongPassword() string    { return "The password is wrong." }
+func (textsEN) ChangePasswordTitle() string { return "Password" }
+func (textsEN) ChangePasswordHint() string {
+	return "Enter your current password and a new one with at least 8 characters. You stay logged in here; everywhere else you are logged out."
+}
+func (textsEN) CurrentPassword() string      { return "Current password" }
+func (textsEN) NewPassword() string          { return "New password" }
+func (textsEN) ChangePasswordButton() string { return "Change password" }
+func (textsEN) PasswordChanged() string      { return "Your password was changed." }
+func (textsEN) ErrInvalidPassword() string {
+	return "The password must be 8 to 72 characters long."
+}
+func (textsEN) ErrTooManyGuests(max int) string {
+	return "You can have at most " + strconv.Itoa(max) + " guests. Delete guests you don't need anymore under “Settings”."
+}
+func (textsEN) ErrTooManyFriends(max int) string {
+	return "You can have at most " + strconv.Itoa(max) + " friends, counting the requests you sent. Remove a friend or withdraw a request first."
+}
 func (textsEN) ErrLastAdmin() string {
 	return "You are the only admin of this server, so you can't delete your account or give up the admin role: the server would be left without one. First make another account an admin under “Administration”."
 }

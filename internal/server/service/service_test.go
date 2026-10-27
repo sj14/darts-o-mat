@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 
@@ -1058,4 +1059,116 @@ func TestOnlyOwnDartsAreCorrected(t *testing.T) {
 func isError[E error](err error) bool {
 	_, ok := errors.AsType[E](err)
 	return ok
+}
+
+func TestChangePassword(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	here, _, err := s.Login(ctx, "anna", "password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	elsewhere, _, _ := s.Login(ctx, "anna", "password")
+
+	if err := s.ChangePassword(ctx, anna, "wrong", "new password", here); !errors.Is(err, ErrWrongPassword) {
+		t.Errorf("wrong current password: got %v, want ErrWrongPassword", err)
+	}
+	if err := s.ChangePassword(ctx, anna, "password", "short", here); !errors.Is(err, account.ErrInvalidPassword) {
+		t.Errorf("short password: got %v, want ErrInvalidPassword", err)
+	}
+	if err := s.ChangePassword(ctx, anna, "password", "new password", here); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.Authenticate(ctx, here); err != nil {
+		t.Errorf("the session that changed it: %v, want it logged in", err)
+	}
+	if _, err := s.Authenticate(ctx, elsewhere); !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("the other session: got %v, want ErrUnauthenticated", err)
+	}
+	if _, _, err := s.Login(ctx, "anna", "password"); !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("login with the old password: got %v, want ErrUnauthenticated", err)
+	}
+	if _, _, err := s.Login(ctx, "anna", "new password"); err != nil {
+		t.Errorf("login with the new password: %v", err)
+	}
+}
+
+func TestFriendLimit(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	others := make([]account.Account, MaxFriends)
+	for i := range others {
+		others[i] = register(t, s, fmt.Sprintf("user%d", i))
+	}
+	register(t, s, "ben")
+	cara := register(t, s, "cara")
+
+	// Half of them friends, the others asked: all but the last count.
+	for i, o := range others[:MaxFriends-1] {
+		if i%2 == 0 {
+			befriend(t, s, anna, o)
+		} else if err := s.RequestFriend(ctx, anna, o.Username); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Requests anna received don't count.
+	if err := s.RequestFriend(ctx, cara, "anna"); err != nil {
+		t.Fatal(err)
+	}
+	last := others[MaxFriends-1]
+	if err := s.RequestFriend(ctx, anna, last.Username); err != nil {
+		t.Fatalf("the last request: %v", err)
+	}
+
+	if err := s.RequestFriend(ctx, anna, "ben"); !errors.Is(err, ErrTooManyFriends) {
+		t.Errorf("one request too many: got %v, want ErrTooManyFriends", err)
+	}
+	if err := s.AcceptFriend(ctx, anna, cara.ID); !errors.Is(err, ErrTooManyFriends) {
+		t.Errorf("accepting one too many: got %v, want ErrTooManyFriends", err)
+	}
+	if err := s.RequestFriend(ctx, anna, "cara"); !errors.Is(err, ErrTooManyFriends) {
+		t.Errorf("asking back one too many: got %v, want ErrTooManyFriends", err)
+	}
+	// The limit is the accepting side's: the last one has room for anna.
+	if err := s.AcceptFriend(ctx, last, anna.ID); err != nil {
+		t.Errorf("accepting anna's request: %v", err)
+	}
+
+	if err := s.RemoveFriend(ctx, anna, last.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AcceptFriend(ctx, anna, cara.ID); err != nil {
+		t.Errorf("accepting after removing a friend: %v", err)
+	}
+}
+
+func TestGuestLimit(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	var first int64
+	for i := range MaxGuests {
+		g, err := s.CreateGuest(ctx, anna, fmt.Sprintf("Guest %d", i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if i == 0 {
+			first = g.ID
+		}
+	}
+	if _, err := s.CreateGuest(ctx, anna, "One more"); !errors.Is(err, ErrTooManyGuests) {
+		t.Errorf("one guest too many: got %v, want ErrTooManyGuests", err)
+	}
+	if err := s.DeleteGuest(ctx, anna, first); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateGuest(ctx, anna, "One more"); err != nil {
+		t.Errorf("a guest after deleting one: %v", err)
+	}
 }

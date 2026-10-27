@@ -107,6 +107,36 @@ func (s *Service) SetEmail(ctx context.Context, acc account.Account, email strin
 	return acc, nil
 }
 
+// ChangePassword sets a new password after checking the current one (ErrWrongPassword).
+// The account's other sessions end, so whoever knew the old password is logged out; the
+// session of token stays.
+func (s *Service) ChangePassword(ctx context.Context, acc account.Account, current, password, token string) error {
+	if _, err := s.checkPassword(ctx, acc, current); err != nil {
+		return err
+	}
+	if err := account.ValidatePassword(password); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.opts.PasswordCost)
+	if err != nil {
+		return err
+	}
+	return s.store.SetPassword(ctx, acc.ID, string(hash), hashToken(token))
+}
+
+// checkPassword returns the stored account if the password is its own, else
+// ErrWrongPassword; for changes that ask for the password again.
+func (s *Service) checkPassword(ctx context.Context, acc account.Account, password string) (account.Account, error) {
+	a, err := s.store.GetAccount(ctx, acc.ID)
+	if err != nil {
+		return a, err
+	}
+	if bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(password)) != nil {
+		return a, ErrWrongPassword
+	}
+	return a, nil
+}
+
 // Login checks the credentials and starts a session. The returned token identifies the session.
 // With a limit (Options.MaxLoginFailures) a username, or a network (WithNetwork), with too
 // many failed logins lately is refused with ErrTooManyLogins, whether the username exists or

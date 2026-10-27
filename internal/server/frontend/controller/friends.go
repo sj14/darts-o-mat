@@ -44,11 +44,14 @@ func (c *Controller) acceptFriend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := c.svc.AcceptFriend(r.Context(), auth.Account(r.Context()), id)
-	if err != nil && !isNotFound(err) {
+	switch msg, ok := errorText(view.T(r.Context()), err); {
+	case err == nil, isNotFound(err):
+		http.Redirect(w, r, "/friends", http.StatusSeeOther)
+	case ok:
+		c.renderFriends(w, r, http.StatusBadRequest, msg, "")
+	default:
 		serverError(w, err)
-		return
 	}
-	http.Redirect(w, r, "/friends", http.StatusSeeOther)
 }
 
 // removeFriend ends a friendship, or declines or withdraws a request.

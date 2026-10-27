@@ -9,7 +9,14 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/store"
 )
 
-var ErrAlreadyFriends = fmt.Errorf("%w: already friends or requested", ErrInvalid)
+// MaxFriends is how many friends an account can have; the requests it sent count too.
+const MaxFriends = 100
+
+var (
+	ErrAlreadyFriends = fmt.Errorf("%w: already friends or requested", ErrInvalid)
+	// ErrTooManyFriends means the account's friends and sent requests reach MaxFriends.
+	ErrTooManyFriends = fmt.Errorf("%w: at most %d friends", ErrInvalid, MaxFriends)
+)
 
 // Friend is another account as shown in the friend list.
 type Friend struct {
@@ -58,7 +65,8 @@ func (s *Service) Friends(ctx context.Context, acc account.Account) (FriendList,
 }
 
 // RequestFriend sends a friend request to the account with the username.
-// If that account already sent a request to acc, it is accepted instead.
+// If that account already sent a request to acc, it is accepted instead. Either way acc
+// needs room for one more friend (ErrTooManyFriends).
 func (s *Service) RequestFriend(ctx context.Context, acc account.Account, username string) error {
 	username = account.NormalizeUsername(username)
 	other, err := s.store.GetAccountByUsername(ctx, username)
@@ -81,19 +89,56 @@ func (s *Service) RequestFriend(ctx context.Context, acc account.Account, userna
 	existing, err := s.store.GetFriendship(ctx, acc.ID, other.ID)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
+		if err := s.checkFriendLimit(ctx, acc); err != nil {
+			return err
+		}
 		return s.store.CreateFriendship(ctx, &account.Friendship{RequesterID: acc.ID, AddresseeID: other.ID, Status: account.FriendshipPending})
 	case err != nil:
 		return err
 	case existing.Status == account.FriendshipPending && existing.AddresseeID == acc.ID:
-		return s.store.AcceptFriendship(ctx, other.ID, acc.ID)
+		return s.acceptFriend(ctx, acc, other.ID)
 	default:
 		return ErrAlreadyFriends
 	}
 }
 
-// AcceptFriend accepts the friend request the other account sent, ErrNotFound if there is none.
+// AcceptFriend accepts the friend request the other account sent, ErrNotFound if there is
+// none, ErrTooManyFriends if acc has no room for one more friend.
 func (s *Service) AcceptFriend(ctx context.Context, acc account.Account, otherID int64) error {
+	unlock, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	return s.acceptFriend(ctx, acc, otherID)
+}
+
+// acceptFriend accepts the other account's request; the caller holds the lock. Only acc's
+// count grows: the request counted for the requester already.
+func (s *Service) acceptFriend(ctx context.Context, acc account.Account, otherID int64) error {
+	if err := s.checkFriendLimit(ctx, acc); err != nil {
+		return err
+	}
 	return s.store.AcceptFriendship(ctx, otherID, acc.ID)
+}
+
+// checkFriendLimit returns ErrTooManyFriends if the account's friends and the requests it
+// sent reach MaxFriends. Requests it received don't count, it can decline them.
+func (s *Service) checkFriendLimit(ctx context.Context, acc account.Account) error {
+	friendships, err := s.store.ListFriendships(ctx, acc.ID)
+	if err != nil {
+		return err
+	}
+	n := 0
+	for _, f := range friendships {
+		if f.Status == account.FriendshipAccepted || f.RequesterID == acc.ID {
+			n++
+		}
+	}
+	if n >= MaxFriends {
+		return ErrTooManyFriends
+	}
+	return nil
 }
 
 // RemoveFriend ends a friendship, or declines or withdraws a request.

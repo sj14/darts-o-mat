@@ -31,6 +31,12 @@ func errorText(t view.Texts, err error) (string, bool) {
 	if errors.Is(err, tournament.ErrPlayerCount) {
 		return t.ErrTournamentPlayers(tournament.MinPlayers, tournament.MaxPlayers), true
 	}
+	if errors.Is(err, service.ErrTooManyFriends) {
+		return t.ErrTooManyFriends(service.MaxFriends), true
+	}
+	if errors.Is(err, service.ErrTooManyGuests) {
+		return t.ErrTooManyGuests(service.MaxGuests), true
+	}
 	texts := []struct {
 		err  error
 		text func() string
@@ -39,6 +45,7 @@ func errorText(t view.Texts, err error) (string, bool) {
 		{service.ErrUsernameTaken, t.ErrUsernameTaken},
 		{service.ErrEmailTaken, t.ErrEmailTaken},
 		{account.ErrInvalidEmail, t.ErrInvalidEmail},
+		{account.ErrInvalidPassword, t.ErrInvalidPassword},
 		{service.ErrCaptcha, t.ErrCaptcha},
 		{service.ErrRegistrationClosed, t.RegistrationClosed},
 		{service.ErrTooManyLogins, t.ErrTooManyLogins},

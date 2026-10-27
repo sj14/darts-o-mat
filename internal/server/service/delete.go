@@ -9,14 +9,14 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 	"github.com/sj14/darts-o-mat/internal/server/store"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
 	// ErrGuestBusy means a guest can't be deleted while they take part in a running game
 	// or tournament.
 	ErrGuestBusy = fmt.Errorf("%w: the guest takes part in a running game or tournament", ErrInvalid)
-	// ErrWrongPassword is returned when deleting an account with a wrong password.
+	// ErrWrongPassword means the password entered again to delete the account or to change
+	// the password is wrong.
 	ErrWrongPassword = fmt.Errorf("%w: wrong password", ErrInvalid)
 	// ErrLastAdmin means the last admin can't delete their account or give up the role: the
 	// server would be left without one.
@@ -103,12 +103,9 @@ func (s *Service) unfinished(ctx context.Context, acc account.Account) ([]GameVi
 // tournament ends), and open invitations are declined. The last admin can't delete their
 // account (ErrLastAdmin).
 func (s *Service) DeleteAccount(ctx context.Context, acc account.Account, password string) error {
-	a, err := s.store.GetAccount(ctx, acc.ID)
+	a, err := s.checkPassword(ctx, acc, password)
 	if err != nil {
 		return err
-	}
-	if bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(password)) != nil {
-		return ErrWrongPassword
 	}
 	unlock, err := s.lock(ctx)
 	if err != nil {

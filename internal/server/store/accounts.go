@@ -152,6 +152,18 @@ func (store *Store) GetSession(ctx context.Context, tokenHash string) (account.S
 	return s, nil
 }
 
+// SetPassword stores the password hash of an account and ends its sessions except the one
+// with keepTokenHash.
+func (store *Store) SetPassword(ctx context.Context, id int64, hash, keepTokenHash string) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewUpdate().Model((*account.Account)(nil)).Set("password_hash = ?", hash).Where("id = ?", id).Exec(ctx); err != nil {
+			return err
+		}
+		_, err := tx.NewDelete().Model((*account.Session)(nil)).Where("account_id = ? AND token_hash <> ?", id, keepTokenHash).Exec(ctx)
+		return err
+	})
+}
+
 func (store *Store) DeleteSession(ctx context.Context, tokenHash string) error {
 	_, err := store.db.NewDelete().Model((*account.Session)(nil)).Where("token_hash = ?", tokenHash).Exec(ctx)
 	return err
