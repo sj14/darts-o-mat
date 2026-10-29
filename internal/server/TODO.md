@@ -36,6 +36,7 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
 ## Boards and cameras
 
 - Plausibility check for camera darts while waiting for the takeout (discussed 2026-10-15, not built): a camera dart then records the takeout first (implicit takeout, `service.AddBoardDart`); a dart that comes too soon after the third one (e.g. under a few seconds, nobody pulled the darts out yet) is more likely a misdetection and could be refused or asked about.
+- Warn when darts-o-cam is gone altogether (set aside 2026-10-29, only reported problems are built, see [AGENTS.md → camera connection](AGENTS.md#camera-connection)): darts-o-cam would report every ~30 s, and the server would warn "camera offline" after ~90 s without one. Needs a timer per board on every replica (like `watchTurn`) and about 100–150 lines more.
 
 ## Accounts and guests
 

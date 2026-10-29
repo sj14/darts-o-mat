@@ -16,6 +16,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/common/notify"
 	"github.com/sj14/darts-o-mat/internal/server/captcha"
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
+	"github.com/sj14/darts-o-mat/internal/server/domain/board"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
@@ -165,6 +166,9 @@ type GameView struct {
 	CanStart bool `json:"can_start"`
 	// BoardNames are the names of the boards the players throw on, by player.
 	BoardNames map[int64]string `json:"board_names,omitempty"`
+	// CameraWarnings are the boards of the players that darts-o-cam reported warnings
+	// about (board.Board.Warnings), each once.
+	CameraWarnings []board.Board `json:"camera_warnings,omitempty"`
 	// TurnDeadline is when the turn of the player who is up ends, nil without a limit
 	// (game.Game.TurnDeadline). It is never earlier than the turn's time after a server
 	// last started (Service.ServerStarted; one time for all replicas): the time it was down for a
@@ -607,6 +611,9 @@ func (s *Service) build(ctx context.Context, g game.Game) (GameView, error) {
 		}
 		if b, err := s.store.GetBoard(ctx, *p.BoardID); err == nil {
 			v.BoardNames[p.PlayerID] = b.Name
+			if len(b.Warnings) > 0 && !slices.ContainsFunc(v.CameraWarnings, func(w board.Board) bool { return w.ID == b.ID }) {
+				v.CameraWarnings = append(v.CameraWarnings, b)
+			}
 		} else if !errors.Is(err, store.ErrNotFound) {
 			return GameView{}, err
 		}

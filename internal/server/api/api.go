@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
+	"github.com/sj14/darts-o-mat/internal/common/warning"
 	"github.com/sj14/darts-o-mat/internal/server/auth"
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
@@ -44,6 +45,7 @@ func (a *API) Routes() http.Handler {
 		}))
 		r.Post("/board/darts", a.addBoardDart)
 		r.Post("/board/takeout", a.boardTakeout)
+		r.Put("/board/warnings", a.setBoardWarnings)
 	})
 
 	r.Group(func(r chi.Router) {
@@ -269,6 +271,26 @@ func (a *API) addBoardDart(w http.ResponseWriter, r *http.Request) {
 func (a *API) boardTakeout(w http.ResponseWriter, r *http.Request) {
 	v, err := a.svc.BoardTakeout(r.Context(), auth.Board(r.Context()))
 	respond(w, http.StatusOK, v, err)
+}
+
+// maxWarningsBody is the largest body of setBoardWarnings: MaxWarnings warnings of at most
+// 256 bytes each take 5 KB.
+const maxWarningsBody = 16 << 10
+
+// setBoardWarnings replaces the warnings of the board by those darts-o-cam reports now.
+func (a *API) setBoardWarnings(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxWarningsBody)
+	var req struct {
+		Warnings warning.List `json:"warnings"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	if err := a.svc.SetBoardWarnings(r.Context(), auth.Board(r.Context()), req.Warnings); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *API) listGames(w http.ResponseWriter, r *http.Request) {

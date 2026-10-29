@@ -212,6 +212,21 @@ func (textsEN) LeaveGameConfirm() string {
 }
 func (textsEN) PlayerLeft() string { return "left" }
 func (textsEN) YouLeft() string    { return "You left this game. You can still look at it." }
+func (textsEN) CamerasMissing(board string, watching, cameras int) string {
+	if watching == 0 {
+		return "The cameras at board “" + board + "” don't detect darts: enter them by hand, or look at darts-o-cam."
+	}
+	return "Only " + strconv.Itoa(watching) + " of " + strconv.Itoa(cameras) + " cameras at board “" + board + "” detect darts: look at darts-o-cam."
+}
+func (textsEN) SmallFrames(board, camera string, width, height int) string {
+	return "Camera “" + camera + "” at board “" + board + "” only delivers " + strconv.Itoa(width) + "×" + strconv.Itoa(height) + " pixels, so it detects darts poorly. Often its USB connection is too slow: plug it into another USB port or use another cable, then reconnect the cameras in darts-o-cam."
+}
+func (textsEN) GridMismatch(board, camera string) string {
+	return "The calibration of camera “" + camera + "” at board “" + board + "” doesn't fit the board anymore, maybe the camera was moved: calibrate it again in darts-o-cam."
+}
+func (textsEN) BoardWarning(board string) string {
+	return "darts-o-cam reports a problem at board “" + board + "”: look at darts-o-cam."
+}
 func (textsEN) ErrCantLeave() string {
 	return "You can't leave the game now, e.g. not while bulling off."
 }

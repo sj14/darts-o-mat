@@ -3,6 +3,8 @@ package board
 import (
 	"time"
 
+	"github.com/sj14/darts-o-mat/internal/common/warning"
+
 	"github.com/uptrace/bun"
 )
 
@@ -16,6 +18,8 @@ type Board struct {
 	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 	// LastUsedAt is when a game was last started on the board, nil if never.
 	LastUsedAt *time.Time `bun:",nullzero" json:"last_used_at,omitempty"`
+	// Warnings are the problems darts-o-cam last reported about the board, as JSON.
+	Warnings warning.List `bun:",type:VARCHAR,nullzero" json:"warnings,omitempty"`
 }
 
 // Token lets the board's cameras (darts-o-cam) report darts without a user login.

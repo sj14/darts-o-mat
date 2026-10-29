@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
+	"github.com/sj14/darts-o-mat/internal/common/warning"
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/board"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
@@ -110,6 +113,51 @@ func (s *Service) BoardTakeout(ctx context.Context, b board.Board) (GameView, er
 		}
 		return s.storeTakeout(ctx, g, v)
 	})
+}
+
+const (
+	// MaxWarnings is how many warnings a board may have; darts-o-cam sends a few at most.
+	MaxWarnings = 20
+	// maxWarningSize is the most a warning may take as JSON, in bytes, whatever its kind:
+	// codes and camera names are short.
+	maxWarningSize = 256
+)
+
+// SetBoardWarnings stores the warnings darts-o-cam reports about the board, all it has
+// now (none: everything is fine). If they changed, the games on the board are shown
+// again with them. Their number and size are limited, so a board's token can't fill
+// the database or the game page.
+func (s *Service) SetBoardWarnings(ctx context.Context, b board.Board, warnings warning.List) error {
+	if len(warnings) > MaxWarnings {
+		return fmt.Errorf("%w: at most %d warnings", ErrInvalid, MaxWarnings)
+	}
+	for _, w := range warnings {
+		data, err := json.Marshal(warning.List{w})
+		if err != nil {
+			return err
+		}
+		if w.Code() == "" || len(data) > maxWarningSize {
+			return fmt.Errorf("%w: a warning needs a code and may take at most %d bytes", ErrInvalid, maxWarningSize)
+		}
+	}
+	if len(warnings) == 0 {
+		warnings = nil // stored as NULL
+	}
+	if slices.Equal(b.Warnings, warnings) {
+		return nil
+	}
+	b.Warnings = warnings
+	if err := s.store.SetBoardWarnings(ctx, b); err != nil {
+		return err
+	}
+	games, err := s.store.ListUnfinishedGamesByBoard(ctx, b.ID)
+	if err != nil {
+		return err
+	}
+	for _, g := range games {
+		s.notifyGame(g)
+	}
+	return nil
 }
 
 // activeGame returns the newest game with a player on the board that accepts darts.

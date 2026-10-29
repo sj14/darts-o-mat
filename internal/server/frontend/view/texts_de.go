@@ -211,6 +211,21 @@ func (textsDE) PlayerLeft() string { return "ausgetreten" }
 func (textsDE) YouLeft() string {
 	return "Du hast dieses Spiel verlassen. Du kannst es dir weiter ansehen."
 }
+func (textsDE) CamerasMissing(board string, watching, cameras int) string {
+	if watching == 0 {
+		return "Die Kameras am Board „" + board + "“ erkennen keine Darts: Trag sie von Hand ein oder sieh in darts-o-cam nach."
+	}
+	return "Nur " + strconv.Itoa(watching) + " von " + strconv.Itoa(cameras) + " Kameras am Board „" + board + "“ erkennen Darts: Sieh in darts-o-cam nach."
+}
+func (textsDE) SmallFrames(board, camera string, width, height int) string {
+	return "Die Kamera „" + camera + "“ am Board „" + board + "“ liefert nur " + strconv.Itoa(width) + "×" + strconv.Itoa(height) + " Pixel und erkennt Darts deshalb schlecht. Oft ist ihre USB-Verbindung zu langsam: Steck sie an einen anderen USB-Anschluss oder nimm ein anderes Kabel und verbinde dann die Kameras in darts-o-cam neu."
+}
+func (textsDE) GridMismatch(board, camera string) string {
+	return "Die Kalibrierung der Kamera „" + camera + "“ am Board „" + board + "“ passt nicht mehr zum Board, vielleicht wurde die Kamera verschoben: Kalibriere sie in darts-o-cam neu."
+}
+func (textsDE) BoardWarning(board string) string {
+	return "darts-o-cam meldet ein Problem am Board „" + board + "“: Sieh in darts-o-cam nach."
+}
 func (textsDE) ErrCantLeave() string {
 	return "Du kannst das Spiel jetzt nicht verlassen, z. B. nicht beim Ausbullen."
 }

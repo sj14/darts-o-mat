@@ -108,7 +108,7 @@ One Go module for the project: the programs' `main` packages are in `cmd/` (`cmd
 
 Because the compiler doesn't keep the programs apart, `internal/common/layout_test.go` does: `common` imports neither `server` nor `cam`, `server` not `cam`, `cam` not `server`. `common` is what both programs share and must stay small and free of what only one needs; what only the server knows (the game's log entry `throw.Dart` with its database tags) stays in `internal/server/domain/throw`, so the camera doesn't compile in the database library.
 
-- [`common`](internal/common): what both programs share: `dartboard` (board geometry, `Segment` and `Hit`, the dart as the cameras report it), `i18n`, `notify`, `sse`, `buildinfo`, `update`, `profiling`, `static`
+- [`common`](internal/common): what both programs share: `dartboard` (board geometry, `Segment` and `Hit`, the dart as the cameras report it), `warning` (what darts-o-cam reports about a board, shown on the game page), `i18n`, `notify`, `sse`, `buildinfo`, `update`, `profiling`, `static`
 - [`server`](internal/server/AGENTS.md): the web server (main package in [`cmd/darts-o-mat`](cmd/darts-o-mat); `api`, `auth`, `captcha`, `service`, `store`, `domain`, `frontend`)
 - [`cam`](internal/cam/AGENTS.md): the camera app (main package in [`cmd/darts-o-cam`](cmd/darts-o-cam); `camapp`, `camui`, `vision`, `camera`)
 - [`tools`](tools): packaging and generators, see below

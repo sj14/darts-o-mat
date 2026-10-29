@@ -41,6 +41,12 @@ func (store *Store) DeleteBoard(ctx context.Context, accountID, id int64) error 
 	return err
 }
 
+// SetBoardWarnings stores the warnings of the board.
+func (store *Store) SetBoardWarnings(ctx context.Context, b board.Board) error {
+	_, err := store.db.NewUpdate().Model(&b).Column("warnings").WherePK().Exec(ctx)
+	return err
+}
+
 // SetBoardToken stores the hash of a board's token, replacing an older one.
 func (store *Store) SetBoardToken(ctx context.Context, boardID int64, tokenHash string) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {

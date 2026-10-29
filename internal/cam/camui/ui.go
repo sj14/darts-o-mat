@@ -35,13 +35,6 @@ var Targets = [][2]uint8{{20, 1}, {6, 10}, {3, 19}, {11, 14}, {13, 6}, {17, 3}, 
 // MinPoints is the number of clicked points needed for the rough calibration.
 const MinPoints = 4
 
-// minFoundShare is the share of the board's features that must be found in the image,
-// or the grid is shown as wrong. Measured on 1280×720: good calibrations 96–98 %; one
-// with a wire mixed up when clicking (1/18 instead of 20/1) 22 %, while its mean
-// deviation of 1.7 px looked fine. The share of features far off didn't tell them
-// apart: 4–16 % for good ones (varies from frame to frame), 25–35 % for that one.
-const minFoundShare = 0.5
-
 type UI struct {
 	app *camapp.App
 
@@ -580,7 +573,7 @@ func (ui *UI) auto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := vision.AutoCalibrate(s.frame, dartboard.Point{X: x, Y: y})
-	if err == nil && res.FoundShare() < minFoundShare {
+	if err == nil && res.FoundShare() < vision.MinFoundShare {
 		err = fmt.Errorf("found only %.0f %% of the board's features", res.FoundShare()*100)
 	}
 	if err == nil {
@@ -762,7 +755,7 @@ func (ui *UI) checkPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		m.Found, m.Searched = len(c.result.Features), c.result.Searched
-		m.Wrong = float64(m.Found) < minFoundShare*float64(m.Searched)
+		m.Wrong = float64(m.Found) < vision.MinFoundShare*float64(m.Searched)
 	}
 	render(w, r, Check(m))
 }

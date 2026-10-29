@@ -193,6 +193,13 @@ templ scores(v service.GameView, errMsg string, editing *throw.Dart, adding bool
 		if v.HasLeft {
 			<div class="mb-4 rounded-2xl border border-white/15 bg-pub-800 px-4 py-3 text-white/70" role="status">{ T(ctx).YouLeft() }</div>
 		}
+		if p.running() {
+			for _, b := range v.CameraWarnings {
+				for _, w := range b.Warnings {
+					<div class="mb-4 rounded-2xl border border-amber-400/40 bg-amber-950 px-4 py-3 text-amber-200" role="alert">{ warningText(T(ctx), b.Name, w) }</div>
+				}
+			}
+		}
 		if p.GameOver {
 			<div class="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-amber-300 via-amber-400 to-orange-500 p-6 text-pub-950 shadow-2xl shadow-amber-500/30 animate-dart-in" role="status">
 				<div class="font-display text-5xl font-extrabold uppercase sm:text-6xl">{ T(ctx).WinsGame(playerName(ctx, v, *p.WinnerID)) }</div>

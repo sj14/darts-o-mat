@@ -162,6 +162,14 @@ type Texts interface {
 	LeaveGameConfirm() string
 	PlayerLeft() string
 	YouLeft() string
+	// CamerasMissing warns that only watching of the cameras at a board detect darts.
+	CamerasMissing(board string, watching, cameras int) string
+	// SmallFrames warns that a camera at a board delivers only small frames.
+	SmallFrames(board, camera string, width, height int) string
+	// GridMismatch warns that the calibration of a camera at a board doesn't fit anymore.
+	GridMismatch(board, camera string) string
+	// BoardWarning is a warning about a board that this server doesn't know.
+	BoardWarning(board string) string
 	ErrCantLeave() string
 	HideKeypad() string
 	Starts(name string) string

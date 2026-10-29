@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
+	"github.com/sj14/darts-o-mat/internal/common/warning"
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
+	"github.com/sj14/darts-o-mat/internal/server/domain/board"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
@@ -606,6 +609,72 @@ func TestBoardCamera(t *testing.T) {
 	}
 	if v.BoardNames[oma.ID] != "Keller" {
 		t.Errorf("board names = %v, want Keller", v.BoardNames)
+	}
+}
+
+func TestBoardWarnings(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newService(t)
+	anna := register(t, s, "anna")
+	keller, _ := s.CreateBoard(ctx, anna, "Keller")
+	v, err := createGame(ctx, s, anna, withBoard(x01Game(anna.PlayerID), keller.ID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, stop := s.Subscribe(v.Game.ID)
+	defer stop()
+	pending := func() bool {
+		select {
+		case <-changes:
+			return true
+		default:
+			return false
+		}
+	}
+	report := func(warnings ...warning.Warning) []board.Board {
+		t.Helper()
+		b, err := s.store.GetBoard(ctx, keller.ID) // as auth.RequireBoard loads it
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.SetBoardWarnings(ctx, b, warnings); err != nil {
+			t.Fatal(err)
+		}
+		g, err := s.Game(ctx, anna, v.Game.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return g.CameraWarnings
+	}
+
+	if w := report(); len(w) != 0 || pending() {
+		t.Errorf("no warnings: boards %+v; want none and no notification", w)
+	}
+	missing := warning.CamerasMissing{Cameras: 3, Watching: 2}
+	grid := warning.GridMismatch{Camera: "cam2"}
+	if w := report(missing, grid); len(w) != 1 || !slices.Equal(w[0].Warnings, warning.List{missing, grid}) || !pending() {
+		t.Errorf("two warnings: boards %+v; want Keller with both and a notification", w)
+	}
+	if report(missing, grid); pending() {
+		t.Error("notified although nothing changed")
+	}
+	if w := report(); len(w) != 0 || !pending() {
+		t.Errorf("warnings gone: boards %+v; want none and a notification", w)
+	}
+
+	tooMany := make(warning.List, MaxWarnings+1)
+	for i := range tooMany {
+		tooMany[i] = missing
+	}
+	for name, warnings := range map[string]warning.List{
+		"too many":    tooMany,
+		"long camera": {warning.GridMismatch{Camera: strings.Repeat("x", maxWarningSize)}},
+		"no code":     {warning.Unknown{}},
+	} {
+		if err := s.SetBoardWarnings(ctx, keller, warnings); !errors.Is(err, ErrInvalid) {
+			t.Errorf("%s: got %v, want ErrInvalid", name, err)
+		}
 	}
 }
 

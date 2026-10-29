@@ -13,6 +13,7 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
+	"github.com/sj14/darts-o-mat/internal/common/warning"
 	"github.com/sj14/darts-o-mat/internal/server/domain/board"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/aroundtheclock"
@@ -835,4 +836,19 @@ func rulesOf[R any](s game.Settings) R {
 	}
 	var zero R
 	return zero
+}
+
+// warningText is what the game page says about a warning of a board; a code this server
+// doesn't know (from a newer darts-o-cam) gets a general text.
+func warningText(t Texts, boardName string, w warning.Warning) string {
+	switch w := w.(type) {
+	case warning.CamerasMissing:
+		return t.CamerasMissing(boardName, w.Watching, w.Cameras)
+	case warning.SmallFrames:
+		return t.SmallFrames(boardName, w.Camera, w.Width, w.Height)
+	case warning.GridMismatch:
+		return t.GridMismatch(boardName, w.Camera)
+	default: // warning.Unknown
+		return t.BoardWarning(boardName)
+	}
 }

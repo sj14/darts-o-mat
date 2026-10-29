@@ -31,6 +31,13 @@ func (r RefineResult) FoundShare() float64 {
 	return float64(r.Matches) / float64(r.Searched)
 }
 
+// MinFoundShare is the share of the board's features that must be found in the image,
+// or the grid doesn't fit. Measured on 1280×720: good calibrations 96–98 %; one with a
+// wire mixed up when clicking (1/18 instead of 20/1) 22 %, while its mean deviation of
+// 1.7 px looked fine. The share of features far off didn't tell them apart: 4–16 % for
+// good ones (varies from frame to frame), 25–35 % for that one.
+const MinFoundShare = 0.5
+
 // autoRotations are how far the rotation is varied from what the tap says, in degrees: the
 // tap is somewhere in the double of the 20, which is ±9° wide, and the fine calibration
 // copes with a rotation that is off by up to about 6° (measured on the development board:

@@ -36,13 +36,17 @@ type App struct {
 	snapMu sync.Mutex
 	snaps  map[string]*snapshot // device ID → frame of a device that isn't a board camera
 
-	evMu     sync.Mutex // guards events, nextID, reports and statuses
-	events   []Event    // newest last, of all boards
-	nextID   int
-	reports  map[int]reportResult // of events AddEvent doesn't keep yet, by ID
-	statuses map[int]Status       // by board
+	evMu           sync.Mutex // guards events, nextID, reports, statuses and warningReports
+	events         []Event    // newest last, of all boards
+	nextID         int
+	reports        map[int]reportResult  // of events AddEvent doesn't keep yet, by ID
+	statuses       map[int]Status        // by board
+	warningReports map[int]warningReport // waiting to be sent, by board
 	// newEvent is told about every new detection, see WatchEvents.
 	newEvent notify.Signal
+	// warningsChanged wakes sendWarnings; stopWarnings stops it.
+	warningsChanged chan struct{}
+	stopWarnings    context.CancelFunc
 }
 
 // Options are settings of darts-o-cam that aren't kept in the configuration.
@@ -78,7 +82,13 @@ func New(dir string, opts Options) (*App, error) {
 			return nil, err
 		}
 	}
-	a := &App{dir: dir, opts: opts, cfg: cfg, cams: map[string]*boardCamera{}, runs: map[int]*run{}, snaps: map[string]*snapshot{}, statuses: map[int]Status{}, reports: map[int]reportResult{}}
+	a := &App{
+		dir: dir, opts: opts, cfg: cfg, cams: map[string]*boardCamera{}, runs: map[int]*run{}, snaps: map[string]*snapshot{},
+		statuses: map[int]Status{}, reports: map[int]reportResult{}, warningReports: map[int]warningReport{}, warningsChanged: make(chan struct{}, 1),
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	a.stopWarnings = cancel
+	go a.sendWarnings(ctx)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.openCameras(a.allBoards()...)
@@ -97,6 +107,7 @@ func (a *App) Close() {
 	defer a.mu.Unlock()
 	a.stop()
 	a.closeCameras()
+	a.stopWarnings()
 }
 
 // calibration returns the configured cameras as a vision.Calibration. a.mu must be held.
@@ -199,15 +210,20 @@ type CameraState struct {
 func (a *App) state(b *BoardConfig, c vision.CameraCalibration) CameraState {
 	bc := a.cams[c.Name]
 	s := CameraState{CameraCalibration: c, BoardID: b.ID, Live: bc.live, Frame: image.Pt(bc.width, bc.height), Problem: bc.problem, Calibrated: c.Calibrated(bc.width, bc.height)}
-	// Less than half the wanted width: a camera that can only do 640×480 of a wanted
-	// 1280×720 isn't small, one that falls back to 160×120 on a slow connection is.
-	s.Small = bc.width > 0 && 2*bc.width < b.Width
+	s.Small = smallFrames(bc, b)
 	if bc.live != nil {
 		if _, err := bc.live.Latest(); err != nil {
 			s.Problem = err // e.g. unplugged
 		}
 	}
 	return s
+}
+
+// smallFrames reports whether the frames of the camera bc are much smaller than its board
+// b wants: less than half the wanted width. A camera that can only do 640×480 of a wanted
+// 1280×720 isn't small, one that falls back to 160×120 on a slow connection is.
+func smallFrames(bc *boardCamera, b *BoardConfig) bool {
+	return bc.width > 0 && 2*bc.width < b.Width
 }
 
 // Cameras returns the cameras of a board.

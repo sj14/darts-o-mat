@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"image"
 	"log"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/sj14/darts-o-mat/internal/cam/vision"
+	"github.com/sj14/darts-o-mat/internal/common/warning"
 )
 
 // Status tells what a board's detection is doing.
@@ -103,13 +105,25 @@ func (a *App) start(b *BoardConfig) {
 // startRun is start; reconnected is set when it starts after the cameras were reconnected
 // because the detection failed.
 func (a *App) startRun(b *BoardConfig, reconnected bool) {
+	var srv *server
+	if b.Server != "" && b.Token != "" {
+		srv = newServer(b.Server, b.Token)
+	}
+	// status also reports the board's warnings to the server. It is called from the
+	// detection's goroutine too, so it doesn't read b, which a.mu guards.
+	board, cameras := b.ID, len(b.Cameras)
+	var small warning.List // of the cameras the detection uses, found below
+	status := func(s Status) {
+		a.setStatus(board, s)
+		a.reportWarnings(board, srv, statusWarnings(cameras, s, small))
+	}
 	if !b.Detect {
-		a.setStatus(b.ID, Status{})
+		status(Status{})
 		return
 	}
-	d := detection{board: b.ID, name: b.Name, opts: b.Detection}
-	if b.Server != "" && b.Token != "" {
-		d.report = newReporter(b.Name, newServer(b.Server, b.Token), a.setReport)
+	d := detection{board: b.ID, name: b.Name, opts: b.Detection, server: srv}
+	if srv != nil {
+		d.report = newReporter(b.Name, srv, a.setReport)
 	}
 	calib := a.calibration()
 	for _, c := range b.Cameras {
@@ -120,9 +134,14 @@ func (a *App) startRun(b *BoardConfig, reconnected bool) {
 			continue
 		}
 		m, _ := c.Mapping()
+		start, _ := c.ToBoard()
 		d.lives = append(d.lives, bc.live)
 		d.names = append(d.names, c.Name)
 		d.maps = append(d.maps, m)
+		d.starts = append(d.starts, start)
+		if smallFrames(bc, b) {
+			small = append(small, warning.SmallFrames{Camera: c.Name, Width: bc.width, Height: bc.height})
+		}
 		empty, err := calib.LoadEmpty(c)
 		if err != nil {
 			log.Printf("%s: image of the empty board: %v", c.Name, err)
@@ -130,14 +149,16 @@ func (a *App) startRun(b *BoardConfig, reconnected bool) {
 		d.empty = append(d.empty, empty)
 	}
 	if len(d.lives) == 0 {
-		a.setStatus(b.ID, Status{Err: ErrNoCalibratedCamera, Reporting: d.report != nil})
+		status(Status{Err: ErrNoCalibratedCamera, Reporting: d.report != nil})
 		return
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &run{cancel: cancel, done: make(chan struct{}), started: time.Now(), reconnected: reconnected}
 	a.runs[b.ID] = r
-	a.setStatus(b.ID, Status{Running: true, Cameras: len(d.lives), Reporting: d.report != nil})
+	running := Status{Running: true, Cameras: len(d.lives), Reporting: d.report != nil}
+	d.warnings = statusWarnings(cameras, running, small)
+	status(running)
 	if d.report != nil {
 		go d.report.run(ctx)
 	}
@@ -146,7 +167,7 @@ func (a *App) startRun(b *BoardConfig, reconnected bool) {
 		stopped := ctx.Err() != nil // by the app: nothing went wrong
 		if !stopped {
 			log.Printf("%s: detection stopped: %v", d.name, err)
-			a.setStatus(d.board, Status{Err: err, Reporting: d.report != nil})
+			status(Status{Err: err, Reporting: d.report != nil})
 		}
 		close(r.done) // before reconnecting: that takes a.mu, which stopBoard holds while it waits for done
 		if !stopped && r.reconnectAfter(time.Now()) {
@@ -180,6 +201,11 @@ type detection struct {
 	opts   vision.WatchOptions
 	empty  []*image.RGBA // nil entries for cameras without an image of the empty board
 	report *reporter     // nil: don't report
+	server *server       // nil: don't report
+	// starts are the cameras' calibrations, to check the grid from (gridCheck).
+	starts []vision.Homography
+	// warnings are those of the running detection, before checking the grid.
+	warnings warning.List
 }
 
 // detect watches the cameras and reports the events until ctx is done or a camera fails.
@@ -197,6 +223,7 @@ func (a *App) detect(ctx context.Context, d detection) error {
 
 	seq := make([]uint64, len(d.lives))
 	frames := make([]*image.RGBA, len(d.lives))
+	grid := newGridCheck(d)
 	for {
 		// Analyze every frame once: wait for a new one of each camera.
 		for i, l := range d.lives {
@@ -210,6 +237,13 @@ func (a *App) detect(ctx context.Context, d detection) error {
 		}
 		if e := w.Feed(frames); e != nil {
 			a.handle(d, e)
+			// Without a server nobody would see the result.
+			if e.Kind == vision.EventTakeout && d.server != nil {
+				grid.start(e.After)
+			}
+		}
+		if mismatch, ok := grid.done(); ok {
+			a.reportWarnings(d.board, d.server, append(slices.Clone(d.warnings), mismatch...))
 		}
 	}
 }
