@@ -23,6 +23,8 @@ The project consists of two programs:
 
 darts-o-mat is for people who know little about IT as well as for those who do. That holds for the whole project and above all for **darts-o-cam**: its downloads, instructions, the project page and its interface have to work for someone who has never used a terminal: a download link per system with plain labels (no jargon like "amd64"; "Intel/AMD", "ARM", "Apple silicon" plus a hint which one to choose), steps in the right order, no command lines for the camera.
 
+The project page's "Get started" has two parts, one below the other: first which darts-o-mat you use, one that runs already (a list of public darts-o-mats, anyone running one asks for it with the issue form `.github/ISSUE_TEMPLATE/public-server.yml`, pull requests are welcome as well; or the address friends or a club give you) or your own, then darts-o-cam (`#camera`, where the server's board page links to, since whoever has a server only needs the camera). Nobody has to know what a server is to start playing: the page says "darts-o-mat" rather than "server".
+
 For the **server** compromises are fine, since not everyone hosts their own server: commands, containers and Kubernetes are fine in its README, just not on the first page of the project (link to the server README instead). Exception: the project page shows the server's one-line install (`install.sh --server`) and the `systemctl` line of the Linux packages next to the download links.
 
 When writing or changing the project page, the READMEs or texts of the camera's interface, ask: could someone without IT knowledge do this?

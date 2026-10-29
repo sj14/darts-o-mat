@@ -1,0 +1,29 @@
+name: Add a public darts-o-mat
+description: List your public darts-o-mat on the project page, so people can play without installing anything.
+title: "Public darts-o-mat: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for running a public darts-o-mat! The project page lists public darts-o-mats under "Get started", for people who want to play without installing anything.
+  - type: input
+    id: address
+    attributes:
+      label: Address
+      placeholder: https://darts.example.org
+    validations:
+      required: true
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Running it
+      options:
+        - label: Anyone can register on it, for free.
+          required: true
+        - label: I keep it up to date with the releases of darts-o-mat.
+          required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: E.g. how long you plan to run it, or limits for its users.

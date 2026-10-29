@@ -45,7 +45,7 @@ Or from the source, with [Go](https://go.dev/dl/) installed, from the project fo
 go run ./cmd/darts-o-mat
 ```
 
-Then open <http://localhost:3000> in the browser. The interface follows your browser's language (English or German, otherwise English); change it with the flag at the top right once you're logged in. The data is stored in the file `darts-o-mat.db` in the current folder.
+Then open <http://localhost:3000> in the browser. On phones and tablets in the same network, open the address darts-o-mat shows when it starts (e.g. `http://192.168.1.23:3000`). The interface follows your browser's language (English or German, otherwise English); change it with the flag at the top right once you're logged in. The data is stored in the file `darts-o-mat.db` in the current folder.
 
 Options:
 

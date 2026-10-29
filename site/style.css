@@ -58,9 +58,6 @@ h2 { margin: 0 0 1.25rem; font: 800 2.4rem/1.1 var(--display); text-transform: u
 .shot.phone { max-width: 16rem; }
 
 .steps { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
-/* Each program is a pair of cards, its description and its download; side by side the
-   descriptions and the downloads line up in rows. */
-.pair { display: grid; grid-row: span 2; grid-template-rows: subgrid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 1rem; }
 .step h3 { margin: 0 0 0.5rem; font: 800 1.5rem/1.1 var(--display); text-transform: uppercase; color: var(--cream); }
 pre { margin: 0.5rem 0 0; padding: 0.9rem 1rem; overflow-x: auto; border-radius: 0.75rem; background: #000; color: var(--cream); font: 0.9rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
 code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -70,6 +67,9 @@ code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, monospace; }
 .hint { font-size: 0.9rem; }
 .dl .sep { color: var(--muted); }
 .step p { margin: 0.5rem 0 0; color: var(--muted); }
+.intro { margin: 0 0 1rem; color: var(--muted); }
+.part { margin: 2rem 0 1rem; font: 800 1.8rem/1.1 var(--display); text-transform: uppercase; letter-spacing: 0.02em; }
+.servers { margin: 0.75rem 0; padding: 0; list-style: none; font: 800 1.4rem/1.4 var(--display); letter-spacing: 0.02em; }
 
 footer { margin-top: 2rem; padding: 2rem 0 3rem; border-top: 1px solid var(--line); text-align: center; color: var(--muted); font-size: 0.9rem; }
 footer a { color: var(--muted); }

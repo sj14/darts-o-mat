@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -142,6 +143,9 @@ func serve(ctx context.Context, addr string, h http.Handler) {
 		log.Fatal(err)
 	}
 	log.Printf("darts-o-mat %s is running on %s", buildinfo.Version(), pageURL(ln.Addr()))
+	if urls := homeNetworkURLs(ln.Addr()); len(urls) > 0 {
+		log.Printf("on phones and tablets in the same network, open %s", strings.Join(urls, " or "))
+	}
 	if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
@@ -159,4 +163,31 @@ func pageURL(addr net.Addr) string {
 		host = "localhost"
 	}
 	return "http://" + net.JoinHostPort(host, port)
+}
+
+// homeNetworkURLs are the addresses of the web interface for the log that phones and tablets
+// in the same network open: the computer's private IPv4 addresses, when the server listens
+// on all interfaces.
+func homeNetworkURLs(addr net.Addr) []string {
+	host, port, err := net.SplitHostPort(addr.String())
+	if err != nil || !net.ParseIP(host).IsUnspecified() {
+		return nil
+	}
+	interfaceAddrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil
+	}
+	var urls []string
+	for _, interfaceAddr := range interfaceAddrs {
+		ipNet, ok := interfaceAddr.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		ip := ipNet.IP.To4()
+		if ip == nil || !ip.IsPrivate() {
+			continue
+		}
+		urls = append(urls, "http://"+net.JoinHostPort(ip.String(), port))
+	}
+	return urls
 }

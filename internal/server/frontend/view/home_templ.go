@@ -2195,9 +2195,9 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var119 templ.SafeURL
-				templ_7745c5c3_Var119, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(T(ctx).ProjectPageURL() + "#start"))
+				templ_7745c5c3_Var119, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(T(ctx).ProjectPageURL() + "#camera"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 350, Col: 127}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 350, Col: 128}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var119))
 				if templ_7745c5c3_Err != nil {
@@ -2223,7 +2223,7 @@ func Boards(user string, boards []service.BoardView, errMsg string, newToken *Ne
 				var templ_7745c5c3_Var121 string
 				templ_7745c5c3_Var121, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).DownloadCam())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 350, Col: 203}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/home.templ`, Line: 350, Col: 204}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var121))
 				if templ_7745c5c3_Err != nil {
