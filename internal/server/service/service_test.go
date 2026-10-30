@@ -80,8 +80,8 @@ func TestAuth(t *testing.T) {
 	if a.Username != "anna" {
 		t.Errorf("username = %q, want it normalized to anna", a.Username)
 	}
-	if _, err := s.Register(ctx, "ANNA", "", "", "password"); !errors.Is(err, ErrUsernameTaken) {
-		t.Errorf("duplicate username: got %v, want ErrUsernameTaken", err)
+	if _, err := s.Register(ctx, "ANNA", "", "", "password"); !errors.Is(err, account.ErrUsernameTaken) {
+		t.Errorf("duplicate username: got %v, want account.ErrUsernameTaken", err)
 	}
 	if _, err := s.Register(ctx, "ben", "", "", "short"); !errors.Is(err, ErrInvalid) {
 		t.Errorf("short password: got %v, want ErrInvalid", err)
@@ -155,15 +155,15 @@ func TestEmail(t *testing.T) {
 	}
 
 	// An email belongs to one account; many accounts can have none.
-	if _, err := s.Register(ctx, "cara", "BEN@example.com", "", "password"); !errors.Is(err, ErrEmailTaken) {
-		t.Errorf("register with an email in use: got %v, want ErrEmailTaken", err)
+	if _, err := s.Register(ctx, "cara", "BEN@example.com", "", "password"); !errors.Is(err, account.ErrEmailTaken) {
+		t.Errorf("register with an email in use: got %v, want account.ErrEmailTaken", err)
 	}
 	if _, err := s.Register(ctx, "dora", "", "", "password"); err != nil {
 		t.Errorf("a second account without an email: %v", err)
 	}
 	cara, _ := s.Register(ctx, "cara", "cara@example.com", "", "password")
-	if _, err := s.SetEmail(ctx, cara, "ben@example.com"); !errors.Is(err, ErrEmailTaken) {
-		t.Errorf("change to an email in use: got %v, want ErrEmailTaken", err)
+	if _, err := s.SetEmail(ctx, cara, "ben@example.com"); !errors.Is(err, account.ErrEmailTaken) {
+		t.Errorf("change to an email in use: got %v, want account.ErrEmailTaken", err)
 	}
 	if a, err := s.SetEmail(ctx, ben, "ben@example.com"); err != nil || a.Email != "ben@example.com" {
 		t.Errorf("save your own email again: %q, %v", a.Email, err)

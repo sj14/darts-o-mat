@@ -13,17 +13,6 @@ import (
 	"github.com/uptrace/bun/dialect"
 )
 
-var (
-	ErrUsernameTaken = errors.New("username already taken")
-	ErrEmailTaken    = errors.New("email already taken")
-	// ErrLastAdmin means the last admin can't delete their account or give up the role: the
-	// server would be left without one.
-	ErrLastAdmin = errors.New("the last admin can't delete their account or give up the role")
-	// ErrAdminAccount means an admin's account can't be disabled or deleted by another admin;
-	// the role has to be taken away first.
-	ErrAdminAccount = errors.New("an admin can't be disabled or deleted, take the role away first")
-)
-
 // CreateAccount stores the account together with its player; the first account becomes the
 // admin.
 func (store *Store) CreateAccount(ctx context.Context, a *account.Account, p *player.Player) error {
@@ -33,12 +22,12 @@ func (store *Store) CreateAccount(ctx context.Context, a *account.Account, p *pl
 			return err
 		}
 		if exists {
-			return ErrUsernameTaken
+			return account.ErrUsernameTaken
 		}
 		if taken, err := emailTaken(ctx, tx, a.Email, 0); err != nil {
 			return err
 		} else if taken {
-			return ErrEmailTaken
+			return account.ErrEmailTaken
 		}
 
 		// The first account is the admin.
@@ -66,13 +55,13 @@ func emailTaken(ctx context.Context, tx bun.Tx, email string, id int64) (bool, e
 	return tx.NewSelect().Model((*account.Account)(nil)).Where("email = ?", email).Where("id <> ?", id).Exists(ctx)
 }
 
-// SetEmail stores the email of an account, ErrEmailTaken if another account has it.
+// SetEmail stores the email of an account, account.ErrEmailTaken if another account has it.
 func (store *Store) SetEmail(ctx context.Context, id int64, email string) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if taken, err := emailTaken(ctx, tx, email, id); err != nil {
 			return err
 		} else if taken {
-			return ErrEmailTaken
+			return account.ErrEmailTaken
 		}
 		_, err := tx.NewUpdate().Model((*account.Account)(nil)).Set("email = ?", email).Where("id = ?", id).Exec(ctx)
 		return err
@@ -111,8 +100,8 @@ func escapeLike(s string) string {
 }
 
 // SetDisabled disables an account, which ends its sessions, or enables it again;
-// ErrAdminAccount for disabling an admin, checked in the update, so a role given meanwhile
-// counts.
+// account.ErrAdminAccount for disabling an admin, checked in the update, so a role given
+// meanwhile counts.
 func (store *Store) SetDisabled(ctx context.Context, id int64, disabled bool) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		q := tx.NewUpdate().Model((*account.Account)(nil)).Set("disabled = ?", disabled).Where("id = ?", id)
@@ -126,7 +115,7 @@ func (store *Store) SetDisabled(ctx context.Context, id int64, disabled bool) er
 		if n, err := res.RowsAffected(); err != nil {
 			return err
 		} else if n == 0 {
-			return ErrAdminAccount
+			return account.ErrAdminAccount
 		}
 		if !disabled {
 			return nil
@@ -136,7 +125,7 @@ func (store *Store) SetDisabled(ctx context.Context, id int64, disabled bool) er
 	})
 }
 
-// SetAdmin gives an account the admin role or takes it away; ErrLastAdmin if it is the
+// SetAdmin gives an account the admin role or takes it away; account.ErrLastAdmin if it is the
 // last admin.
 func (store *Store) SetAdmin(ctx context.Context, id int64, admin bool) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
@@ -150,11 +139,12 @@ func (store *Store) SetAdmin(ctx context.Context, id int64, admin bool) error {
 	})
 }
 
-// keepAdmin returns ErrLastAdmin if the account is the only admin, before the transaction
-// takes the role from it or deletes it. On PostgreSQL it locks the admins' rows (in the
-// order of their IDs, so two transactions don't deadlock): a second transaction waits and
-// then no longer counts the admin the first one took away, so two admins can't each take
-// away one of the last two. SQLite has one connection, its transactions don't overlap.
+// keepAdmin returns account.ErrLastAdmin if the account is the only admin, before the
+// transaction takes the role from it or deletes it. On PostgreSQL it locks the admins' rows
+// (in the order of their IDs, so two transactions don't deadlock): a second transaction
+// waits and then no longer counts the admin the first one took away, so two admins can't
+// each take away one of the last two. SQLite has one connection, its transactions don't
+// overlap.
 func keepAdmin(ctx context.Context, tx bun.Tx, id int64) error {
 	q := tx.NewSelect().Model((*account.Account)(nil)).Column("id").Where("admin").Order("id")
 	if tx.Dialect().Name() == dialect.PG {
@@ -165,7 +155,7 @@ func keepAdmin(ctx context.Context, tx bun.Tx, id int64) error {
 		return err
 	}
 	if len(admins) == 1 && admins[0] == id {
-		return ErrLastAdmin
+		return account.ErrLastAdmin
 	}
 	return nil
 }

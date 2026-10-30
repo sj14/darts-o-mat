@@ -8,7 +8,6 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/player"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
-	"github.com/sj14/darts-o-mat/internal/server/store"
 )
 
 var (
@@ -18,9 +17,6 @@ var (
 	// ErrWrongPassword means the password entered again to delete the account or to change
 	// the password is wrong.
 	ErrWrongPassword = fmt.Errorf("%w: wrong password", ErrInvalid)
-	// ErrLastAdmin means the last admin can't delete their account or give up the role: the
-	// server would be left without one.
-	ErrLastAdmin = store.ErrLastAdmin
 )
 
 // DeleteGuest deletes a guest player of the account: it is gone from the lists and the
@@ -101,7 +97,7 @@ func (s *Service) unfinished(ctx context.Context, acc account.Account) ([]GameVi
 // tournaments are dealt with first: the account leaves them with all its players (the
 // others play on, or the game is aborted if fewer than two players would be left; a
 // tournament ends), and open invitations are declined. The last admin can't delete their
-// account (ErrLastAdmin).
+// account (account.ErrLastAdmin).
 func (s *Service) DeleteAccount(ctx context.Context, acc account.Account, password string) error {
 	a, err := s.checkPassword(ctx, acc, password)
 	if err != nil {
@@ -123,7 +119,7 @@ func (s *Service) deleteAccount(ctx context.Context, a account.Account) error {
 	case err != nil:
 		return err
 	case last:
-		return ErrLastAdmin
+		return account.ErrLastAdmin
 	}
 	if err := s.leaveEverything(ctx, a); err != nil {
 		return err

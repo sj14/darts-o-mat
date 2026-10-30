@@ -48,8 +48,8 @@ func TestSetAdmin(t *testing.T) {
 	if err := s.SetAdmin(ctx, anna, "nobody", true); !errors.As(err, new(UnknownUserError)) {
 		t.Errorf("unknown username: %v, want UnknownUserError", err)
 	}
-	if err := s.SetAdmin(ctx, anna, "anna", false); !errors.Is(err, ErrLastAdmin) {
-		t.Errorf("the last admin gives up the role: %v, want ErrLastAdmin", err)
+	if err := s.SetAdmin(ctx, anna, "anna", false); !errors.Is(err, account.ErrLastAdmin) {
+		t.Errorf("the last admin gives up the role: %v, want account.ErrLastAdmin", err)
 	}
 
 	if err := s.SetAdmin(ctx, anna, " BEN ", true); err != nil {
@@ -65,8 +65,8 @@ func TestSetAdmin(t *testing.T) {
 	if err := s.SetAdmin(ctx, reload("anna"), "anna", true); !errors.Is(err, ErrForbidden) {
 		t.Errorf("anna, no longer an admin: %v, want ErrForbidden", err)
 	}
-	if err := s.SetAdmin(ctx, reload("ben"), "ben", false); !errors.Is(err, ErrLastAdmin) {
-		t.Errorf("ben, now the last admin, gives up the role: %v, want ErrLastAdmin", err)
+	if err := s.SetAdmin(ctx, reload("ben"), "ben", false); !errors.Is(err, account.ErrLastAdmin) {
+		t.Errorf("ben, now the last admin, gives up the role: %v, want account.ErrLastAdmin", err)
 	}
 	// Anna can delete her account now.
 	if err := s.DeleteAccount(ctx, reload("anna"), "password"); err != nil {
@@ -120,8 +120,8 @@ func TestManageAccounts(t *testing.T) {
 	if err := s.SetDisabled(ctx, ben, anna.ID, true); !errors.Is(err, ErrForbidden) {
 		t.Errorf("ben disables anna: %v, want ErrForbidden", err)
 	}
-	if err := s.SetDisabled(ctx, anna, anna.ID, true); !errors.Is(err, ErrAdminAccount) {
-		t.Errorf("disabling an admin: %v, want ErrAdminAccount", err)
+	if err := s.SetDisabled(ctx, anna, anna.ID, true); !errors.Is(err, account.ErrAdminAccount) {
+		t.Errorf("disabling an admin: %v, want account.ErrAdminAccount", err)
 	}
 	if err := s.SetDisabled(ctx, anna, ben.ID, true); err != nil {
 		t.Fatal(err)
@@ -149,8 +149,8 @@ func TestManageAccounts(t *testing.T) {
 	if err := s.DeleteOtherAccount(ctx, ben, anna.ID); !errors.Is(err, ErrForbidden) {
 		t.Errorf("ben deletes anna: %v, want ErrForbidden", err)
 	}
-	if err := s.DeleteOtherAccount(ctx, anna, anna.ID); !errors.Is(err, ErrAdminAccount) {
-		t.Errorf("deleting an admin: %v, want ErrAdminAccount", err)
+	if err := s.DeleteOtherAccount(ctx, anna, anna.ID); !errors.Is(err, account.ErrAdminAccount) {
+		t.Errorf("deleting an admin: %v, want account.ErrAdminAccount", err)
 	}
 	if err := s.DeleteOtherAccount(ctx, anna, ben.ID); err != nil {
 		t.Fatal(err)

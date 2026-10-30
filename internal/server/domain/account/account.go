@@ -16,6 +16,14 @@ var (
 	ErrInvalidUsername = errors.New("username must be 3 to 32 characters: letters, digits, '.', '-' or '_'")
 	ErrInvalidPassword = errors.New("password must be 8 to 72 bytes long")
 	ErrInvalidEmail    = errors.New("enter a valid email address")
+	ErrUsernameTaken   = errors.New("username already taken")
+	ErrEmailTaken      = errors.New("email already taken")
+	// ErrLastAdmin means the last admin can't delete their account or give up the role: the
+	// server would be left without one.
+	ErrLastAdmin = errors.New("the last admin can't delete their account or give up the role")
+	// ErrAdminAccount means an admin's account can't be disabled or deleted from the list of
+	// accounts; the role has to be taken away first.
+	ErrAdminAccount = errors.New("an admin can't be disabled or deleted, take the role away first")
 )
 
 var usernamePattern = regexp.MustCompile(`^[a-z0-9._-]{3,32}$`)

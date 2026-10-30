@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"errors"
-	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
 	"strconv"
 	"testing"
 
+	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 )
 
@@ -186,8 +187,8 @@ func TestDeleteLastAdmin(t *testing.T) {
 	if last, err := s.LastAdmin(ctx, ben); err != nil || last {
 		t.Errorf("ben: last admin %v, %v; want false", last, err)
 	}
-	if err := s.DeleteAccount(ctx, anna, "password"); !errors.Is(err, ErrLastAdmin) {
-		t.Fatalf("deleting the last admin: got %v, want ErrLastAdmin", err)
+	if err := s.DeleteAccount(ctx, anna, "password"); !errors.Is(err, account.ErrLastAdmin) {
+		t.Fatalf("deleting the last admin: got %v, want account.ErrLastAdmin", err)
 	}
 	if _, _, err := s.Login(ctx, "anna", "password"); err != nil {
 		t.Errorf("the admin is still there: %v", err)

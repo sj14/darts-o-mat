@@ -53,11 +53,11 @@ func TestKeepLastAdmin(t *testing.T) {
 	t.Cleanup(func() { st.Close() })
 	anna, ben := createAccount(t, st, "anna"), createAccount(t, st, "ben") // anna is the admin
 
-	if err := st.SetAdmin(ctx, anna.ID, false); !errors.Is(err, ErrLastAdmin) {
-		t.Errorf("taking the role from the last admin: %v, want ErrLastAdmin", err)
+	if err := st.SetAdmin(ctx, anna.ID, false); !errors.Is(err, account.ErrLastAdmin) {
+		t.Errorf("taking the role from the last admin: %v, want account.ErrLastAdmin", err)
 	}
-	if err := st.DeleteAccount(ctx, anna); !errors.Is(err, ErrLastAdmin) {
-		t.Errorf("deleting the last admin: %v, want ErrLastAdmin", err)
+	if err := st.DeleteAccount(ctx, anna); !errors.Is(err, account.ErrLastAdmin) {
+		t.Errorf("deleting the last admin: %v, want account.ErrLastAdmin", err)
 	}
 	if err := st.SetAdmin(ctx, ben.ID, true); err != nil {
 		t.Fatal(err)
@@ -65,8 +65,8 @@ func TestKeepLastAdmin(t *testing.T) {
 	if err := st.SetAdmin(ctx, anna.ID, false); err != nil {
 		t.Errorf("taking the role from one of two admins: %v", err)
 	}
-	if err := st.DeleteAccount(ctx, ben); !errors.Is(err, ErrLastAdmin) {
-		t.Errorf("deleting ben, now the last admin: %v, want ErrLastAdmin", err)
+	if err := st.DeleteAccount(ctx, ben); !errors.Is(err, account.ErrLastAdmin) {
+		t.Errorf("deleting ben, now the last admin: %v, want account.ErrLastAdmin", err)
 	}
 	if err := st.DeleteAccount(ctx, anna); err != nil {
 		t.Errorf("deleting an account that isn't an admin: %v", err)
@@ -111,8 +111,8 @@ func TestKeepLastAdminPostgres(t *testing.T) {
 	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if err := <-done; !errors.Is(err, ErrLastAdmin) {
-		t.Errorf("taking the role from ben after anna's: %v, want ErrLastAdmin", err)
+	if err := <-done; !errors.Is(err, account.ErrLastAdmin) {
+		t.Errorf("taking the role from ben after anna's: %v, want account.ErrLastAdmin", err)
 	}
 }
 

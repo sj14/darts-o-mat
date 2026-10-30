@@ -30,10 +30,8 @@ var (
 	// ErrAccountDisabled means an admin disabled the account: the password is right, but it
 	// can't log in.
 	ErrAccountDisabled = errors.New("the account is disabled")
-	ErrUsernameTaken   = store.ErrUsernameTaken
 	// ErrCaptcha means the check that the registration comes from a person failed.
-	ErrCaptcha    = fmt.Errorf("%w: the captcha check failed", ErrInvalid)
-	ErrEmailTaken = store.ErrEmailTaken
+	ErrCaptcha = fmt.Errorf("%w: the captcha check failed", ErrInvalid)
 )
 
 // CaptchaConfigured says whether the server has the keys of the captcha, so the admin can

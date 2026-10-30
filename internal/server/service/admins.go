@@ -13,10 +13,6 @@ import (
 // search finds the others.
 const MaxAccountsShown = 50
 
-// ErrAdminAccount means an admin's account can't be disabled or deleted from the list of
-// accounts; the role has to be taken away first.
-var ErrAdminAccount = store.ErrAdminAccount
-
 // Accounts returns up to MaxAccountsShown accounts for the admin, the newest first, with a
 // search only those whose username or email contains it, and whether there are more.
 // ErrForbidden for everyone but an admin.
@@ -34,7 +30,7 @@ func (s *Service) Accounts(ctx context.Context, acc account.Account, search stri
 
 // SetDisabled disables the account with the ID, so it can't log in anymore and its sessions
 // end, or enables it again. Its games, boards and friends stay. An admin can't be disabled
-// (ErrAdminAccount). Only an admin may.
+// (account.ErrAdminAccount). Only an admin may.
 func (s *Service) SetDisabled(ctx context.Context, acc account.Account, id int64, disabled bool) error {
 	if err := checkAdmin(acc); err != nil {
 		return err
@@ -47,7 +43,7 @@ func (s *Service) SetDisabled(ctx context.Context, acc account.Account, id int64
 
 // DeleteOtherAccount deletes the account with the ID like the account itself would (see
 // DeleteAccount), without its password. An admin can't be deleted this way
-// (ErrAdminAccount), also not the own account. Only an admin may.
+// (account.ErrAdminAccount), also not the own account. Only an admin may.
 func (s *Service) DeleteOtherAccount(ctx context.Context, acc account.Account, id int64) error {
 	if err := checkAdmin(acc); err != nil {
 		return err
@@ -57,7 +53,7 @@ func (s *Service) DeleteOtherAccount(ctx context.Context, acc account.Account, i
 		return err
 	}
 	if other.Admin {
-		return ErrAdminAccount
+		return account.ErrAdminAccount
 	}
 	return s.deleteAccount(ctx, other)
 }
@@ -73,8 +69,8 @@ func (s *Service) Admins(ctx context.Context, acc account.Account) ([]account.Ac
 
 // SetAdmin gives the account with the username the admin role or takes it away; every
 // admin may do both, also to another admin and to themselves. The last admin can't give the
-// role up (ErrLastAdmin, made sure of in the store's transaction), so the server is never
-// left without one.
+// role up (account.ErrLastAdmin, made sure of in the store's transaction), so the server is
+// never left without one.
 func (s *Service) SetAdmin(ctx context.Context, acc account.Account, username string, admin bool) error {
 	if err := checkAdmin(acc); err != nil {
 		return err

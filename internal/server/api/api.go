@@ -683,7 +683,7 @@ func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case tooLarge:
 		status = http.StatusRequestEntityTooLarge
-	case errors.Is(err, service.ErrAlreadyFriends), errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrStarted), errors.Is(err, service.ErrLastAdmin):
+	case errors.Is(err, service.ErrAlreadyFriends), errors.Is(err, service.ErrNotReady), errors.Is(err, service.ErrStarted), errors.Is(err, account.ErrLastAdmin):
 		status = http.StatusConflict
 	case errors.Is(err, service.ErrInvalid), errors.Is(err, dartboard.ErrInvalid):
 		status = http.StatusBadRequest
@@ -696,7 +696,7 @@ func writeError(w http.ResponseWriter, err error) {
 	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound
 	case errors.Is(err, turn.ErrGameOver), errors.Is(err, turn.ErrWaitingForTakeout), errors.Is(err, service.ErrNothingToUndo), errors.Is(err, service.ErrNoActiveGame), errors.Is(err, service.ErrNotOnBoard), errors.Is(err, service.ErrCantLeave),
-		errors.Is(err, service.ErrAborted), errors.Is(err, service.ErrCompleted), errors.Is(err, service.ErrUsernameTaken), errors.Is(err, service.ErrEmailTaken):
+		errors.Is(err, service.ErrAborted), errors.Is(err, service.ErrCompleted), errors.Is(err, account.ErrUsernameTaken), errors.Is(err, account.ErrEmailTaken):
 		status = http.StatusConflict
 	}
 

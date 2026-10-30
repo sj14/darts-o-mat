@@ -42,16 +42,16 @@ func errorText(t view.Texts, err error) (string, bool) {
 		text func() string
 	}{
 		// Accounts and friends.
-		{service.ErrUsernameTaken, t.ErrUsernameTaken},
-		{service.ErrEmailTaken, t.ErrEmailTaken},
+		{account.ErrUsernameTaken, t.ErrUsernameTaken},
+		{account.ErrEmailTaken, t.ErrEmailTaken},
 		{account.ErrInvalidEmail, t.ErrInvalidEmail},
 		{account.ErrInvalidPassword, t.ErrInvalidPassword},
 		{service.ErrCaptcha, t.ErrCaptcha},
 		{service.ErrRegistrationClosed, t.RegistrationClosed},
 		{service.ErrTooManyLogins, t.ErrTooManyLogins},
 		{service.ErrWrongPassword, t.ErrWrongPassword},
-		{service.ErrLastAdmin, t.ErrLastAdmin},
-		{service.ErrAdminAccount, t.ErrAdminAccount},
+		{account.ErrLastAdmin, t.ErrLastAdmin},
+		{account.ErrAdminAccount, t.ErrAdminAccount},
 		{service.ErrAccountDisabled, t.ErrAccountDisabled},
 		{service.ErrAlreadyFriends, t.ErrAlreadyFriends},
 		{service.ErrInviteSelf, t.ErrInviteSelf},

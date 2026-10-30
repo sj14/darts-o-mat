@@ -26,7 +26,7 @@ func anonymize(ctx context.Context, db bun.IDB, where string, arg any) error {
 // DeleteAccount deletes an account with what only it needs: its login, sessions,
 // friendships and requests, boards with their camera tokens, the settings of its last
 // games. Its player and its guests are anonymized (AnonymizePlayer). Games and tournaments stay as they are. The last admin
-// can't be deleted (ErrLastAdmin).
+// can't be deleted (account.ErrLastAdmin).
 func (store *Store) DeleteAccount(ctx context.Context, a account.Account) error {
 	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if err := keepAdmin(ctx, tx, a.ID); err != nil {
