@@ -9,7 +9,8 @@
 #     darts-o-cam, all from tools/linuxpkg,
 #   - darts-o-cam: macOS app (amd64, arm64) and Windows .zip,
 #
-# and attaches the binaries and packages with their checksums to a GitHub release. The
+# and attaches the binaries and packages with their checksums to a GitHub release: the one
+# made in GitHub's interface together with the tag, or a new one for a tag pushed alone. The
 # archives have no version in their names (darts-o-mat_darwin_amd64.tar.gz), so
 # https://github.com/<owner>/darts-o-mat/releases/latest/download/<name> is a link that
 # always points to the newest stable release (a pre-release isn't "latest"); the
@@ -193,6 +194,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          # A release made in GitHub's interface creates the tag that started this run:
+          # keep its title, notes and pre-release setting and only attach the files.
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" artifacts/* --clobber
+            exit 0
+          fi
           flags=""
           case "$GITHUB_REF_NAME" in *-*) flags="--prerelease";; esac
           gh release create "$GITHUB_REF_NAME" artifacts/* --title "$GITHUB_REF_NAME" --generate-notes $flags
