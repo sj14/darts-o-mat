@@ -3,6 +3,7 @@ package view
 import (
 	"math"
 	"strconv"
+	"time"
 
 	"github.com/sj14/darts-o-mat/internal/common/buildinfo"
 )
@@ -109,6 +110,33 @@ func (textsEN) RegistrationIsOpen() string {
 func (textsEN) RegistrationIsClosed() string {
 	return "Registration is closed: nobody can create a new account."
 }
+func (textsEN) AccountsTitle() string { return "Accounts" }
+func (textsEN) AccountsHint(limit int) string {
+	return "The " + strconv.Itoa(limit) + " newest accounts; search finds the others by username or email. A disabled account can't log in, its games and boards stay. Admins can be neither disabled nor deleted here: take the role away first."
+}
+func (textsEN) SearchAccounts() string { return "Username or email" }
+func (textsEN) Search() string         { return "Search" }
+func (textsEN) MoreAccounts(limit int) string {
+	return "Only the first " + strconv.Itoa(limit) + " are shown; search more precisely to find the others."
+}
+func (textsEN) NoAccounts() string            { return "No account found." }
+func (textsEN) Registered(date string) string { return "registered " + date }
+func (textsEN) LastSeen(date string) string   { return "last active " + date }
+func (textsEN) NeverSeen() string             { return "never active" }
+func (textsEN) AdminBadge() string            { return "Admin" }
+func (textsEN) DisabledBadge() string         { return "Disabled" }
+func (textsEN) DisableAccount() string        { return "Disable" }
+func (textsEN) EnableAccount() string         { return "Enable" }
+func (textsEN) DeleteOtherAccountConfirm(username string) string {
+	return "Delete the account “" + username + "”? It leaves its running games; its player is shown as “Deleted player” in the games that stay. This can't be undone."
+}
+func (textsEN) ErrAdminAccount() string {
+	return "Admins can be neither disabled nor deleted here. Take the admin role away first."
+}
+func (textsEN) ErrAccountDisabled() string {
+	return "This account is disabled. Ask the admin of this server."
+}
+func (textsEN) Date(t time.Time) string { return t.Local().Format("Jan 2, 2006") }
 func (textsEN) CaptchaOn() string {
 	return "Registering needs the check that the visitor is a person (Cloudflare Turnstile)."
 }

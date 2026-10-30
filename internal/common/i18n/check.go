@@ -4,6 +4,7 @@ import (
 	"errors"
 	"reflect"
 	"slices"
+	"time"
 )
 
 // Empty returns the methods of the texts interface T whose text in base (English) is
@@ -33,7 +34,10 @@ func Untranslated[T any](base, other T, same []string) []string {
 	return missing
 }
 
-var errorType = reflect.TypeFor[error]()
+var (
+	errorType = reflect.TypeFor[error]()
+	timeType  = reflect.TypeFor[time.Time]()
+)
 
 // call calls a text method with example arguments and returns its text.
 func call(m reflect.Value) string {
@@ -42,6 +46,8 @@ func call(m reflect.Value) string {
 		switch {
 		case in == errorType:
 			args = append(args, reflect.ValueOf(errors.New("example")))
+		case in == timeType:
+			args = append(args, reflect.ValueOf(time.Date(2026, time.October, 30, 20, 0, 0, 0, time.UTC)))
 		case in.Kind() == reflect.String:
 			args = append(args, reflect.ValueOf("Anna"))
 		case in.Kind() == reflect.Int:

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"maps"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sj14/darts-o-mat/internal/server/auth"
@@ -65,6 +66,12 @@ func (c *Controller) renderAdmin(w http.ResponseWriter, r *http.Request, status 
 		serverError(w, err)
 		return
 	}
+	search := r.FormValue("q")
+	accounts, more, err := c.svc.Accounts(r.Context(), acc, search)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
 	maps.Copy(pages, entered)
 	m := view.AdminModel{
 		Admins:            admins,
@@ -72,6 +79,9 @@ func (c *Controller) renderAdmin(w http.ResponseWriter, r *http.Request, status 
 		Registration:      open,
 		CaptchaConfigured: c.svc.CaptchaConfigured(),
 		Captcha:           siteKey != "",
+		Accounts:          accounts,
+		MoreAccounts:      more,
+		Search:            search,
 		Saved:             r.URL.Query().Has("saved"),
 		Error:             errMsg,
 	}
@@ -116,6 +126,47 @@ func (c *Controller) setAdmin(w http.ResponseWriter, r *http.Request) {
 	case err == nil:
 		http.Redirect(w, r, "/admin?saved", http.StatusSeeOther)
 	case errors.Is(err, service.ErrForbidden):
+		http.NotFound(w, r)
+	default:
+		if msg, ok := errorText(view.T(r.Context()), err); ok {
+			c.renderAdmin(w, r, http.StatusBadRequest, nil, msg)
+			return
+		}
+		serverError(w, err)
+	}
+}
+
+// setDisabled disables an account or enables it again.
+func (c *Controller) setDisabled(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	err := c.svc.SetDisabled(r.Context(), auth.Account(r.Context()), id, r.FormValue("disabled") == "true")
+	c.respondAccounts(w, r, err)
+}
+
+// deleteOtherAccount deletes an account from the admin page's list.
+func (c *Controller) deleteOtherAccount(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	err := c.svc.DeleteOtherAccount(r.Context(), auth.Account(r.Context()), id)
+	c.respondAccounts(w, r, err)
+}
+
+// respondAccounts answers a change in the list of accounts: back to the list with the
+// search the form came from, or the admin page with the error's message.
+func (c *Controller) respondAccounts(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case err == nil:
+		back := url.Values{"saved": {""}}
+		if search := r.FormValue("q"); search != "" {
+			back.Set("q", search)
+		}
+		http.Redirect(w, r, "/admin?"+back.Encode()+"#accounts", http.StatusSeeOther)
+	case errors.Is(err, service.ErrForbidden), isNotFound(err):
 		http.NotFound(w, r)
 	default:
 		if msg, ok := errorText(view.T(r.Context()), err); ok {

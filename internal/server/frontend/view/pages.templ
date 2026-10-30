@@ -1,10 +1,12 @@
 package view
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/page"
+	"github.com/sj14/darts-o-mat/internal/server/service"
 )
 
 // Page shows the imprint or the privacy policy, plain text with its line breaks, or that it
@@ -33,8 +35,13 @@ type AdminModel struct {
 	// CaptchaConfigured says whether the server has the captcha's keys (start options), so
 	// the admin can turn it on and off.
 	CaptchaConfigured bool
-	Saved             bool
-	Error             string
+	// Accounts are the newest accounts, or those the search found; MoreAccounts says that
+	// there are more than the page shows.
+	Accounts     []account.Account
+	MoreAccounts bool
+	Search       string
+	Saved        bool
+	Error        string
 }
 
 // Admin is the page of the server's settings, only for admins: whether anyone may register,
@@ -113,6 +120,7 @@ templ Admin(user string, m AdminModel) {
 						<button type="submit" class={ btnSecondary, "shrink-0" }>{ T(ctx).MakeAdmin() }</button>
 					</form>
 				}
+				@adminAccounts(m)
 				for _, name := range page.Names {
 					@panel("") {
 						<form method="post" action={ templ.URL("/admin/pages/" + string(name)) } class="flex flex-col gap-3">
@@ -131,4 +139,73 @@ templ Admin(user string, m AdminModel) {
 			</div>
 		</div>
 	}
+}
+
+// adminAccounts is the admin page's list of accounts with a search: when each registered and
+// last logged in, and buttons to disable, enable or delete it, except for admins.
+templ adminAccounts(m AdminModel) {
+	<div id="accounts">
+		@panel(T(ctx).AccountsTitle()) {
+			<p class={ hintClass }>{ T(ctx).AccountsHint(service.MaxAccountsShown) }</p>
+			<form method="get" action="/admin#accounts" class="mt-2 flex gap-2">
+				<input type="search" name="q" value={ m.Search } class={ inputClass } placeholder={ T(ctx).SearchAccounts() } autocapitalize="none" aria-label={ T(ctx).SearchAccounts() }/>
+				<button type="submit" class={ btnSecondary, "shrink-0" }>{ T(ctx).Search() }</button>
+			</form>
+			if len(m.Accounts) == 0 {
+				<p class="mt-3 text-white/60">{ T(ctx).NoAccounts() }</p>
+			}
+			<ul class="mt-2 divide-y divide-white/10">
+				for _, a := range m.Accounts {
+					<li class="flex flex-wrap items-center justify-between gap-3 py-3">
+						<div class="min-w-0">
+							<div class="flex flex-wrap items-center gap-2">
+								<span class="font-display text-2xl font-semibold uppercase">{ a.Username }</span>
+								if a.Admin {
+									@statusBadge(T(ctx).AdminBadge(), "bg-board-green/25 text-emerald-300")
+								}
+								if a.Disabled {
+									@statusBadge(T(ctx).DisabledBadge(), "bg-board-red/25 text-red-300")
+								}
+							</div>
+							if a.Email != "" {
+								<p class="truncate text-sm text-white/70">{ a.Email }</p>
+							}
+							<p class={ hintClass }>{ T(ctx).Registered(T(ctx).Date(a.CreatedAt)) } · { lastSeen(ctx, a) }</p>
+						</div>
+						// Admins can be neither disabled nor deleted here, so they have no buttons.
+						if !a.Admin {
+							<div class="flex gap-2">
+								<form method="post" action={ templ.URL("/admin/accounts/" + strconv.FormatInt(a.ID, 10) + "/disabled") }>
+									<input type="hidden" name="q" value={ m.Search }/>
+									<input type="hidden" name="disabled" value={ strconv.FormatBool(!a.Disabled) }/>
+									<button type="submit" class={ btnSecondary, btnSmall }>
+										if a.Disabled {
+											{ T(ctx).EnableAccount() }
+										} else {
+											{ T(ctx).DisableAccount() }
+										}
+									</button>
+								</form>
+								<form method="post" action={ templ.URL("/admin/accounts/" + strconv.FormatInt(a.ID, 10) + "/delete") } data-confirm={ T(ctx).DeleteOtherAccountConfirm(a.Username) } onsubmit="return confirm(this.dataset.confirm)">
+									<input type="hidden" name="q" value={ m.Search }/>
+									<button type="submit" class={ btnDanger, btnSmall }>{ T(ctx).Delete() }</button>
+								</form>
+							</div>
+						}
+					</li>
+				}
+			</ul>
+			if m.MoreAccounts {
+				<p class={ hintClass, "mt-2" }>{ T(ctx).MoreAccounts(service.MaxAccountsShown) }</p>
+			}
+		}
+	</div>
+}
+
+// lastSeen says when the account was last active, for the list of accounts.
+func lastSeen(ctx context.Context, a account.Account) string {
+	if a.LastSeenAt == nil {
+		return T(ctx).NeverSeen()
+	}
+	return T(ctx).LastSeen(T(ctx).Date(*a.LastSeenAt))
 }

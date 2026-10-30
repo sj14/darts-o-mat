@@ -27,7 +27,10 @@ var (
 	// ErrUnauthenticated means the login failed or the session is unknown or expired.
 	ErrUnauthenticated    = errors.New("not logged in")
 	ErrRegistrationClosed = errors.New("registration is disabled")
-	ErrUsernameTaken      = store.ErrUsernameTaken
+	// ErrAccountDisabled means an admin disabled the account: the password is right, but it
+	// can't log in.
+	ErrAccountDisabled = errors.New("the account is disabled")
+	ErrUsernameTaken   = store.ErrUsernameTaken
 	// ErrCaptcha means the check that the registration comes from a person failed.
 	ErrCaptcha    = fmt.Errorf("%w: the captcha check failed", ErrInvalid)
 	ErrEmailTaken = store.ErrEmailTaken
@@ -215,6 +218,10 @@ func (s *Service) login(ctx context.Context, username, password string) (string,
 	if bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(password)) != nil {
 		return "", account.Account{}, ErrUnauthenticated
 	}
+	// Only after the password, so it doesn't tell others which accounts are disabled.
+	if a.Disabled {
+		return "", account.Account{}, ErrAccountDisabled
+	}
 
 	token, err := newToken()
 	if err != nil {
@@ -244,7 +251,8 @@ func (s *Service) Authenticate(ctx context.Context, token string) (account.Accou
 	}
 
 	a, err := s.store.GetAccount(ctx, session.AccountID)
-	if errors.Is(err, store.ErrNotFound) {
+	// Disabling ends the sessions; this catches one a login made at the same moment.
+	if errors.Is(err, store.ErrNotFound) || a.Disabled {
 		return account.Account{}, ErrUnauthenticated
 	}
 	if err == nil {

@@ -43,6 +43,9 @@ type Account struct {
 	// open, for its friends (written at most once a minute); nil if never. Not in the API:
 	// the friends only see whether it is online.
 	LastSeenAt *time.Time `bun:",nullzero" json:"-"`
+	// Disabled accounts can't log in; an admin disables and enables them. Admins can't be
+	// disabled.
+	Disabled bool `bun:",notnull,default:false" json:"-"`
 }
 
 // NormalizeUsername makes usernames case-insensitive.

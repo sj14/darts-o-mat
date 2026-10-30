@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
@@ -18,6 +19,9 @@ var (
 	// ErrLastAdmin means the last admin can't delete their account or give up the role: the
 	// server would be left without one.
 	ErrLastAdmin = errors.New("the last admin can't delete their account or give up the role")
+	// ErrAdminAccount means an admin's account can't be disabled or deleted by another admin;
+	// the role has to be taken away first.
+	ErrAdminAccount = errors.New("an admin can't be disabled or deleted, take the role away first")
 )
 
 // CreateAccount stores the account together with its player; the first account becomes the
@@ -85,6 +89,51 @@ func (store *Store) ListAdmins(ctx context.Context) ([]account.Account, error) {
 	var admins []account.Account
 	err := store.db.NewSelect().Model(&admins).Where("admin").Order("username").Scan(ctx)
 	return admins, err
+}
+
+// ListAccounts returns up to limit accounts, the newest first; with a search only those
+// whose username or email contains it.
+func (store *Store) ListAccounts(ctx context.Context, search string, limit int64) ([]account.Account, error) {
+	var accounts []account.Account
+	q := store.db.NewSelect().Model(&accounts).Order("created_at DESC", "id DESC").Limit(limit)
+	if search != "" {
+		pattern := "%" + escapeLike(search) + "%"
+		q = q.Where(`username LIKE ? ESCAPE '\' OR email LIKE ? ESCAPE '\'`, pattern, pattern)
+	}
+	err := q.Scan(ctx)
+	return accounts, err
+}
+
+// escapeLike makes the wildcards of LIKE (% and _, both allowed in usernames and emails)
+// match only themselves.
+func escapeLike(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
+}
+
+// SetDisabled disables an account, which ends its sessions, or enables it again;
+// ErrAdminAccount for disabling an admin, checked in the update, so a role given meanwhile
+// counts.
+func (store *Store) SetDisabled(ctx context.Context, id int64, disabled bool) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		q := tx.NewUpdate().Model((*account.Account)(nil)).Set("disabled = ?", disabled).Where("id = ?", id)
+		if disabled {
+			q = q.Where("NOT admin")
+		}
+		res, err := q.Exec(ctx)
+		if err != nil {
+			return err
+		}
+		if n, err := res.RowsAffected(); err != nil {
+			return err
+		} else if n == 0 {
+			return ErrAdminAccount
+		}
+		if !disabled {
+			return nil
+		}
+		_, err = tx.NewDelete().Model((*account.Session)(nil)).Where("account_id = ?", id).Exec(ctx)
+		return err
+	})
 }
 
 // SetAdmin gives an account the admin role or takes it away; ErrLastAdmin if it is the

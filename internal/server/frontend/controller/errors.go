@@ -51,6 +51,8 @@ func errorText(t view.Texts, err error) (string, bool) {
 		{service.ErrTooManyLogins, t.ErrTooManyLogins},
 		{service.ErrWrongPassword, t.ErrWrongPassword},
 		{service.ErrLastAdmin, t.ErrLastAdmin},
+		{service.ErrAdminAccount, t.ErrAdminAccount},
+		{service.ErrAccountDisabled, t.ErrAccountDisabled},
 		{service.ErrAlreadyFriends, t.ErrAlreadyFriends},
 		{service.ErrInviteSelf, t.ErrInviteSelf},
 		{service.ErrGuestNameTaken, t.ErrGuestNameTaken},

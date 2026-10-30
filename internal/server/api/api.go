@@ -691,7 +691,7 @@ func writeError(w http.ResponseWriter, err error) {
 		status = http.StatusTooManyRequests
 	case errors.Is(err, service.ErrUnauthenticated):
 		status = http.StatusUnauthorized
-	case errors.Is(err, service.ErrForbidden), errors.Is(err, service.ErrRegistrationClosed):
+	case errors.Is(err, service.ErrForbidden), errors.Is(err, service.ErrRegistrationClosed), errors.Is(err, service.ErrAccountDisabled):
 		status = http.StatusForbidden
 	case errors.Is(err, service.ErrNotFound):
 		status = http.StatusNotFound

@@ -2,6 +2,7 @@ package view
 
 import (
 	"context"
+	"time"
 
 	"github.com/sj14/darts-o-mat/internal/common/i18n"
 )
@@ -119,6 +120,27 @@ type Texts interface {
 	// CaptchaOn, CaptchaTurnedOff and CaptchaOff say on the admin page whether registering
 	// needs the captcha: on, turned off by an admin, or not possible without the keys from
 	// the server's start options. TurnCaptchaOn and TurnCaptchaOff are its button.
+	// The list of accounts on the admin page: AccountsHint names how many it shows without a
+	// search, MoreAccounts says that there are more than that.
+	AccountsTitle() string
+	AccountsHint(limit int) string
+	SearchAccounts() string
+	Search() string
+	MoreAccounts(limit int) string
+	NoAccounts() string
+	Registered(date string) string
+	// LastSeen is when the account last made a request or had a live page open.
+	LastSeen(date string) string
+	NeverSeen() string
+	AdminBadge() string
+	DisabledBadge() string
+	DisableAccount() string
+	EnableAccount() string
+	DeleteOtherAccountConfirm(username string) string
+	ErrAdminAccount() string
+	ErrAccountDisabled() string
+	// Date is a day in the language's usual way, e.g. Oct 30, 2026 or 30.10.2026.
+	Date(t time.Time) string
 	CaptchaOn() string
 	CaptchaTurnedOff() string
 	CaptchaOff() string

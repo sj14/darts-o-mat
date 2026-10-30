@@ -107,6 +107,11 @@ func (s *Service) DeleteAccount(ctx context.Context, acc account.Account, passwo
 	if err != nil {
 		return err
 	}
+	return s.deleteAccount(ctx, a)
+}
+
+// deleteAccount deletes the account as DeleteAccount describes, once it is allowed.
+func (s *Service) deleteAccount(ctx context.Context, a account.Account) error {
 	unlock, err := s.lock(ctx)
 	if err != nil {
 		return err

@@ -4,6 +4,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sj14/darts-o-mat/internal/common/buildinfo"
 )
@@ -106,6 +107,32 @@ func (textsDE) RegistrationIsOpen() string {
 func (textsDE) RegistrationIsClosed() string {
 	return "Die Registrierung ist geschlossen: Niemand kann einen neuen Account anlegen."
 }
+func (textsDE) AccountsTitle() string { return "Accounts" }
+func (textsDE) AccountsHint(limit int) string {
+	return "Die " + strconv.Itoa(limit) + " neuesten Accounts; die Suche findet die anderen nach Benutzername oder E-Mail. Ein deaktivierter Account kann sich nicht mehr einloggen, seine Spiele und Boards bleiben. Admins lassen sich hier weder deaktivieren noch löschen: Entzieh ihnen zuerst die Rolle."
+}
+func (textsDE) SearchAccounts() string { return "Benutzername oder E-Mail" }
+func (textsDE) Search() string         { return "Suchen" }
+func (textsDE) MoreAccounts(limit int) string {
+	return "Nur die ersten " + strconv.Itoa(limit) + " werden gezeigt; such genauer, um die anderen zu finden."
+}
+func (textsDE) NoAccounts() string            { return "Kein Account gefunden." }
+func (textsDE) Registered(date string) string { return "registriert am " + date }
+func (textsDE) LastSeen(date string) string   { return "zuletzt aktiv am " + date }
+func (textsDE) NeverSeen() string             { return "noch nie aktiv" }
+func (textsDE) DisabledBadge() string         { return "Deaktiviert" }
+func (textsDE) DisableAccount() string        { return "Deaktivieren" }
+func (textsDE) EnableAccount() string         { return "Aktivieren" }
+func (textsDE) DeleteOtherAccountConfirm(username string) string {
+	return "Den Account „" + username + "“ löschen? Er verlässt seine laufenden Spiele; in den Spielen, die bleiben, steht sein Spieler als „Gelöschter Spieler“. Das lässt sich nicht rückgängig machen."
+}
+func (textsDE) ErrAdminAccount() string {
+	return "Admins lassen sich hier weder deaktivieren noch löschen. Entzieh zuerst die Admin-Rolle."
+}
+func (textsDE) ErrAccountDisabled() string {
+	return "Dieser Account ist deaktiviert. Wende dich an den Admin dieses Servers."
+}
+func (textsDE) Date(t time.Time) string { return t.Local().Format("02.01.2006") }
 func (textsDE) CaptchaOn() string {
 	return "Beim Registrieren wird geprüft, dass ein Mensch es tut (Cloudflare Turnstile)."
 }

@@ -45,6 +45,11 @@ func (c *Controller) login(w http.ResponseWriter, r *http.Request) {
 		c.renderAuth(w, r, http.StatusTooManyRequests, view.Login, m)
 		return
 	}
+	if errors.Is(err, service.ErrAccountDisabled) {
+		m := view.AuthModel{Username: username, Error: view.T(r.Context()).ErrAccountDisabled()}
+		c.renderAuth(w, r, http.StatusForbidden, view.Login, m)
+		return
+	}
 	if err != nil {
 		serverError(w, err)
 		return

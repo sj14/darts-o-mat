@@ -60,6 +60,8 @@ func (c *Controller) Routes() http.Handler {
 		r.Post("/admin/registration", c.setRegistration)
 		r.Post("/admin/captcha", c.setCaptcha)
 		r.Post("/admin/admins", c.setAdmin)
+		r.Post("/admin/accounts/{id}/disabled", c.setDisabled)
+		r.Post("/admin/accounts/{id}/delete", c.deleteOtherAccount)
 		r.Post("/guests/{id}/delete", c.deleteGuest)
 		r.Get("/stats", c.showStats)
 		r.Get("/friends", c.showFriends)
