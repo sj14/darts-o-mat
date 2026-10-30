@@ -33,23 +33,44 @@ var (
 	ErrEmailTaken = store.ErrEmailTaken
 )
 
+// CaptchaConfigured says whether the server has the keys of the captcha, so the admin can
+// turn the check on and off.
+func (s *Service) CaptchaConfigured() bool {
+	return s.opts.Captcha != nil
+}
+
+// captcha returns the check registering needs: nil without keys or while the admin has
+// turned it off.
+func (s *Service) captcha(ctx context.Context) (captcha.Verifier, error) {
+	if s.opts.Captcha == nil {
+		return nil, nil
+	}
+	settings, err := s.store.SiteSettings(ctx)
+	if err != nil || !settings.Captcha {
+		return nil, err
+	}
+	return s.opts.Captcha, nil
+}
+
 // CaptchaSiteKey is the public key of the widget the registration page shows, empty if
 // registrations aren't checked.
-func (s *Service) CaptchaSiteKey() string {
-	if s.opts.Captcha == nil {
-		return ""
+func (s *Service) CaptchaSiteKey(ctx context.Context) (string, error) {
+	verifier, err := s.captcha(ctx)
+	if verifier == nil {
+		return "", err
 	}
-	return s.opts.Captcha.SiteKey()
+	return verifier.SiteKey(), nil
 }
 
 // CheckCaptcha checks the answer of the registration page's widget before Register:
 // ErrCaptcha if it is wrong or missing, another error if the check couldn't be done. It
 // does nothing if registrations aren't checked. An answer works once.
 func (s *Service) CheckCaptcha(ctx context.Context, token string) error {
-	if s.opts.Captcha == nil {
-		return nil
+	verifier, err := s.captcha(ctx)
+	if verifier == nil {
+		return err
 	}
-	if err := s.opts.Captcha.Verify(ctx, token); errors.Is(err, captcha.ErrRejected) {
+	if err := verifier.Verify(ctx, token); errors.Is(err, captcha.ErrRejected) {
 		return ErrCaptcha
 	} else if err != nil {
 		return err

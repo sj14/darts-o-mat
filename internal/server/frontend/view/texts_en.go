@@ -110,10 +110,19 @@ func (textsEN) RegistrationIsClosed() string {
 	return "Registration is closed: nobody can create a new account."
 }
 func (textsEN) CaptchaOn() string {
-	return "Registering needs the check that the visitor is a person (Cloudflare Turnstile), set in the server's start options."
+	return "Registering needs the check that the visitor is a person (Cloudflare Turnstile)."
+}
+func (textsEN) CaptchaTurnedOff() string {
+	return "Cloudflare Turnstile is set up but turned off: registering doesn't check that the visitor is a person."
 }
 func (textsEN) CaptchaOff() string {
 	return "Registering doesn't check that the visitor is a person; the server's start options can turn on Cloudflare Turnstile."
+}
+func (textsEN) TurnCaptchaOn() string {
+	return "Turn on the check"
+}
+func (textsEN) TurnCaptchaOff() string {
+	return "Turn off the check"
 }
 func (textsEN) OpenRegistration() string {
 	return "Open registration"

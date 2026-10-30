@@ -12,4 +12,7 @@ type Settings struct {
 	// Registration allows anyone to create an account. A new server is open, so the first
 	// account, the admin, can register.
 	Registration bool `bun:",notnull,default:true"`
+	// Captcha makes registering check that the visitor is a person, if the server has the
+	// keys of the check; without them it does nothing. On until the admin turns it off.
+	Captcha bool `bun:",notnull,default:true"`
 }

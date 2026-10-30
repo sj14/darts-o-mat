@@ -25,3 +25,17 @@ func (s *Service) SetRegistration(ctx context.Context, acc account.Account, open
 	settings.Registration = open
 	return s.store.SetSiteSettings(ctx, settings)
 }
+
+// SetCaptcha turns the check on registering that the visitor is a person on or off; it only
+// does something if the server has its keys (CaptchaConfigured). Only an admin may.
+func (s *Service) SetCaptcha(ctx context.Context, acc account.Account, on bool) error {
+	if err := checkAdmin(acc); err != nil {
+		return err
+	}
+	settings, err := s.store.SiteSettings(ctx)
+	if err != nil {
+		return err
+	}
+	settings.Captcha = on
+	return s.store.SetSiteSettings(ctx, settings)
+}

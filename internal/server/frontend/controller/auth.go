@@ -21,7 +21,10 @@ func (c *Controller) renderAuth(w http.ResponseWriter, r *http.Request, status i
 		return
 	}
 	m.Registration = open
-	m.CaptchaSiteKey = c.svc.CaptchaSiteKey()
+	if m.CaptchaSiteKey, err = c.svc.CaptchaSiteKey(r.Context()); err != nil {
+		serverError(w, err)
+		return
+	}
 	render(w, r, status, page(m))
 }
 

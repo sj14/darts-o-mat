@@ -107,10 +107,19 @@ func (textsDE) RegistrationIsClosed() string {
 	return "Die Registrierung ist geschlossen: Niemand kann einen neuen Account anlegen."
 }
 func (textsDE) CaptchaOn() string {
-	return "Beim Registrieren wird geprüft, dass ein Mensch es tut (Cloudflare Turnstile), eingestellt in den Startoptionen des Servers."
+	return "Beim Registrieren wird geprüft, dass ein Mensch es tut (Cloudflare Turnstile)."
+}
+func (textsDE) CaptchaTurnedOff() string {
+	return "Cloudflare Turnstile ist eingerichtet, aber ausgeschaltet: beim Registrieren wird nicht geprüft, dass ein Mensch es tut."
 }
 func (textsDE) CaptchaOff() string {
 	return "Beim Registrieren wird nicht geprüft, dass ein Mensch es tut; die Startoptionen des Servers können Cloudflare Turnstile einschalten."
+}
+func (textsDE) TurnCaptchaOn() string {
+	return "Prüfung einschalten"
+}
+func (textsDE) TurnCaptchaOff() string {
+	return "Prüfung ausschalten"
 }
 func (textsDE) OpenRegistration() string {
 	return "Registrierung öffnen"

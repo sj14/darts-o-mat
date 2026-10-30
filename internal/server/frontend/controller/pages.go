@@ -60,14 +60,20 @@ func (c *Controller) renderAdmin(w http.ResponseWriter, r *http.Request, status 
 		serverError(w, err)
 		return
 	}
+	siteKey, err := c.svc.CaptchaSiteKey(r.Context())
+	if err != nil {
+		serverError(w, err)
+		return
+	}
 	maps.Copy(pages, entered)
 	m := view.AdminModel{
-		Admins:       admins,
-		Pages:        pages,
-		Registration: open,
-		Captcha:      c.svc.CaptchaSiteKey() != "",
-		Saved:        r.URL.Query().Has("saved"),
-		Error:        errMsg,
+		Admins:            admins,
+		Pages:             pages,
+		Registration:      open,
+		CaptchaConfigured: c.svc.CaptchaConfigured(),
+		Captcha:           siteKey != "",
+		Saved:             r.URL.Query().Has("saved"),
+		Error:             errMsg,
 	}
 	render(w, r, status, view.Admin(acc.Username, m))
 }
@@ -75,6 +81,19 @@ func (c *Controller) renderAdmin(w http.ResponseWriter, r *http.Request, status 
 // setRegistration opens or closes the registration.
 func (c *Controller) setRegistration(w http.ResponseWriter, r *http.Request) {
 	err := c.svc.SetRegistration(r.Context(), auth.Account(r.Context()), r.FormValue("open") == "true")
+	switch {
+	case err == nil:
+		http.Redirect(w, r, "/admin?saved", http.StatusSeeOther)
+	case errors.Is(err, service.ErrForbidden):
+		http.NotFound(w, r)
+	default:
+		serverError(w, err)
+	}
+}
+
+// setCaptcha turns the captcha on registering on or off.
+func (c *Controller) setCaptcha(w http.ResponseWriter, r *http.Request) {
+	err := c.svc.SetCaptcha(r.Context(), auth.Account(r.Context()), r.FormValue("on") == "true")
 	switch {
 	case err == nil:
 		http.Redirect(w, r, "/admin?saved", http.StatusSeeOther)

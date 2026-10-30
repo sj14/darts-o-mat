@@ -29,9 +29,12 @@ type AdminModel struct {
 	Admins       []account.Account    // the admins, by username
 	Pages        map[page.Name]string // the texts of the pages, by name
 	Registration bool                 // whether anyone may create an account
-	Captcha      bool                 // whether registering needs the captcha (start options, not changed here)
-	Saved        bool
-	Error        string
+	Captcha      bool                 // whether registering needs the captcha
+	// CaptchaConfigured says whether the server has the captcha's keys (start options), so
+	// the admin can turn it on and off.
+	CaptchaConfigured bool
+	Saved             bool
+	Error             string
 }
 
 // Admin is the page of the server's settings, only for admins: whether anyone may register,
@@ -52,11 +55,6 @@ templ Admin(user string, m AdminModel) {
 						} else {
 							<p class="text-white/80">{ T(ctx).RegistrationIsClosed() }</p>
 						}
-						if m.Captcha {
-							<p class={ hintClass }>{ T(ctx).CaptchaOn() }</p>
-						} else {
-							<p class={ hintClass }>{ T(ctx).CaptchaOff() }</p>
-						}
 						<div>
 							<input type="hidden" name="open" value={ strconv.FormatBool(!m.Registration) }/>
 							<button type="submit" class={ btnSecondary }>
@@ -67,6 +65,29 @@ templ Admin(user string, m AdminModel) {
 								}
 							</button>
 						</div>
+					</form>
+					<form method="post" action="/admin/captcha" class="mt-4 flex flex-col gap-3">
+						switch {
+							case m.Captcha:
+								<p class={ hintClass }>{ T(ctx).CaptchaOn() }</p>
+							case m.CaptchaConfigured:
+								<p class={ hintClass }>{ T(ctx).CaptchaTurnedOff() }</p>
+							default:
+								<p class={ hintClass }>{ T(ctx).CaptchaOff() }</p>
+						}
+						// Without the keys the server can't check, so there is nothing to turn on.
+						if m.CaptchaConfigured {
+							<div>
+								<input type="hidden" name="on" value={ strconv.FormatBool(!m.Captcha) }/>
+								<button type="submit" class={ btnSecondary }>
+									if m.Captcha {
+										{ T(ctx).TurnCaptchaOff() }
+									} else {
+										{ T(ctx).TurnCaptchaOn() }
+									}
+								</button>
+							</div>
+						}
 					</form>
 				}
 				@panel(T(ctx).AdminsTitle()) {

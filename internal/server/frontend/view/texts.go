@@ -116,10 +116,14 @@ type Texts interface {
 	MakeAdmin() string
 	RemoveAdmin() string
 	RemoveAdminConfirm(username string) string
-	// CaptchaOn and CaptchaOff say on the admin page whether registering needs the captcha,
-	// which the server's start options turn on.
+	// CaptchaOn, CaptchaTurnedOff and CaptchaOff say on the admin page whether registering
+	// needs the captcha: on, turned off by an admin, or not possible without the keys from
+	// the server's start options. TurnCaptchaOn and TurnCaptchaOff are its button.
 	CaptchaOn() string
+	CaptchaTurnedOff() string
 	CaptchaOff() string
+	TurnCaptchaOn() string
+	TurnCaptchaOff() string
 	BoardInUse() string
 	BoardInUseConfirm() string
 
