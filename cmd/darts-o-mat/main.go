@@ -36,6 +36,7 @@ func main() {
 		clientIPHeader   = flag.String("client-ip-header", "", "behind a proxy: the header it passes the client's address in, e.g. X-Forwarded-For; only if all requests come through it")
 		pprofAddr        = flag.String("pprof", "", profiling.Usage)
 		logRequests      = flag.Bool("log-requests", false, "log every request (method, path, status, duration), e.g. for debugging")
+		noUpdateCheck    = flag.Bool("no-update-check", false, "don't ask GitHub for the latest release, so the footer never shows a newer version")
 		// The secret key is better passed in the environment: flags show up in the process list.
 		turnstileSite   = flag.String("turnstile-site-key", os.Getenv("DARTS_O_MAT_TURNSTILE_SITE_KEY"), "site key of a Cloudflare Turnstile widget; with the secret key, registering needs the check (or $DARTS_O_MAT_TURNSTILE_SITE_KEY)")
 		turnstileSecret = flag.String("turnstile-secret-key", os.Getenv("DARTS_O_MAT_TURNSTILE_SECRET_KEY"), "secret key of the Turnstile widget (or $DARTS_O_MAT_TURNSTILE_SECRET_KEY)")
@@ -45,7 +46,9 @@ func main() {
 	// SIGTERM is how a container or systemd stops the server, Ctrl-C in a terminal.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	update.Start(ctx)
+	if !*noUpdateCheck {
+		update.Start(ctx)
+	}
 	if err := profiling.Start(ctx, *pprofAddr); err != nil {
 		log.Fatalf("profiling: %v", err)
 	}

@@ -74,6 +74,9 @@ config:
   # Log every request (-log-requests), e.g. to look for a problem; else the log only has
   # the start and errors.
   logRequests: false
+  # Ask GitHub for the latest release when starting and once a day, for the hint about a
+  # newer version in the footer; false passes -no-update-check.
+  updateCheck: true
 
 # The volume of the SQLite database (config.database=sqlite), mounted at /data. Without it
 # the data is gone when the pod is replaced.

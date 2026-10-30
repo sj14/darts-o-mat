@@ -5,7 +5,7 @@ Project-wide rules (including [how these documents are written](../../AGENTS.md#
 
 ## Structure
 
-- `cmd/darts-o-cam`: starts the app with its web interface (flags `-dir`, `-addr`, `-ui`, `-v`, `-save`), shows it in a window of its own on a desktop (`window.go`, or the browser: `browser.go`; `console_windows.go` for logging from the Windows GUI build); the only other command is `analyze` (re-evaluate events saved with `-save`).
+- `cmd/darts-o-cam`: starts the app with its web interface (flags `-dir`, `-addr`, `-ui`, `-v`, `-save`, `-no-update-check`), shows it in a window of its own on a desktop (`window.go`, or the browser: `browser.go`; `console_windows.go` for logging from the Windows GUI build); the only other command is `analyze` (re-evaluate events saved with `-save`).
 - `internal/cam/camapp`: the app at runtime: configuration, the open cameras, the detection run, events, reporting to the server (`server.go`, `report.go`). Logic belongs here, not into the handlers.
 - `internal/cam/camui`: its web interface (cameras, add camera, calibrate, check the grid, settings, latest detections). templ + Tailwind like the server, see [root AGENTS.md → technologies](../../AGENTS.md#technologies).
 - `internal/cam/vision`: camera geometry and dart detection in pure Go (homography, calibration, image comparison, watcher, opening and assigning the cameras of a calibration)

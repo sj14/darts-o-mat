@@ -53,6 +53,7 @@ Options:
 - `-max-login-failures 10` – lock a username for 15 minutes after that many failed logins, and a whole network after five times as many, as protection against guessing passwords (the default; `0` turns it off)
 - `-client-ip-header X-Forwarded-For` – behind a proxy or ingress: the header it passes the visitor's address in, so the limit per network works (only if all requests come through that proxy)
 - `-log-requests` – write a line for every request to the log (method, path, status, time), e.g. to look for a problem. Off by default: otherwise the log only shows the start and errors
+- `-no-update-check` – don't ask GitHub for the latest release; the footer then never says that a newer version is available (see [updates](#updates))
 - `-pprof localhost:6060` – for developers: serves Go's profiles (CPU, memory, goroutines) on that address, e.g. for `go tool pprof http://localhost:6060/debug/pprof/profile`. Off by default; keep it on `localhost`, there is no login
 - `-turnstile-site-key …` and `-turnstile-secret-key …` – only for servers that strangers can register on: registering then needs a [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) check ("I am not a robot"). Without both keys nothing is checked, and nothing from Cloudflare is loaded. An admin can turn the check off and on again on the admin page. The keys can also be set as `DARTS_O_MAT_TURNSTILE_SITE_KEY` and `DARTS_O_MAT_TURNSTILE_SECRET_KEY`.
 
@@ -98,7 +99,7 @@ Instead of `-dsn` the environment variable `DARTS_O_MAT_DSN` works too, better f
 
 ## Updates
 
-The footer of every page says "Version … available" when there is a newer release. For that the server asks GitHub for the latest release when it starts and then once a day; GitHub sees the server's address and the version, nothing else. Nothing is updated by itself: download the new version from the [release page](https://github.com/sj14/darts-o-mat/releases/latest) (or run the install line above again, or pull the new container image) and start it; the database stays as it is.
+The footer of every page says "Version … available" when there is a newer release. For that the server asks GitHub for the latest release when it starts and then once a day; GitHub sees the server's address and the version, nothing else. `-no-update-check` turns this off. Nothing is updated by itself: download the new version from the [release page](https://github.com/sj14/darts-o-mat/releases/latest) (or run the install line above again, or pull the new container image) and start it; the database stays as it is.
 
 ## Playing
 

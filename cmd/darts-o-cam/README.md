@@ -54,7 +54,7 @@ Then open `http://<computer>:8090` on the other device. The web interface has no
 
 ## Updates
 
-The footer of the interface says "Version … available" when there is a newer release (darts-o-cam asks GitHub for the latest release when it starts and then once a day; GitHub sees your address and the version). Install it like the first time; with the installer line above, run it again. Your cameras and settings are kept.
+The footer of the interface says "Version … available" when there is a newer release (darts-o-cam asks GitHub for the latest release when it starts and then once a day; GitHub sees your address and the version; started with `-no-update-check` it doesn't ask). Install it like the first time; with the installer line above, run it again. Your cameras and settings are kept.
 
 ## Debugging
 
