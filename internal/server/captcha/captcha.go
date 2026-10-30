@@ -11,12 +11,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 )
 
 // ErrRejected means the check failed: the token is missing, wrong, expired or was used
-// before. Other errors are about reaching Cloudflare.
+// before. Other errors are about reaching Cloudflare or a wrong secret key.
 var ErrRejected = errors.New("captcha rejected")
 
 // Verifier checks the answer of the widget a page showed.
@@ -73,7 +74,16 @@ func (t *Turnstile) Verify(ctx context.Context, token string) error {
 		return fmt.Errorf("turnstile: %w", err)
 	}
 	if !out.Success {
+		if slices.ContainsFunc(out.Errors, isSecretError) {
+			return fmt.Errorf("turnstile: check the secret key: %v", out.Errors)
+		}
 		return fmt.Errorf("%w: %v", ErrRejected, out.Errors)
 	}
 	return nil
+}
+
+// isSecretError reports whether Cloudflare's error code is about the server's secret key
+// rather than the visitor's answer: the server is set up wrong, which belongs in the log.
+func isSecretError(code string) bool {
+	return code == "missing-input-secret" || code == "invalid-input-secret"
 }

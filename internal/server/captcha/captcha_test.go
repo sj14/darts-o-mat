@@ -14,6 +14,10 @@ func TestTurnstile(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		got.secret, got.response = r.PostForm.Get("secret"), r.PostForm.Get("response")
+		if got.secret != "secret" {
+			_, _ = w.Write([]byte(`{"success": false, "error-codes": ["invalid-input-secret"]}`))
+			return
+		}
 		if got.response == "good" {
 			_, _ = w.Write([]byte(`{"success": true, "error-codes": []}`))
 			return
@@ -37,6 +41,13 @@ func TestTurnstile(t *testing.T) {
 	got.response = "untouched"
 	if err := v.Verify(ctx, ""); !errors.Is(err, ErrRejected) || got.response != "untouched" {
 		t.Errorf("no token: got %v (asked Cloudflare: %v), want ErrRejected without asking", err, got.response != "untouched")
+	}
+
+	// A wrong secret key is the server's fault, not a rejection of the person.
+	wrong := NewTurnstile("site", "wrong")
+	wrong.URL = srv.URL
+	if err := wrong.Verify(ctx, "good"); err == nil || errors.Is(err, ErrRejected) {
+		t.Errorf("wrong secret key: got %v, want another error", err)
 	}
 
 	// Cloudflare not reachable or answering badly isn't a rejection of the person.
