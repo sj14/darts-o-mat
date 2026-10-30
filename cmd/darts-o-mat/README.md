@@ -52,6 +52,7 @@ Options:
 - `-addr :8080` – listen on another port
 - `-max-login-failures 10` – lock a username for 15 minutes after that many failed logins, and a whole network after five times as many, as protection against guessing passwords (the default; `0` turns it off)
 - `-client-ip-header X-Forwarded-For` – behind a proxy or ingress: the header it passes the visitor's address in, so the limit per network works (only if all requests come through that proxy)
+- `-log-requests` – write a line for every request to the log (method, path, status, time), e.g. to look for a problem. Off by default: otherwise the log only shows the start and errors
 - `-pprof localhost:6060` – for developers: serves Go's profiles (CPU, memory, goroutines) on that address, e.g. for `go tool pprof http://localhost:6060/debug/pprof/profile`. Off by default; keep it on `localhost`, there is no login
 - `-turnstile-site-key …` and `-turnstile-secret-key …` – only for servers that strangers can register on: registering then needs a [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) check ("I am not a robot"). Without both keys nothing is checked, and nothing from Cloudflare is loaded. The keys can also be set as `DARTS_O_MAT_TURNSTILE_SITE_KEY` and `DARTS_O_MAT_TURNSTILE_SECRET_KEY`.
 
@@ -81,7 +82,7 @@ With the [Helm](https://helm.sh) chart (one pod, the games in a volume):
 helm install darts oci://ghcr.io/sj14/charts/darts-o-mat
 ```
 
-Common settings, e.g. `helm install darts … --set ingress.enabled=true --set ingress.hosts[0].host=darts.example.com --set ingress.hosts[0].paths[0].path=/`. For PostgreSQL instead of the volume: `--set config.database=postgres --set postgresql.enabled=true` starts a simple PostgreSQL along with it; for a PostgreSQL server of your own instead `--set config.database=postgres --set config.postgres.dsn='postgres://…'` (or `config.postgres.existingSecret`). Only with PostgreSQL the server can run in several pods, e.g. `--set replicaCount=3`; an update then replaces them one by one without a break. All options with their comments: [`deploy/helm/darts-o-mat/values.yaml`](../../deploy/helm/darts-o-mat/values.yaml).
+Common settings, e.g. `helm install darts … --set ingress.enabled=true --set ingress.hosts[0].host=darts.example.com --set ingress.hosts[0].paths[0].path=/`; behind the ingress also `--set config.clientIPHeader=X-Forwarded-For`, so the limit on failed logins works per network. For PostgreSQL instead of the volume: `--set config.database=postgres --set postgresql.enabled=true` starts a simple PostgreSQL along with it; for a PostgreSQL server of your own instead `--set config.database=postgres --set config.postgres.dsn='postgres://…'` (or `config.postgres.existingSecret`). Only with PostgreSQL the server can run in several pods, e.g. `--set replicaCount=3`; an update then replaces them one by one without a break. All options with their comments: [`deploy/helm/darts-o-mat/values.yaml`](../../deploy/helm/darts-o-mat/values.yaml).
 
 ### With PostgreSQL instead of a file
 

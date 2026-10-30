@@ -64,6 +64,16 @@ config:
     secretKey: ""
     existingSecret: ""
     existingSecretKey: secret-key
+  # Failed logins a username may have within 15 minutes before it is locked for a while,
+  # a network 5 times as many (-max-login-failures); 0 is no limit.
+  maxLoginFailures: 10
+  # The header the ingress or proxy passes the visitor's address in, e.g. X-Forwarded-For
+  # (-client-ip-header), so the limit per network works. Only if every request comes
+  # through it; empty: the limit per network is off, only the one per username counts.
+  clientIPHeader: ""
+  # Log every request (-log-requests), e.g. to look for a problem; else the log only has
+  # the start and errors.
+  logRequests: false
 
 # The volume of the SQLite database (config.database=sqlite), mounted at /data. Without it
 # the data is gone when the pod is replaced.

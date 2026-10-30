@@ -35,6 +35,7 @@ func main() {
 		maxLoginFailures = flag.Int("max-login-failures", 10, "failed logins a username may have within 15 minutes before it is locked for a while (a network may have 5 times as many); 0 is no limit")
 		clientIPHeader   = flag.String("client-ip-header", "", "behind a proxy: the header it passes the client's address in, e.g. X-Forwarded-For; only if all requests come through it")
 		pprofAddr        = flag.String("pprof", "", profiling.Usage)
+		logRequests      = flag.Bool("log-requests", false, "log every request (method, path, status, duration), e.g. for debugging")
 		// The secret key is better passed in the environment: flags show up in the process list.
 		turnstileSite   = flag.String("turnstile-site-key", os.Getenv("DARTS_O_MAT_TURNSTILE_SITE_KEY"), "site key of a Cloudflare Turnstile widget; with the secret key, registering needs the check (or $DARTS_O_MAT_TURNSTILE_SITE_KEY)")
 		turnstileSecret = flag.String("turnstile-secret-key", os.Getenv("DARTS_O_MAT_TURNSTILE_SECRET_KEY"), "secret key of the Turnstile widget (or $DARTS_O_MAT_TURNSTILE_SECRET_KEY)")
@@ -51,8 +52,11 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.RequestID)
-	r.Use(middleware.Logger)
+	// Off by default: every page, file, dart and live stream is a line, which buries the
+	// errors; a proxy in front usually keeps an access log anyway.
+	if *logRequests {
+		r.Use(middleware.Logger)
+	}
 	// Forms and API requests are small; a limit keeps a huge body from filling the memory.
 	r.Use(middleware.RequestSize(maxBodySize))
 	// Refuses POSTs from other sites (by Sec-Fetch-Site, or Origin against Host), on top of

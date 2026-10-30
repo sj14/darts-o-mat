@@ -62,6 +62,13 @@ spec:
           args:
             - -addr=:3000
             - -db={{ .Values.config.database }}
+            - -max-login-failures={{ .Values.config.maxLoginFailures }}
+            {{- with .Values.config.clientIPHeader }}
+            - -client-ip-header={{ . }}
+            {{- end }}
+            {{- if .Values.config.logRequests }}
+            - -log-requests
+            {{- end }}
             {{- if .Values.pprof.enabled }}
             - -pprof=localhost:{{ .Values.pprof.port }}
             {{- end }}
