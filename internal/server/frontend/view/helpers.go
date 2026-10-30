@@ -795,6 +795,11 @@ func outModeValue(m x01.OutMode) string {
 // filterOption is one choice of a select of the lobby filter.
 type filterOption struct{ Value, Label string }
 
+// yesNoOptions are the choices of a service.Choice besides "any".
+func yesNoOptions(t Texts) []filterOption {
+	return []filterOption{{string(service.Yes), t.FilterYes()}, {string(service.No), t.FilterNo()}}
+}
+
 // numberOptions are the numbers from..to as choices.
 func numberOptions(from, to int) []filterOption {
 	var options []filterOption

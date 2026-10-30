@@ -20,9 +20,10 @@ type LobbiesModel struct {
 }
 
 // Lobbies is the page of the open games and tournaments to join, with filters to pick a
-// fitting one. Changing a filter reloads only the list via htmx (and keeps the filter in the
-// address); the list also refreshes itself, as others open and fill games all the time.
-// Without JavaScript the filter form is a plain GET form.
+// fitting one. Changing a filter reloads the filter and the list via htmx (and keeps the
+// filter in the address): the filter shows the settings of the mode chosen, and htmx keeps
+// the focus on the select by its id. The list also refreshes itself, as others open and
+// fill games all the time. Without JavaScript the filter form is a plain GET form.
 templ Lobbies(m LobbiesModel) {
 	@layout(T(ctx).OpenGames(), m.Account.Username) {
 		@pageTitle(T(ctx).OpenGames(), T(ctx).LobbiesHint())
@@ -30,10 +31,12 @@ templ Lobbies(m LobbiesModel) {
 		@panel("mb-6") {
 			@quickMatch(boardsOfViews(m.Boards))
 		}
-		@panel("mb-6") {
-			@lobbyFilter(m.Filter)
-		}
-		@lobbyList(m)
+		<div id="lobbies">
+			@panel("mb-6") {
+				@lobbyFilter(m.Filter)
+			}
+			@lobbyList(m)
+		</div>
 	}
 }
 
@@ -62,8 +65,8 @@ templ lobbyFilter(f service.LobbyFilter) {
 		action="/lobbies"
 		hx-get="/lobbies"
 		hx-trigger="change"
-		hx-target="#lobby-list"
-		hx-select="#lobby-list"
+		hx-target="#lobbies"
+		hx-select="#lobbies"
 		hx-swap="outerHTML"
 		hx-push-url="true"
 	>
@@ -77,22 +80,22 @@ templ lobbyFilter(f service.LobbyFilter) {
 				{string(game.ModeX01), "X01"},
 				{string(game.ModeAroundTheClock), T(ctx).AroundTheClock()},
 			})
-			@filterSelect("start_score", T(ctx).StartScore(), strconv.FormatUint(f.StartScore, 10), []filterOption{{"301", "301"}, {"501", "501"}, {"701", "701"}})
-			@filterSelect("out_mode", T(ctx).CheckOutWith(), outModeValue(f.OutMode), []filterOption{
-				{"single", T(ctx).AnyDart()},
-				{"double", T(ctx).Double()},
-				{"master", T(ctx).DoubleOrTriple()},
-			})
+			switch rules := f.Rules.(type) {
+				case service.X01Filter:
+					@filterSelect("start_score", T(ctx).StartScore(), strconv.FormatUint(rules.StartScore, 10), []filterOption{{"301", "301"}, {"501", "501"}, {"701", "701"}})
+					@filterSelect("out_mode", T(ctx).CheckOutWith(), outModeValue(rules.OutMode), []filterOption{
+						{"single", T(ctx).AnyDart()},
+						{"double", T(ctx).Double()},
+						{"master", T(ctx).DoubleOrTriple()},
+					})
+				case service.AroundTheClockFilter:
+					@filterSelect("bull", T(ctx).FilterBull(), string(rules.Bull), yesNoOptions(T(ctx)))
+					@filterSelect("multiplier_skips", T(ctx).FilterSkips(), string(rules.MultiplierSkips), yesNoOptions(T(ctx)))
+			}
 			@filterSelect("legs", T(ctx).Legs(), filterValue(f.Legs), numberOptions(1, 5))
 			@filterSelect("sets", T(ctx).Sets(), filterValue(f.Sets), append([]filterOption{{"1", T(ctx).NoSets()}}, numberOptions(2, 5)...))
-			@filterSelect("bull_off", T(ctx).BullOff(), string(f.BullOff), []filterOption{
-				{string(service.Yes), T(ctx).FilterYes()},
-				{string(service.No), T(ctx).FilterNo()},
-			})
-			@filterSelect("board_only", T(ctx).BoardRequired(), string(f.BoardOnly), []filterOption{
-				{string(service.Yes), T(ctx).FilterYes()},
-				{string(service.No), T(ctx).FilterNo()},
-			})
+			@filterSelect("bull_off", T(ctx).BullOff(), string(f.BullOff), yesNoOptions(T(ctx)))
+			@filterSelect("board_only", T(ctx).BoardRequired(), string(f.BoardOnly), yesNoOptions(T(ctx)))
 			@filterSelect("form", T(ctx).Strength(), formValue(f.Fits), []filterOption{
 				{string(service.Yes), T(ctx).AboutMine()},
 			})
@@ -106,7 +109,7 @@ templ lobbyFilter(f service.LobbyFilter) {
 templ filterSelect(name, label, current string, options []filterOption) {
 	<label class="flex flex-col gap-1">
 		<span class="text-xs font-semibold uppercase tracking-widest text-white/50">{ label }</span>
-		<select name={ name } class={ inputClass, "py-2!" }>
+		<select id={ "filter-" + name } name={ name } class={ inputClass, "py-2!" }>
 			<option value="" selected?={ current == "" || current == "0" }>{ T(ctx).FilterAny() }</option>
 			for _, o := range options {
 				<option value={ o.Value } selected?={ current == o.Value }>{ o.Label }</option>

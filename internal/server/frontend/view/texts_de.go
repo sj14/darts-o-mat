@@ -425,8 +425,10 @@ func (textsDE) FindOpponent() string { return "Gegner suchen" }
 func (textsDE) QuickMatchWaiting() string {
 	return "Suche einen Gegner, der ungefähr so stark ist wie du. Je länger du wartest, desto größer darf der Unterschied sein; lass die Seite offen, das Spiel startet von selbst."
 }
-func (textsDE) Strength() string  { return "Spielstärke" }
-func (textsDE) AboutMine() string { return "Ungefähr wie meine" }
+func (textsDE) Strength() string    { return "Spielstärke" }
+func (textsDE) AboutMine() string   { return "Ungefähr wie meine" }
+func (textsDE) FilterBull() string  { return "Bull am Ende" }
+func (textsDE) FilterSkips() string { return "Doppel/Triple springen" }
 func (textsDE) TurnTime(seconds int) string {
 	switch {
 	case seconds == 60:

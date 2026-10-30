@@ -303,6 +303,8 @@ type Texts interface {
 	QuickMatchWaiting() string
 	Strength() string
 	AboutMine() string
+	FilterBull() string
+	FilterSkips() string
 	TurnTime(seconds int) string
 	TurnLimitHint(skips int) string
 	TurnTimeLeft() string

@@ -19,6 +19,7 @@ func TestLobbyFilterMatch(t *testing.T) {
 	x501 := game.Settings{Mode: game.ModeX01, Legs: 3, Sets: 1, BullOff: true, Rules: &x01.Settings{StartScore: 501, OutMode: x01.OutModeDouble}}
 	x301 := game.Settings{Mode: game.ModeX01, Legs: 1, Sets: 2, TurnSeconds: 60, Rules: &x01.Settings{StartScore: 301, OutMode: x01.OutModeSingle}}
 	atc := game.Settings{Mode: game.ModeAroundTheClock, Legs: 1, Sets: 1, Rules: &aroundtheclock.Settings{}}
+	atcBull := game.Settings{Mode: game.ModeAroundTheClock, Legs: 1, Sets: 1, Rules: &aroundtheclock.Settings{Bull: true}}
 
 	tests := []struct {
 		name   string
@@ -35,18 +36,23 @@ func TestLobbyFilterMatch(t *testing.T) {
 		{"knockout, a round robin", LobbyFilter{Format: "knockout"}, lobbyOf(x501, true, tournament.RoundRobin), false},
 		{"knockout, a game", LobbyFilter{Format: "knockout"}, lobbyOf(x501, false, ""), false},
 		{"mode", LobbyFilter{Mode: game.ModeAroundTheClock}, lobbyOf(x501, false, ""), false},
-		{"start score", LobbyFilter{StartScore: 501}, lobbyOf(x501, false, ""), true},
-		{"other start score", LobbyFilter{StartScore: 301}, lobbyOf(x501, false, ""), false},
-		{"start score never fits Around the Clock", LobbyFilter{StartScore: 501}, lobbyOf(atc, false, ""), false},
-		{"check-out", LobbyFilter{OutMode: x01.OutModeDouble}, lobbyOf(x501, false, ""), true},
-		{"other check-out", LobbyFilter{OutMode: x01.OutModeMaster}, lobbyOf(x501, false, ""), false},
+		{"start score", LobbyFilter{Rules: X01Filter{StartScore: 501}}, lobbyOf(x501, false, ""), true},
+		{"other start score", LobbyFilter{Rules: X01Filter{StartScore: 301}}, lobbyOf(x501, false, ""), false},
+		{"start score never fits Around the Clock", LobbyFilter{Rules: X01Filter{StartScore: 501}}, lobbyOf(atc, false, ""), false},
+		{"bull at the end", LobbyFilter{Rules: AroundTheClockFilter{Bull: Yes}}, lobbyOf(atcBull, false, ""), true},
+		{"without the bull", LobbyFilter{Rules: AroundTheClockFilter{Bull: No}}, lobbyOf(atcBull, false, ""), false},
+		{"without skips", LobbyFilter{Rules: AroundTheClockFilter{MultiplierSkips: No}}, lobbyOf(atc, false, ""), true},
+		{"with skips", LobbyFilter{Rules: AroundTheClockFilter{MultiplierSkips: Yes}}, lobbyOf(atc, false, ""), false},
+		{"the bull never fits X01", LobbyFilter{Rules: AroundTheClockFilter{Bull: No}}, lobbyOf(x501, false, ""), false},
+		{"check-out", LobbyFilter{Rules: X01Filter{OutMode: x01.OutModeDouble}}, lobbyOf(x501, false, ""), true},
+		{"other check-out", LobbyFilter{Rules: X01Filter{OutMode: x01.OutModeMaster}}, lobbyOf(x501, false, ""), false},
 		{"legs", LobbyFilter{Legs: 3}, lobbyOf(x501, false, ""), true},
 		{"other legs", LobbyFilter{Legs: 2}, lobbyOf(x501, false, ""), false},
 		{"no sets", LobbyFilter{Sets: 1}, lobbyOf(x301, false, ""), false},
 		{"sets", LobbyFilter{Sets: 2}, lobbyOf(x301, false, ""), true},
 		{"with bull-off", LobbyFilter{BullOff: Yes}, lobbyOf(x501, false, ""), true},
 		{"without bull-off", LobbyFilter{BullOff: No}, lobbyOf(x501, false, ""), false},
-		{"all of it", LobbyFilter{Format: FormatGame, Mode: game.ModeX01, StartScore: 501, OutMode: x01.OutModeDouble, Legs: 3, Sets: 1, BullOff: Yes}, lobbyOf(x501, false, ""), true},
+		{"all of it", LobbyFilter{Format: FormatGame, Mode: game.ModeX01, Rules: X01Filter{StartScore: 501, OutMode: x01.OutModeDouble}, Legs: 3, Sets: 1, BullOff: Yes}, lobbyOf(x501, false, ""), true},
 	}
 	for _, tt := range tests {
 		if got := tt.filter.Match(tt.lobby); got != tt.want {
@@ -74,7 +80,7 @@ func TestLobbyFilterApply(t *testing.T) {
 func TestLobbyFilterFromQuery(t *testing.T) {
 	t.Parallel()
 	q, _ := url.ParseQuery("format=round_robin&mode=x01&start_score=501&out_mode=double&legs=3&sets=2&bull_off=yes&form=yes")
-	want := LobbyFilter{Format: "round_robin", Mode: game.ModeX01, StartScore: 501, OutMode: x01.OutModeDouble, Legs: 3, Sets: 2, BullOff: Yes, Fits: true}
+	want := LobbyFilter{Format: "round_robin", Mode: game.ModeX01, Rules: X01Filter{StartScore: 501, OutMode: x01.OutModeDouble}, Legs: 3, Sets: 2, BullOff: Yes, Fits: true}
 	if got := LobbyFilterFromQuery(q); got != want {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
@@ -89,5 +95,15 @@ func TestLobbyFilterFromQuery(t *testing.T) {
 	}
 	if LobbyFilterFromQuery(nil).Active() {
 		t.Error("no query made a filter")
+	}
+
+	// The settings of a mode count only with that mode, as the form shows them only then.
+	q, _ = url.ParseQuery("mode=around_the_clock&bull=yes&multiplier_skips=no&start_score=501&out_mode=double")
+	if got, want := LobbyFilterFromQuery(q), (LobbyFilter{Mode: game.ModeAroundTheClock, Rules: AroundTheClockFilter{Bull: Yes, MultiplierSkips: No}}); got != want {
+		t.Errorf("Around the Clock: got %+v, want %+v", got, want)
+	}
+	q, _ = url.ParseQuery("start_score=501&bull=yes")
+	if got := LobbyFilterFromQuery(q); got.Active() {
+		t.Errorf("settings of a mode without the mode made a filter: %+v", got)
 	}
 }

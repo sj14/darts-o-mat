@@ -18,7 +18,7 @@ type Rules interface {
 
 // A mode is what the game package needs to know of a game mode. To add one: its package
 // with Settings and PlayLog, its constant above and an entry here, then its table in the
-// store (store/settings.go).
+// store (store/settings.go) and its filter of the open games (service.rulesFilters).
 type mode struct {
 	// rules returns empty rules of the mode, to be filled in.
 	rules func() Rules

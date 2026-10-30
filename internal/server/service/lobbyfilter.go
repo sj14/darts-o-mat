@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 )
@@ -28,15 +29,63 @@ func (c Choice) matches(b bool) bool {
 // LobbyFilter narrows the list of open games and tournaments to those that fit what a
 // player looks for. Whatever is left empty (the zero value) lets everything through.
 type LobbyFilter struct {
-	Format     string      // FormatGame or a tournament.Format
-	Mode       game.Mode   //
-	StartScore uint64      // X01 only
-	OutMode    x01.OutMode // X01 only
-	Legs       int         // how many legs win
-	Sets       int         // how many sets win, 1 is no sets
-	BullOff    Choice
-	BoardOnly  Choice // everyone needs a board
-	Fits       bool   // only those of about the own player's strength (OpenLobby.Fits)
+	Format string    // FormatGame or a tournament.Format
+	Mode   game.Mode //
+	// Rules narrow down the settings of the mode, like game.Settings.Rules are those of a
+	// game: the filter type that fits Mode (see rulesFilters), nil without a mode.
+	Rules     RulesFilter
+	Legs      int // how many legs win
+	Sets      int // how many sets win, 1 is no sets
+	BullOff   Choice
+	BoardOnly Choice // everyone needs a board
+	Fits      bool   // only those of about the own player's strength (OpenLobby.Fits)
+}
+
+// RulesFilter narrows down the settings of one mode (game.Rules). Its types are values, so
+// that LobbyFilters can be compared.
+type RulesFilter interface {
+	// Match reports whether the rules pass the filter; rules of another mode don't.
+	Match(game.Rules) bool
+}
+
+// X01Filter narrows down the settings of X01.
+type X01Filter struct {
+	StartScore uint64
+	OutMode    x01.OutMode
+}
+
+func (f X01Filter) Match(r game.Rules) bool {
+	rules, ok := r.(*x01.Settings)
+	return ok && (f.StartScore == 0 || rules.StartScore == f.StartScore) && (f.OutMode == 0 || rules.OutMode == f.OutMode)
+}
+
+// AroundTheClockFilter narrows down the settings of around the clock.
+type AroundTheClockFilter struct {
+	Bull            Choice // the bull as the last target
+	MultiplierSkips Choice
+}
+
+func (f AroundTheClockFilter) Match(r game.Rules) bool {
+	rules, ok := r.(*aroundtheclock.Settings)
+	return ok && f.Bull.matches(rules.Bull) && f.MultiplierSkips.matches(rules.MultiplierSkips)
+}
+
+// rulesFilters read the filter of a mode's settings from the query, one per mode.
+var rulesFilters = map[game.Mode]func(url.Values) RulesFilter{
+	game.ModeX01: func(q url.Values) RulesFilter {
+		var f X01Filter
+		if n, err := strconv.ParseUint(q.Get("start_score"), 10, 64); err == nil {
+			f.StartScore = n
+		}
+		var out x01.OutMode
+		if out.UnmarshalText([]byte(q.Get("out_mode"))) == nil {
+			f.OutMode = out
+		}
+		return f
+	},
+	game.ModeAroundTheClock: func(q url.Values) RulesFilter {
+		return AroundTheClockFilter{Bull: choiceFrom(q.Get("bull")), MultiplierSkips: choiceFrom(q.Get("multiplier_skips"))}
+	},
 }
 
 // Active reports whether the filter leaves anything out.
@@ -54,6 +103,8 @@ func (f LobbyFilter) Match(l OpenLobby) bool {
 		return false
 	case f.Mode != "" && s.Mode != f.Mode:
 		return false
+	case f.Rules != nil && !f.Rules.Match(s.Rules):
+		return false
 	case f.Legs != 0 && s.Legs != f.Legs:
 		return false
 	case f.Sets != 0 && s.Sets != f.Sets:
@@ -64,13 +115,6 @@ func (f LobbyFilter) Match(l OpenLobby) bool {
 		return false
 	case !f.BoardOnly.matches(l.BoardOnly):
 		return false
-	}
-	if f.StartScore != 0 || f.OutMode != 0 {
-		// Only X01 has a start score and a way to check out.
-		rules, ok := s.Rules.(*x01.Settings)
-		if !ok || (f.StartScore != 0 && rules.StartScore != f.StartScore) || (f.OutMode != 0 && rules.OutMode != f.OutMode) {
-			return false
-		}
 	}
 	return true
 }
@@ -89,10 +133,12 @@ func (f LobbyFilter) Apply(lobbies []OpenLobby) []OpenLobby {
 	return kept
 }
 
-// LobbyFilterFromQuery reads the filter from the query of a request: format, mode,
-// start_score, out_mode, legs, sets, bull_off and board_only (yes or no), and
-// form=yes for about the own strength. A value that
-// means nothing is left out rather than refused, so an old link still shows a list.
+// LobbyFilterFromQuery reads the filter from the query of a request: format, mode and the
+// settings of the mode (see rulesFilters: start_score and out_mode for x01, bull and
+// multiplier_skips for around_the_clock, yes or no), legs, sets, bull_off and board_only
+// (yes or no), and form=yes for about the own strength. The settings of a mode count only
+// with the mode, as the form shows them only then. A value that means nothing is left out
+// rather than refused, so an old link still shows a list.
 func LobbyFilterFromQuery(q url.Values) LobbyFilter {
 	var f LobbyFilter
 	switch format := q.Get("format"); tournament.Format(format) {
@@ -103,16 +149,9 @@ func LobbyFilterFromQuery(q url.Values) LobbyFilter {
 			f.Format = format
 		}
 	}
-	switch mode := game.Mode(q.Get("mode")); mode {
-	case game.ModeX01, game.ModeAroundTheClock:
-		f.Mode = mode
-	}
-	if n, err := strconv.ParseUint(q.Get("start_score"), 10, 64); err == nil {
-		f.StartScore = n
-	}
-	var out x01.OutMode
-	if out.UnmarshalText([]byte(q.Get("out_mode"))) == nil {
-		f.OutMode = out
+	mode := game.Mode(q.Get("mode"))
+	if rules, ok := rulesFilters[mode]; ok {
+		f.Mode, f.Rules = mode, rules(q)
 	}
 	if n, err := strconv.Atoi(q.Get("legs")); err == nil && n >= 1 && n <= game.MaxLegs {
 		f.Legs = n

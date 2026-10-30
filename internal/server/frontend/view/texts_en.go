@@ -440,8 +440,10 @@ func (textsEN) FindOpponent() string { return "Find an opponent" }
 func (textsEN) QuickMatchWaiting() string {
 	return "Looking for an opponent of about your strength. The longer you wait, the bigger the difference may be; keep this page open, it starts by itself."
 }
-func (textsEN) Strength() string  { return "Strength" }
-func (textsEN) AboutMine() string { return "About mine" }
+func (textsEN) Strength() string    { return "Strength" }
+func (textsEN) AboutMine() string   { return "About mine" }
+func (textsEN) FilterBull() string  { return "Bull at the end" }
+func (textsEN) FilterSkips() string { return "Doubles/triples skip" }
 func (textsEN) TurnTime(seconds int) string {
 	switch {
 	case seconds == 60:
