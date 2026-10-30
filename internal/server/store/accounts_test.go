@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -112,6 +113,38 @@ func TestKeepLastAdminPostgres(t *testing.T) {
 	}
 	if err := <-done; !errors.Is(err, ErrLastAdmin) {
 		t.Errorf("taking the role from ben after anna's: %v, want ErrLastAdmin", err)
+	}
+}
+
+// A new session deletes the expired ones of all accounts and keeps the others.
+func TestCreateSessionDeletesExpired(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	st, err := NewSQLite(ctx, "file:"+t.Name()+"?mode=memory&cache=shared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	anna, ben := createAccount(t, st, "anna"), createAccount(t, st, "ben")
+	now := time.Now()
+	sessions := []account.Session{
+		{TokenHash: "expired", AccountID: ben.ID, ExpiresAt: now.Add(-time.Hour)},
+		{TokenHash: "valid", AccountID: ben.ID, ExpiresAt: now.Add(time.Hour)},
+	}
+	if _, err := st.db.NewInsert().Model(&sessions).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := st.CreateSession(ctx, &account.Session{TokenHash: "new", AccountID: anna.ID, ExpiresAt: now.Add(time.Hour)}, now); err != nil {
+		t.Fatal(err)
+	}
+
+	var left []string
+	if err := st.db.NewSelect().Model((*account.Session)(nil)).Column("token_hash").Order("token_hash").Scan(ctx, &left); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := strings.Join(left, " "), "new valid"; got != want {
+		t.Errorf("sessions after the login: %s, want %s", got, want)
 	}
 }
 

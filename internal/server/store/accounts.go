@@ -133,9 +133,16 @@ func (store *Store) GetAccountByUsername(ctx context.Context, username string) (
 	return a, notFound(err)
 }
 
-func (store *Store) CreateSession(ctx context.Context, s *account.Session) error {
-	_, err := store.db.NewInsert().Model(s).Exec(ctx)
-	return err
+// CreateSession stores a new session and deletes the sessions of all accounts that expired
+// by now: their cookies are gone with them, so no request would ever delete them.
+func (store *Store) CreateSession(ctx context.Context, s *account.Session, now time.Time) error {
+	return store.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewDelete().Model((*account.Session)(nil)).Where("expires_at <= ?", now).Exec(ctx); err != nil {
+			return err
+		}
+		_, err := tx.NewInsert().Model(s).Exec(ctx)
+		return err
+	})
 }
 
 // GetSession returns the session with the token hash, ErrNotFound if it doesn't exist or is expired.

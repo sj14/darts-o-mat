@@ -200,8 +200,9 @@ func (s *Service) login(ctx context.Context, username, password string) (string,
 		return "", account.Account{}, err
 	}
 
-	session := account.Session{TokenHash: hashToken(token), AccountID: a.ID, ExpiresAt: s.now().Add(SessionDuration)}
-	if err := s.store.CreateSession(ctx, &session); err != nil {
+	now := s.now()
+	session := account.Session{TokenHash: hashToken(token), AccountID: a.ID, ExpiresAt: now.Add(SessionDuration)}
+	if err := s.store.CreateSession(ctx, &session, now); err != nil {
 		return "", account.Account{}, err
 	}
 	return token, a, nil
