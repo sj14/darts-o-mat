@@ -20,6 +20,7 @@ func TestOpenGame(t *testing.T) {
 
 	g := x01Game(anna.PlayerID)
 	g.Seats = 3
+	g.Settings.TurnSeconds = 60
 	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -81,6 +82,7 @@ func TestOpenGameValidation(t *testing.T) {
 		"too many seats":       {Seats: game.MaxSeats + 1},
 		"negative seats":       {Seats: -1},
 		"board only, not open": {BoardOnly: true},
+		"no time per turn":     {Seats: 2},
 	} {
 		g := x01Game(anna.PlayerID)
 		g.Lobby = tt
@@ -109,6 +111,7 @@ func TestOpenTournament(t *testing.T) {
 
 	tr := quickTournament(tournament.RoundRobin, anna.PlayerID)
 	tr.Seats = 3
+	tr.Settings.TurnSeconds = 60
 	v, err := createTournament(ctx, s, anna, tr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -149,6 +152,7 @@ func TestLeaveTournamentViews(t *testing.T) {
 
 	tr := quickTournament(tournament.RoundRobin, anna.PlayerID)
 	tr.Seats = 3
+	tr.Settings.TurnSeconds = 60
 	v, _ := createTournament(ctx, s, anna, tr, nil)
 	id := v.Tournament.ID
 	_, _ = joinTournament(ctx, s, ben, id, nil)
@@ -184,6 +188,7 @@ func TestBoardOnlyGame(t *testing.T) {
 
 	g := x01Game(anna.PlayerID)
 	g.Lobby = game.Lobby{Seats: 2, BoardOnly: true}
+	g.Settings.TurnSeconds = 60
 	if _, err := createGame(ctx, s, anna, g, nil); !errors.Is(err, ErrBoardRequired) {
 		t.Fatalf("create without a board: got %v, want ErrBoardRequired", err)
 	}
@@ -227,6 +232,7 @@ func TestOutsiderIsRefusedFirst(t *testing.T) {
 	annas, _ := s.CreateBoard(ctx, anna, "Annas")
 	g := withBoard(x01Game(anna.PlayerID), annas.ID)
 	g.Lobby = game.Lobby{Seats: 2, BoardOnly: true}
+	g.Settings.TurnSeconds = 60
 	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -272,6 +278,7 @@ func TestOpenLobbyForms(t *testing.T) {
 
 	g := x01Game(anna.PlayerID)
 	g.Seats = 3
+	g.Settings.TurnSeconds = 60
 	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -303,12 +310,14 @@ func TestOpenLobbyWaiting(t *testing.T) {
 
 	g := x01Game(anna.PlayerID)
 	g.Seats = 3
+	g.Settings.TurnSeconds = 60
 	annas, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	tr := quickTournament(tournament.RoundRobin, ben.PlayerID)
 	tr.Seats = 3
+	tr.Settings.TurnSeconds = 60
 	bens, err := createTournament(ctx, s, ben, tr, nil)
 	if err != nil {
 		t.Fatal(err)

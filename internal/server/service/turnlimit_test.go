@@ -200,6 +200,7 @@ func TestGameStart(t *testing.T) {
 	}
 	open := x01Game(anna.PlayerID)
 	open.Seats = 2
+	open.Settings.TurnSeconds = 60
 	v, _ := createGame(ctx, s, anna, open, nil)
 	if v.Game.StartedAt != nil {
 		t.Fatal("an open game started with a free seat")

@@ -188,12 +188,11 @@ func (textsDE) FilterAny() string           { return "Egal" }
 func (textsDE) FilterYes() string           { return "Ja" }
 func (textsDE) FilterNo() string            { return "Nein" }
 func (textsDE) FilterReset() string         { return "Filter zurücksetzen" }
-func (textsDE) TurnLimited() string         { return "Mit Limit" }
 func (textsDE) Strangers() string           { return "Fremde" }
 func (textsDE) AllowStrangers() string      { return "Fremde mitspielen lassen" }
 func (textsDE) StrangerSeats() string       { return "Spieler insgesamt" }
 func (textsDE) StrangersHint() string {
-	return "Das Spiel steht 30 Minuten in der Liste der offenen Spiele und startet, sobald alle Plätze besetzt sind. Ein Turnier braucht mindestens 3 Spieler."
+	return "Das Spiel steht in der Liste der offenen Spiele, solange einer seiner Spieler online ist, und startet, sobald alle Plätze besetzt sind. Es braucht eine Zeit pro Zug. Ein Turnier braucht mindestens 3 Spieler."
 }
 func (textsDE) WaitingForSeats(n int) string {
 	if n == 1 {
@@ -201,7 +200,10 @@ func (textsDE) WaitingForSeats(n int) string {
 	}
 	return "Es fehlen noch " + strconv.Itoa(n) + " Spieler."
 }
-func (textsDE) ErrNoSeat() string     { return "Es ist kein Platz mehr frei." }
+func (textsDE) ErrNoSeat() string { return "Es ist kein Platz mehr frei." }
+func (textsDE) ErrOpenWithoutTurnLimit() string {
+	return "Ein Spiel für Fremde braucht eine Zeit pro Zug, damit niemand, der weggegangen ist, es aufhält."
+}
 func (textsDE) DeletedPlayer() string { return "Gelöschter Spieler" }
 func (textsDE) DeleteGuest() string   { return "Löschen" }
 func (textsDE) DeleteGuestConfirm(name string) string {

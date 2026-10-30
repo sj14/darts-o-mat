@@ -64,6 +64,7 @@ func TestReputationInOpenGames(t *testing.T) {
 	ben, erik := register(t, s, "ben"), register(t, s, "erik")
 	lobby := x01Game(ben.PlayerID)
 	lobby.Seats = 2
+	lobby.Settings.TurnSeconds = 60
 	for _, name := range []string{"anna", "carla", "dora"} {
 		rater := register(t, s, name)
 		befriend(t, s, rater, ben)

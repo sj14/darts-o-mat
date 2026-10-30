@@ -133,7 +133,7 @@ func (t Tournament) Validate() error {
 	if err := game.CheckPlayers(t.PlayerIDs()); err != nil {
 		return err
 	}
-	if err := t.Lobby.Validate(len(t.Participants), MinPlayers, MaxPlayers); err != nil {
+	if err := t.Lobby.Validate(t.Settings, len(t.Participants), MinPlayers, MaxPlayers); err != nil {
 		return err
 	}
 	return t.Settings.Validate()

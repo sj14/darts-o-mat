@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/internal/server/domain/page"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
@@ -61,6 +62,7 @@ func errorText(t view.Texts, err error) (string, bool) {
 		{service.ErrBoardBusy, t.ErrBoardBusy},
 		{service.ErrBoardRequired, t.ErrBoardRequired},
 		{service.ErrNoSeat, t.ErrNoSeat},
+		{game.ErrOpenWithoutTurnLimit, t.ErrOpenWithoutTurnLimit},
 		// Games.
 		{service.ErrChangesThrowers, t.ErrChangesThrowers},
 		{turn.ErrGameOver, t.ErrGameOver},

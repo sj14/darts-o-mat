@@ -29,6 +29,7 @@ func TestOneSeatPerPlayer(t *testing.T) {
 	// A lobby counts, until anna leaves it.
 	open := x01Game(anna.PlayerID)
 	open.Seats = 2
+	open.Settings.TurnSeconds = 60
 	lobby, err := createGame(ctx, s, anna, open, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -69,6 +70,7 @@ func TestOneSeatPerPlayer(t *testing.T) {
 	}
 	joinable := quickTournament(tournament.RoundRobin, cara.PlayerID)
 	joinable.Seats = 3
+	joinable.Settings.TurnSeconds = 60
 	tv, err := createTournament(ctx, s, cara, joinable, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -124,6 +126,7 @@ func TestLobbyGoneWithTheLastPlayer(t *testing.T) {
 
 	tr := quickTournament(tournament.RoundRobin, anna.PlayerID)
 	tr.Seats = 3
+	tr.Settings.TurnSeconds = 60
 	tv, err := createTournament(ctx, s, anna, tr, nil)
 	if err != nil {
 		t.Fatal(err)

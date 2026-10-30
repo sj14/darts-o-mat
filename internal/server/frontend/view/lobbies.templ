@@ -89,10 +89,6 @@ templ lobbyFilter(f service.LobbyFilter) {
 				{string(service.Yes), T(ctx).FilterYes()},
 				{string(service.No), T(ctx).FilterNo()},
 			})
-			@filterSelect("turn_limit", T(ctx).TurnLimit(), string(f.TurnLimit), []filterOption{
-				{string(service.No), T(ctx).NoTurnLimit()},
-				{string(service.Yes), T(ctx).TurnLimited()},
-			})
 			@filterSelect("board_only", T(ctx).BoardRequired(), string(f.BoardOnly), []filterOption{
 				{string(service.Yes), T(ctx).FilterYes()},
 				{string(service.No), T(ctx).FilterNo()},

@@ -93,6 +93,7 @@ func TestLeaveTheLobby(t *testing.T) {
 	// A game for three still waits after ben took a seat.
 	g := x01Game(anna.PlayerID)
 	g.Seats = 3
+	g.Settings.TurnSeconds = 60
 	v, _ := createGame(ctx, s, anna, g, nil)
 	if _, err := joinGame(ctx, s, ben, v.Game.ID, nil); err != nil {
 		t.Fatal(err)

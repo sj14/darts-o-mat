@@ -112,9 +112,14 @@ func (l Lobby) CanStart(statuses []InvitationStatus) bool {
 	return len(statuses) > 0 && l.Full(len(statuses)) && !slices.Contains(statuses, InvitationPending)
 }
 
-// Validate checks the lobby of a game or tournament that has players players so far and
-// may have min to max in total.
-func (l Lobby) Validate(players, min, max int) error {
+// ErrOpenWithoutTurnLimit means a game or tournament open for strangers has no time per
+// turn: it needs one, so that a player who went away is skipped and then taken out
+// (MaxSkips) instead of holding up the others.
+var ErrOpenWithoutTurnLimit = errors.New("a game open for strangers needs a time per turn")
+
+// Validate checks the lobby of a game or tournament with the settings s, which has players
+// players so far and may have min to max in total.
+func (l Lobby) Validate(s Settings, players, min, max int) error {
 	switch {
 	case l.Seats < 0:
 		return errors.New("seats must not be negative")
@@ -126,6 +131,8 @@ func (l Lobby) Validate(players, min, max int) error {
 		return fmt.Errorf("a game open for strangers needs %d to %d players", min, max)
 	case players >= l.Seats:
 		return errors.New("a game open for strangers needs a free seat")
+	case s.TurnSeconds == 0:
+		return ErrOpenWithoutTurnLimit
 	}
 	return nil
 }
@@ -247,7 +254,7 @@ func (g Game) Validate() error {
 	if err := CheckPlayers(g.PlayerIDs()); err != nil {
 		return err
 	}
-	if err := g.Lobby.Validate(len(g.Participants), 2, MaxSeats); err != nil {
+	if err := g.Lobby.Validate(g.Settings, len(g.Participants), 2, MaxSeats); err != nil {
 		return err
 	}
 	return g.Settings.Validate()

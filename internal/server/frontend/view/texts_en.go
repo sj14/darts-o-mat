@@ -192,12 +192,11 @@ func (textsEN) FilterAny() string           { return "Any" }
 func (textsEN) FilterYes() string           { return "Yes" }
 func (textsEN) FilterNo() string            { return "No" }
 func (textsEN) FilterReset() string         { return "Reset filters" }
-func (textsEN) TurnLimited() string         { return "With limit" }
 func (textsEN) Strangers() string           { return "Strangers" }
 func (textsEN) AllowStrangers() string      { return "Let strangers join" }
 func (textsEN) StrangerSeats() string       { return "Players in total" }
 func (textsEN) StrangersHint() string {
-	return "The game shows up in the list of open games for 30 minutes and starts once all seats are taken. A tournament needs at least 3 players."
+	return "The game shows up in the list of open games while one of its players is online, and starts once all seats are taken. It needs a time per turn. A tournament needs at least 3 players."
 }
 func (textsEN) WaitingForSeats(n int) string {
 	if n == 1 {
@@ -205,7 +204,10 @@ func (textsEN) WaitingForSeats(n int) string {
 	}
 	return "Waiting for " + strconv.Itoa(n) + " more players."
 }
-func (textsEN) ErrNoSeat() string     { return "There is no free seat anymore." }
+func (textsEN) ErrNoSeat() string { return "There is no free seat anymore." }
+func (textsEN) ErrOpenWithoutTurnLimit() string {
+	return "A game for strangers needs a time per turn, so that nobody who went away holds it up."
+}
 func (textsEN) DeletedPlayer() string { return "Deleted player" }
 func (textsEN) DeleteGuest() string   { return "Delete" }
 func (textsEN) DeleteGuestConfirm(name string) string {

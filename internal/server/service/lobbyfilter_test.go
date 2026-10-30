@@ -46,9 +46,7 @@ func TestLobbyFilterMatch(t *testing.T) {
 		{"sets", LobbyFilter{Sets: 2}, lobbyOf(x301, false, ""), true},
 		{"with bull-off", LobbyFilter{BullOff: Yes}, lobbyOf(x501, false, ""), true},
 		{"without bull-off", LobbyFilter{BullOff: No}, lobbyOf(x501, false, ""), false},
-		{"with time limit", LobbyFilter{TurnLimit: Yes}, lobbyOf(x301, false, ""), true},
-		{"without time limit", LobbyFilter{TurnLimit: No}, lobbyOf(x301, false, ""), false},
-		{"all of it", LobbyFilter{Format: FormatGame, Mode: game.ModeX01, StartScore: 501, OutMode: x01.OutModeDouble, Legs: 3, Sets: 1, BullOff: Yes, TurnLimit: No}, lobbyOf(x501, false, ""), true},
+		{"all of it", LobbyFilter{Format: FormatGame, Mode: game.ModeX01, StartScore: 501, OutMode: x01.OutModeDouble, Legs: 3, Sets: 1, BullOff: Yes}, lobbyOf(x501, false, ""), true},
 	}
 	for _, tt := range tests {
 		if got := tt.filter.Match(tt.lobby); got != tt.want {
@@ -75,14 +73,14 @@ func TestLobbyFilterApply(t *testing.T) {
 
 func TestLobbyFilterFromQuery(t *testing.T) {
 	t.Parallel()
-	q, _ := url.ParseQuery("format=round_robin&mode=x01&start_score=501&out_mode=double&legs=3&sets=2&bull_off=yes&turn_limit=no&form=yes")
-	want := LobbyFilter{Format: "round_robin", Mode: game.ModeX01, StartScore: 501, OutMode: x01.OutModeDouble, Legs: 3, Sets: 2, BullOff: Yes, TurnLimit: No, Fits: true}
+	q, _ := url.ParseQuery("format=round_robin&mode=x01&start_score=501&out_mode=double&legs=3&sets=2&bull_off=yes&form=yes")
+	want := LobbyFilter{Format: "round_robin", Mode: game.ModeX01, StartScore: 501, OutMode: x01.OutModeDouble, Legs: 3, Sets: 2, BullOff: Yes, Fits: true}
 	if got := LobbyFilterFromQuery(q); got != want {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
 
 	// What means nothing is left out, so an old link still shows a list.
-	q, _ = url.ParseQuery("format=chess&mode=poker&start_score=abc&out_mode=triple&legs=0&sets=999&bull_off=maybe&turn_limit=&form=maybe")
+	q, _ = url.ParseQuery("format=chess&mode=poker&start_score=abc&out_mode=triple&legs=0&sets=999&bull_off=maybe&form=maybe")
 	if got := LobbyFilterFromQuery(q); got.Active() {
 		t.Errorf("nonsense made a filter: %+v", got)
 	}

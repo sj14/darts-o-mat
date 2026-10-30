@@ -169,6 +169,7 @@ func TestOpenLobbyStartsWhenFull(t *testing.T) {
 
 	open := x01Game()
 	open.Seats = 2
+	open.Settings.TurnSeconds = 60
 	v, _ := s.CreateGame(ctx, anna, open, 0, nil)
 	if err := s.Start(ctx, anna, GameLobby(v.Game.ID)); !errors.Is(err, ErrNotReady) {
 		t.Errorf("start with a seat free: got %v, want ErrNotReady", err)

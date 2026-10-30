@@ -19,6 +19,7 @@ func TestPlayersOnTheirOwnBoards(t *testing.T) {
 	g := x01Game(anna.PlayerID)
 	g = withBoard(g, boardA.ID)
 	g.Seats = 2
+	g.Settings.TurnSeconds = 60
 	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -81,6 +82,7 @@ func TestOpenTournamentOnTheirOwnBoards(t *testing.T) {
 
 	tr := quickTournament(tournament.RoundRobin, anna.PlayerID)
 	tr.Seats = 3
+	tr.Settings.TurnSeconds = 60
 	v, err := createTournament(ctx, s, anna, tr, nil)
 	if err != nil {
 		t.Fatal(err)

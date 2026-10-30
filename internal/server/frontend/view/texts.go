@@ -77,13 +77,13 @@ type Texts interface {
 	FilterYes() string
 	FilterNo() string
 	FilterReset() string
-	TurnLimited() string
 	Strangers() string
 	AllowStrangers() string
 	StrangerSeats() string
 	StrangersHint() string
 	WaitingForSeats(n int) string
 	ErrNoSeat() string
+	ErrOpenWithoutTurnLimit() string
 	LandingLead() string
 	LandingFeatureTitle(i int) string
 	LandingFeatureText(i int) string

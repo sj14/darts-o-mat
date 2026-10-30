@@ -128,8 +128,8 @@ func TestOpenLobbiesAPI(t *testing.T) {
 	dora, erik := newClient(t, h, "dora"), newClient(t, h, "erik")
 
 	rules := map[string]any{"start_score": 301, "out_mode": "double"}
-	game, _ := json.Marshal(map[string]any{"mode": "x01", "legs": 1, "seats": 2, "rules": rules})
-	tour, _ := json.Marshal(map[string]any{"format": "round_robin", "mode": "x01", "legs": 1, "seats": 3, "rules": rules})
+	game, _ := json.Marshal(map[string]any{"mode": "x01", "legs": 1, "turn_seconds": 60, "seats": 2, "rules": rules})
+	tour, _ := json.Marshal(map[string]any{"format": "round_robin", "mode": "x01", "legs": 1, "turn_seconds": 60, "seats": 3, "rules": rules})
 	g := anna.expect(http.StatusCreated, "POST", "/games", string(game))
 	gameID := itoa(int64(g["game"].(map[string]any)["id"].(float64)))
 	tr := carla.expect(http.StatusCreated, "POST", "/tournaments", string(tour))
