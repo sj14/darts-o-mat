@@ -11,7 +11,8 @@
 // previous set; within the set the legs go round from there.
 //
 // Optionally the players bull off first: each throws one dart at the bull, the closest
-// starts the first leg. Players who are equally close throw again.
+// starts the first leg. Players who are equally close throw again; a player whose time
+// for the dart ran out is out of it.
 //
 // Games played on a board with cameras wait after each turn until the darts were
 // pulled out (a takeout), so the next player doesn't start while the darts are
@@ -133,11 +134,7 @@ func (l Log) Replay(t *Turn, dart func(i int, d throw.Dart) error) error {
 			if err := d.Validate(); err != nil {
 				return fmt.Errorf("dart %d: %w", i+1, err)
 			}
-			next, decided := t.bull.throw(i, t.Player, d)
-			t.Player = next
-			if decided {
-				t.starter, t.setStarter = next, next
-			}
+			t.bullOffNext(t.bull.throw(i, t.Player, d))
 			continue
 		}
 		t.legWinner, t.setWinner = nil, nil
@@ -339,12 +336,25 @@ func (t *Turn) Leave(i int) error {
 }
 
 // Skip ends the turn of the player who is up, who took too long: the darts they threw
-// count and the next player is up. Nothing happens while bulling off, while the turn
-// waits for the takeout (the darts are pulled out whenever the players like) and after
-// the game is over.
+// count and the next player is up. While bulling off they are out of it (see
+// bullOff.skip). Nothing happens while the turn waits for the takeout (a takeout ends
+// that) and after the game is over.
 func (t *Turn) Skip() {
-	if !t.over && !t.BullingOff() && !t.Waiting() {
+	switch {
+	case t.over, t.Waiting():
+	case t.BullingOff():
+		t.bullOffNext(t.bull.skip(t.Player))
+	default:
 		t.do(nextPlayer)
+	}
+}
+
+// bullOffNext moves on after a dart or a skip while bulling off: next throws, or starts
+// the first leg once it is decided.
+func (t *Turn) bullOffNext(next int, decided bool) {
+	t.Player = next
+	if decided {
+		t.starter, t.setStarter = next, next
 	}
 }
 

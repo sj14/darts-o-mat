@@ -274,15 +274,19 @@ func CheckPlayers(playerIDs []int64) error {
 
 // TurnDeadline returns when the turn of the player who is up ends (see
 // Settings.TurnSeconds), for the log entries and the state they lead to: the turn began
-// with the entry before its darts, the first turn with the start of the game. There is
-// none without a limit, before the game started, while bulling off, while the turn waits
-// for the takeout and after the game is over.
+// with the entry before its darts, the first turn with the start of the game. While the
+// turn waits for the takeout the time counts from its last dart: then the darts are taken
+// out by the server, so nobody who went away holds the game up. A bull-off dart has its
+// time too. There is none without a limit, before the game started and after the game is
+// over.
 func (g Game) TurnDeadline(entries []throw.Dart, c turn.State) (time.Time, bool) {
-	if g.TurnSeconds == 0 || c.GameOver || c.BullingOff || c.WaitingForTakeout {
+	if g.TurnSeconds == 0 || c.GameOver {
 		return time.Time{}, false
 	}
 	began := time.Time{}
-	if i := len(entries) - c.DartsInTurn - 1; i >= 0 {
+	if c.WaitingForTakeout {
+		began = entries[len(entries)-1].CreatedAt
+	} else if i := len(entries) - c.DartsInTurn - 1; i >= 0 {
 		began = entries[i].CreatedAt
 	} else if g.StartedAt != nil {
 		began = *g.StartedAt

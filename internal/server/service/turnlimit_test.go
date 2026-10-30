@@ -227,3 +227,54 @@ func TestGameStart(t *testing.T) {
 		t.Error("the game didn't start when cara started it")
 	}
 }
+
+// The time runs out while bulling off and while the darts wait to be pulled out as well:
+// nobody who went away holds the game up.
+func TestTurnLimitBullOffAndTakeout(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newService(t)
+	anna, ben := register(t, s, "anna"), register(t, s, "ben")
+	befriend(t, s, anna, ben)
+	offset := time.Duration(0)
+	s.now = func() time.Time { return time.Now().Add(offset) }
+	keller, err := s.CreateBoard(ctx, anna, "Keller")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	g := withBoard(x01Game(anna.PlayerID), keller.ID)
+	g.TurnSeconds, g.BullOff = 60, true
+	v, err := createGame(ctx, s, anna, g, []string{"ben"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Game.ID
+	if _, err := acceptGame(ctx, s, ben, id, &keller.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	// anna doesn't throw her bull-off dart: she is out of it, and ben starts.
+	offset += 2 * time.Minute
+	s.endTurn(id)
+	v, _ = s.Game(ctx, ben, id)
+	if c := v.Common(); c.BullingOff || c.CurrentPlayerID == nil || *c.CurrentPlayerID != ben.PlayerID {
+		t.Fatalf("after anna's time ran out while bulling off: bulling off %v, current player %v; want ben to start", c.BullingOff, c.CurrentPlayerID)
+	}
+
+	// Nobody pulls ben's darts out: the server does, and anna is up.
+	for range 3 {
+		if _, err := s.AddDart(ctx, ben, id, t20); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if v, _ = s.Game(ctx, ben, id); !v.Common().WaitingForTakeout || v.TurnDeadline == nil {
+		t.Fatalf("after ben's turn: waiting %v, deadline %v; want waiting with a deadline", v.Common().WaitingForTakeout, v.TurnDeadline)
+	}
+	offset += 2 * time.Minute
+	s.endTurn(id)
+	v, _ = s.Game(ctx, ben, id)
+	if c, last := v.Common(), v.Darts[len(v.Darts)-1]; c.WaitingForTakeout || !last.Takeout || c.CurrentPlayerID == nil || *c.CurrentPlayerID != anna.PlayerID {
+		t.Errorf("after the time for the takeout ran out: waiting %v, last entry %+v, current player %v; want a takeout and anna up", c.WaitingForTakeout, last, c.CurrentPlayerID)
+	}
+}

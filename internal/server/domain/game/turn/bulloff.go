@@ -10,7 +10,7 @@ import (
 
 // bullOff decides who starts the first leg: each contender throws one dart at the
 // bull, the closest starts. Equally close players throw again, unless the players
-// decided who was closer.
+// decided who was closer. Who takes too long for their dart (skip) is out.
 type bullOff struct {
 	contenders []int // players still bulling off, in throwing order; nil once decided
 	closer     *int  // see Log.BullOffCloser
@@ -48,8 +48,29 @@ func (b *bullOff) throw(entry, player int, d throw.Dart) (next int, decided bool
 	if i := slices.Index(b.contenders, player); i+1 < len(b.contenders) {
 		return b.contenders[i+1], false
 	}
+	return b.endRound()
+}
 
-	// Everyone threw.
+// skip takes the player out who took too long for their dart (Turn.Skip): they can't be
+// the closest anymore and don't throw again after a tie. It returns who throws next, or the
+// starter of the first leg once that is decided: the only one left starts at once.
+func (b *bullOff) skip(player int) (next int, decided bool) {
+	i := slices.Index(b.contenders, player)
+	b.contenders = slices.Delete(b.contenders, i, i+1)
+	switch {
+	case len(b.contenders) == 1:
+		starter := b.contenders[0]
+		b.contenders = nil
+		return starter, true
+	case i < len(b.contenders):
+		return b.contenders[i], false
+	}
+	return b.endRound()
+}
+
+// endRound decides once everyone in the round threw or was skipped (someone threw, else
+// only one would be left, see skip): the closest starts, those equally close throw again.
+func (b *bullOff) endRound() (next int, decided bool) {
 	if b.closer != nil && slices.Contains(b.closest, *b.closer) {
 		b.closest = []int{*b.closer}
 	}

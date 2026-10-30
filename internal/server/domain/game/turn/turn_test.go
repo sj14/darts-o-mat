@@ -378,7 +378,7 @@ func TestSkip(t *testing.T) {
 	if tr.Player != 1 || tr.Dart != 0 {
 		t.Errorf("after a skipped turn: player %d dart %d, want player 1 without darts", tr.Player, tr.Dart)
 	}
-	// Nothing to skip while the turn waits for the takeout, or while bulling off.
+	// Nothing to skip while the turn waits for the takeout.
 	tr = Log{WaitForTakeout: true}.Turn(2)
 	for range DartsPerTurn {
 		tr.Advance()
@@ -387,10 +387,34 @@ func TestSkip(t *testing.T) {
 	if !tr.Waiting() || tr.Player != 0 {
 		t.Errorf("skipped while waiting for the takeout: player %d, waiting %v", tr.Player, tr.Waiting())
 	}
-	tr = Log{BullOff: true}.Turn(2)
-	tr.Skip()
-	if tr.Player != 0 {
-		t.Errorf("skipped while bulling off: player %d, want 0", tr.Player)
+}
+
+// A player whose time ran out while bulling off is out of it: they neither count as the
+// closest nor throw again after a tie, and the only one left starts.
+func TestBullOffSkip(t *testing.T) {
+	t.Parallel()
+	bull := throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bull}
+	miss := throw.Dart{Segment: dartboard.Miss}
+	skip := throw.Dart{Skip: true}
+	for _, tt := range []struct {
+		name    string
+		players int
+		entries []throw.Dart
+		want    int // who starts the first leg
+	}{
+		{"the only one left starts", 2, []throw.Dart{skip}, 1},
+		{"a skipped player doesn't throw again in a tie", 3, []throw.Dart{miss, skip, miss, miss, bull}, 2},
+		{"all but one skipped", 3, []throw.Dart{skip, skip}, 2},
+		{"skipped in the tie", 3, []throw.Dart{bull, bull, miss, skip}, 1},
+	} {
+		log := Log{BullOff: true, Entries: tt.entries}
+		tr := log.Turn(tt.players)
+		if err := log.Replay(tr, nil); err != nil {
+			t.Fatalf("%s: %v", tt.name, err)
+		}
+		if tr.BullingOff() || tr.Player != tt.want {
+			t.Errorf("%s: bulling off %v, player %d starts; want player %d", tt.name, tr.BullingOff(), tr.Player, tt.want)
+		}
 	}
 }
 

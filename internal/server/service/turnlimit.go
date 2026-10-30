@@ -80,7 +80,8 @@ func (s *Service) watchTurn(g game.Game) {
 // endTurn is what happens when the time for a turn is up: the turn is skipped, and after
 // MaxSkips skipped turns in a row the player leaves the game (the game is aborted if
 // that would leave fewer than two players; a tournament ends for everyone, like when a
-// player leaves it).
+// player leaves it). While bulling off the player is out of the bull-off (turn.Turn.Skip);
+// while the turn waits for the takeout the darts are taken out instead.
 func (s *Service) endTurn(gameID int64) {
 	ctx := context.Background()
 	unlock, err := s.lock(ctx)
@@ -101,6 +102,15 @@ func (s *Service) endTurn(gameID int64) {
 	}
 	if g.Aborted() || v.TurnDeadline == nil || v.Common().CurrentPlayerID == nil || s.now().Before(*v.TurnDeadline) {
 		s.watchTurn(g) // the game moved on while the timer waited for the lock
+		return
+	}
+	if v.Common().WaitingForTakeout {
+		// Nobody pulled the darts out: the next player goes on, the darts count.
+		if err := s.storeTakeout(ctx, &g, v); err != nil {
+			log.Printf("take out the darts of game %d: %v", gameID, err)
+			return
+		}
+		s.notifyGame(g)
 		return
 	}
 	player := *v.Common().CurrentPlayerID

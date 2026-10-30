@@ -1597,7 +1597,7 @@ func turnControls(v service.GameView, p progress) templ.Component {
 			}
 		}
 		elapsed, total, timed := turnClock(v, p)
-		if timed && !p.WaitingForTakeout {
+		if timed {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, "<div class=\"h-1.5 overflow-hidden rounded-full bg-white/10\" role=\"timer\" aria-label=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
