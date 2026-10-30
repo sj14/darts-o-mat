@@ -26,6 +26,7 @@ func TestPresence(t *testing.T) {
 	}
 	s.watchEvery = 10 * time.Millisecond
 	anna, ben, cara, dora := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "cara"), register(t, s, "dora")
+	advance(onlineFor) // offline again after registering
 	befriend(t, s, anna, ben)
 	befriend(t, s, anna, cara)
 	befriend(t, s, ben, cara)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"testing"
+	"time"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
@@ -287,5 +288,56 @@ func TestOpenLobbyForms(t *testing.T) {
 	}
 	if form, ok := l[0].Forms[ben.PlayerID]; ok {
 		t.Errorf("ben has a form with 2 games: %v", form)
+	}
+}
+
+// A lobby is only offered while someone who is in it is online: strangers don't see one
+// whose players left, can't join it and a quick match doesn't take it, until they are back.
+func TestOpenLobbyWaiting(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newService(t)
+	offset := time.Duration(0)
+	s.now = func() time.Time { return time.Now().Add(offset) }
+	anna, ben, carla, dora := register(t, s, "anna"), register(t, s, "ben"), register(t, s, "carla"), register(t, s, "dora")
+
+	g := x01Game(anna.PlayerID)
+	g.Seats = 3
+	annas, err := createGame(ctx, s, anna, g, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := quickTournament(tournament.RoundRobin, ben.PlayerID)
+	tr.Seats = 3
+	bens, err := createTournament(ctx, s, ben, tr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	carlas, err := s.QuickMatch(ctx, carla, game.ModeX01, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l, err := s.OpenLobbies(ctx, dora); err != nil || len(l) != 3 {
+		t.Fatalf("dora's open games while the others are online = %+v, %v; want 3", l, err)
+	}
+
+	offset = onlineFor
+	if l, err := s.OpenLobbies(ctx, dora); err != nil || len(l) != 0 {
+		t.Errorf("dora's open games after the others went = %+v, %v; want none", l, err)
+	}
+	if _, err := joinGame(ctx, s, dora, annas.Game.ID, nil); !errors.Is(err, ErrNoSeat) {
+		t.Errorf("join a game nobody waits in: got %v, want ErrNoSeat", err)
+	}
+	if _, err := joinTournament(ctx, s, dora, bens.Tournament.ID, nil); !errors.Is(err, ErrNoSeat) {
+		t.Errorf("join a tournament nobody waits in: got %v, want ErrNoSeat", err)
+	}
+	doras, err := s.QuickMatch(ctx, dora, game.ModeX01, nil)
+	if err != nil || doras.Game.ID == carlas.Game.ID || doras.Started {
+		t.Errorf("dora's quick match: game %d started %v, %v; want one of her own, waiting", doras.Game.ID, doras.Started, err)
+	}
+
+	s.seen(ctx, carla)
+	if moved, _, err := s.QuickMatchMove(ctx, dora, doras.Game.ID); err != nil || moved != carlas.Game.ID {
+		t.Errorf("dora moves to %d, %v; want carla's quick match once she is back", moved, err)
 	}
 }

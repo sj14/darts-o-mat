@@ -115,10 +115,7 @@ func (s *Service) loadLobby(ctx context.Context, ref LobbyRef) (lobby, error) {
 		if err != nil {
 			return lobby{}, err
 		}
-		l.Lobby, l.started, l.aborted = t.Lobby, t.Started(), t.Aborted()
-		for _, p := range t.Participants {
-			l.seats = append(l.seats, game.Participant{PlayerID: p.PlayerID, Status: p.Status, BoardID: p.BoardID})
-		}
+		l.Lobby, l.seats, l.started, l.aborted = t.Lobby, tournamentSeats(t), t.Started(), t.Aborted()
 	} else {
 		g, err := s.store.GetGame(ctx, ref.ID)
 		if err != nil {
@@ -131,6 +128,15 @@ func (s *Service) loadLobby(ctx context.Context, ref LobbyRef) (lobby, error) {
 		return lobby{}, err
 	}
 	return l, nil
+}
+
+// tournamentSeats returns the seats of a tournament's lobby, like those of a game.
+func tournamentSeats(t tournament.Tournament) []game.Participant {
+	var seats []game.Participant
+	for _, p := range t.Participants {
+		seats = append(seats, game.Participant{PlayerID: p.PlayerID, Status: p.Status, BoardID: p.BoardID})
+	}
+	return seats
 }
 
 func playerIDs(seats []game.Participant) []int64 {
@@ -429,6 +435,13 @@ func (s *Service) Join(ctx context.Context, acc account.Account, ref LobbyRef, b
 	case slices.Contains(playerIDs(l.seats), acc.PlayerID):
 		return fmt.Errorf("%w: you are in already", ErrInvalid)
 	case l.started || !offered(l.Lobby, len(l.seats), l.aborted):
+		return ErrNoSeat
+	}
+	waiting, err := s.waitingIn(ctx, [][]game.Participant{l.seats})
+	if err != nil {
+		return err
+	}
+	if !waiting[0] {
 		return ErrNoSeat
 	}
 	seat := game.Participant{PlayerID: acc.PlayerID, Status: game.InvitationAccepted, BoardID: boardID}

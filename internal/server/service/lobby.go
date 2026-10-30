@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -46,6 +47,38 @@ func offered(l game.Lobby, players int, aborted bool) bool {
 	return l.Open() && !l.Full(players) && !aborted
 }
 
+// waitingIn reports for each lobby, by its seats, whether someone waits in it: the account
+// of a player who accepted a seat is online (onlineFor). Only then is it offered to
+// strangers, so that nobody joins a lobby its players left long ago. It goes by when the
+// account was last seen, also for one that appears offline to its friends: it opened the
+// lobby to strangers itself.
+func (s *Service) waitingIn(ctx context.Context, lobbies [][]game.Participant) ([]bool, error) {
+	var ids []int64
+	for _, seats := range lobbies {
+		for _, p := range seats {
+			if p.Status == game.InvitationAccepted {
+				ids = append(ids, p.PlayerID)
+			}
+		}
+	}
+	accounts, err := s.store.PlayerAccounts(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	seen, err := s.opts.LastSeen.LastSeen(ctx, slices.Collect(maps.Values(accounts)))
+	if err != nil {
+		return nil, err
+	}
+	waiting := make([]bool, len(lobbies))
+	for i, seats := range lobbies {
+		waiting[i] = slices.ContainsFunc(seats, func(p game.Participant) bool {
+			accountID, ok := accounts[p.PlayerID]
+			return ok && p.Status == game.InvitationAccepted && s.online(seen, accountID)
+		})
+	}
+	return waiting, nil
+}
+
 // OpenLobbies lists the games and tournaments of others the account's player could join,
 // newest first. Those with a player of the account (its own or a guest) aren't others'.
 func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenLobby, error) {
@@ -69,7 +102,8 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 		}
 		return players, nil
 	}
-	var lobbies []OpenLobby
+	var candidates []OpenLobby
+	var seats [][]game.Participant // of each candidate
 	for _, g := range games {
 		if !offered(g.Lobby, len(g.Participants), g.Aborted()) || g.TournamentID != nil {
 			continue
@@ -79,7 +113,8 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 			return nil, err
 		}
 		if players != nil {
-			lobbies = append(lobbies, OpenLobby{ID: g.ID, Settings: g.Settings, Joined: players, Seats: g.Seats, BoardOnly: g.BoardOnly, CreatedAt: g.CreatedAt})
+			candidates = append(candidates, OpenLobby{ID: g.ID, Settings: g.Settings, Joined: players, Seats: g.Seats, BoardOnly: g.BoardOnly, CreatedAt: g.CreatedAt})
+			seats = append(seats, g.Participants)
 		}
 	}
 	for _, t := range tournaments {
@@ -91,7 +126,18 @@ func (s *Service) OpenLobbies(ctx context.Context, acc account.Account) ([]OpenL
 			return nil, err
 		}
 		if players != nil {
-			lobbies = append(lobbies, OpenLobby{Tournament: true, ID: t.ID, Settings: t.Settings, Format: t.Format, Joined: players, Seats: t.Seats, BoardOnly: t.BoardOnly, CreatedAt: t.CreatedAt})
+			candidates = append(candidates, OpenLobby{Tournament: true, ID: t.ID, Settings: t.Settings, Format: t.Format, Joined: players, Seats: t.Seats, BoardOnly: t.BoardOnly, CreatedAt: t.CreatedAt})
+			seats = append(seats, tournamentSeats(t))
+		}
+	}
+	waiting, err := s.waitingIn(ctx, seats)
+	if err != nil {
+		return nil, err
+	}
+	var lobbies []OpenLobby
+	for i, l := range candidates {
+		if waiting[i] {
+			lobbies = append(lobbies, l)
 		}
 	}
 	// The thumbs of whoever is in, if there are enough of them.

@@ -41,6 +41,12 @@ func (s *Service) seen(ctx context.Context, a account.Account) {
 	}
 }
 
+// online reports whether the account was seen within onlineFor, by the times of LastSeen.
+func (s *Service) online(seen map[int64]time.Time, accountID int64) bool {
+	last, ok := seen[accountID]
+	return ok && s.now().Sub(last) < onlineFor
+}
+
 // Watching keeps the account online while a page streams live updates to it (the game
 // and tournament pages make no requests in between): it stores the time every seenEvery
 // (Service.watchEvery in tests) and when the stream ends. Call stop when it ends.
@@ -88,7 +94,7 @@ func (s *Service) setPresence(ctx context.Context, friends []Friend) error {
 	var online []int64
 	for i, f := range friends {
 		friends[i].Presence = PresenceOffline
-		if last, ok := seen[f.AccountID]; ok && s.now().Sub(last) < onlineFor { // not asked for the invisible
+		if s.online(seen, f.AccountID) { // not asked for the invisible
 			friends[i].Presence = PresenceOnline
 			online = append(online, f.PlayerID)
 		}

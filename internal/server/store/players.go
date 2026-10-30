@@ -48,3 +48,29 @@ func (store *Store) GetPlayers(ctx context.Context, ids []int64) ([]player.Playe
 	}
 	return result, nil
 }
+
+// PlayerAccounts returns the account of each player, by player ID: its own, or the one a
+// guest belongs to. Deleted players belong to nobody and are left out.
+func (store *Store) PlayerAccounts(ctx context.Context, playerIDs []int64) (map[int64]int64, error) {
+	accounts := map[int64]int64{}
+	if len(playerIDs) == 0 {
+		return accounts, nil
+	}
+	var rows []struct {
+		PlayerID  int64
+		AccountID int64
+	}
+	err := store.db.NewSelect().Model((*player.Player)(nil)).
+		ColumnExpr("player.id AS player_id, COALESCE(player.guest_of, account.id) AS account_id").
+		Join("LEFT JOIN accounts AS account ON account.player_id = player.id").
+		Where("player.id IN (?)", bun.In(playerIDs)).
+		Where("COALESCE(player.guest_of, account.id) IS NOT NULL").
+		Scan(ctx, &rows)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		accounts[row.PlayerID] = row.AccountID
+	}
+	return accounts, nil
+}

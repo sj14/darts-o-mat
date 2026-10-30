@@ -38,6 +38,7 @@ func register(t *testing.T, s *Service, username string) account.Account {
 	if err != nil {
 		t.Fatalf("register %s: %v", username, err)
 	}
+	s.seen(context.Background(), a) // online, as after the request that registered
 	return a
 }
 
