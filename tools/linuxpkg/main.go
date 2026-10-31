@@ -82,7 +82,6 @@ type program struct {
 	formats []string
 	// The packages' dependencies, per format.
 	recommends map[string][]string
-	suggests   map[string][]string
 }
 
 var programs = []program{
@@ -96,15 +95,15 @@ var programs = []program{
 		icons:   true,
 		formats: []string{"deb", "rpm", "tar"},
 		// WebKitGTK only for the window: GTK4 with WebKitGTK 6.0 first, else GTK3 with
-		// WebKit2GTK 4.1 or 4.0 (glaze takes what's there).
+		// WebKit2GTK 4.1 or 4.0 (glaze takes what's there). libjpeg-turbo makes decoding
+		// the camera frames far cheaper (internal/cam/camera); Debian calls its package
+		// libturbojpeg0, Ubuntu libturbojpeg.
 		recommends: map[string][]string{
-			"deb": {"libwebkitgtk-6.0-4 | libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37"},
-			"rpm": {"(webkitgtk6.0 or webkit2gtk4.1 or webkit2gtk4.0)"},
-		},
-		// libjpeg-turbo makes decoding the camera frames cheaper (internal/cam/camera).
-		suggests: map[string][]string{
-			"deb": {"libturbojpeg0"},
-			"rpm": {"turbojpeg"},
+			"deb": {
+				"libwebkitgtk-6.0-4 | libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37",
+				"libturbojpeg0 | libturbojpeg",
+			},
+			"rpm": {"(webkitgtk6.0 or webkit2gtk4.1 or webkit2gtk4.0)", "turbojpeg"},
 		},
 	},
 	{
@@ -235,7 +234,6 @@ func (p program) pkg(out, format, arch, version string, contents files.Contents)
 		Overridables: nfpm.Overridables{
 			Contents:   contents,
 			Recommends: p.recommends[format],
-			Suggests:   p.suggests[format],
 		},
 	})
 	if err := nfpm.PrepareForPackager(info, format); err != nil {

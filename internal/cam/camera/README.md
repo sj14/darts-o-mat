@@ -30,7 +30,7 @@ img, err := cam.Read() // waits for the next frame, an *image.RGBA
 
 ## Linux: libjpeg-turbo
 
-If `libturbojpeg.so.0` is installed (Debian/Ubuntu/Raspberry Pi OS: `libturbojpeg0`, Arch: `libjpeg-turbo`), it is loaded at runtime; otherwise Go's own JPEG decoder is used. `cam.Format` tells which one is running.
+If `libturbojpeg.so.0` is installed (Debian/Raspberry Pi OS: `libturbojpeg0`, Ubuntu/Linux Mint: `libturbojpeg`, Fedora: `turbojpeg`, Arch: `libjpeg-turbo`), it is loaded at runtime; otherwise Go's own JPEG decoder is used. `cam.Format` tells which one is running.
 
 - On NixOS the library isn't in the search path: point `LD_LIBRARY_PATH` at the (64-bit) `libjpeg_turbo` package.
 - Loading it makes the binary depend on glibc, even with `CGO_ENABLED=0`. For a fully static binary (e.g. Alpine), build with `-tags noturbojpeg`.
