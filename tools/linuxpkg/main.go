@@ -84,6 +84,15 @@ type program struct {
 	recommends map[string][]string
 }
 
+// loaders are glibc's dynamic loaders per architecture, written into the binaries:
+// purego links darts-o-cam dynamically even with CGO_ENABLED=0, and the Go of NixOS
+// writes the path of its own loader into binaries for its architecture, which no
+// other system has.
+var loaders = map[string]string{
+	"amd64": "/lib64/ld-linux-x86-64.so.2",
+	"arm64": "/lib/ld-linux-aarch64.so.1",
+}
+
 var programs = []program{
 	{
 		name:        "darts-o-cam",
@@ -188,7 +197,8 @@ func (p program) build(root, out, work, version string) error {
 	}
 	for _, arch := range []string{"amd64", "arm64"} {
 		bin := filepath.Join(work, p.name, arch, p.name)
-		goBuild := exec.Command("go", "build", "-trimpath", "-ldflags="+ldflags, "-o", bin, "./cmd/"+p.name)
+		archLdflags := ldflags + " -I " + loaders[arch]
+		goBuild := exec.Command("go", "build", "-trimpath", "-ldflags="+archLdflags, "-o", bin, "./cmd/"+p.name)
 		goBuild.Dir = root
 		goBuild.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux", "GOARCH="+arch)
 		goBuild.Stdout, goBuild.Stderr = os.Stdout, os.Stderr
