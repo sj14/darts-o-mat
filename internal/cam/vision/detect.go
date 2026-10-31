@@ -132,22 +132,27 @@ func (m *Mask) points() iter.Seq[image.Point] {
 // Diff returns the pixels where any color channel differs by more than threshold,
 // plus the pixels above weak that are connected to them (hysteresis).
 // Colors matter: a silver dart on the red or green bull has about the same brightness.
-// Both images are blurred first, so that noise and tiny camera shakes don't count.
+// The difference is blurred first, so that noise and tiny camera shakes don't count.
+// Blurring is linear: blurring the difference is the difference of the blurred images
+// (up to rounding by 1), at half the cost.
 // Thin structures like the dart's point are kept, so there is no morphological cleanup.
 func Diff(before, after *image.RGBA, threshold, weak uint8, blurRadius int) *Mask {
-	b, a := blur(before, blurRadius), blur(after, blurRadius)
-	w, h := b.Bounds().Dx(), b.Bounds().Dy()
-
-	diff := make([]uint8, w*h)
+	w, h := before.Bounds().Dx(), before.Bounds().Dy()
+	plane := make([]int16, w*h*3)
 	for y := range h {
 		for x := range w {
-			i := y*a.Stride + x*4
-			var d int
+			i := y*after.Stride + x*4
 			for c := range 3 {
-				d = max(d, abs(int(a.Pix[i+c])-int(b.Pix[i+c])))
+				plane[(y*w+x)*3+c] = int16(after.Pix[i+c]) - int16(before.Pix[i+c])
 			}
-			diff[y*w+x] = uint8(min(d, 255))
 		}
+	}
+	blur(plane, w, h, blurRadius)
+
+	diff := make([]uint8, w*h)
+	for i := range diff {
+		d := max(abs(int(plane[i*3])), abs(int(plane[i*3+1])), abs(int(plane[i*3+2])))
+		diff[i] = uint8(d)
 	}
 
 	m := &Mask{W: w, H: h, Pix: make([]bool, w*h)}
@@ -720,12 +725,32 @@ func combine(values, weights []float64) float64 {
 // agree well enough to fuse in polar coordinates (cameras are a few mm apart).
 const polarFuseRadius = 2 * dartboard.BullRadius
 
-// blur averages each pixel with its (2r+1)x(2r+1) neighborhood, per color channel.
+// channels returns the red, green and blue values of img, 3 per pixel, row by row:
+// the plane blur works on.
+func channels(img *image.RGBA) []int16 {
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	plane := make([]int16, w*h*3)
+	for y := range h {
+		row := img.Pix[y*img.Stride : y*img.Stride+w*4]
+		for x := range w {
+			for c := range 3 {
+				plane[(y*w+x)*3+c] = int16(row[x*4+c])
+			}
+		}
+	}
+	return plane
+}
+
+// blur replaces each value of plane (3 channels per pixel, w×h pixels, see channels)
+// by the average of its (2r+1)x(2r+1) neighborhood in the same channel, rounded down.
+// Values may be negative, from -255 to 255 (a difference of two frames, see Diff).
 // The frames of three cameras must be blurred quickly after every dart, so it is
 // separable, uses running sums (the cost doesn't depend on r), goes through memory
 // row by row, and divides by multiplying with the reciprocal.
-func blur(src *image.RGBA, r int) *image.RGBA {
-	w, h := src.Bounds().Dx(), src.Bounds().Dy()
+func blur(plane []int16, w, h, r int) {
+	// The sums work on the values shifted by offset, so they are never negative and
+	// the division by multiplying rounds down for negative values too.
+	const offset = 255
 	// div[n] turns a sum of n values into their average: (sum*div[n])>>32 is sum/n,
 	// exactly, for sums below 2^32/n.
 	div := make([]uint64, 2*r+2)
@@ -733,65 +758,60 @@ func blur(src *image.RGBA, r int) *image.RGBA {
 		div[n] = (1<<32 + uint64(n) - 1) / uint64(n)
 	}
 
-	// Rows: running sum along each row.
-	tmp := make([]uint32, w*h*3)
+	// Rows: running sum along each row. The averages stay shifted, at most 2*offset.
+	tmp := make([]uint16, w*h*3)
 	for y := range h {
-		row := src.Pix[y*src.Stride : y*src.Stride+w*4]
+		row := plane[y*w*3 : (y+1)*w*3]
 		out := tmp[y*w*3 : (y+1)*w*3]
 		var sr, sg, sb uint32
 		n := 0
 		for x := 0; x <= r && x < w; x++ {
-			sr, sg, sb = sr+uint32(row[x*4]), sg+uint32(row[x*4+1]), sb+uint32(row[x*4+2])
+			sr, sg, sb = sr+uint32(row[x*3]+offset), sg+uint32(row[x*3+1]+offset), sb+uint32(row[x*3+2]+offset)
 			n++
 		}
 		for x := range w {
 			d := div[n]
-			out[x*3] = uint32(uint64(sr) * d >> 32)
-			out[x*3+1] = uint32(uint64(sg) * d >> 32)
-			out[x*3+2] = uint32(uint64(sb) * d >> 32)
+			out[x*3] = uint16(uint64(sr) * d >> 32)
+			out[x*3+1] = uint16(uint64(sg) * d >> 32)
+			out[x*3+2] = uint16(uint64(sb) * d >> 32)
 			if add := x + r + 1; add < w {
-				sr, sg, sb = sr+uint32(row[add*4]), sg+uint32(row[add*4+1]), sb+uint32(row[add*4+2])
+				sr, sg, sb = sr+uint32(row[add*3]+offset), sg+uint32(row[add*3+1]+offset), sb+uint32(row[add*3+2]+offset)
 				n++
 			}
 			if remove := x - r; remove >= 0 {
-				sr, sg, sb = sr-uint32(row[remove*4]), sg-uint32(row[remove*4+1]), sb-uint32(row[remove*4+2])
+				sr, sg, sb = sr-uint32(row[remove*3]+offset), sg-uint32(row[remove*3+1]+offset), sb-uint32(row[remove*3+2]+offset)
 				n--
 			}
 		}
 	}
 
-	// Columns: running sums of whole rows.
-	out := image.NewRGBA(image.Rect(0, 0, w, h))
+	// Columns: running sums of whole rows, written back into plane.
 	sums := make([]uint32, w*3)
 	n := 0
 	for y := 0; y <= r && y < h; y++ {
 		for i, v := range tmp[y*w*3 : (y+1)*w*3] {
-			sums[i] += v
+			sums[i] += uint32(v)
 		}
 		n++
 	}
 	for y := range h {
-		dst := out.Pix[y*out.Stride:]
-		for x := range w {
-			dst[x*4] = uint8(uint64(sums[x*3]) * div[n] >> 32)
-			dst[x*4+1] = uint8(uint64(sums[x*3+1]) * div[n] >> 32)
-			dst[x*4+2] = uint8(uint64(sums[x*3+2]) * div[n] >> 32)
-			dst[x*4+3] = 255
+		dst := plane[y*w*3 : (y+1)*w*3]
+		for i, sum := range sums {
+			dst[i] = int16(uint64(sum)*div[n]>>32) - offset
 		}
 		if add := y + r + 1; add < h {
 			for i, v := range tmp[add*w*3 : (add+1)*w*3] {
-				sums[i] += v
+				sums[i] += uint32(v)
 			}
 			n++
 		}
 		if remove := y - r; remove >= 0 {
 			for i, v := range tmp[remove*w*3 : (remove+1)*w*3] {
-				sums[i] -= v
+				sums[i] -= uint32(v)
 			}
 			n--
 		}
 	}
-	return out
 }
 
 // componentsBridging returns the connected areas of the mask like components, but

@@ -268,16 +268,14 @@ type featureImage struct {
 }
 
 func newFeatureImage(img *image.RGBA) *featureImage {
-	b := blur(img, 1)
-	w, h := b.Bounds().Dx(), b.Bounds().Dy()
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	b := channels(img)
+	blur(b, w, h, 1)
 	f := &featureImage{w: w, h: h, sat: make([]float64, w*h), rg: make([]float64, w*h)}
-	for y := range h {
-		for x := range w {
-			i := b.PixOffset(x, y)
-			r, g, bl := float64(b.Pix[i]), float64(b.Pix[i+1]), float64(b.Pix[i+2])
-			f.sat[y*w+x] = max(r, g, bl) - min(r, g, bl)
-			f.rg[y*w+x] = r - g
-		}
+	for i := range w * h {
+		r, g, bl := float64(b[i*3]), float64(b[i*3+1]), float64(b[i*3+2])
+		f.sat[i] = max(r, g, bl) - min(r, g, bl)
+		f.rg[i] = r - g
 	}
 	return f
 }
