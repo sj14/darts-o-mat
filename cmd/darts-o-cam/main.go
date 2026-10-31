@@ -60,7 +60,7 @@ Starts darts-o-cam and its web interface, where the cameras are added and calibr
 		dir           = fs.String("dir", defaultDir, "directory for the configuration and the cameras' images")
 		addr          = fs.String("addr", "localhost:8090", "address of the web interface; e.g. :8090 to reach it from other devices (it has no login)")
 		ui            = fs.String("ui", defaultUI(), "how to show the web interface: window (a window of its own; closing it stops darts-o-cam), browser, or none (default none without a display)")
-		verbose       = fs.Bool("v", false, "log whenever the board starts moving")
+		verbose       = fs.Bool("v", false, "log whenever the board starts moving, and how long each detection takes")
 		saveDir       = fs.String("save", "", "directory to keep the camera frames of every detection in as PNG, for debugging (default: only the last ones, in memory)")
 		pprofAddr     = fs.String("pprof", "", profiling.Usage)
 		noUpdateCheck = fs.Bool("no-update-check", false, "don't ask GitHub for the latest release, so the footer never shows a newer version")

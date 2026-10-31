@@ -132,7 +132,7 @@ func (r *reporter) done(rep report, game int64, err error) {
 	if err != nil {
 		log.Printf("%s: event %d not reported: %v", r.name, rep.event, err)
 	} else if game != 0 {
-		log.Printf("%s: event %d entered in game %d", r.name, rep.event, game)
+		log.Printf("%s: event %d entered in game %d, %s after its detection", r.name, rep.event, game, r.now().Sub(rep.at).Round(time.Millisecond))
 	}
 	r.result(rep, game, err, false)
 }

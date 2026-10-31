@@ -216,8 +216,12 @@ func (a *App) detect(ctx context.Context, d detection) error {
 	} else {
 		w.Empty = d.empty
 	}
+	var motionAt time.Time // when the board started moving, only with Verbose
 	if a.opts.Verbose {
-		w.OnMotion = func() { log.Printf("%s: motion", d.name) }
+		w.OnMotion = func() {
+			motionAt = time.Now()
+			log.Printf("%s: motion", d.name)
+		}
 	}
 	log.Printf("%s: watching %d cameras: %v", d.name, len(d.lives), d.names)
 
@@ -235,7 +239,12 @@ func (a *App) detect(ctx context.Context, d detection) error {
 				return fmt.Errorf("camera %s: %w", d.names[i], err)
 			}
 		}
+		start := time.Now()
 		if e := w.Feed(frames); e != nil {
+			if a.opts.Verbose {
+				log.Printf("%s: %s after the motion began, of which %s detecting", d.name,
+					time.Since(motionAt).Round(time.Millisecond), time.Since(start).Round(time.Millisecond))
+			}
 			a.handle(d, e)
 			// Without a server nobody would see the result.
 			if e.Kind == vision.EventTakeout && d.server != nil {

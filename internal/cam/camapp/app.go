@@ -55,7 +55,7 @@ type Options struct {
 	// after, per camera), for debugging; otherwise darts-o-cam writes nothing while it
 	// detects (see maxEvents).
 	SaveDir string
-	// Verbose logs whenever the board starts moving.
+	// Verbose logs whenever the board starts moving, and how long each detection takes.
 	Verbose bool
 }
 
