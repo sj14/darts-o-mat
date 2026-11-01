@@ -786,9 +786,9 @@ func TestTakeout(t *testing.T) {
 	}
 }
 
-// A camera dart while the game waits for the takeout means the cameras missed it: the
-// takeout is entered, and the dart is the next player's.
-func TestBoardDartAfterMissedTakeout(t *testing.T) {
+// A camera dart while the game waits for the takeout, after the third dart or after a
+// bust, doesn't count: the darts weren't pulled out yet.
+func TestBoardDartBeforeTakeout(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
@@ -796,25 +796,37 @@ func TestBoardDartAfterMissedTakeout(t *testing.T) {
 	guest, _ := s.CreateGuest(ctx, anna, "Papa")
 	keller, _ := s.CreateBoard(ctx, anna, "Keller")
 	g := x01Game(anna.PlayerID, guest.ID)
+	g.Rules.(*x01.Settings).StartScore = 50
 	g = withBoard(g, keller.ID)
 	v, err := createGame(ctx, s, anna, g, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	five := throw.Dart{Number: 5, Segment: dartboard.Single}
 	for range 3 {
-		if v, err = s.AddBoardDart(ctx, keller, t20); err != nil {
+		if v, err = s.AddBoardDart(ctx, keller, five); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if !v.Common().WaitingForTakeout {
-		t.Fatal("not waiting for the takeout after 3 darts")
+	if _, err := s.AddBoardDart(ctx, keller, t20); !errors.Is(err, turn.ErrWaitingForTakeout) {
+		t.Errorf("fourth camera dart: got %v, want ErrWaitingForTakeout", err)
 	}
-	if v, err = s.AddBoardDart(ctx, keller, t20); err != nil {
-		t.Fatalf("fourth camera dart: %v", err)
+	if _, err := s.BoardTakeout(ctx, keller); err != nil {
+		t.Fatal(err)
 	}
-	st := v.State.(x01.State)
-	if len(v.Darts) != 5 || !v.Darts[3].Takeout || *st.CurrentPlayerID != guest.ID || v.Common().DartsInTurn != 1 {
-		t.Errorf("%d entries, current %d, %d darts in the turn; want 3 darts, the takeout and the guest's first dart", len(v.Darts), *st.CurrentPlayerID, v.Common().DartsInTurn)
+	if v, err = s.AddBoardDart(ctx, keller, t20); err != nil { // the guest busts: 60 of 50
+		t.Fatal(err)
+	}
+	for range 2 {
+		if _, err := s.AddBoardDart(ctx, keller, t20); !errors.Is(err, turn.ErrWaitingForTakeout) {
+			t.Errorf("camera dart after the bust: got %v, want ErrWaitingForTakeout", err)
+		}
+	}
+	if v, err = s.BoardTakeout(ctx, keller); err != nil {
+		t.Fatal(err)
+	}
+	if len(v.Darts) != 6 || *v.State.(x01.State).CurrentPlayerID != anna.PlayerID {
+		t.Errorf("%d entries, current %d; want 3 darts, a takeout, the bust and a takeout, then anna", len(v.Darts), *v.State.(x01.State).CurrentPlayerID)
 	}
 }
 

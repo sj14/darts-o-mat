@@ -139,7 +139,10 @@ func TestFriendsShareABoard(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.AddBoardDart(ctx, keller, t20); err != nil { // implies the takeout, ben's dart
+	if _, err := s.BoardTakeout(ctx, keller); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddBoardDart(ctx, keller, t20); err != nil {
 		t.Errorf("a dart of ben through anna's camera: %v", err)
 	}
 }

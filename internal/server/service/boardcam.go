@@ -55,10 +55,12 @@ func (s *Service) AuthenticateBoard(ctx context.Context, token string) (board.Bo
 
 // AddBoardDart enters a dart detected by the board's cameras into the running game on
 // the board, with the position the cameras saw it at. While the game waits for the
-// takeout, a new dart means the cameras missed it: the takeout is entered first, and the
-// dart is the next player's (user's wish 2026-10-15; darts entered by hand still need
-// the takeout). A board only counts the darts of the turns of players who throw on it: a
-// dart of another board is refused (ErrNotOnBoard).
+// takeout, a dart on the board of the player whose turn is over doesn't count: it was
+// thrown after a bust or after the third dart without pulling the darts out
+// (turn.ErrWaitingForTakeout, as for darts entered by hand). A dart on another board
+// means the next player started there: the takeout is entered first, and the dart is
+// theirs. A board only counts the darts of the turns of players who throw on it: a dart
+// of another board is refused (ErrNotOnBoard).
 func (s *Service) AddBoardDart(ctx context.Context, b board.Board, d throw.Dart) (GameView, error) {
 	v, err := s.activeGame(ctx, b)
 	if err != nil {
@@ -69,6 +71,9 @@ func (s *Service) AddBoardDart(ctx context.Context, b board.Board, d throw.Dart)
 	}
 	return s.changeByCameras(ctx, v.Game.ID, func(g *game.Game, v GameView) error {
 		if v.Common().WaitingForTakeout {
+			if v.PlaysOn(b.ID) {
+				return turn.ErrWaitingForTakeout
+			}
 			if err := s.storeTakeout(ctx, g, v); err != nil {
 				return err
 			}
