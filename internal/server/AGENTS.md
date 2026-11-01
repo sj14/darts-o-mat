@@ -163,7 +163,7 @@ The admins (`account.Account.Admin`; the first account registered is one, and th
 
 ## Footer and version
 
-Every page's footer links to the project on GitHub (`buildinfo.ProjectURL`), the [landing page](#landing-page) ("About darts-o-mat") and the imprint and the privacy policy (see [admin and pages](#admin-and-pages)), and shows the version of the binary (`buildinfo.Version`, shared with darts-o-cam's footer): the short git revision from Go's build information (`-dirty` with uncommitted changes), for `go install …@vX.Y.Z` the module version. Nothing to pass at build time; it is empty if the build had no git information (e.g. a source archive).
+Every page's footer links to the project on GitHub (`buildinfo.ProjectURL`), the [landing page](#landing-page) ("About darts-o-mat") and the imprint and the privacy policy (see [admin and pages](#admin-and-pages)), and shows the version of the binary (`buildinfo.Version`, shared with darts-o-cam's footer): the version stamped in at build time (`-ldflags -X …/buildinfo.stamped`), else the short git revision from Go's build information (`-dirty` with uncommitted changes), for `go install …@vX.Y.Z` the module version; empty if the build had neither (e.g. a source archive). Every release build stamps it, for both programs: `release.yml` and the `Containerfile` for the server's archives and image, `tools/internal/version.StampFlag` in `tools/linuxpkg`, `tools/winpkg` and `tools/macapp`; without it a release would show its git revision, and the [hint about a newer version](../../AGENTS.md#from-the-home-server-to-saas) would never appear.
 
 ## Game page
 

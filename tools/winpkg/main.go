@@ -75,7 +75,7 @@ func build(root, out, ver string) error {
 
 	for _, arch := range []string{"amd64", "arm64"} {
 		bin := filepath.Join(work, arch+".exe")
-		goBuild := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w -H windowsgui", "-o", bin, "./cmd/"+name)
+		goBuild := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w -H windowsgui "+version.StampFlag(ver), "-o", bin, "./cmd/"+name)
 		goBuild.Dir = root
 		goBuild.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=windows", "GOARCH="+arch)
 		goBuild.Stdout, goBuild.Stderr = os.Stdout, os.Stderr

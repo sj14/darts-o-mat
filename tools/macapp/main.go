@@ -1,7 +1,7 @@
 // Command macapp builds darts-o-cam as a macOS app bundle:
 //
 //	go -C tools run ./macapp # darts-o-cam.app in the project's directory
-//	go -C tools run ./macapp -o ~/Applications/darts-o-cam.app
+//	go -C tools run ./macapp -o ~/Applications/darts-o-cam.app -version 1.2.3
 //
 // Started from the bundle (double click or `open`), macOS treats darts-o-cam as an app
 // of its own: it asks for camera access for "darts-o-cam" with the explanation in
@@ -26,6 +26,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/tools/internal/appicon"
 	"github.com/sj14/darts-o-mat/tools/internal/project"
+	"github.com/sj14/darts-o-mat/tools/internal/version"
 )
 
 const (
@@ -43,19 +44,20 @@ func main() {
 		log.Fatalf("macapp: %v", err)
 	}
 	out := flag.String("o", filepath.Join(root, name+".app"), "path of the app bundle to create (replaced if it exists)")
+	ver := flag.String("version", version.FromGit(root), "version of the app")
 	flag.Parse()
 	// go build runs in the project, the rest here: both need the same path.
 	app, err := filepath.Abs(*out)
 	if err != nil {
 		log.Fatalf("macapp: %v", err)
 	}
-	if err := build(root, app); err != nil {
+	if err := build(root, app, strings.TrimPrefix(*ver, "v")); err != nil {
 		log.Fatalf("macapp: %v", err)
 	}
 	log.Printf("built %s: start it with a double click or `open %s`", app, app)
 }
 
-func build(root, app string) error {
+func build(root, app, ver string) error {
 	if err := os.RemoveAll(app); err != nil {
 		return err
 	}
@@ -67,12 +69,12 @@ func build(root, app string) error {
 	}
 
 	// No cgo: the window's web view is loaded at runtime (see cmd/darts-o-cam/window.go).
-	goBuild := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", filepath.Join(contents, "MacOS", name), "./cmd/"+name)
+	goBuild := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w "+version.StampFlag(ver), "-o", filepath.Join(contents, "MacOS", name), "./cmd/"+name)
 	goBuild.Dir, goBuild.Env = root, append(os.Environ(), "CGO_ENABLED=0")
 	if err := run(goBuild); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(contents, "Info.plist"), []byte(infoPlist(version(root))), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(contents, "Info.plist"), []byte(infoPlist(ver)), 0o644); err != nil {
 		return err
 	}
 	if err := icon(filepath.Join(contents, "Resources", "AppIcon.icns")); err != nil {
@@ -87,17 +89,6 @@ func run(cmd *exec.Cmd) error {
 		return fmt.Errorf("%s: %w", strings.Join(cmd.Args, " "), err)
 	}
 	return nil
-}
-
-// version is the git description of the checkout in root, e.g. v0.1.0-3-gabc1234, or "dev".
-func version(root string) string {
-	describe := exec.Command("git", "describe", "--tags", "--always", "--dirty")
-	describe.Dir = root
-	v, err := describe.Output()
-	if err != nil {
-		return "dev"
-	}
-	return strings.TrimSpace(string(v))
 }
 
 // infoPlist describes the bundle. NSCameraUsageDescription is the explanation macOS shows

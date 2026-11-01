@@ -75,9 +75,6 @@ type program struct {
 	assets      []asset
 	// icons adds the program's icon in every size of iconSizes.
 	icons bool
-	// stamp sets the version in the binary. Without it the binary tells the git revision it
-	// was built from, which for a release build is not the version.
-	stamp bool
 	// formats are the packages written: "deb", "rpm", and "tar" for a .tar.gz.
 	formats []string
 	// The packages' dependencies, per format.
@@ -123,7 +120,6 @@ var programs = []program{
 			{file: "LICENSE", dst: "/usr/share/doc/darts-o-mat/LICENSE"},
 			{file: "cmd/darts-o-mat/README.md", dst: "/usr/share/doc/darts-o-mat/README.md"},
 		},
-		stamp:   true,
 		formats: []string{"deb", "rpm", "tar"},
 	},
 }
@@ -142,7 +138,7 @@ func main() {
 	}
 }
 
-func build(root, out, version string) error {
+func build(root, out, ver string) error {
 	work, err := os.MkdirTemp("", "linuxpkg-*")
 	if err != nil {
 		return err
@@ -152,7 +148,7 @@ func build(root, out, version string) error {
 		return err
 	}
 	for _, p := range programs {
-		if err := p.build(root, out, work, version); err != nil {
+		if err := p.build(root, out, work, ver); err != nil {
 			return fmt.Errorf("%s: %w", p.name, err)
 		}
 	}
@@ -160,7 +156,7 @@ func build(root, out, version string) error {
 }
 
 // build writes the packages of the program for every architecture.
-func (p program) build(root, out, work, version string) error {
+func (p program) build(root, out, work, ver string) error {
 	// The files besides the program, the same for every architecture.
 	var assets files.Contents
 	for _, a := range p.assets {
@@ -191,14 +187,10 @@ func (p program) build(root, out, work, version string) error {
 		}
 	}
 
-	ldflags := "-s -w"
-	if p.stamp {
-		ldflags += " -X github.com/sj14/darts-o-mat/internal/common/buildinfo.stamped=" + version
-	}
 	for _, arch := range []string{"amd64", "arm64"} {
 		bin := filepath.Join(work, p.name, arch, p.name)
-		archLdflags := ldflags + " -I " + loaders[arch]
-		goBuild := exec.Command("go", "build", "-trimpath", "-ldflags="+archLdflags, "-o", bin, "./cmd/"+p.name)
+		ldflags := "-s -w " + version.StampFlag(ver) + " -I " + loaders[arch]
+		goBuild := exec.Command("go", "build", "-trimpath", "-ldflags="+ldflags, "-o", bin, "./cmd/"+p.name)
 		goBuild.Dir = root
 		goBuild.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux", "GOARCH="+arch)
 		goBuild.Stdout, goBuild.Stderr = os.Stdout, os.Stderr
@@ -210,9 +202,9 @@ func (p program) build(root, out, work, version string) error {
 		for _, format := range p.formats {
 			var err error
 			if format == "tar" {
-				err = p.tarball(out, arch, version, contents)
+				err = p.tarball(out, arch, ver, contents)
 			} else {
-				err = p.pkg(out, format, arch, version, contents)
+				err = p.pkg(out, format, arch, ver, contents)
 			}
 			if err != nil {
 				return err
@@ -230,11 +222,11 @@ func writeFile(path string, data []byte) error {
 }
 
 // pkg writes a .deb or .rpm package.
-func (p program) pkg(out, format, arch, version string, contents files.Contents) error {
+func (p program) pkg(out, format, arch, ver string, contents files.Contents) error {
 	info := nfpm.WithDefaults(&nfpm.Info{
 		Name:          p.name,
 		Arch:          arch,
-		Version:       version,
+		Version:       ver,
 		VersionSchema: "none", // as given, e.g. 0.0.0+git.abc1234
 		Maintainer:    "darts-o-mat <https://github.com/sj14/darts-o-mat>",
 		Description:   p.description,
@@ -271,8 +263,8 @@ func (p program) pkg(out, format, arch, version string, contents files.Contents)
 // tarball writes the same files as the packages into darts-o-cam_linux_<arch>.tar.gz,
 // below a folder darts-o-cam_<version>_linux_<arch> (usr/bin/…, usr/share/…), to unpack
 // anywhere.
-func (p program) tarball(out, arch, version string, contents files.Contents) error {
-	dir := fmt.Sprintf("%s_%s_linux_%s", p.name, version, arch)
+func (p program) tarball(out, arch, ver string, contents files.Contents) error {
+	dir := fmt.Sprintf("%s_%s_linux_%s", p.name, ver, arch)
 	path := filepath.Join(out, fmt.Sprintf("%s_linux_%s.tar.gz", p.name, arch))
 	f, err := os.Create(path)
 	if err != nil {

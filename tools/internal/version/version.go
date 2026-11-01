@@ -1,5 +1,5 @@
-// Package version determines the version of the packages built by tools/linuxpkg and
-// tools/winpkg from git.
+// Package version determines the version of the packages built by tools/linuxpkg,
+// tools/winpkg and tools/macapp from git and stamps it into their binaries.
 package version
 
 import (
@@ -23,4 +23,11 @@ func FromGit(dir string) string {
 		return m[1]
 	}
 	return "0.0.0+git." + strings.NewReplacer("-", ".").Replace(d)
+}
+
+// StampFlag is the -ldflags argument that sets version in the binary's buildinfo, which
+// its footer shows and the hint about a newer release compares against. Without it the
+// binary tells the git revision it was built from.
+func StampFlag(version string) string {
+	return "-X github.com/sj14/darts-o-mat/internal/common/buildinfo.stamped=" + version
 }
