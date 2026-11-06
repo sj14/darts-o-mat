@@ -44,7 +44,7 @@ Each player can throw at a board of their own, also when playing with friends or
 
 ## Community
 
-Questions, ideas, your board setup: talk about darts-o-mat on [Reddit (r/Darts_o_Mat)](https://www.reddit.com/r/Darts_o_Mat/) or on [Lemmy (discuss.tchncs.de)](https://discuss.tchncs.de/c/Darts_o_Mat). Bugs are best reported as a [GitHub issue](https://github.com/sj14/darts-o-mat/issues).
+Questions, ideas, your board setup: talk about darts-o-mat on [Reddit (r/Darts_o_Mat)](https://www.reddit.com/r/Darts_o_Mat/) or on [Lemmy (c/Darts_o_Mat)](https://discuss.tchncs.de/c/Darts_o_Mat). Bugs are best reported as a [GitHub issue](https://github.com/sj14/darts-o-mat/issues).
 
 ## For developers
 
