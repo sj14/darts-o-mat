@@ -1,5 +1,3 @@
-//go:build !noturbojpeg
-
 package camera
 
 // libjpeg-turbo decodes MJPEG with SIMD, straight to RGBA (measured at 1280×720:
@@ -7,8 +5,7 @@ package camera
 // runtime through purego if it is installed, otherwise frames are decoded with image/jpeg.
 // It uses the TurboJPEG 2 API, which libjpeg-turbo 3 still offers.
 //
-// purego makes even a build with CGO_ENABLED=0 depend on the glibc loader; the tag
-// noturbojpeg leaves libjpeg-turbo out for a static binary (e.g. for musl).
+// purego makes even a build with CGO_ENABLED=0 depend on the glibc loader.
 
 import (
 	"image"
@@ -16,9 +13,6 @@ import (
 
 	"github.com/ebitengine/purego"
 )
-
-// turboBuilt is true: this build loads libjpeg-turbo if it is installed.
-const turboBuilt = true
 
 var (
 	turboOnce sync.Once

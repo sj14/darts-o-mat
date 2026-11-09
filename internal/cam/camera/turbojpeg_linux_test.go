@@ -1,5 +1,3 @@
-//go:build !noturbojpeg
-
 package camera
 
 import (

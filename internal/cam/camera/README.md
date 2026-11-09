@@ -33,6 +33,6 @@ img, err := cam.Read() // waits for the next frame, an *image.RGBA
 If `libturbojpeg.so.0` is installed (Debian/Raspberry Pi OS: `libturbojpeg0`, Ubuntu/Linux Mint: `libturbojpeg`, Fedora: `turbojpeg`, Arch: `libjpeg-turbo`), it is loaded at runtime; otherwise Go's own JPEG decoder is used. `cam.Format` tells which one is running, `cam.SlowJPEG` whether installing libjpeg-turbo would help.
 
 - On NixOS the library isn't in the search path: point `LD_LIBRARY_PATH` at the (64-bit) `libjpeg_turbo` package.
-- Loading it makes the binary depend on glibc, even with `CGO_ENABLED=0`. For a fully static binary (e.g. Alpine), build with `-tags noturbojpeg`.
+- darts-o-cam depends on glibc on Linux, even with `CGO_ENABLED=0` (libjpeg-turbo and the window are loaded at runtime), so it doesn't run on musl systems such as Alpine.
 
 Implementation details and measurements: [AGENTS.md](AGENTS.md).

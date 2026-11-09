@@ -57,8 +57,6 @@ type Camera struct {
 	Format string
 	// SlowJPEG is whether its MJPEG frames are decoded with Go's image/jpeg because
 	// libjpeg-turbo isn't installed (Linux only), which takes about three times the CPU.
-	// It is false in a build without libjpeg-turbo (tag noturbojpeg), where installing
-	// it wouldn't help.
 	SlowJPEG bool
 
 	interval time.Duration // minimum time between delivered frames, 0 for all
