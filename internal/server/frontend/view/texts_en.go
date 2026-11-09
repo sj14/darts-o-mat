@@ -267,7 +267,7 @@ func (textsEN) BoardWarning(board string) string {
 	return "darts-o-cam reports a problem at board “" + board + "”: look at darts-o-cam."
 }
 func (textsEN) ErrCantLeave() string {
-	return "You can't leave the game now, e.g. not while bulling off."
+	return "You can't leave this game."
 }
 func (textsEN) EnterDart() string   { return "Enter a dart" }
 func (textsEN) HideKeypad() string  { return "Hide keypad" }

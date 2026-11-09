@@ -276,7 +276,7 @@ func gameTitle(v service.GameView, p *progress) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		if p != nil && v.CanThrow && p.running() && !p.BullingOff {
+		if p != nil && v.CanThrow && p.running() {
 			templ_7745c5c3_Err = leaveButton(v).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

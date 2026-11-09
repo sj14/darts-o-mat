@@ -64,7 +64,7 @@ templ gameTitle(v service.GameView, p *progress) {
 			} else if name := sharedBoardName(v); name != "" && (p == nil || p.running()) {
 				<span class="rounded-full bg-white/10 px-3 py-1">📷 { name }</span>
 			}
-			if p != nil && v.CanThrow && p.running() && !p.BullingOff {
+			if p != nil && v.CanThrow && p.running() {
 				@leaveButton(v)
 			}
 			if p != nil && p.BullingOff && p.running() {

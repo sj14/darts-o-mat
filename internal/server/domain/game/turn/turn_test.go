@@ -418,6 +418,35 @@ func TestBullOffSkip(t *testing.T) {
 	}
 }
 
+// A player who leaves while bulling off is out of it like a skipped one: their dart
+// doesn't count, and the only one left starts.
+func TestBullOffLeave(t *testing.T) {
+	t.Parallel()
+	bull := throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bull}
+	miss := throw.Dart{Segment: dartboard.Miss}
+	leave := func(id int64) throw.Dart { return throw.Dart{PlayerID: id, Leave: true} }
+	for _, tt := range []struct {
+		name    string
+		entries []throw.Dart
+		want    int // who starts the first leg
+	}{
+		{"the one up leaves, the next throws", []throw.Dart{leave(10), bull, miss}, 1},
+		{"the dart of who left doesn't count", []throw.Dart{bull, leave(10), miss, bull}, 2},
+		{"the one up in the tie leaves", []throw.Dart{bull, bull, miss, leave(10)}, 1},
+		{"the other one in the tie leaves", []throw.Dart{bull, bull, miss, leave(20)}, 0},
+		{"one out after the tie leaves", []throw.Dart{bull, bull, miss, leave(30), bull, miss}, 0},
+	} {
+		log := Log{BullOff: true, PlayerIDs: []int64{10, 20, 30}, Entries: tt.entries}
+		tr := log.Turn(3)
+		if err := log.Replay(tr, nil); err != nil {
+			t.Fatalf("%s: %v", tt.name, err)
+		}
+		if tr.BullingOff() || tr.Player != tt.want {
+			t.Errorf("%s: bulling off %v, player %d starts; want player %d", tt.name, tr.BullingOff(), tr.Player, tt.want)
+		}
+	}
+}
+
 func TestReplaySkip(t *testing.T) {
 	t.Parallel()
 	ids := []int64{10, 20, 30}

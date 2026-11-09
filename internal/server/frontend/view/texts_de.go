@@ -265,7 +265,7 @@ func (textsDE) BoardWarning(board string) string {
 	return "darts-o-cam meldet ein Problem am Board „" + board + "“: Sieh in darts-o-cam nach."
 }
 func (textsDE) ErrCantLeave() string {
-	return "Du kannst das Spiel jetzt nicht verlassen, z. B. nicht beim Ausbullen."
+	return "Du kannst dieses Spiel nicht verlassen."
 }
 func (textsDE) EnterDart() string   { return "Dart eintragen" }
 func (textsDE) HideKeypad() string  { return "Keypad ausblenden" }

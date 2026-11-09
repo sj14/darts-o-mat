@@ -13,7 +13,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 )
 
-// ErrCantLeave means the game can't be left now, e.g. while the players bull off.
+// ErrCantLeave means the player can't leave the game, e.g. they aren't in it anymore.
 var ErrCantLeave = turn.ErrCantLeave
 
 // LeaveGame lets an account leave a game with all its players, itself and its guests. All
@@ -28,7 +28,7 @@ var ErrCantLeave = turn.ErrCantLeave
 //     leaving it, which is what "Abort game" means there.
 //   - Leaving a game of a tournament leaves the tournament, see LeaveTournament.
 //
-// A player can't leave while bulling off.
+// While bulling off, who leaves is out of it (see turn.Turn.Leave).
 func (s *Service) LeaveGame(ctx context.Context, acc account.Account, gameID int64) (GameView, error) {
 	unlock, err := s.lock(ctx)
 	if err != nil {

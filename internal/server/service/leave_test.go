@@ -5,8 +5,6 @@ import (
 	"errors"
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"testing"
-
-	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
 )
 
 func TestLeaveGame(t *testing.T) {
@@ -110,7 +108,8 @@ func TestLeaveTheLobby(t *testing.T) {
 	}
 }
 
-func TestCantLeaveWhileBullingOff(t *testing.T) {
+// Who leaves while bulling off is out of it, the others bull off on.
+func TestLeaveWhileBullingOff(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := newService(t)
@@ -123,8 +122,25 @@ func TestCantLeaveWhileBullingOff(t *testing.T) {
 	_, _ = acceptGame(ctx, s, ben, v.Game.ID, nil)
 	_, _ = acceptGame(ctx, s, carla, v.Game.ID, nil)
 
-	if _, err := s.LeaveGame(ctx, ben, v.Game.ID); !errors.Is(err, turn.ErrCantLeave) {
-		t.Errorf("leave while bulling off: got %v, want ErrCantLeave", err)
+	// Anna is up and leaves: ben throws next.
+	v, err := s.LeaveGame(ctx, anna, v.Game.ID)
+	if err != nil {
+		t.Fatalf("leave while bulling off: %v", err)
+	}
+	if v.Game.Aborted() || !v.HasLeft {
+		t.Fatalf("after anna left: aborted %v, left %v; want the game on without her", v.Game.Aborted(), v.HasLeft)
+	}
+	if cur := v.Common().CurrentPlayerID; cur == nil || *cur != ben.PlayerID {
+		t.Errorf("current player %v, want ben", cur)
+	}
+
+	// Ben leaves too: carla would be alone, the game is aborted.
+	v, err = s.LeaveGame(ctx, ben, v.Game.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !v.Game.Aborted() {
+		t.Error("the game isn't aborted with one player left")
 	}
 }
 

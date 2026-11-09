@@ -152,7 +152,7 @@ func (s *Service) leaveEverything(ctx context.Context, a account.Account) error 
 				s.notifyGame(g)
 			}
 		default:
-			if _, err = s.leave(ctx, a, v); err != nil { // e.g. while bulling off
+			if _, err = s.leave(ctx, a, v); err != nil {
 				err = s.abortGame(ctx, &g)
 			}
 		}

@@ -10,7 +10,7 @@ import (
 
 // bullOff decides who starts the first leg: each contender throws one dart at the
 // bull, the closest starts. Equally close players throw again, unless the players
-// decided who was closer. Who takes too long for their dart (skip) is out.
+// decided who was closer. Who takes too long for their dart or leaves the game is out.
 type bullOff struct {
 	contenders []int // players still bulling off, in throwing order; nil once decided
 	closer     *int  // see Log.BullOffCloser
@@ -51,25 +51,32 @@ func (b *bullOff) throw(entry, player int, d throw.Dart) (next int, decided bool
 	return b.endRound()
 }
 
-// skip takes the player out who took too long for their dart (Turn.Skip): they can't be
-// the closest anymore and don't throw again after a tie. It returns who throws next, or the
+// out takes player out of bulling off, who took too long for their dart (Turn.Skip) or
+// left the game (Turn.Leave): they can't be the closest anymore and don't throw again
+// after a tie. up is the player who throws now. It returns who throws next, or the
 // starter of the first leg once that is decided: the only one left starts at once.
-func (b *bullOff) skip(player int) (next int, decided bool) {
+func (b *bullOff) out(player, up int) (next int, decided bool) {
+	b.closest = slices.DeleteFunc(b.closest, func(p int) bool { return p == player })
 	i := slices.Index(b.contenders, player)
+	if i < 0 { // out already after a tie
+		return up, false
+	}
 	b.contenders = slices.Delete(b.contenders, i, i+1)
 	switch {
 	case len(b.contenders) == 1:
 		starter := b.contenders[0]
 		b.contenders = nil
 		return starter, true
+	case player != up:
+		return up, false
 	case i < len(b.contenders):
 		return b.contenders[i], false
 	}
 	return b.endRound()
 }
 
-// endRound decides once everyone in the round threw or was skipped (someone threw, else
-// only one would be left, see skip): the closest starts, those equally close throw again.
+// endRound decides once everyone in the round threw or is out (someone threw, else only
+// one would be left, see out): the closest starts, those equally close throw again.
 func (b *bullOff) endRound() (next int, decided bool) {
 	if b.closer != nil && slices.Contains(b.closest, *b.closer) {
 		b.closest = []int{*b.closer}

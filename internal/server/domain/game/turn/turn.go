@@ -36,7 +36,7 @@ var (
 	// ErrWrongThrower means a dart is recorded for another player than the one who is up,
 	// e.g. after a correction that changed whose turn it is.
 	ErrWrongThrower = errors.New("the dart was thrown by another player than the one who is up")
-	// ErrCantLeave means a player can't leave the game now: while bulling off, or when
+	// ErrCantLeave means a player can't leave the game: they aren't in it (anymore), or
 	// that would leave fewer than two players.
 	ErrCantLeave = errors.New("the player can't leave the game now")
 	// ErrTooFewLeft means leaving would leave fewer than MinPlayers in the game: it ends
@@ -306,10 +306,10 @@ func (t *Turn) nextActive(i int) int {
 // Leave lets player i leave the game: the others play on without them, and the legs and
 // sets they won stay theirs; a starter who left still counts for the order in which the
 // legs and sets are started (the next one after them starts). If they were up, their turn is over (the darts they threw
-// count); while the turn waits for the takeout, the next step moves on from them. It is
-// refused after the game is over, when fewer than MinPlayers would be left
-// (ErrTooFewLeft: the game ends then, which is up to the caller, also while bulling off)
-// and while bulling off. This is the one place of the rule: the service tries the leaving
+// count); while the turn waits for the takeout, the next step moves on from them; while
+// bulling off they are out of it (see bullOff.out). It is refused after the game is over
+// and when fewer than MinPlayers would be left (ErrTooFewLeft: the game ends then, which
+// is up to the caller). This is the one place of the rule: the service tries the leaving
 // and aborts the game on ErrTooFewLeft.
 func (t *Turn) Leave(i int) error {
 	staying := -1 // without i
@@ -325,11 +325,12 @@ func (t *Turn) Leave(i int) error {
 		return ErrGameOver
 	case staying < MinPlayers:
 		return ErrTooFewLeft
-	case t.BullingOff():
-		return fmt.Errorf("%w: the players are bulling off", ErrCantLeave)
 	}
 	t.Records[i].Left = true
-	if t.Player == i && !t.Waiting() {
+	switch {
+	case t.BullingOff():
+		t.bullOffNext(t.bull.out(i, t.Player))
+	case t.Player == i && !t.Waiting():
 		t.do(nextPlayer)
 	}
 	return nil
@@ -337,19 +338,19 @@ func (t *Turn) Leave(i int) error {
 
 // Skip ends the turn of the player who is up, who took too long: the darts they threw
 // count and the next player is up. While bulling off they are out of it (see
-// bullOff.skip). Nothing happens while the turn waits for the takeout (a takeout ends
+// bullOff.out). Nothing happens while the turn waits for the takeout (a takeout ends
 // that) and after the game is over.
 func (t *Turn) Skip() {
 	switch {
 	case t.over, t.Waiting():
 	case t.BullingOff():
-		t.bullOffNext(t.bull.skip(t.Player))
+		t.bullOffNext(t.bull.out(t.Player, t.Player))
 	default:
 		t.do(nextPlayer)
 	}
 }
 
-// bullOffNext moves on after a dart or a skip while bulling off: next throws, or starts
+// bullOffNext moves on after a dart or a player out while bulling off: next throws, or starts
 // the first leg once it is decided.
 func (t *Turn) bullOffNext(next int, decided bool) {
 	t.Player = next
