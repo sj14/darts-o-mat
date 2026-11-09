@@ -40,6 +40,8 @@ type OverviewModel struct {
 	Events  []EventModel // newest first
 	// Error is why the last action on the board failed, e.g. the fine calibration.
 	Error string
+	// SlowJPEG is whether a camera's frames are decoded without libjpeg-turbo.
+	SlowJPEG bool
 }
 
 type EventModel struct {
@@ -299,6 +301,9 @@ templ Overview(m OverviewModel) {
 				<span class="text-white/70">{ T(ctx).NotConnectedBefore() }<a href={ templ.URL(boardActionURL(m.Current, "settings")) } class={ linkClass }>{ T(ctx).NavSettings() }</a>{ T(ctx).NotConnectedAfter() }</span>
 			}
 		</div>
+		if m.SlowJPEG {
+			@notice(T(ctx).SlowJPEG(), "border-amber-400/50 bg-amber-400/10 text-amber-200")
+		}
 		if len(m.Cameras) == 0 {
 			@notice(T(ctx).NoCameras(), "border-amber-400/50 bg-amber-400/10 text-amber-200")
 		} else {

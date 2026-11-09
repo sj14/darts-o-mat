@@ -249,6 +249,7 @@ func (c *Camera) start(opts Options) error {
 		if c.turbo = newTurboDecoder(); c.turbo != 0 {
 			decoder = "libjpeg-turbo"
 		}
+		c.SlowJPEG = c.turbo == 0 && turboBuilt
 		c.Format = fmt.Sprintf("MJPEG %d×%d, decoded with %s", c.format.Width, c.format.Height, decoder)
 	}
 

@@ -17,6 +17,9 @@ import (
 	"github.com/ebitengine/purego"
 )
 
+// turboBuilt is true: this build loads libjpeg-turbo if it is installed.
+const turboBuilt = true
+
 var (
 	turboOnce sync.Once
 	turboErr  error

@@ -53,7 +53,7 @@ V4L2 via ioctl with `golang.org/x/sys/unix` (structs from `videodev2.h` rebuilt,
 - Devices: `/dev/video*`, only those with video capture (UVC cameras have a second device for metadata). `Device.ID` is the device path (`/dev/video2`, changes when replugging and rebooting; `/dev/v4l/by-path` has two links `usb`/`usbv2` per camera, therefore not used). Name and model come from the USB device in sysfs (`product`, `idVendor:idProduct`), because V4L2 truncates the card name to 31 characters ("Autodarts DIY Cam: Autodarts DI").
 - Measured on the development board (Linux, i5-11400H): 3 cameras 1280×720 at 10 fps, ~100 MB; assignment via reference image with the macOS reference images correct.
 
-**libjpeg-turbo optional** (`turbojpeg_linux.go`): if `libturbojpeg.so.0` is installed, purego loads it at runtime (TurboJPEG 2 API, also available in libjpeg-turbo 3) and decodes directly to RGBA, one handle per camera; otherwise `image/jpeg`.
+**libjpeg-turbo optional** (`turbojpeg_linux.go`): if `libturbojpeg.so.0` is installed, purego loads it at runtime (TurboJPEG 2 API, also available in libjpeg-turbo 3) and decodes directly to RGBA, one handle per camera; otherwise `image/jpeg`. `Camera.SlowJPEG` reports the latter (not in a `noturbojpeg` build, where installing the library wouldn't help); darts-o-cam's overview then shows a hint with the package names.
 
 - Per frame 3.5 instead of 18 ms (`image/jpeg` 11.5 ms + 5.6 ms converting to RGBA), the detection 15 % instead of 56 % of a core.
 - Frames with a warning (e.g. extraneous bytes) count, only fatal errors drop the frame. `Camera.Format` says which decoder runs; darts-o-cam logs it when it opens a camera.

@@ -209,6 +209,9 @@ func (ui *UI) renderOverview(w http.ResponseWriter, r *http.Request, board int, 
 	m := OverviewModel{boardNav: ui.nav(board), Dir: ui.app.Dir(), Status: ui.app.Status(board), Error: errMsg}
 	for _, c := range ui.app.Cameras(board) {
 		m.Cameras = append(m.Cameras, cameraModel(T(r.Context()), c))
+		if c.Live != nil && c.Live.SlowJPEG() {
+			m.SlowJPEG = true
+		}
 	}
 	m.Events = ui.events(T(r.Context()), board)
 	render(w, r, Overview(m))

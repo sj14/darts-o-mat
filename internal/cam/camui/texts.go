@@ -34,6 +34,7 @@ type Texts interface {
 	NotConnectedBefore() string
 	NotConnectedAfter() string
 	NoCameras() string
+	SlowJPEG() string
 	CalibrateHintBefore() string
 	EmptyBoard() string
 	CalibrateHintAfter() string

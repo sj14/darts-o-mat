@@ -312,6 +312,12 @@ func (l *Live) Format() string {
 	return l.cam.Format
 }
 
+// SlowJPEG tells whether the camera's frames are decoded without libjpeg-turbo, see
+// camera.Camera.SlowJPEG.
+func (l *Live) SlowJPEG() bool {
+	return l.cam.SlowJPEG
+}
+
 func (l *Live) Close() error {
 	return l.cam.Close()
 }

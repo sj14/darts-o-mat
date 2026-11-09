@@ -35,6 +35,9 @@ func (textsEN) NotConnectedAfter() string {
 func (textsEN) NoCameras() string {
 	return "No cameras yet. Add your board's cameras under “Add camera” and calibrate them with an empty board."
 }
+func (textsEN) SlowJPEG() string {
+	return "libjpeg-turbo isn't installed, so darts-o-cam needs about three times the computing power for the cameras. Install it with your system's software manager (Debian/Raspberry Pi OS: libturbojpeg0, Ubuntu/Linux Mint: libturbojpeg, Fedora: turbojpeg, Arch: libjpeg-turbo), then start darts-o-cam again."
+}
 func (textsEN) CalibrateHintBefore() string { return "Calibrate each camera once with an" }
 func (textsEN) EmptyBoard() string          { return "empty board" }
 func (textsEN) CalibrateHintAfter() string {
