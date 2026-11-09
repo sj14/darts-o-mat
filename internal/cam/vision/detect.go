@@ -44,7 +44,9 @@ type DetectOptions struct {
 
 // DefaultDetectOptions were measured in pixels on the development board (see ReferenceScale):
 // blur radius 2 px, at least 150 px, specks below 15 px, gaps up to 6 px, axis distance 12 px.
-// The tip shift is where the cameras agreed best on 13 real throws (2026-10-13).
+// The tip shift is the one that scored all 32 darts of a series at the rings' wires right
+// (2026-10-13; 1 mm scored one wrong, 0 mm three) and changed no field on 179 saved
+// throws against 1 mm (2026-10-25).
 var DefaultDetectOptions = DetectOptions{
 	DiffThreshold: 25,
 	WeakThreshold: 12,
@@ -54,7 +56,7 @@ var DefaultDetectOptions = DetectOptions{
 	MinElongation: 4,
 	Gap:           px(3),
 	AxisDistance:  px(12),
-	TipShift:      1,
+	TipShift:      0.5,
 }
 
 var (
