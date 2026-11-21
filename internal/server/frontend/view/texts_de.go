@@ -612,11 +612,21 @@ func (textsDE) StartsWhenFull() string {
 func (textsDE) StartTournament() string { return "Turnier starten" }
 func (textsDE) AddGuest() string        { return "Gast hinzufügen" }
 func (textsDE) AddBot() string          { return "Bot hinzufügen" }
+func (textsDE) AgainstPeople() string   { return "Gegen Menschen" }
+func (textsDE) AgainstBots() string     { return "Gegen Bots" }
+func (textsDE) Opponents() string       { return "Gegner" }
 func (textsDE) BotSpread() string       { return "Streuung in mm" }
-func (textsDE) BotSpreadHint() string {
-	return "Wie weit die Darts des Bots von seinem Ziel landen: je kleiner, desto stärker. Etwa 25 mm spielen einen Average von 40, 15 mm 55, 8 mm 90."
+func (textsDE) BotSpreadHint(examples string) string {
+	return "Wie weit die Darts des Bots von seinem Ziel landen: je kleiner, desto stärker. In diesem Modus etwa " + examples + "."
 }
-func (textsDE) BotMark(spread int) string { return "(Bot, " + strconv.Itoa(spread) + " mm)" }
+func (textsDE) BotMark(spread int, strength string) string {
+	return "(Bot, " + strconv.Itoa(spread) + " mm, " + strength + ")"
+}
+func (t textsDE) BotAverage(average float64) string {
+	return "≈ Ø " + strconv.Itoa(int(math.Round(average)))
+}
+func (t textsDE) BotHitRate(rate float64) string { return "≈ " + t.Percent(rate) + " Treffer" }
+func (t textsDE) BotMPR(mpr float64) string      { return "≈ " + t.Decimal(mpr) + " MPR" }
 func (textsDE) ErrNoBots() string {
 	return "Bots spielen nur in Spielen, die ihr selbst anlegt, nicht in Spielen für Fremde und nicht in Turnieren."
 }

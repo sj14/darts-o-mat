@@ -16,6 +16,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
 	"github.com/sj14/darts-o-mat/internal/common/warning"
 	"github.com/sj14/darts-o-mat/internal/server/domain/board"
+	"github.com/sj14/darts-o-mat/internal/server/domain/bot"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/aroundtheclock"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/cricket"
@@ -55,11 +56,17 @@ func (p progress) isWinner(playerID int64) bool {
 	return p.WinnerID != nil && *p.WinnerID == playerID
 }
 
+// playerName is the name of a player of the game as the game page shows it; a bot's with
+// its spread in this game, "Bot (20 mm)".
 func playerName(ctx context.Context, v service.GameView, id int64) string {
 	for _, p := range v.Players {
-		if p.ID == id {
-			return displayName(ctx, p)
+		if p.ID != id {
+			continue
 		}
+		if seat, _ := v.Game.Participant(id); seat.BotSpread > 0 {
+			return displayName(ctx, p) + " (" + strconv.Itoa(seat.BotSpread) + " mm)"
+		}
+		return displayName(ctx, p)
 	}
 	return "?"
 }
@@ -873,6 +880,41 @@ func numberOptions(from, to int) []filterOption {
 // to selected, which is empty for all modes.
 func showMode(selected, m game.Mode) bool {
 	return selected == "" || selected == m
+}
+
+// botStrength is about what a bot with the spread plays in the mode, the way the
+// statistics count it: the average in X01, the hit rate in around the clock, the MPR in
+// cricket (bot.Strength).
+func botStrength(t Texts, mode game.Mode, spread int) string {
+	strength := bot.Strength(mode, spread)
+	switch mode {
+	case game.ModeAroundTheClock:
+		return t.BotHitRate(strength)
+	case game.ModeCricket:
+		return t.BotMPR(strength)
+	}
+	return t.BotAverage(strength)
+}
+
+// hintSpreads are the spreads the form for a bot gives as examples.
+var hintSpreads = []int{8, 15, 25, 40}
+
+// botStrengths lists what the spreads of hintSpreads play in the mode, for the form.
+func botStrengths(t Texts, mode game.Mode) string {
+	var examples []string
+	for _, spread := range hintSpreads {
+		examples = append(examples, strconv.Itoa(spread)+" mm "+botStrength(t, mode, spread))
+	}
+	return strings.Join(examples, ", ")
+}
+
+// statsURL is the statistics page narrowed down to a mode (empty for all) and opponents.
+func statsURL(mode game.Mode, opponents stats.Opponents) string {
+	url := "/stats?mode=" + string(mode)
+	if opponents != stats.AgainstPeople {
+		url += "&opponents=" + string(opponents)
+	}
+	return url
 }
 
 // turnLabel names a step of x01.TurnScores: 60+, …, 180 (which can't be exceeded).

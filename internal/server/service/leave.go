@@ -84,6 +84,11 @@ func (s *Service) leave(ctx context.Context, acc account.Account, v GameView) (G
 			leaving = append(leaving, id)
 		}
 	}
+	// Leaving a game against bots isn't leaving people: it doesn't count as left early.
+	quits := leaving
+	if v.Game.HasBots() {
+		quits = nil
+	}
 	entries := make([]throw.Dart, len(leaving))
 	log := v.Darts
 	for i, id := range leaving {
@@ -95,7 +100,7 @@ func (s *Service) leave(ctx context.Context, acc account.Account, v GameView) (G
 		if err := s.abortGame(ctx, &v.Game); err != nil {
 			return GameView{}, err
 		}
-		if err := s.recordQuits(ctx, v.Game.Mode, false, gameID, leaving); err != nil {
+		if err := s.recordQuits(ctx, v.Game.Mode, false, gameID, quits); err != nil {
 			return GameView{}, err
 		}
 		return s.viewWithRematch(ctx, acc, v.Game)
@@ -109,7 +114,7 @@ func (s *Service) leave(ctx context.Context, acc account.Account, v GameView) (G
 			return GameView{}, err
 		}
 	}
-	if err := s.recordQuits(ctx, v.Game.Mode, false, gameID, leaving); err != nil {
+	if err := s.recordQuits(ctx, v.Game.Mode, false, gameID, quits); err != nil {
 		return GameView{}, err
 	}
 	s.notifyGame(v.Game)

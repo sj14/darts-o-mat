@@ -137,3 +137,30 @@ func TestFormWaitValues(t *testing.T) {
 		t.Errorf("20 and 90: %v, want FormAnyone", got)
 	}
 }
+
+// The statistics show the games against people or those against bots, each on its own.
+func TestOpponents(t *testing.T) {
+	t.Parallel()
+	results := []Result{
+		{Mode: game.ModeX01, Won: true, Legs: 1, Darts: 30, Points: 501},
+		{Mode: game.ModeX01, Won: true, Legs: 1, Darts: 15, Points: 501, Bots: true},
+		{Mode: game.ModeX01, Darts: 30, Points: 400, Bots: true},
+	}
+	for _, tc := range []struct {
+		opponents   Opponents
+		games, wins int
+	}{
+		{AgainstPeople, 1, 1},
+		{AgainstBots, 2, 1},
+	} {
+		var s Summary
+		for _, r := range results {
+			if tc.opponents.Counts(r) {
+				s.AddResult(r)
+			}
+		}
+		if s.X01.Games != tc.games || s.X01.Wins != tc.wins {
+			t.Errorf("against %q: games %d, wins %d; want %d, %d", tc.opponents, s.X01.Games, s.X01.Wins, tc.games, tc.wins)
+		}
+	}
+}

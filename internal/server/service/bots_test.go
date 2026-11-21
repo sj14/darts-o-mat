@@ -13,6 +13,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 )
@@ -295,5 +296,22 @@ func TestRematchWithBot(t *testing.T) {
 	}
 	if p, _ := r.Game.Participant(bots[0]); p.BotSpread != 25 {
 		t.Errorf("bot's spread in the rematch %d, want 25", p.BotSpread)
+	}
+
+	// The rematch completed the game anna won: it counts among the games against bots.
+	for _, tc := range []struct {
+		opponents   stats.Opponents
+		games, wins int
+	}{
+		{stats.AgainstPeople, 0, 0},
+		{stats.AgainstBots, 1, 1},
+	} {
+		sums, err := s.Stats(ctx, anna, "", tc.opponents)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if x := sums[0].X01; x.Games != tc.games || x.Wins != tc.wins {
+			t.Errorf("against %q: games %d, wins %d; want %d, %d", tc.opponents, x.Games, x.Wins, tc.games, tc.wins)
+		}
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"testing"
 )
 
@@ -186,7 +187,7 @@ func TestLeavingCountsForWhoLeft(t *testing.T) {
 	_, _ = acceptGame(ctx, s, carla, id, nil)
 
 	left := func(acc account.Account) int {
-		got, err := s.Stats(ctx, acc, "")
+		got, err := s.Stats(ctx, acc, "", stats.AgainstPeople)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -9,6 +9,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 )
 
@@ -45,7 +46,7 @@ func TestDeleteGuest(t *testing.T) {
 		t.Errorf("delete a guest in a running game: got %v, want ErrGuestBusy", err)
 	}
 
-	before, _ := s.Stats(ctx, anna, "")
+	before, _ := s.Stats(ctx, anna, "", stats.AgainstPeople)
 	if err := s.DeleteGuest(ctx, anna, papa.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +66,7 @@ func TestDeleteGuest(t *testing.T) {
 	if !v.Common().GameOver || v.Common().WinnerID == nil || *v.Common().WinnerID != anna.PlayerID {
 		t.Error("the finished game changed")
 	}
-	after, _ := s.Stats(ctx, anna, "")
+	after, _ := s.Stats(ctx, anna, "", stats.AgainstPeople)
 	if before[0].X01 != after[0].X01 {
 		t.Errorf("anna's statistics changed: %+v → %+v", before[0].X01, after[0].X01)
 	}
@@ -124,7 +125,7 @@ func TestDeleteAccount(t *testing.T) {
 	if err := s.DeleteAccount(ctx, ben, "wrong password"); !errors.Is(err, ErrWrongPassword) {
 		t.Fatalf("wrong password: got %v, want ErrWrongPassword", err)
 	}
-	before, _ := s.Stats(ctx, anna, "")
+	before, _ := s.Stats(ctx, anna, "", stats.AgainstPeople)
 	if err := s.DeleteAccount(ctx, ben, "password"); err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +161,7 @@ func TestDeleteAccount(t *testing.T) {
 	if v, _ := s.Tournament(ctx, dora, tv.Tournament.ID); !v.Tournament.Aborted() {
 		t.Error("the tournament ben took part in wasn't aborted")
 	}
-	after, _ := s.Stats(ctx, anna, "")
+	after, _ := s.Stats(ctx, anna, "", stats.AgainstPeople)
 	if before[0].X01 != after[0].X01 {
 		t.Errorf("anna's statistics changed: %+v → %+v", before[0].X01, after[0].X01)
 	}

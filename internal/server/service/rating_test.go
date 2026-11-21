@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 )
 
 func TestRatePlayer(t *testing.T) {
@@ -47,7 +49,7 @@ func TestRatePlayer(t *testing.T) {
 	if up, ok := v.Ratings[ben.PlayerID]; err != nil || !ok || up {
 		t.Fatalf("thumb down replaces it: %v, %v", v.Ratings, err)
 	}
-	got, _ := s.Stats(ctx, ben, "")
+	got, _ := s.Stats(ctx, ben, "", stats.AgainstPeople)
 	if got[0].Reputation.Up != 0 || got[0].Reputation.Down != 1 {
 		t.Errorf("ben's thumbs = %+v, want one down", got[0].Reputation)
 	}
@@ -117,7 +119,7 @@ func TestThumbsCountOncePerPlayer(t *testing.T) {
 			t.Fatalf("game %d: %v", i, err)
 		}
 	}
-	if got, _ := s.Stats(ctx, ben, ""); got[0].Reputation.Up != 0 || got[0].Reputation.Down != 1 {
+	if got, _ := s.Stats(ctx, ben, "", stats.AgainstPeople); got[0].Reputation.Up != 0 || got[0].Reputation.Down != 1 {
 		t.Errorf("ben's thumbs = %+v, want only anna's newest, one down", got[0].Reputation)
 	}
 }

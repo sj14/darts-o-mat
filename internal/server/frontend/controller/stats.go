@@ -5,6 +5,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/internal/server/auth"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/frontend/view"
 )
 
@@ -14,10 +15,11 @@ func (c *Controller) showStats(w http.ResponseWriter, r *http.Request) {
 	if game.NewRules(mode) == nil {
 		mode = ""
 	}
-	summaries, err := c.svc.Stats(r.Context(), acc, mode)
+	opponents := stats.OpponentsOf(r.URL.Query().Get("opponents"))
+	summaries, err := c.svc.Stats(r.Context(), acc, mode, opponents)
 	if err != nil {
 		serverError(w, err)
 		return
 	}
-	render(w, r, http.StatusOK, view.Stats(acc.Username, summaries, mode))
+	render(w, r, http.StatusOK, view.Stats(acc.Username, summaries, mode, opponents))
 }

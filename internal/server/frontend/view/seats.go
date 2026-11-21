@@ -21,8 +21,9 @@ type lobbyModel struct {
 	boards     []board.Board
 	choices    *service.LobbyChoices
 	// bots is set where the viewer may add bots: a game of theirs that isn't open for
-	// strangers.
+	// strangers; mode is the game's, for what a bot's spread plays in it.
 	bots bool
+	mode game.Mode
 	// leaveConfirm asks before the viewer's last player is taken out, which is leaving:
 	// the same question as the button to leave.
 	leaveConfirm string
@@ -41,7 +42,7 @@ type lobbySeat struct {
 
 func gameLobby(t Texts, v service.GameView) lobbyModel {
 	m := lobbyModel{base: gameURL(v.Game.ID, ""), target: "#board", Lobby: v.Game.Lobby, invited: v.Invited, canPlay: v.CanThrow, canStart: v.CanStart, boards: boardsOfChoices(v.Boards), choices: v.Choices, leaveConfirm: leaveConfirm(t, v)}
-	m.bots = m.canPlay && !m.Open()
+	m.bots, m.mode = m.canPlay && !m.Open(), v.Game.Mode
 	for _, p := range v.Players {
 		seat, _ := v.Game.Participant(p.ID)
 		m.seats = append(m.seats, lobbySeat{player: p, pending: v.Pending(p.ID), mine: v.IsMine(p.ID), boardID: seat.BoardID, board: v.BoardNames[p.ID], botSpread: seat.BotSpread})

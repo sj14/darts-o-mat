@@ -427,9 +427,15 @@ type Texts interface {
 	StartTournament() string
 	AddGuest() string
 	AddBot() string
+	AgainstPeople() string
+	AgainstBots() string
+	Opponents() string
 	BotSpread() string
-	BotSpreadHint() string
-	BotMark(spread int) string
+	BotSpreadHint(examples string) string
+	BotMark(spread int, strength string) string
+	BotAverage(average float64) string
+	BotHitRate(rate float64) string
+	BotMPR(mpr float64) string
 	ErrNoBots() string
 	ErrBotBoard() string
 	ErrBotSpread(min, max int) string

@@ -631,11 +631,21 @@ func (textsEN) StartsWhenFull() string {
 func (textsEN) StartTournament() string { return "Start tournament" }
 func (textsEN) AddGuest() string        { return "Add guest" }
 func (textsEN) AddBot() string          { return "Add bot" }
+func (textsEN) AgainstPeople() string   { return "Against people" }
+func (textsEN) AgainstBots() string     { return "Against bots" }
+func (textsEN) Opponents() string       { return "Opponents" }
 func (textsEN) BotSpread() string       { return "Spread in mm" }
-func (textsEN) BotSpreadHint() string {
-	return "How far the bot's darts land from where it aims: the smaller, the stronger. About 25 mm plays a 40 average, 15 mm 55, 8 mm 90."
+func (textsEN) BotSpreadHint(examples string) string {
+	return "How far the bot's darts land from where it aims: the smaller, the stronger. In this mode about " + examples + "."
 }
-func (textsEN) BotMark(spread int) string { return "(bot, " + strconv.Itoa(spread) + " mm)" }
+func (textsEN) BotMark(spread int, strength string) string {
+	return "(bot, " + strconv.Itoa(spread) + " mm, " + strength + ")"
+}
+func (t textsEN) BotAverage(average float64) string {
+	return "≈ " + strconv.Itoa(int(math.Round(average))) + " average"
+}
+func (t textsEN) BotHitRate(rate float64) string { return "≈ " + t.Percent(rate) + " hits" }
+func (t textsEN) BotMPR(mpr float64) string      { return "≈ " + t.Decimal(mpr) + " MPR" }
 func (textsEN) ErrNoBots() string {
 	return "Bots only play in games you set up yourselves, not in games open for strangers or in tournaments."
 }

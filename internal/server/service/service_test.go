@@ -15,6 +15,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/store"
 	"golang.org/x/crypto/bcrypt"
@@ -511,7 +512,7 @@ func TestStats(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	summaries, err := s.Stats(ctx, anna, "")
+	summaries, err := s.Stats(ctx, anna, "", stats.AgainstPeople)
 	if err != nil {
 		t.Fatal(err)
 	}

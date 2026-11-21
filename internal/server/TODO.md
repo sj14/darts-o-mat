@@ -20,7 +20,6 @@ Open tasks of the [server](../../cmd/darts-o-mat/README.md). Tasks of the whole 
 - The game's settings in the lobby instead of the start form (asked 2026-10-22, put off by the user to finish the lobby first). Open question: who may change them until when, e.g. only while no other account is in, so strangers aren't surprised.
 - Reordering the players in the lobby (left out 2026-10-22; the order is drawn at the start).
 - Allow others to watch games if they know the link.
-- What a bot's spread plays, shown next to the field in the lobby (set aside 2026-11-22, the spread in mm is entered and stored, see [AGENTS.md → bots](AGENTS.md#bots)): the expected 3-dart average, or per mode the average, hit rate or MPR, from a table the simulation of `bot.TestSpreadPlaysBetter` makes once, interpolated. Display only, no change of the schema; about 60–100 lines.
 - Bots in tournaments, open games or quick matches (left out 2026-11-22: whoever joins an open game expects a person; build it if players ask for it).
 - Board-only open lobbies don't pass the rule on to a tournament's games, see [AGENTS.md → open games](AGENTS.md#open-games).
 - Rate limits for creating open games and quick matches.

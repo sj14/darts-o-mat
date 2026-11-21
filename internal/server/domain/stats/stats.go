@@ -82,9 +82,12 @@ type Result struct {
 	PlayerID int64     `bun:",pk"`
 	Mode     game.Mode `bun:",notnull"`
 	Won      bool      `bun:",notnull"`
-	Legs     int       // legs won
-	Sets     int       // sets won
-	BestLeg  int       // fewest darts in a won leg, 0 without one
+	// Bots is set when a bot played in the game: the statistics show the games against
+	// bots apart from those against people (Opponents).
+	Bots    bool `bun:",notnull,default:false"`
+	Legs    int  // legs won
+	Sets    int  // sets won
+	BestLeg int  // fewest darts in a won leg, 0 without one
 	// GameTime is the duration of the game (0 without times), LegTime the sum of the
 	// durations of its timed legs.
 	GameTime  time.Duration
@@ -104,9 +107,32 @@ type Result struct {
 	Marks int
 }
 
+// Opponents narrows the statistics down to the games against people, without a bot (the
+// default), or to those against bots: winning against a bot says nothing about how one
+// does against people.
+type Opponents string
+
+const (
+	AgainstPeople Opponents = ""
+	AgainstBots   Opponents = "bots"
+)
+
+// OpponentsOf reads the opponents of a query (?opponents=bots); anything else is people.
+func OpponentsOf(s string) Opponents {
+	if Opponents(s) == AgainstBots {
+		return AgainstBots
+	}
+	return AgainstPeople
+}
+
+// Counts reports whether the result is of a game the statistics are narrowed down to.
+func (o Opponents) Counts(r Result) bool {
+	return r.Bots == (o == AgainstBots)
+}
+
 // ResultsOf returns the result of every player of a game that is over (see
 // game.Game.Play), none for a game that isn't.
-func ResultsOf(gameID int64, state game.State) []Result {
+func ResultsOf(g game.Game, state game.State) []Result {
 	c := state.Common()
 	if !c.GameOver {
 		return nil
@@ -114,7 +140,7 @@ func ResultsOf(gameID int64, state game.State) []Result {
 	var results []Result
 	for id := range c.Records {
 		if r, ok := resultOf(state, id); ok {
-			r.GameID = gameID
+			r.GameID, r.Bots = g.ID, g.HasBots()
 			results = append(results, r)
 		}
 	}

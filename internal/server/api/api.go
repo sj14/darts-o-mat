@@ -19,6 +19,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 	"github.com/sj14/darts-o-mat/internal/server/service"
@@ -387,7 +388,8 @@ func (a *API) undoDart(w http.ResponseWriter, r *http.Request) {
 
 // stats returns the statistics of the account's player and its guests over all finished games.
 func (a *API) stats(w http.ResponseWriter, r *http.Request) {
-	summaries, err := a.svc.Stats(r.Context(), auth.Account(r.Context()), "")
+	opponents := stats.OpponentsOf(r.URL.Query().Get("opponents"))
+	summaries, err := a.svc.Stats(r.Context(), auth.Account(r.Context()), "", opponents)
 	respond(w, http.StatusOK, summaries, err)
 }
 

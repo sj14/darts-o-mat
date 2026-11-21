@@ -14,13 +14,16 @@ const HeatDarts = 5000
 
 // Stats returns the statistics of the account's player and its guests over all completed
 // games and finished tournaments, the ones they left themselves (stats.Quit), and where their darts hit the board (heatMode narrows
-// the latter down to the games of one mode, empty means all).
+// the latter down to the games of one mode, empty means all). opponents narrows the games
+// down to those against people or those against bots; tournaments and the games left
+// early are only among those against people, as bots play in neither, and the heatmap and
+// the thumbs belong to the player, so they are the same for both.
 //
 // Once a game is completed nothing about it changes anymore, so its result per player
 // is stored (stats.Result) the first time it is seen here and added up from then on;
 // only games that aren't stored yet are loaded and replayed. Games that are over but not completed
 // (a dart could still be corrected) don't count yet.
-func (s *Service) Stats(ctx context.Context, acc account.Account, heatMode game.Mode) ([]stats.Summary, error) {
+func (s *Service) Stats(ctx context.Context, acc account.Account, heatMode game.Mode, opponents stats.Opponents) ([]stats.Summary, error) {
 	players, err := s.store.ListPlayers(ctx, acc.ID, acc.PlayerID)
 	if err != nil {
 		return nil, err
@@ -47,6 +50,9 @@ func (s *Service) Stats(ctx context.Context, acc account.Account, heatMode game.
 	quits, err := s.store.ListQuits(ctx, ids)
 	if err != nil {
 		return nil, err
+	}
+	if opponents == stats.AgainstBots {
+		quits = nil
 	}
 	for _, q := range quits {
 		for i := range summaries {
@@ -76,18 +82,24 @@ func (s *Service) Stats(ctx context.Context, acc account.Account, heatMode game.
 		if !g.Completed(darts, state.Common(), s.now()) {
 			continue
 		}
-		added := stats.ResultsOf(g.ID, state)
+		added := stats.ResultsOf(g, state)
 		if err := s.store.AddResults(ctx, added); err != nil {
 			return nil, err
 		}
 		results = append(results, added...)
 	}
 	for _, r := range results {
+		if !opponents.Counts(r) {
+			continue
+		}
 		for i := range summaries {
 			if summaries[i].Player.ID == r.PlayerID {
 				summaries[i].AddResult(r)
 			}
 		}
+	}
+	if opponents == stats.AgainstBots {
+		return summaries, nil
 	}
 
 	// Finished tournaments: stored like the games, once all their matches are completed.

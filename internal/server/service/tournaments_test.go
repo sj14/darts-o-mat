@@ -10,6 +10,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/x01"
+	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 )
@@ -111,7 +112,7 @@ func TestRoundRobinTournament(t *testing.T) {
 	if v, err = s.Tournament(ctx, anna, id); err != nil || !v.State.Over || v.State.Completed() || !v.State.Matches[last].Result.Unconfirmed {
 		t.Fatalf("after the last darts: over %v, completed %v, %+v, %v; want over, open to corrections", v.State.Over, v.State.Completed(), v.State.Matches[last].Result, err)
 	}
-	if sums, _ := s.Stats(ctx, anna, ""); sums[0].X01.Tournaments != 0 {
+	if sums, _ := s.Stats(ctx, anna, "", stats.AgainstPeople); sums[0].X01.Tournaments != 0 {
 		t.Errorf("a tournament that can still be corrected counts: %+v", sums[0].X01.Record)
 	}
 	for _, acc := range []account.Account{anna, ben} {
@@ -143,7 +144,7 @@ func TestRoundRobinTournament(t *testing.T) {
 	}
 
 	// Each of anna's players took part in one finished tournament.
-	summaries, err := s.Stats(ctx, anna, "")
+	summaries, err := s.Stats(ctx, anna, "", stats.AgainstPeople)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +165,7 @@ func TestRoundRobinTournament(t *testing.T) {
 	if ts, _ := s.store.ListTournamentsWithoutResults(ctx, anna.ID, anna.PlayerID); len(ts) != 0 {
 		t.Errorf("tournaments without results = %d, want none: the stored one isn't loaded again", len(ts))
 	}
-	again, _ := s.Stats(ctx, anna, "")
+	again, _ := s.Stats(ctx, anna, "", stats.AgainstPeople)
 	if again[0].X01.Tournaments != 1 || again[0].X01.TournamentWins != summaries[0].X01.TournamentWins {
 		t.Errorf("second read: %+v, first %+v", again[0].X01.Record, summaries[0].X01.Record)
 	}

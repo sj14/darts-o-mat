@@ -7,11 +7,12 @@ import (
 	"github.com/sj14/darts-o-mat/internal/server/domain/stats"
 )
 
-templ Stats(user string, summaries []stats.Summary, heatMode game.Mode) {
+templ Stats(user string, summaries []stats.Summary, heatMode game.Mode, opponents stats.Opponents) {
 	@layout(T(ctx).NavStats(), user) {
 		@pageTitle(T(ctx).NavStats(), T(ctx).StatsHint())
 		<div id="stats" class="flex flex-col gap-6">
-			@modeFilter(heatMode)
+			@modeFilter(heatMode, opponents)
+			@opponentsFilter(heatMode, opponents)
 			for i, s := range summaries {
 				@panel("") {
 					<h2 class="mb-4 font-display text-3xl font-extrabold uppercase tracking-wide text-board-cream">
@@ -49,7 +50,9 @@ templ Stats(user string, summaries []stats.Summary, heatMode game.Mode) {
 									@statRow(T(ctx).BestLeg(), orDash(s.X01.BestLeg > 0, T(ctx).NDarts(s.X01.BestLeg)))
 									@statRow(T(ctx).AvgLegTime(), orDash(s.X01.AvgLeg > 0, clock(s.X01.AvgLeg)))
 									@statRow(T(ctx).AvgGameTime(), orDash(s.X01.AvgGame > 0, clock(s.X01.AvgGame)))
-									@statRow(T(ctx).LeftEarly(), strconv.Itoa(s.X01.GamesLeft)+" / "+strconv.Itoa(s.X01.TournamentsLeft))
+									if opponents == stats.AgainstPeople {
+										@statRow(T(ctx).LeftEarly(), strconv.Itoa(s.X01.GamesLeft)+" / "+strconv.Itoa(s.X01.TournamentsLeft))
+									}
 								</dl>
 							</div>
 						}
@@ -73,7 +76,9 @@ templ Stats(user string, summaries []stats.Summary, heatMode game.Mode) {
 									@statRow(T(ctx).BestLeg(), orDash(s.AroundTheClock.BestLeg > 0, T(ctx).NDarts(s.AroundTheClock.BestLeg)))
 									@statRow(T(ctx).AvgLegTime(), orDash(s.AroundTheClock.AvgLeg > 0, clock(s.AroundTheClock.AvgLeg)))
 									@statRow(T(ctx).AvgGameTime(), orDash(s.AroundTheClock.AvgGame > 0, clock(s.AroundTheClock.AvgGame)))
-									@statRow(T(ctx).LeftEarly(), strconv.Itoa(s.AroundTheClock.GamesLeft)+" / "+strconv.Itoa(s.AroundTheClock.TournamentsLeft))
+									if opponents == stats.AgainstPeople {
+										@statRow(T(ctx).LeftEarly(), strconv.Itoa(s.AroundTheClock.GamesLeft)+" / "+strconv.Itoa(s.AroundTheClock.TournamentsLeft))
+									}
 								</dl>
 							</div>
 						}
@@ -97,7 +102,9 @@ templ Stats(user string, summaries []stats.Summary, heatMode game.Mode) {
 									@statRow(T(ctx).BestLeg(), orDash(s.Cricket.BestLeg > 0, T(ctx).NDarts(s.Cricket.BestLeg)))
 									@statRow(T(ctx).AvgLegTime(), orDash(s.Cricket.AvgLeg > 0, clock(s.Cricket.AvgLeg)))
 									@statRow(T(ctx).AvgGameTime(), orDash(s.Cricket.AvgGame > 0, clock(s.Cricket.AvgGame)))
-									@statRow(T(ctx).LeftEarly(), strconv.Itoa(s.Cricket.GamesLeft)+" / "+strconv.Itoa(s.Cricket.TournamentsLeft))
+									if opponents == stats.AgainstPeople {
+										@statRow(T(ctx).LeftEarly(), strconv.Itoa(s.Cricket.GamesLeft)+" / "+strconv.Itoa(s.Cricket.TournamentsLeft))
+									}
 								</dl>
 							</div>
 						}
@@ -152,27 +159,35 @@ templ heatmap(h stats.Heat) {
 }
 
 // modeFilter narrows the statistics and the heatmaps down to the games of one mode.
-templ modeFilter(selected game.Mode) {
+templ modeFilter(selected game.Mode, opponents stats.Opponents) {
 	<nav class="flex flex-wrap items-center gap-2" aria-label={ T(ctx).NavStats() }>
-		@modeFilterLink("", selected, T(ctx).AllModes())
-		@modeFilterLink(game.ModeX01, selected, "X01")
-		@modeFilterLink(game.ModeAroundTheClock, selected, T(ctx).AroundTheClock())
-		@modeFilterLink(game.ModeCricket, selected, T(ctx).Cricket())
+		@statsFilterLink(statsURL("", opponents), selected == "", T(ctx).AllModes())
+		@statsFilterLink(statsURL(game.ModeX01, opponents), selected == game.ModeX01, "X01")
+		@statsFilterLink(statsURL(game.ModeAroundTheClock, opponents), selected == game.ModeAroundTheClock, T(ctx).AroundTheClock())
+		@statsFilterLink(statsURL(game.ModeCricket, opponents), selected == game.ModeCricket, T(ctx).Cricket())
 	</nav>
 }
 
-templ modeFilterLink(mode, selected game.Mode, label string) {
+// opponentsFilter shows the games against people or those against bots.
+templ opponentsFilter(mode game.Mode, selected stats.Opponents) {
+	<nav class="flex flex-wrap items-center gap-2" aria-label={ T(ctx).Opponents() }>
+		@statsFilterLink(statsURL(mode, stats.AgainstPeople), selected == stats.AgainstPeople, T(ctx).AgainstPeople())
+		@statsFilterLink(statsURL(mode, stats.AgainstBots), selected == stats.AgainstBots, T(ctx).AgainstBots())
+	</nav>
+}
+
+templ statsFilterLink(url string, selected bool, label string) {
 	<a
-		href={ templ.URL("/stats?mode=" + string(mode)) }
-		hx-get={ "/stats?mode=" + string(mode) }
+		href={ templ.URL(url) }
+		hx-get={ url }
 		hx-target="#stats"
 		hx-select="#stats"
 		hx-swap="outerHTML"
 		hx-push-url="true"
 		class={ "rounded-xl border px-4 py-2 font-semibold transition",
-			templ.KV("border-board-cream bg-board-cream text-pub-950", mode == selected),
-			templ.KV("border-white/10 bg-pub-800 text-white/70 hover:border-white/30", mode != selected) }
-		if mode == selected {
+			templ.KV("border-board-cream bg-board-cream text-pub-950", selected),
+			templ.KV("border-white/10 bg-pub-800 text-white/70 hover:border-white/30", !selected) }
+		if selected {
 			aria-current="true"
 		}
 	>{ label }</a>

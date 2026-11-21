@@ -68,7 +68,7 @@ templ lobbySeatRow(m lobbyModel, s lobbySeat) {
 		<span class="font-display text-2xl font-semibold">
 			{ displayName(ctx, s.player) }
 			if s.botSpread > 0 {
-				<span class="font-sans text-sm font-normal text-white/50">{ T(ctx).BotMark(s.botSpread) }</span>
+				<span class="font-sans text-sm font-normal text-white/50">{ T(ctx).BotMark(s.botSpread, botStrength(T(ctx), m.mode, s.botSpread)) }</span>
 			} else if s.player.IsGuest() {
 				<span class="font-sans text-sm font-normal text-white/50">{ T(ctx).GuestMark() }</span>
 			}
@@ -193,6 +193,6 @@ templ botAdd(m lobbyModel) {
 			</label>
 			<button type="submit" class={ btnSecondary }>{ T(ctx).AddBot() }</button>
 		</span>
-		<span class={ hintClass }>{ T(ctx).BotSpreadHint() }</span>
+		<span class={ hintClass }>{ T(ctx).BotSpreadHint(botStrengths(T(ctx), m.mode)) }</span>
 	</form>
 }

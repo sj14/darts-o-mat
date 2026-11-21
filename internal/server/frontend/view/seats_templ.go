@@ -424,9 +424,9 @@ func lobbySeatRow(m lobbyModel, s lobbySeat) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var21 string
-			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).BotMark(s.botSpread))
+			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).BotMark(s.botSpread, botStrength(T(ctx), m.mode, s.botSpread)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/seats.templ`, Line: 71, Col: 91}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/seats.templ`, Line: 71, Col: 133}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -1760,9 +1760,9 @@ func botAdd(m lobbyModel) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var95 string
-		templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).BotSpreadHint())
+		templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).BotSpreadHint(botStrengths(T(ctx), m.mode)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/seats.templ`, Line: 196, Col: 52}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/seats.templ`, Line: 196, Col: 80}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var95))
 		if templ_7745c5c3_Err != nil {
