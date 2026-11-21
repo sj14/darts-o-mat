@@ -60,6 +60,8 @@ func testSiteStats(t *testing.T, st *Store) {
 	}
 	insert(&player.Player{Name: "guest", GuestOf: &anna.ID})
 	insert(&player.Player{Name: "deleted guest", GuestOf: &anna.ID, DeletedAt: &yesterday})
+	bot := player.Player{Name: "Bot", GuestOf: &anna.ID, Bot: true} // neither a guest nor its darts count
+	insert(&bot)
 
 	x01 := game.Settings{Mode: game.ModeX01}
 	insert(&game.Game{Settings: x01})                                                 // in the lobby
@@ -77,6 +79,7 @@ func testSiteStats(t *testing.T, st *Store) {
 	insert(&throw.Dart{GameID: 2, PlayerID: anna.PlayerID, Number: 20, Segment: 1, CreatedAt: yesterday})
 	insert(&throw.Dart{GameID: 2, PlayerID: anna.PlayerID, Number: 20, Segment: 1, X: &x, Y: &y, CreatedAt: yesterday})
 	insert(&throw.Dart{GameID: 2, PlayerID: anna.PlayerID, Takeout: true, CreatedAt: yesterday})
+	insert(&throw.Dart{GameID: 2, PlayerID: bot.ID, Number: 20, Segment: 1, X: &x, Y: &y, CreatedAt: yesterday})
 	insert(&throw.Dart{GameID: 4, PlayerID: anna.PlayerID, Number: 20, Segment: 1, X: &x, Y: &y, CreatedAt: lastMonth}) // a game started before
 
 	boards := []board.Board{{AccountID: anna.ID, Name: "a", LastUsedAt: &yesterday}, {AccountID: anna.ID, Name: "b", LastUsedAt: &lastMonth}, {AccountID: ben.ID, Name: "c"}}

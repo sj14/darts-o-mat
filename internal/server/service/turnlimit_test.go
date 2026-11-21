@@ -37,7 +37,7 @@ func TestTurnLimit(t *testing.T) {
 	if v, _ = s.Game(ctx, anna, id); v.Game.StartedAt == nil || s.timers[id] == nil {
 		t.Fatalf("after everyone accepted: started %v, timer %v; want both", v.Game.StartedAt, s.timers[id])
 	}
-	s.endTurn(id) // still in time
+	s.turnTimer(id) // still in time
 	if v, _ = s.Game(ctx, anna, id); len(v.Darts) != 0 {
 		t.Fatalf("a turn in time was ended: %d entries", len(v.Darts))
 	}
@@ -46,7 +46,7 @@ func TestTurnLimit(t *testing.T) {
 	// The skipped turns: anna, ben, carla, anna (2), ben, carla, anna (3).
 	for i, want := range []int64{anna.PlayerID, ben.PlayerID, carla.PlayerID, anna.PlayerID, ben.PlayerID, carla.PlayerID} {
 		offset += 2 * time.Minute
-		s.endTurn(id)
+		s.turnTimer(id)
 		v, _ = s.Game(ctx, anna, id)
 		last := v.Darts[len(v.Darts)-1]
 		if !last.Skip || last.PlayerID != want {
@@ -54,7 +54,7 @@ func TestTurnLimit(t *testing.T) {
 		}
 	}
 	offset += 2 * time.Minute
-	s.endTurn(id)
+	s.turnTimer(id)
 	v, _ = s.Game(ctx, ben, id)
 	if last := v.Darts[len(v.Darts)-1]; !last.Leave || last.PlayerID != anna.PlayerID || !v.Common().Records[anna.PlayerID].Left {
 		t.Fatalf("after the third skip: last entry %+v, want anna leaving", last)
@@ -69,11 +69,11 @@ func TestTurnLimit(t *testing.T) {
 	}
 	for range 2 { // ben's rest of the turn, carla
 		offset += 2 * time.Minute
-		s.endTurn(id)
+		s.turnTimer(id)
 	}
 	for range 3 {
 		offset += 2 * time.Minute
-		s.endTurn(id)
+		s.turnTimer(id)
 	}
 	if v, _ = s.Game(ctx, ben, id); !v.Game.Aborted() {
 		t.Errorf("game after carla ran out three times with ben: aborted %v, entries %d; want it aborted", v.Game.Aborted(), len(v.Darts))
@@ -112,12 +112,12 @@ func TestTurnLimitAfterRestart(t *testing.T) {
 	if v, _ = s.Game(ctx, anna, id); v.TurnDeadline == nil || !v.TurnDeadline.Equal(started.Add(time.Minute)) {
 		t.Fatalf("deadline after the start %v, want a minute after it (%v)", v.TurnDeadline, started.Add(time.Minute))
 	}
-	s.endTurn(id)
+	s.turnTimer(id)
 	if v, _ = s.Game(ctx, anna, id); len(v.Darts) != 0 {
 		t.Fatalf("the turn ended right after the start: %d entries", len(v.Darts))
 	}
 	offset += 2 * time.Minute
-	s.endTurn(id)
+	s.turnTimer(id)
 	if v, _ = s.Game(ctx, anna, id); len(v.Darts) != 1 || !v.Darts[0].Skip {
 		t.Errorf("a minute after the start: %+v, want the turn skipped", v.Darts)
 	}
@@ -138,7 +138,7 @@ func TestSkippedTurnsCantBeTakenBack(t *testing.T) {
 	_, _ = acceptGame(ctx, s, ben, id, nil)
 	_, _ = s.AddDart(ctx, anna, id, t20)
 	offset += 2 * time.Minute
-	s.endTurn(id)
+	s.turnTimer(id)
 	if v, _ = s.Game(ctx, anna, id); v.MayUndo() || !v.Darts[1].Skip || v.Darts[1].IsDart() {
 		t.Errorf("entry after the skipped turn: %+v, may undo %v; want a skip that is no dart and can't be undone", v.Darts[1], v.MayUndo())
 	}
@@ -256,7 +256,7 @@ func TestTurnLimitBullOffAndTakeout(t *testing.T) {
 
 	// anna doesn't throw her bull-off dart: she is out of it, and ben starts.
 	offset += 2 * time.Minute
-	s.endTurn(id)
+	s.turnTimer(id)
 	v, _ = s.Game(ctx, ben, id)
 	if c := v.Common(); c.BullingOff || c.CurrentPlayerID == nil || *c.CurrentPlayerID != ben.PlayerID {
 		t.Fatalf("after anna's time ran out while bulling off: bulling off %v, current player %v; want ben to start", c.BullingOff, c.CurrentPlayerID)
@@ -272,7 +272,7 @@ func TestTurnLimitBullOffAndTakeout(t *testing.T) {
 		t.Fatalf("after ben's turn: waiting %v, deadline %v; want waiting with a deadline", v.Common().WaitingForTakeout, v.TurnDeadline)
 	}
 	offset += 2 * time.Minute
-	s.endTurn(id)
+	s.turnTimer(id)
 	v, _ = s.Game(ctx, ben, id)
 	if c, last := v.Common(), v.Darts[len(v.Darts)-1]; c.WaitingForTakeout || !last.Takeout || c.CurrentPlayerID == nil || *c.CurrentPlayerID != anna.PlayerID {
 		t.Errorf("after the time for the takeout ran out: waiting %v, last entry %+v, current player %v; want a takeout and anna up", c.WaitingForTakeout, last, c.CurrentPlayerID)

@@ -6,7 +6,7 @@ import "github.com/sj14/darts-o-mat/internal/server/domain/game"
 // data. "Recent" is the last RecentDays days.
 type Stats struct {
 	Accounts    AccountStats
-	Guests      int // guests of accounts, without deleted ones
+	Guests      int // guests of accounts, without deleted ones and bots
 	Games       GameStats
 	Tournaments TournamentStats
 	Darts       DartStats
@@ -46,8 +46,8 @@ type TournamentStats struct {
 }
 
 // DartStats counts the darts of the games started in the last RecentDays days, also
-// running and aborted ones, without takeouts and other log entries. Only recent ones, so
-// counting them doesn't read the whole table of darts.
+// running and aborted ones, without takeouts and other log entries and without the bots'
+// darts. Only recent ones, so counting them doesn't read the whole table of darts.
 type DartStats struct {
 	Recent int
 	Camera int // of Recent, detected by a camera, i.e. with a position

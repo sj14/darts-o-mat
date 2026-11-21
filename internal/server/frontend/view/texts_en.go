@@ -76,7 +76,7 @@ func (textsEN) LandingFeatureText(i int) string {
 		"One program or one container, with SQLite for the living room or PostgreSQL for more. Your games and data stay with you.",
 		"Licensed under the AGPL-3.0. No subscription, no account at somebody else’s service.",
 		"darts-o-cam detects the darts with cheap cameras at the board and enters them into the running game.",
-		"X01, Around the Clock and Cricket, legs and sets, knockout and round-robin tournaments, friends, guests and statistics.",
+		"X01, Around the Clock and Cricket, legs and sets, knockout and round-robin tournaments, friends, guests, bots to practise against and statistics.",
 	}[i%4]
 }
 
@@ -630,6 +630,19 @@ func (textsEN) StartsWhenFull() string {
 }
 func (textsEN) StartTournament() string { return "Start tournament" }
 func (textsEN) AddGuest() string        { return "Add guest" }
+func (textsEN) AddBot() string          { return "Add bot" }
+func (textsEN) BotSpread() string       { return "Spread in mm" }
+func (textsEN) BotSpreadHint() string {
+	return "How far the bot's darts land from where it aims: the smaller, the stronger. About 25 mm plays a 40 average, 15 mm 55, 8 mm 90."
+}
+func (textsEN) BotMark(spread int) string { return "(bot, " + strconv.Itoa(spread) + " mm)" }
+func (textsEN) ErrNoBots() string {
+	return "Bots only play in games you set up yourselves, not in games open for strangers or in tournaments."
+}
+func (textsEN) ErrBotBoard() string { return "A bot throws on no board." }
+func (textsEN) ErrBotSpread(min, max int) string {
+	return "A bot's spread must be between " + strconv.Itoa(min) + " and " + strconv.Itoa(max) + " mm."
+}
 func (textsEN) Invite() string          { return "Invite" }
 func (textsEN) RemoveFromLobby() string { return "Remove" }
 func (textsEN) Save() string            { return "Save" }

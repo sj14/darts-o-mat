@@ -426,6 +426,13 @@ type Texts interface {
 	StartsWhenFull() string
 	StartTournament() string
 	AddGuest() string
+	AddBot() string
+	BotSpread() string
+	BotSpreadHint() string
+	BotMark(spread int) string
+	ErrNoBots() string
+	ErrBotBoard() string
+	ErrBotSpread(min, max int) string
 	Invite() string
 	RemoveFromLobby() string
 	Save() string

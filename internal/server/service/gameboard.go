@@ -53,7 +53,7 @@ func (s *Service) UseBoard(ctx context.Context, acc account.Account, gameID int6
 	}
 	now := s.now()
 	for _, id := range v.Mine {
-		if v.Common().Records[id].Left {
+		if v.Common().Records[id].Left || v.Game.IsBot(id) { // a bot throws on no board
 			continue
 		}
 		if err := s.store.SetParticipantBoard(ctx, gameID, id, boardID, now); err != nil {
@@ -88,6 +88,8 @@ type seat struct {
 	// takes no board (holdsBoards false), only the games of its matches do.
 	game        int64
 	holdsBoards bool
+	// tournament is set for a seat in a tournament or one of its matches: no bots there.
+	tournament bool
 }
 
 // gameSeat is a seat in a stored game.
@@ -103,7 +105,7 @@ func gameSeat(g game.Game) seat {
 
 // tournamentSeat is a seat in a stored tournament.
 func tournamentSeat(t tournament.Tournament) seat {
-	st := seat{lobby: t.Lobby}
+	st := seat{lobby: t.Lobby, tournament: true}
 	for _, p := range t.Participants {
 		if p.BoardID != nil {
 			st.shared = append(st.shared, *p.BoardID)

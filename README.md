@@ -1,6 +1,6 @@
 # darts-o-mat
 
-A free, open-source darts scorer, online at [darts.init-io.net](https://darts.init-io.net/) or hosted yourself: enter your throws or let cameras at the board detect them, the score is counted for you. X01, Around the Clock and Cricket, legs and sets, tournaments, friends, guest players and statistics, in English and German.
+A free, open-source darts scorer, online at [darts.init-io.net](https://darts.init-io.net/) or hosted yourself: enter your throws or let cameras at the board detect them, the score is counted for you. X01, Around the Clock and Cricket, legs and sets, tournaments, friends, guest players, bots to practise against and statistics, in English and German.
 
 > [!NOTE]
 > This project was build with AI.

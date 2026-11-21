@@ -24,6 +24,10 @@ type Player struct {
 	// Color is the accent color the player chose (one of Colors); empty means the default
 	// from the name, see Accent.
 	Color string `json:"color,omitempty"`
+	// Bot marks a guest the server throws for. Bots don't show in the account's lists of
+	// guests: a free one is taken when a bot is added to a game, another one made only if
+	// all are seated. How well it throws belongs to its seat (game.Participant.BotSpread).
+	Bot bool `bun:",notnull,default:false" json:"bot,omitempty"`
 	// DeletedAt is set when the player was deleted, as a guest or with their account: the
 	// name is gone and the player belongs to nobody, but the games and darts stay, so the
 	// statistics of the others don't change. It is shown as "deleted player".

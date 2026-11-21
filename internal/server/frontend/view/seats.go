@@ -20,6 +20,9 @@ type lobbyModel struct {
 	canStart   bool // no invitation is pending and no seat is free
 	boards     []board.Board
 	choices    *service.LobbyChoices
+	// bots is set where the viewer may add bots: a game of theirs that isn't open for
+	// strangers.
+	bots bool
 	// leaveConfirm asks before the viewer's last player is taken out, which is leaving:
 	// the same question as the button to leave.
 	leaveConfirm string
@@ -32,12 +35,16 @@ type lobbySeat struct {
 	mine    bool   // one of the viewer's players
 	boardID *int64 // the board they throw on, nil for none
 	board   string // its name, if the viewer knows it
+	// botSpread is the spread of a bot's darts in mm, 0 for a player who isn't a bot.
+	botSpread int
 }
 
 func gameLobby(t Texts, v service.GameView) lobbyModel {
 	m := lobbyModel{base: gameURL(v.Game.ID, ""), target: "#board", Lobby: v.Game.Lobby, invited: v.Invited, canPlay: v.CanThrow, canStart: v.CanStart, boards: boardsOfChoices(v.Boards), choices: v.Choices, leaveConfirm: leaveConfirm(t, v)}
+	m.bots = m.canPlay && !m.Open()
 	for _, p := range v.Players {
-		m.seats = append(m.seats, lobbySeat{player: p, pending: v.Pending(p.ID), mine: v.IsMine(p.ID), boardID: v.BoardOf(p.ID), board: v.BoardNames[p.ID]})
+		seat, _ := v.Game.Participant(p.ID)
+		m.seats = append(m.seats, lobbySeat{player: p, pending: v.Pending(p.ID), mine: v.IsMine(p.ID), boardID: seat.BoardID, board: v.BoardNames[p.ID], botSpread: seat.BotSpread})
 	}
 	return m
 }
@@ -65,11 +72,14 @@ func (m lobbyModel) url(suffix string) string {
 	return m.base + suffix
 }
 
-// lastOfMine reports whether the seat is the viewer's only player in the lobby: taking it
-// out leaves.
+// lastOfMine reports whether the seat is the viewer's only player in the lobby who isn't a
+// bot: taking it out leaves, with the viewer's bots.
 func (m lobbyModel) lastOfMine(s lobbySeat) bool {
+	if s.botSpread > 0 {
+		return false
+	}
 	for _, o := range m.seats {
-		if o.mine && !o.pending && o.player.ID != s.player.ID {
+		if o.mine && !o.pending && o.botSpread == 0 && o.player.ID != s.player.ID {
 			return false
 		}
 	}

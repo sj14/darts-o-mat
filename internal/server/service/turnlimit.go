@@ -26,8 +26,8 @@ func (s *Service) ServerStarted(ctx context.Context) error {
 	return s.ResumeTurnLimits(ctx)
 }
 
-// ResumeTurnLimits sets the timers of the running games with a time limit for turns: a
-// process has none after it started, nor after it may have missed notifications
+// ResumeTurnLimits sets the timers of the running games with a time limit for turns or a
+// bot: a process has none after it started, nor after it may have missed notifications
 // (Service.missed).
 func (s *Service) ResumeTurnLimits(ctx context.Context) error {
 	games, err := s.store.ListTimedGames(ctx, s.now().Add(-resumeWithin))
@@ -51,11 +51,11 @@ func (s *Service) watchGame(gameID int64) {
 }
 
 // watchTurn sets the timer for the turn of a game that was changed, replacing the
-// previous one. The timer ends the turn if the player takes longer than the game's limit
-// (game.Settings.TurnSeconds); it is a log entry like a dart, since the server replays
-// the log to know the state of a game.
+// previous one. It fires for what comes first: a bot's next dart or takeout (botMove), or
+// the end of the time for the turn (game.Settings.TurnSeconds). Both are log entries like
+// a player's darts, since the server replays the log to know the state of a game.
 func (s *Service) watchTurn(g game.Game) {
-	if g.TurnSeconds == 0 {
+	if g.TurnSeconds == 0 && !g.HasBots() {
 		return
 	}
 	v, err := s.build(context.Background(), g)
@@ -72,19 +72,22 @@ func (s *Service) watchTurn(g game.Game) {
 	if g.Aborted() {
 		return
 	}
-	if v.TurnDeadline != nil {
-		s.timers[g.ID] = time.AfterFunc(time.Until(*v.TurnDeadline), func() { s.endTurn(g.ID) })
+	at := v.TurnDeadline
+	if move, ok := s.botMove(v); ok && (at == nil || move.Before(*at)) {
+		at = &move
+	}
+	if at != nil {
+		s.timers[g.ID] = time.AfterFunc(time.Until(*at), func() { s.turnTimer(g.ID) })
 	}
 }
 
-// endTurn is what happens when the time for a turn is up: the turn is skipped, and after
-// MaxSkips skipped turns in a row the player leaves the game (the game is aborted if
-// that would leave fewer than two players; a tournament ends for everyone, like when a
-// player leaves it). While bulling off the player is out of the bull-off (turn.Turn.Skip);
-// while the turn waits for the takeout the darts are taken out instead.
-func (s *Service) endTurn(gameID int64) {
+// turnTimer is what happens when the timer of a game's turn fires: a bot throws or pulls
+// its darts out (moveBot), or the time for the turn is up (endTurn). Under the lock it
+// checks again that it is due, since the game may have moved on meanwhile, or another
+// replica's timer was quicker.
+func (s *Service) turnTimer(gameID int64) {
 	ctx := context.Background()
-	unlock, err := s.lock(ctx, "endTurn")
+	unlock, err := s.lock(ctx, "turnTimer")
 	if err != nil {
 		log.Printf("lock: %v", err)
 		return
@@ -92,46 +95,83 @@ func (s *Service) endTurn(gameID int64) {
 	defer unlock()
 	g, err := s.store.GetGame(ctx, gameID)
 	if err != nil {
-		log.Printf("end the turn of game %d: %v", gameID, err)
+		log.Printf("turn timer of game %d: %v", gameID, err)
 		return
 	}
 	v, err := s.build(ctx, g)
 	if err != nil {
-		log.Printf("end the turn of game %d: %v", gameID, err)
+		log.Printf("turn timer of game %d: %v", gameID, err)
 		return
 	}
-	if g.Aborted() || v.TurnDeadline == nil || v.Common().CurrentPlayerID == nil || s.now().Before(*v.TurnDeadline) {
-		s.watchTurn(g) // the game moved on while the timer waited for the lock
+	if g.Aborted() {
 		return
 	}
-	if v.Common().WaitingForTakeout {
-		// Nobody pulled the darts out: the next player goes on, the darts count.
-		if err := s.storeTakeout(ctx, &g, v); err != nil {
-			log.Printf("take out the darts of game %d: %v", gameID, err)
+	if move, ok := s.botMove(v); ok {
+		if s.now().Before(move) {
+			s.watchTurn(g)
+			return
+		}
+		if err := s.moveBot(ctx, &g, v); err != nil {
+			log.Printf("bot of game %d: %v", gameID, err)
 			return
 		}
 		s.notifyGame(g)
 		return
 	}
+	if err := s.endTurn(ctx, g, v); err != nil {
+		log.Printf("end the turn of game %d: %v", gameID, err)
+	}
+}
+
+// endTurn is what happens when the time for a turn is up: the turn is skipped, and after
+// MaxSkips skipped turns in a row the player leaves the game (the game is aborted if
+// that would leave fewer than two players, or only bots; a tournament ends for everyone,
+// like when a player leaves it). While bulling off the player is out of the bull-off
+// (turn.Turn.Skip); while the turn waits for the takeout the darts are taken out instead.
+// The caller holds the lock (s.lock).
+func (s *Service) endTurn(ctx context.Context, g game.Game, v GameView) error {
+	if v.TurnDeadline == nil || v.Common().CurrentPlayerID == nil || s.now().Before(*v.TurnDeadline) {
+		s.watchTurn(g) // the game moved on while the timer waited for the lock
+		return nil
+	}
+	if v.Common().WaitingForTakeout {
+		// Nobody pulled the darts out: the next player goes on, the darts count.
+		if err := s.storeTakeout(ctx, &g, v); err != nil {
+			return err
+		}
+		s.notifyGame(g)
+		return nil
+	}
 	player := *v.Common().CurrentPlayerID
-	entry := throw.Dart{GameID: gameID, PlayerID: player}
+	entry := throw.Dart{GameID: g.ID, PlayerID: player}
 	leaves := skippedInARow(v.Darts, player)+1 >= game.MaxSkips
 	entry.Leave, entry.Skip = leaves, !leaves
-	_, err = g.Play(append(v.Darts, entry))
-	if errors.Is(err, turn.ErrTooFewLeft) {
-		if err := s.endGameOf(ctx, g); err != nil {
-			log.Printf("end game %d: %v", gameID, err)
-		}
-		return
-	}
-	if err == nil {
-		err = s.store.AddDart(ctx, &entry)
-	}
+	abort, err := tooFewLeft(g, append(v.Darts, entry))
 	if err != nil {
-		log.Printf("end the turn of game %d: %v", gameID, err)
-		return
+		return err
+	}
+	if abort {
+		return s.endGameOf(ctx, g)
+	}
+	if err := s.store.AddDart(ctx, &entry); err != nil {
+		return err
 	}
 	s.notifyGame(g)
+	return nil
+}
+
+// tooFewLeft replays the log of a game in which players leave (its last entries) and reports
+// whether the game is to be aborted instead: fewer than two players would be left
+// (turn.ErrTooFewLeft), or only bots (onlyBotsLeft).
+func tooFewLeft(g game.Game, entries []throw.Dart) (abort bool, err error) {
+	st, err := g.Play(entries)
+	if errors.Is(err, turn.ErrTooFewLeft) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return onlyBotsLeft(g, st), nil
 }
 
 // endGameOf aborts a game that too few players are left in, and the tournament it is a

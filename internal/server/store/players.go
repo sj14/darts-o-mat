@@ -19,13 +19,27 @@ func (store *Store) SetPlayerColor(ctx context.Context, playerID int64, color st
 	return err
 }
 
-// ListPlayers returns the player of an account followed by its guests.
+// ListPlayers returns the player of an account followed by its guests, without its bots
+// (ListBots).
 func (store *Store) ListPlayers(ctx context.Context, accountID, playerID int64) ([]player.Player, error) {
 	result := []player.Player{}
 	err := store.db.NewSelect().Model(&result).
-		Where("id = ?", playerID).
-		WhereOr("guest_of = ?", accountID).
+		WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+			return q.Where("id = ?", playerID).WhereOr("guest_of = ?", accountID)
+		}).
+		Where("bot = ?", false).
 		OrderExpr("guest_of IS NOT NULL, id").
+		Scan(ctx)
+	return result, err
+}
+
+// ListBots returns the bots of an account, oldest first.
+func (store *Store) ListBots(ctx context.Context, accountID int64) ([]player.Player, error) {
+	result := []player.Player{}
+	err := store.db.NewSelect().Model(&result).
+		Where("guest_of = ?", accountID).
+		Where("bot = ?", true).
+		Order("id").
 		Scan(ctx)
 	return result, err
 }

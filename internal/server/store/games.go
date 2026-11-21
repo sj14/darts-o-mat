@@ -385,11 +385,13 @@ func (store *Store) ListOpenGames(ctx context.Context) ([]game.Game, error) {
 		Order("id DESC"))
 }
 
-// ListTimedGames returns the games with a time limit for turns that aren't aborted and
-// started or had a dart since the time.
+// ListTimedGames returns the games whose turns have a timer (a time limit, or a bot
+// throwing) that aren't aborted and started or had a dart since the time.
 func (store *Store) ListTimedGames(ctx context.Context, since time.Time) ([]game.Game, error) {
+	bots := store.db.NewSelect().Model((*game.Participant)(nil)).ColumnExpr("1").
+		Where("participant.game_id = game.id").Where("participant.bot_spread > 0")
 	return store.scanGames(ctx, store.db.NewSelect().
-		Where("turn_seconds > 0").
+		Where("turn_seconds > 0 OR EXISTS (?)", bots).
 		Where("aborted_at IS NULL").
 		Where("started_at > ? OR EXISTS (?)", since, store.dartSince(since)))
 }

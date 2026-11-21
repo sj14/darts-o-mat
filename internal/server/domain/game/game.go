@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/sj14/darts-o-mat/internal/common/dartboard"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/internal/server/domain/throw"
 
@@ -153,7 +154,11 @@ type Participant struct {
 	Status   InvitationStatus `bun:",notnull" json:"status"`
 	// BoardID is the board the player throws on: its cameras report their darts. Nil: they
 	// enter their darts by hand.
-	BoardID   *int64    `json:"board_id,omitempty"`
+	BoardID *int64 `json:"board_id,omitempty"`
+	// BotSpread is how far a bot's darts land from where it aims, in mm (the standard
+	// deviation per direction); 0 for a player who isn't a bot. It belongs to the seat, so
+	// a bot plays each game at the strength chosen for it.
+	BotSpread int       `bun:",notnull,default:0" json:"bot_spread,omitempty"`
 	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"-"`
 }
 
@@ -298,6 +303,31 @@ func (g Game) TurnDeadline(entries []throw.Dart, c turn.State) (time.Time, bool)
 		return time.Time{}, false
 	}
 	return began.Add(time.Duration(g.TurnSeconds) * time.Second), true
+}
+
+// HasBots reports whether a bot plays in the game.
+func (g Game) HasBots() bool {
+	return slices.ContainsFunc(g.Participants, func(p Participant) bool { return p.BotSpread > 0 })
+}
+
+// IsBot reports whether the player is a bot of the game: the server throws for them.
+func (g Game) IsBot(playerID int64) bool {
+	p, ok := g.Participant(playerID)
+	return ok && p.BotSpread > 0
+}
+
+// Aim returns the field the player who is up aims at with their next dart, in the state
+// Play returned: the bull while bulling off, else what the mode's Aim says. False once the
+// game is over.
+func (g Game) Aim(st State) (throw.Dart, bool) {
+	c := st.Common()
+	if c.CurrentPlayerID == nil {
+		return throw.Dart{}, false
+	}
+	if c.BullingOff {
+		return throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bullseye}, true
+	}
+	return modes[g.Mode].aim(g.Rules, st, *c.CurrentPlayerID), true
 }
 
 // WaitsForTakeout reports whether a finished turn waits until the darts were pulled out.

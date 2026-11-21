@@ -78,6 +78,23 @@ func (c *Controller) lobbyRoutes(r chi.Router, prefix string, ref func(int64) se
 	}))
 }
 
+// addBot seats a bot in the lobby of a game, with the spread of the form, and goes back to
+// the game's page like the other changes of a lobby.
+func (c *Controller) addBot(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	l := service.GameLobby(id)
+	spread, err := strconv.Atoi(r.FormValue("spread"))
+	if err != nil {
+		err = service.ErrBotSpread
+	} else {
+		err = c.svc.AddBot(r.Context(), auth.Account(r.Context()), id, spread)
+	}
+	c.respondLobby(w, r, l, err, false)
+}
+
 // playerFromForm reads the player to add to a lobby: a guest made of the name entered, or
 // one of the account's players chosen.
 func (c *Controller) playerFromForm(r *http.Request, acc account.Account) (int64, error) {

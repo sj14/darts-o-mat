@@ -78,6 +78,7 @@ func (a *API) Routes() http.Handler {
 		r.Post("/games/{id}/quick", a.quickMatchMove)
 		r.Post("/games/{id}/board", a.useBoard)
 		r.Post("/games/{id}/bull-off", a.decideBullOff)
+		r.Post("/games/{id}/bots", a.addBot)
 
 		r.Get("/lobbies", a.listLobbies)
 		r.Post("/lobbies/quick", a.quickMatch)
@@ -522,6 +523,26 @@ func (a *API) useBoard(w http.ResponseWriter, r *http.Request) {
 	}
 	v, err := a.svc.UseBoard(r.Context(), auth.Account(r.Context()), id, req.BoardID)
 	respond(w, http.StatusOK, v, err)
+}
+
+// addBot seats a bot of the account in the lobby of a game, with the spread of its darts in
+// mm ({"spread": 20}), and answers with the game.
+func (a *API) addBot(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlID(w, r, "id")
+	if !ok {
+		return
+	}
+	var req struct {
+		Spread int `json:"spread"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	if err := a.svc.AddBot(r.Context(), auth.Account(r.Context()), id, req.Spread); err != nil {
+		writeError(w, err)
+		return
+	}
+	a.respondLobby(w, r, service.GameLobby(id))
 }
 
 func (a *API) listInvitations(w http.ResponseWriter, r *http.Request) {

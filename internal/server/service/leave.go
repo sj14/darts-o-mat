@@ -24,8 +24,8 @@ var ErrCantLeave = turn.ErrCantLeave
 //     The returned view is empty then, the game isn't theirs anymore.
 //   - In a running game the others play on without them (a log entry throw.Dart.Leave per
 //     player, the legs and sets they won stay theirs), unless fewer than two players
-//     would be left: then the game is aborted. A game of one account alone is aborted by
-//     leaving it, which is what "Abort game" means there.
+//     would be left, or only bots: then the game is aborted. A game of one account alone
+//     is aborted by leaving it, which is what "Abort game" means there.
 //   - Leaving a game of a tournament leaves the tournament, see LeaveTournament.
 //
 // While bulling off, who leaves is out of it (see turn.Turn.Leave).
@@ -90,8 +90,8 @@ func (s *Service) leave(ctx context.Context, acc account.Account, v GameView) (G
 		entries[i] = throw.Dart{GameID: gameID, PlayerID: id, Leave: true}
 		log = append(log, entries[i])
 	}
-	switch _, err := v.Game.Play(log); {
-	case errors.Is(err, turn.ErrTooFewLeft):
+	switch abort, err := tooFewLeft(v.Game, log); {
+	case abort:
 		if err := s.abortGame(ctx, &v.Game); err != nil {
 			return GameView{}, err
 		}

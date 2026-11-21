@@ -71,7 +71,7 @@ func (textsDE) LandingFeatureText(i int) string {
 		"Ein Programm oder ein Container, mit SQLite fürs Wohnzimmer oder PostgreSQL für mehr. Deine Spiele und Daten bleiben bei dir.",
 		"Unter der AGPL-3.0 lizenziert. Kein Abo, kein Konto bei einem fremden Dienst.",
 		"darts-o-cam erkennt die Darts mit günstigen Kameras am Board und trägt sie ins laufende Spiel ein.",
-		"X01, Around the Clock und Cricket, Legs und Sets, K.-o.- und Jeder-gegen-jeden-Turniere, Freunde, Gäste und Statistiken.",
+		"X01, Around the Clock und Cricket, Legs und Sets, K.-o.- und Jeder-gegen-jeden-Turniere, Freunde, Gäste, Bots zum Üben und Statistiken.",
 	}[i%4]
 }
 
@@ -611,6 +611,19 @@ func (textsDE) StartsWhenFull() string {
 }
 func (textsDE) StartTournament() string { return "Turnier starten" }
 func (textsDE) AddGuest() string        { return "Gast hinzufügen" }
+func (textsDE) AddBot() string          { return "Bot hinzufügen" }
+func (textsDE) BotSpread() string       { return "Streuung in mm" }
+func (textsDE) BotSpreadHint() string {
+	return "Wie weit die Darts des Bots von seinem Ziel landen: je kleiner, desto stärker. Etwa 25 mm spielen einen Average von 40, 15 mm 55, 8 mm 90."
+}
+func (textsDE) BotMark(spread int) string { return "(Bot, " + strconv.Itoa(spread) + " mm)" }
+func (textsDE) ErrNoBots() string {
+	return "Bots spielen nur in Spielen, die ihr selbst anlegt, nicht in Spielen für Fremde und nicht in Turnieren."
+}
+func (textsDE) ErrBotBoard() string { return "Ein Bot wirft auf kein Board." }
+func (textsDE) ErrBotSpread(min, max int) string {
+	return "Die Streuung eines Bots muss zwischen " + strconv.Itoa(min) + " und " + strconv.Itoa(max) + " mm liegen."
+}
 func (textsDE) Invite() string          { return "Einladen" }
 func (textsDE) RemoveFromLobby() string { return "Entfernen" }
 func (textsDE) Save() string            { return "Speichern" }

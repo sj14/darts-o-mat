@@ -632,7 +632,14 @@ func mayEditDart(v service.GameView, d throw.Dart) bool {
 // keypad; otherwise the darts come from cameras or from another account, and the page
 // gives the room to the board.
 func handEntry(v service.GameView, p progress) bool {
-	return p.CurrentPlayerID != nil && v.IsMine(*p.CurrentPlayerID) && !v.HasCamera(*p.CurrentPlayerID)
+	if p.CurrentPlayerID == nil || !v.IsMine(*p.CurrentPlayerID) {
+		return false
+	}
+	if v.Game.IsBot(*p.CurrentPlayerID) {
+		// A bot's turn keeps the layout: the keypad stays where nobody throws on a board.
+		return !v.HasBoard()
+	}
+	return !v.HasCamera(*p.CurrentPlayerID)
 }
 
 // mayAddDart reports whether the viewer may enter a dart that the cameras missed for the

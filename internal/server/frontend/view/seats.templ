@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/board"
+	"github.com/sj14/darts-o-mat/internal/server/domain/bot"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 )
 
@@ -66,7 +67,9 @@ templ lobbySeatRow(m lobbyModel, s lobbySeat) {
 	<li class="flex flex-wrap items-center justify-between gap-2 py-3">
 		<span class="font-display text-2xl font-semibold">
 			{ displayName(ctx, s.player) }
-			if s.player.IsGuest() {
+			if s.botSpread > 0 {
+				<span class="font-sans text-sm font-normal text-white/50">{ T(ctx).BotMark(s.botSpread) }</span>
+			} else if s.player.IsGuest() {
 				<span class="font-sans text-sm font-normal text-white/50">{ T(ctx).GuestMark() }</span>
 			}
 			if s.board != "" && !(s.mine && m.canPlay && len(m.boards) > 0) {
@@ -74,7 +77,7 @@ templ lobbySeatRow(m lobbyModel, s lobbySeat) {
 			}
 		</span>
 		<span class="flex flex-wrap items-center gap-2">
-			if s.mine && !s.pending && m.canPlay && len(m.boards) > 0 {
+			if s.mine && !s.pending && s.botSpread == 0 && m.canPlay && len(m.boards) > 0 {
 				// Choosing saves at once: htmx posts it and swaps in the lobby of the answer (the
 				// page); without JavaScript the button does.
 				<form
@@ -153,6 +156,9 @@ templ lobbyAdd(m lobbyModel) {
 				<input type="text" name="name" required class={ inputClass, "w-48!" } placeholder={ T(ctx).GuestName() } aria-label={ T(ctx).GuestName() }/>
 				<button type="submit" class={ btnSecondary }>{ T(ctx).AddGuest() }</button>
 			</form>
+			if m.bots {
+				@botAdd(m)
+			}
 			if len(m.choices.Friends) > 0 {
 				<form method="post" action={ templ.URL(m.url("/invitations")) } class="flex flex-wrap items-center gap-2">
 					<select name="username" class={ inputClass, "w-auto!" } aria-label={ T(ctx).InviteFriends() }>
@@ -167,4 +173,26 @@ templ lobbyAdd(m lobbyModel) {
 			}
 		</div>
 	}
+}
+
+// botAdd adds a bot with the spread of its darts in mm.
+templ botAdd(m lobbyModel) {
+	<form method="post" action={ templ.URL(m.url("/bots")) } class="flex flex-col gap-1">
+		<span class="flex flex-wrap items-center gap-2">
+			<label class="flex items-center gap-2 text-sm text-white/70">
+				{ T(ctx).BotSpread() }
+				<input
+					type="number"
+					name="spread"
+					required
+					min={ strconv.Itoa(bot.MinSpread) }
+					max={ strconv.Itoa(bot.MaxSpread) }
+					value={ strconv.Itoa(bot.DefaultSpread) }
+					class={ inputClass, "w-24!" }
+				/>
+			</label>
+			<button type="submit" class={ btnSecondary }>{ T(ctx).AddBot() }</button>
+		</span>
+		<span class={ hintClass }>{ T(ctx).BotSpreadHint() }</span>
+	</form>
 }

@@ -33,7 +33,7 @@ func (store *Store) SiteStats(ctx context.Context, now time.Time) (site.Stats, e
 	}
 
 	err = store.db.NewSelect().Model((*player.Player)(nil)).
-		ColumnExpr("COUNT(*)").Where("guest_of IS NOT NULL").Where("deleted_at IS NULL").
+		ColumnExpr("COUNT(*)").Where("guest_of IS NOT NULL").Where("deleted_at IS NULL").Where("bot = ?", false).
 		Scan(ctx, &s.Guests)
 	if err != nil {
 		return s, err
@@ -75,14 +75,17 @@ func (store *Store) SiteStats(ctx context.Context, now time.Time) (site.Stats, e
 	}
 
 	// The darts of the recent games, found by the index darts_game_id: what this reads
-	// grows with the games, not with all darts ever thrown.
+	// grows with the games, not with all darts ever thrown. The bots' darts don't count:
+	// nobody threw them, and their position isn't a camera's.
 	d := &s.Darts
+	bots := store.db.NewSelect().Model((*player.Player)(nil)).Column("id").Where("bot = ?", true)
 	err = store.db.NewSelect().Model((*throw.Dart)(nil)).
 		ColumnExpr("COUNT(*)").
 		ColumnExpr("COUNT(dart.x)").
 		Join("JOIN games ON games.id = dart.game_id").
 		Where("games.started_at > ?", recent).
 		Where("NOT dart.takeout").Where("NOT dart.leave").Where("NOT dart.skip").
+		Where("dart.player_id NOT IN (?)", bots).
 		Scan(ctx, &d.Recent, &d.Camera)
 	if err != nil {
 		return s, err

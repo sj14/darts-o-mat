@@ -27,7 +27,7 @@ func (v GameView) CanRematch() bool {
 // Rematch starts a rematch of a finished game: a new game with the same settings, not
 // open for strangers. The viewer's players that didn't leave sit in it on the boards they
 // threw on; the other players with an account that didn't leave are invited, friends or
-// not, since they just played together (other accounts' guests aren't: their account adds
+// not, since they just played together (other accounts' guests and bots aren't: their account adds
 // them in the lobby). Without anyone to invite it starts at once, else a player starts it
 // once everyone accepted, as any lobby. A game has one rematch: the old game's page links
 // to it (GameView.RematchID), and asking for another returns it.
@@ -54,7 +54,8 @@ func (s *Service) Rematch(ctx context.Context, acc account.Account, gameID int64
 		switch {
 		case p.Deleted() || old.Common().Records[p.ID].Left:
 		case old.IsMine(p.ID):
-			g.Participants = append(g.Participants, game.Participant{PlayerID: p.ID, Status: game.InvitationAccepted, BoardID: old.BoardOf(p.ID)})
+			seat, _ := old.Game.Participant(p.ID)
+			g.Participants = append(g.Participants, game.Participant{PlayerID: p.ID, Status: game.InvitationAccepted, BoardID: seat.BoardID, BotSpread: seat.BotSpread})
 		case !p.IsGuest():
 			invited = append(invited, game.Participant{PlayerID: p.ID, Status: game.InvitationPending})
 		}

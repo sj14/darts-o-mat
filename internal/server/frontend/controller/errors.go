@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
+	"github.com/sj14/darts-o-mat/internal/server/domain/bot"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
 	"github.com/sj14/darts-o-mat/internal/server/domain/page"
@@ -38,6 +39,9 @@ func errorText(t view.Texts, err error) (string, bool) {
 	if errors.Is(err, service.ErrTooManyGuests) {
 		return t.ErrTooManyGuests(service.MaxGuests), true
 	}
+	if errors.Is(err, service.ErrBotSpread) {
+		return t.ErrBotSpread(bot.MinSpread, bot.MaxSpread), true
+	}
 	texts := []struct {
 		err  error
 		text func() string
@@ -62,6 +66,8 @@ func errorText(t view.Texts, err error) (string, bool) {
 		{service.ErrBoardBusy, t.ErrBoardBusy},
 		{service.ErrBoardRequired, t.ErrBoardRequired},
 		{service.ErrNoSeat, t.ErrNoSeat},
+		{service.ErrNoBots, t.ErrNoBots},
+		{service.ErrBotBoard, t.ErrBotBoard},
 		{game.ErrOpenWithoutTurnLimit, t.ErrOpenWithoutTurnLimit},
 		// Games.
 		{service.ErrChangesThrowers, t.ErrChangesThrowers},

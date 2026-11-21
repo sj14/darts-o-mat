@@ -53,6 +53,23 @@ func (l lobby) pending(playerID int64) bool {
 	return i >= 0 && l.seats[i].Status == game.InvitationPending
 }
 
+// isBot reports whether the player sits in the lobby as a bot.
+func (l lobby) isBot(playerID int64) bool {
+	i := slices.IndexFunc(l.seats, func(p game.Participant) bool { return p.PlayerID == playerID })
+	return i >= 0 && l.seats[i].BotSpread > 0
+}
+
+// humans counts the players of mine with an accepted seat in the lobby that aren't bots.
+func (l lobby) humans(mine []int64) int {
+	n := 0
+	for _, p := range l.seats {
+		if slices.Contains(mine, p.PlayerID) && p.Status == game.InvitationAccepted && p.BotSpread == 0 {
+			n++
+		}
+	}
+	return n
+}
+
 func (l lobby) statuses() []game.InvitationStatus {
 	statuses := make([]game.InvitationStatus, len(l.seats))
 	for i, p := range l.seats {
@@ -64,7 +81,7 @@ func (l lobby) statuses() []game.InvitationStatus {
 // seat is where a new player sits, for checkSeatBoard: the boards of the others are
 // shared, and a game takes the board it is played on.
 func (l lobby) seat() seat {
-	st := seat{lobby: l.Lobby, holdsBoards: !l.ref.Tournament}
+	st := seat{lobby: l.Lobby, holdsBoards: !l.ref.Tournament, tournament: l.ref.Tournament}
 	if !l.ref.Tournament {
 		st.game = l.ref.ID
 	}
@@ -170,16 +187,20 @@ func (s *Service) lobbyFor(ctx context.Context, acc account.Account, ref LobbyRe
 }
 
 // takeSeats is the one check of every way to a seat: creating a game or tournament (its
-// first seat), adding a player of the account, accepting an invitation, joining an open
-// one and starting a match. For each seat: its board (checkSeatBoard), and that the
-// player has no seat elsewhere (checkPlayersFree; the tournament keep doesn't count).
-// Then the games the account finished are completed (going on accepts their result),
-// and write stores the seats. The caller holds the lock (s.lock).
+// first seat), adding a player or a bot of the account, accepting an invitation, joining
+// an open one and starting a match. For each seat: its board (checkSeatBoard), whether a
+// bot may sit there (checkBotSeats), and that the player has no seat elsewhere
+// (checkPlayersFree; the tournament keep doesn't count). Then the games the account
+// finished are completed (going on accepts their result), and write stores the seats. The
+// caller holds the lock (s.lock).
 func (s *Service) takeSeats(ctx context.Context, acc account.Account, st seat, seats []game.Participant, keep int64, write func() error) error {
 	for _, p := range seats {
 		if err := s.checkSeatBoard(ctx, acc, st, p.BoardID); err != nil {
 			return err
 		}
+	}
+	if err := s.checkBotSeats(ctx, st, seats); err != nil {
+		return err
 	}
 	if err := s.checkPlayersFree(ctx, acc, playerIDs(seats), keep); err != nil {
 		return err
@@ -252,7 +273,7 @@ func (s *Service) CreateTournament(ctx context.Context, acc account.Account, t t
 		return TournamentView{}, err
 	}
 	seats := []game.Participant{{PlayerID: playerID, BoardID: boardID}}
-	if err := s.takeSeats(ctx, acc, seat{lobby: t.Lobby}, seats, 0, func() error { return s.store.CreateTournament(ctx, &t) }); err != nil {
+	if err := s.takeSeats(ctx, acc, seat{lobby: t.Lobby, tournament: true}, seats, 0, func() error { return s.store.CreateTournament(ctx, &t) }); err != nil {
 		return TournamentView{}, err
 	}
 	if err := s.store.SetLastSettings(ctx, acc.ID, t.Settings); err != nil {
@@ -319,6 +340,16 @@ func (s *Service) RemovePlayer(ctx context.Context, acc account.Account, ref Lob
 	}
 	if !slices.Contains(pt.mine, playerID) || l.pending(playerID) {
 		return ErrNotFound // an invitation is declined or withdrawn instead
+	}
+	if !l.isBot(playerID) && l.humans(pt.mine) == 1 {
+		// The account's last player who isn't a bot: its bots go with it, as when leaving,
+		// so no lobby is left to bots.
+		for _, id := range pt.mine {
+			if err := s.removeSeat(ctx, l, id); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	return s.removeSeat(ctx, l, playerID)
 }
@@ -467,6 +498,9 @@ func (s *Service) SetSeatBoard(ctx context.Context, acc account.Account, ref Lob
 	}
 	if !slices.Contains(pt.mine, playerID) || l.pending(playerID) {
 		return ErrNotFound
+	}
+	if l.isBot(playerID) {
+		return ErrBotBoard
 	}
 	if err := s.checkSeatBoard(ctx, acc, l.seat(), boardID); err != nil {
 		return err

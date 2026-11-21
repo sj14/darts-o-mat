@@ -123,13 +123,19 @@ type Service struct {
 	// shuffle draws the order of the players when a game or tournament starts, like
 	// rand.Shuffle; replaced in tests.
 	shuffle func(n int, swap func(i, j int))
+	// bots is where the bots' darts land (bot.Throw), only used under the lock; botPause is
+	// how long a bot waits before each dart and before pulling its darts out, so the others
+	// can follow (shorter in tests). See botturn.go.
+	bots     *rand.Rand
+	botPause time.Duration
 	// dummyHash is compared against when a username doesn't exist, so a failed login takes
 	// the same time whether the username exists or not.
 	dummyHash []byte
 }
 
 func New(store *store.Store, opts Options) *Service {
-	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, watchEvery: seenEvery, now: time.Now, shuffle: rand.Shuffle}
+	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, watchEvery: seenEvery, now: time.Now, shuffle: rand.Shuffle,
+		bots: rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())), botPause: botPause}
 	if s.opts.Lock == nil {
 		s.opts.Lock = store
 	}
@@ -288,14 +294,15 @@ func (v GameView) Pending(playerID int64) bool {
 	return ok && p.Status == game.InvitationPending
 }
 
-// checkOwnPlayers checks that the players are the account's own player or its guests.
+// checkOwnPlayers checks that the players are the account's own player or its guests (its
+// bots too; where a bot may sit is checkBotSeats').
 func (s *Service) checkOwnPlayers(ctx context.Context, acc account.Account, playerIDs []int64) error {
-	own, err := s.store.ListPlayers(ctx, acc.ID, acc.PlayerID)
+	players, err := s.store.GetPlayers(ctx, playerIDs)
 	if err != nil {
 		return err
 	}
 	for _, id := range playerIDs {
-		if !slices.ContainsFunc(own, func(p player.Player) bool { return p.ID == id }) {
+		if !slices.ContainsFunc(players, func(p player.Player) bool { return p.ID == id && acc.Controls(p) }) {
 			return fmt.Errorf("%w: player %d is neither you nor one of your guests", ErrInvalid, id)
 		}
 	}
@@ -702,7 +709,9 @@ func (s *Service) view(ctx context.Context, acc account.Account, g game.Game) (G
 	if slices.Contains(v.Mine, acc.PlayerID) {
 		v.OwnPlayerID = acc.PlayerID
 	}
-	if !slices.ContainsFunc(v.Mine, func(id int64) bool { return !v.Common().Records[id].Left }) {
+	// The account's bots don't keep it in the game: they only throw while one of its
+	// players does.
+	if !slices.ContainsFunc(v.Mine, func(id int64) bool { return !v.Common().Records[id].Left && !g.IsBot(id) }) {
 		v.HasLeft, v.CanThrow = true, false
 	}
 	if v.Common().GameOver && v.OwnPlayerID != 0 {

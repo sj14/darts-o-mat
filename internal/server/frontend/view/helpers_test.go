@@ -60,6 +60,10 @@ func TestHandEntry(t *testing.T) {
 		}
 		return v
 	}
+	bot := func(v service.GameView) service.GameView { // the guest is a bot
+		v.Game.Participants[1].BotSpread = 20
+		return v
+	}
 	with := func(v service.GameView, mine ...int64) service.GameView {
 		v.Mine = mine
 		return v
@@ -77,6 +81,8 @@ func TestHandEntry(t *testing.T) {
 		{"on my own board", with(players(nil, nil, &board2), ben), ben, false, true},
 		{"joined without a board next to a host with one", with(players(&board1, &board1, nil), ben), ben, true, false},
 		{"watching a friend who has a board", with(players(nil, nil, &board2), anna, guest), ben, false, false},
+		{"my bot's turn without boards", with(bot(players(nil, nil, nil)), anna, guest), guest, true, false},
+		{"my bot's turn next to my board", with(bot(players(&board1, nil, nil)), anna, guest), guest, false, false},
 	}
 	for _, tt := range tests {
 		tt.v.CanThrow = true

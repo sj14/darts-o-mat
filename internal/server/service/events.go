@@ -23,7 +23,7 @@ type Bus interface {
 }
 
 // The keys of the notifications: a game changed, a tournament changed, the turn of a game
-// with a time limit may have changed (its timer has to be set again). Each is followed by
+// with a time limit or a bot may have changed (its timer has to be set again). Each is followed by
 // the ID.
 const (
 	gameKey       = 'g'
@@ -65,7 +65,7 @@ func (s *Service) Listen(ctx context.Context) {
 }
 
 // receive passes a notification on to the subscribers in this process and sets the turn
-// timer of a game with a time limit.
+// timer of a game with a time limit or a bot.
 func (s *Service) receive(keys []string) {
 	for _, k := range keys {
 		if len(k) < 2 {
@@ -136,9 +136,9 @@ func (s *Service) notifyGame(g game.Game) {
 }
 
 // turnKeys is the notification that sets the timer of the game's turn on every replica, none
-// without a time limit.
+// without a time limit and without a bot.
 func turnKeys(g game.Game) []string {
-	if g.TurnSeconds == 0 {
+	if g.TurnSeconds == 0 && !g.HasBots() {
 		return nil
 	}
 	return []string{key(turnKey, g.ID)}
