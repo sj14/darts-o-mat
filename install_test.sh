@@ -100,6 +100,9 @@ check server-windows "$output" "double click darts-o-mat.exe"
 [ "$status" -ne 0 ] || fail "server on Windows: expected an error"
 run "$work/tar" --nonsense
 check "unknown option" "$output" "unknown option"
+# -h also when the script is piped into bash, as the instructions run it.
+help=$(PATH="$work/tar" "$(command -v bash)" -s -- -h <"$here/install.sh" 2>&1)
+check help-piped "$help" "--server for the server"
 run "$work/tar" --version 1.2.3 --dry-run
 check version "$output" "Package: darts-o-cam_linux_amd64.tar.gz (1.2.3 release)"
 
@@ -120,6 +123,8 @@ tar czf "$download/darts-o-cam_linux_amd64.tar.gz" -C "$work/pkg" darts-o-cam_1.
 sums
 run "$work/tar"
 check tar-install "$output" "Installed into ~/.local"
+check tar-install "$output" "or with: darts-o-cam"
+case $output in *systemctl*) fail "tar: the .tar.gz has no service to start with systemctl: $output" ;; esac
 [ -x "$work/home/.local/bin/darts-o-cam" ] || fail "tar: the program isn't in ~/.local/bin"
 [ -f "$work/home/.local/share/applications/darts-o-cam.desktop" ] || fail "tar: no menu entry"
 if [ -e "$work/home/.local/share/systemd" ] || [ -e "$work/home/.local/lib" ]; then fail "tar: the systemd unit must not be installed"; fi
@@ -147,6 +152,7 @@ calls=$(cat "$work/calls" 2>/dev/null)
 check deb-install "$calls" "$want"
 check deb-install "$calls" "install -y"
 check deb-install "$calls" "darts-o-cam_linux_amd64.deb"
+check deb-install "$output" "systemctl enable --now darts-o-cam"
 
 # The server: the Linux .tar.gz has the tree of the packages like the camera's, the macOS
 # one is a folder with the program; a .deb is what apt-get gets.

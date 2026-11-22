@@ -215,13 +215,13 @@ func (store *Store) DeleteSession(ctx context.Context, tokenHash string) error {
 	return err
 }
 
-// notFound translates sql.ErrNoRows into ErrNotFound.
 // SetLanguage stores the language of an account's web interface.
 func (store *Store) SetLanguage(ctx context.Context, a *account.Account) error {
 	_, err := store.db.NewUpdate().Model(a).Column("language").WherePK().Exec(ctx)
 	return err
 }
 
+// notFound translates sql.ErrNoRows into ErrNotFound.
 func notFound(err error) error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound

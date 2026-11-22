@@ -278,3 +278,20 @@ func TestTurnLimitBullOffAndTakeout(t *testing.T) {
 		t.Errorf("after the time for the takeout ran out: waiting %v, last entry %+v, current player %v; want a takeout and anna up", c.WaitingForTakeout, last, c.CurrentPlayerID)
 	}
 }
+
+// A failed turn timer is tried again, at most maxRetries times until the game changes.
+func TestRetryTurn(t *testing.T) {
+	t.Parallel()
+	s := newService(t)
+	const gameID = 999 // no game: a timer that fires only logs that
+	for i := range maxRetries {
+		s.retryTurn(gameID)
+		if s.timers[gameID] == nil {
+			t.Fatalf("try %d: no timer", i+1)
+		}
+	}
+	s.retryTurn(gameID)
+	if s.timers[gameID] != nil {
+		t.Errorf("a timer after %d tries, want none", maxRetries)
+	}
+}

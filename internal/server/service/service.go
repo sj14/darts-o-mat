@@ -115,8 +115,10 @@ type Service struct {
 	// watchEvery is how often a live stream notes that its account is online (seenEvery,
 	// shorter in tests).
 	watchEvery time.Duration
-	// timers end the turn of a game with a time limit, by game ID (see watchTurn).
+	// timers end the turn of a game with a time limit, by game ID (see watchTurn); retries
+	// counts the failed tries since the game last changed (retryTurn).
 	timers   map[int64]*time.Timer
+	retries  map[int64]int
 	timersMu sync.Mutex
 	// now is the time, replaced in tests.
 	now func() time.Time
@@ -134,7 +136,7 @@ type Service struct {
 }
 
 func New(store *store.Store, opts Options) *Service {
-	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, watchEvery: seenEvery, now: time.Now, shuffle: rand.Shuffle,
+	s := &Service{store: store, opts: opts, timers: map[int64]*time.Timer{}, retries: map[int64]int{}, watchEvery: seenEvery, now: time.Now, shuffle: rand.Shuffle,
 		bots: rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())), botPause: botPause}
 	if s.opts.Lock == nil {
 		s.opts.Lock = store

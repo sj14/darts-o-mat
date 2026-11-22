@@ -1,23 +1,6 @@
 #!/usr/bin/env bash
-# Installs darts-o-cam, the program for the computer the cameras are connected to, or with
-# --server the server darts-o-mat: finds out which package fits this computer (system,
-# processor, and on Linux the package manager), downloads it from the latest release,
-# checks it against the release's checksums and installs it.
-#
-#   curl -fsSL https://raw.githubusercontent.com/sj14/darts-o-mat/main/install.sh | bash
-#   curl -fsSL https://raw.githubusercontent.com/sj14/darts-o-mat/main/install.sh | bash -s -- --server
-#
-# Run it again later to update: it installs the latest release over the installed one.
-#
-# Options (after `bash -s --` when piped): --server for the server instead of darts-o-cam,
-# --version 1.2.3 for another release than the latest, --dry-run to only say what would
-# be done, -h for this text.
-#
-# darts-o-cam: on macOS the app goes into ~/Applications. On Linux a .deb or .rpm (with
-# sudo) if the system has dpkg or rpm, else the .tar.gz into ~/.local.
-# Server: on Linux a .deb or .rpm (with sudo; it comes with a systemd service), else the
-# .tar.gz into ~/.local; on macOS the program into ~/.local/bin.
-# Windows: not with this script, download the .zip from the release page.
+# Installs darts-o-cam or the server darts-o-mat from the latest release: what it does and
+# how to use it is in usage() below, which -h prints.
 set -eu
 
 repo="sj14/darts-o-mat"
@@ -32,8 +15,31 @@ say() { printf '%s\n' "$*"; }
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
+# usage prints the help. It is written here, not read from the script's file, which
+# doesn't exist when the script is piped into bash.
 usage() {
-	sed -n '2,/^set -eu/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'
+	cat <<'END'
+Installs darts-o-cam, the program for the computer the cameras are connected to, or with
+--server the server darts-o-mat: finds out which package fits this computer (system,
+processor, and on Linux the package manager), downloads it from the latest release,
+checks it against the release's checksums and installs it.
+
+  curl -fsSL https://raw.githubusercontent.com/sj14/darts-o-mat/main/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/sj14/darts-o-mat/main/install.sh | bash -s -- --server
+
+Run it again later to update: it installs the latest release over the installed one.
+
+Options (after `bash -s --` when piped): --server for the server instead of darts-o-cam,
+--version 1.2.3 for another release than the latest, --dry-run to only say what would
+be done, -h for this text.
+
+darts-o-cam: on macOS the app goes into ~/Applications, or replaces the one in
+/Applications. On Linux a .deb or .rpm (with sudo) if the system has dpkg or rpm, else
+the .tar.gz into ~/.local.
+Server: on Linux a .deb or .rpm (with sudo; it comes with a systemd service), else the
+.tar.gz into ~/.local; on macOS the program into ~/.local/bin.
+Windows: not with this script, download the .zip from the release page.
+END
 	exit 0
 }
 
@@ -73,7 +79,11 @@ macos)
 		how="unpack into ~/.local/bin"
 	else
 		file="darts-o-cam_macos_$arch.zip"
-		how="unpack into ~/Applications"
+		# An app someone put into /Applications themselves is replaced there, else the
+		# Dock and Spotlight would keep opening the old one.
+		apps="$HOME/Applications"
+		if [ -d /Applications/darts-o-cam.app ] && [ ! -d "$apps/darts-o-cam.app" ]; then apps=/Applications; fi
+		if [ "$apps" = /Applications ]; then how="unpack into /Applications"; else how="unpack into ~/Applications"; fi
 	fi
 	;;
 linux)
@@ -95,7 +105,7 @@ esac
 # Installed already? Then this is an update.
 installed=0
 case $file in
-*.zip) { [ -d "$HOME/Applications/darts-o-cam.app" ] || [ -d /Applications/darts-o-cam.app ]; } && installed=1 ;;
+*.zip) [ -d "$apps/darts-o-cam.app" ] && installed=1 ;;
 *.deb) dpkg -s "$app" >/dev/null 2>&1 && installed=1 ;;
 *.rpm) rpm -q "$app" >/dev/null 2>&1 && installed=1 ;;
 *.tar.gz) [ -x "$HOME/.local/bin/$app" ] && installed=1 ;;
@@ -134,12 +144,17 @@ want=$(grep "[ *]$file\$" "$tmp/SHA256SUMS" | cut -d' ' -f1)
 
 case $file in
 *.zip)
-	apps="$HOME/Applications"
 	mkdir -p "$apps"
-	rm -rf "$tmp/app" "$apps/darts-o-cam.app"
+	rm -rf "$tmp/app"
 	mkdir "$tmp/app"
 	ditto -x -k "$tmp/$file" "$tmp/app"
-	mv "$tmp/app/darts-o-cam.app" "$apps/"
+	if [ -w "$apps" ]; then
+		rm -rf "$apps/darts-o-cam.app"
+		mv "$tmp/app/darts-o-cam.app" "$apps/"
+	else # /Applications may need administrator rights
+		as_root rm -rf "$apps/darts-o-cam.app"
+		as_root mv "$tmp/app/darts-o-cam.app" "$apps/"
+	fi
 	say "Installed $apps/darts-o-cam.app. Open it from there (macOS asks for camera access on the first start; if it is open already, quit and open it again)."
 	;;
 *.deb)
@@ -192,7 +207,11 @@ if [ "$app" = darts-o-mat ]; then
 	if [ "$installed" = 1 ]; then say "Done: darts-o-mat is up to date. Your games and accounts are kept."; else say "Done."; fi
 else
 	if [ "$os" = linux ]; then
-		say "Start it from the menu (darts-o-cam) or, without a desktop, with: sudo systemctl enable --now darts-o-cam"
+		case $file in
+		# Only the packages come with the systemd service, the .tar.gz leaves it out.
+		*.deb | *.rpm) say "Start it from the menu (darts-o-cam) or, without a desktop, with: sudo systemctl enable --now darts-o-cam" ;;
+		*) say "Start it from the menu (darts-o-cam) or with: darts-o-cam" ;;
+		esac
 		say "Your user needs access to the cameras, usually through the group video: sudo usermod -aG video \$USER (then log in again)."
 	fi
 	if [ "$installed" = 1 ]; then say "Done: darts-o-cam is up to date. Your cameras and settings are kept."; else say "Done. Next: add and calibrate the cameras in darts-o-cam."; fi

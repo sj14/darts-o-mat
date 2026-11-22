@@ -69,6 +69,7 @@ func (s *Service) watchTurn(g game.Game) {
 		t.Stop()
 		delete(s.timers, g.ID)
 	}
+	delete(s.retries, g.ID) // the game changed: what failed may work now
 	if g.Aborted() {
 		return
 	}
@@ -127,15 +128,27 @@ func (s *Service) turnTimer(gameID int64) {
 
 // retryAfter is how long the turn timer waits to try again after it failed, e.g. the
 // database couldn't be reached: nothing else sets it again while nobody changes the game.
-const retryAfter = 5 * time.Second
+// maxRetries is how often it tries before it gives up: an error that stays (a log that
+// doesn't replay) isn't tried forever; the next change of the game sets the timer again.
+const (
+	retryAfter = 5 * time.Second
+	maxRetries = 3
+)
 
-// retryTurn sets the game's turn timer to try again after retryAfter.
+// retryTurn sets the game's turn timer to try again after retryAfter, up to maxRetries
+// times since the game last changed.
 func (s *Service) retryTurn(gameID int64) {
 	s.timersMu.Lock()
 	defer s.timersMu.Unlock()
 	if t := s.timers[gameID]; t != nil {
 		t.Stop()
+		delete(s.timers, gameID)
 	}
+	if s.retries[gameID] >= maxRetries {
+		log.Printf("turn timer of game %d: gave up after %d tries", gameID, maxRetries)
+		return
+	}
+	s.retries[gameID]++
 	s.timers[gameID] = time.AfterFunc(retryAfter, func() { s.turnTimer(gameID) })
 }
 
