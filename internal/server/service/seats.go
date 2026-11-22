@@ -343,8 +343,11 @@ func (s *Service) RemovePlayer(ctx context.Context, acc account.Account, ref Lob
 	}
 	if !l.isBot(playerID) && l.humans(pt.mine) == 1 {
 		// The account's last player who isn't a bot: its bots go with it, as when leaving,
-		// so no lobby is left to bots.
+		// so no lobby is left to bots. An invitation of its own player stays to be answered.
 		for _, id := range pt.mine {
+			if l.pending(id) {
+				continue
+			}
 			if err := s.removeSeat(ctx, l, id); err != nil {
 				return err
 			}

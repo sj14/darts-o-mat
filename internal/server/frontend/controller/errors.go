@@ -39,6 +39,9 @@ func errorText(t view.Texts, err error) (string, bool) {
 	if errors.Is(err, service.ErrTooManyGuests) {
 		return t.ErrTooManyGuests(service.MaxGuests), true
 	}
+	if errors.Is(err, service.ErrTooManyBots) {
+		return t.ErrTooManyBots(service.MaxBots), true
+	}
 	if errors.Is(err, service.ErrBotSpread) {
 		return t.ErrBotSpread(bot.MinSpread, bot.MaxSpread), true
 	}

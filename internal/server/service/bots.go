@@ -25,7 +25,13 @@ var (
 	ErrBotBoard = fmt.Errorf("%w: a bot throws on no board", ErrInvalid)
 	// ErrBotSpread means the spread of a bot is outside bot.MinSpread to bot.MaxSpread.
 	ErrBotSpread = fmt.Errorf("%w: a bot's spread must be between %d and %d mm", ErrInvalid, bot.MinSpread, bot.MaxSpread)
+	// ErrTooManyBots means all MaxBots bots of the account are seated: no other one is made.
+	ErrTooManyBots = fmt.Errorf("%w: at most %d bots", ErrInvalid, MaxBots)
 )
+
+// MaxBots is how many bots an account can have, like MaxGuests for its guests: games that
+// aren't open have no limit of seats, so without it an account could make any number.
+const MaxBots = 5
 
 // AddBot seats a bot of the account in the lobby of a game it plays in, with the spread
 // of its darts in mm (bot.Throw). It takes a bot of the account that has no seat right
@@ -47,7 +53,10 @@ func (s *Service) AddBot(ctx context.Context, acc account.Account, gameID int64,
 	if l.Open() {
 		return ErrNoBots
 	}
-	botID, err := s.freeBot(ctx, acc, l)
+	if bot.CheckSpread(spread) != nil {
+		return ErrBotSpread // before freeBot, which may make a bot
+	}
+	botID, err := s.freeBot(ctx, acc, playerIDs(l.seats))
 	if err != nil {
 		return err
 	}
@@ -57,16 +66,16 @@ func (s *Service) AddBot(ctx context.Context, acc account.Account, gameID int64,
 	})
 }
 
-// freeBot returns a bot of the account that has no seat, in the lobby or elsewhere, else
-// it makes another one. A new bot that then can't take its seat is free for the next time.
-// The caller holds the lock (s.lock).
-func (s *Service) freeBot(ctx context.Context, acc account.Account, l lobby) (int64, error) {
+// freeBot returns a bot of the account that has no seat and isn't one of taken (the seats
+// of the lobby), else it makes another one, up to MaxBots (ErrTooManyBots). A new bot that
+// then can't take its seat is free for the next time. The caller holds the lock (s.lock).
+func (s *Service) freeBot(ctx context.Context, acc account.Account, taken []int64) (int64, error) {
 	bots, err := s.store.ListBots(ctx, acc.ID)
 	if err != nil {
 		return 0, err
 	}
 	for _, b := range bots {
-		if slices.Contains(playerIDs(l.seats), b.ID) {
+		if slices.Contains(taken, b.ID) {
 			continue
 		}
 		err := s.checkPlayersFree(ctx, acc, []int64{b.ID}, 0)
@@ -76,6 +85,9 @@ func (s *Service) freeBot(ctx context.Context, acc account.Account, l lobby) (in
 		if !errors.As(err, &PlayerBusyError{}) {
 			return 0, err
 		}
+	}
+	if len(bots) >= MaxBots {
+		return 0, ErrTooManyBots
 	}
 	name := "Bot"
 	if len(bots) > 0 {

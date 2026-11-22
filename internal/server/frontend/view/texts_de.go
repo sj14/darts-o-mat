@@ -631,6 +631,10 @@ func (textsDE) ErrNoBots() string {
 	return "Bots spielen nur in Spielen, die ihr selbst anlegt, nicht in Spielen für Fremde und nicht in Turnieren."
 }
 func (textsDE) ErrBotBoard() string { return "Ein Bot wirft auf kein Board." }
+func (textsDE) BotThrows() string   { return "Der Bot wirft" }
+func (textsDE) ErrTooManyBots(max int) string {
+	return "Du kannst höchstens " + strconv.Itoa(max) + " Bots haben, und alle sitzen in Spielen."
+}
 func (textsDE) ErrBotSpread(min, max int) string {
 	return "Die Streuung eines Bots muss zwischen " + strconv.Itoa(min) + " und " + strconv.Itoa(max) + " mm liegen."
 }

@@ -188,6 +188,20 @@ func TestBullOff(t *testing.T) {
 	if tr.BullingOff() || tr.Player != 2 || len(played) != 0 {
 		t.Errorf("bulling off=%v player=%d, want player 2 to win the tie-break", tr.BullingOff(), tr.Player)
 	}
+
+	// A position next to a dart typed in by hand: the fields count. Missing the bull with
+	// a position isn't closer than missing it by hand, the hand's bull beats both.
+	tr = replay(at(30, 0), miss, at(0, 40))
+	if !tr.BullingOff() || tr.Player != 0 {
+		t.Errorf("bulling off=%v player=%d, want all three to throw again", tr.BullingOff(), tr.Player)
+	}
+	bullAt := func(x, y float64) throw.Dart {
+		return throw.Dart{Number: dartboard.BullNumber, Segment: dartboard.Bull, X: &x, Y: &y}
+	}
+	tr = replay(bullAt(3, 3), bull, at(30, 0))
+	if !tr.BullingOff() || tr.Player != 0 {
+		t.Errorf("bulling off=%v player=%d, want players 0 and 1 with a bull each to throw again", tr.BullingOff(), tr.Player)
+	}
 }
 
 func TestBullOffStartsLegs(t *testing.T) {

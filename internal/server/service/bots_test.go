@@ -315,3 +315,155 @@ func TestRematchWithBot(t *testing.T) {
 		}
 	}
 }
+
+// An account has at most MaxBots bots; a spread out of range makes none.
+func TestMaxBots(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newBotService(t)
+	anna := register(t, s, "anna")
+	id := lobbyWithBots(t, s, anna, x01Game())
+	if err := s.AddBot(ctx, anna, id, 0); !errors.Is(err, ErrBotSpread) {
+		t.Fatalf("spread 0: %v, want ErrBotSpread", err)
+	}
+	for range MaxBots {
+		if err := s.AddBot(ctx, anna, id, 20); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.AddBot(ctx, anna, id, 20); !errors.Is(err, ErrTooManyBots) {
+		t.Errorf("bot %d: %v, want ErrTooManyBots", MaxBots+1, err)
+	}
+	if bots, _ := s.store.ListBots(ctx, anna.ID); len(bots) != MaxBots {
+		t.Errorf("anna has %d bots, want %d", len(bots), MaxBots)
+	}
+}
+
+// The rematch takes any free bot, if the old one sits in another game by then.
+func TestRematchWithBusyBot(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newBotService(t)
+	anna := register(t, s, "anna")
+	g := game.Game{Settings: game.Settings{Mode: game.ModeX01, Rules: &x01.Settings{StartScore: 40, OutMode: x01.OutModeDouble}}}
+	id := lobbyWithBots(t, s, anna, g, 25)
+	if err := s.Start(ctx, anna, GameLobby(id)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddDart(ctx, anna, id, throw.Dart{Number: 20, Segment: dartboard.Double}); err != nil {
+		t.Fatal(err)
+	}
+	old := botsOf(gameView(t, s, id).Game)[0]
+
+	// Anna's guest plays against the same bot on another board, as the game is over.
+	guest, err := s.CreateGuest(ctx, anna, "Papa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := s.CreateGame(ctx, anna, x01Game(), guest.ID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddBot(ctx, anna, other.Game.ID, 30); err != nil {
+		t.Fatal(err)
+	}
+	if got := botsOf(gameView(t, s, other.Game.ID).Game); !slices.Equal(got, []int64{old}) {
+		t.Fatalf("bot of the other game %v, want the free one %d", got, old)
+	}
+
+	r, err := s.Rematch(ctx, anna, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bots := botsOf(r.Game)
+	if len(bots) != 1 || bots[0] == old {
+		t.Fatalf("rematch's bots %v, want another one than %d", bots, old)
+	}
+	if p, _ := r.Game.Participant(bots[0]); p.BotSpread != 25 {
+		t.Errorf("spread %d, want the old one 25", p.BotSpread)
+	}
+}
+
+// Taking out the last guest of an invited account takes its bots, not its invitation.
+func TestRemoveLastGuestKeepsInvitation(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newBotService(t)
+	anna, ben := register(t, s, "anna"), register(t, s, "ben")
+	befriend(t, s, anna, ben)
+	v, err := s.CreateGame(ctx, ben, x01Game(), 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Game.ID
+	if err := s.Invite(ctx, ben, GameLobby(id), "anna"); err != nil {
+		t.Fatal(err)
+	}
+	guest, err := s.CreateGuest(ctx, anna, "Papa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddPlayer(ctx, anna, GameLobby(id), guest.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddBot(ctx, anna, id, 20); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RemovePlayer(ctx, anna, GameLobby(id), guest.ID); err != nil {
+		t.Fatal(err)
+	}
+	g := gameView(t, s, id).Game
+	if len(botsOf(g)) != 0 {
+		t.Errorf("bots %v left in the lobby, want them gone with the guest", botsOf(g))
+	}
+	if p, ok := g.Participant(anna.PlayerID); !ok || p.Status != game.InvitationPending {
+		t.Errorf("anna's seat %+v, %v; want her invitation still pending", p, ok)
+	}
+}
+
+// Nobody enters, takes back or corrects a bot's darts, not even its owner: taking one back
+// would only let it throw again.
+func TestBotDartsAreTheBots(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newBotService(t)
+	s.botPause = time.Hour // the bot throws only when the test lets it
+	var offset atomic.Int64
+	s.now = func() time.Time { return time.Now().Add(time.Duration(offset.Load())) }
+	anna := register(t, s, "anna")
+	id := lobbyWithBots(t, s, anna, x01Game(), 20)
+	if err := s.Start(ctx, anna, GameLobby(id)); err != nil {
+		t.Fatal(err)
+	}
+	for range 3 {
+		if _, err := s.AddDart(ctx, anna, id, t20); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.AddDart(ctx, anna, id, t20); !errors.Is(err, ErrForbidden) {
+		t.Errorf("dart for the bot: %v, want ErrForbidden", err)
+	}
+
+	offset.Store(int64(2 * time.Hour))
+	s.turnTimer(id)
+	v, err := s.Game(ctx, anna, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	last := v.Darts[len(v.Darts)-1]
+	if !v.Game.IsBot(last.PlayerID) {
+		t.Fatalf("last entry %+v, want the bot's dart", last)
+	}
+	if v.MayUndo() || v.MayEdit(len(v.Darts)-1) {
+		t.Error("the bot's dart may be taken back or corrected")
+	}
+	if _, err := s.UndoDart(ctx, anna, id); !errors.Is(err, ErrForbidden) {
+		t.Errorf("undo the bot's dart: %v, want ErrForbidden", err)
+	}
+	if _, err := s.EditDart(ctx, anna, id, last.ID, t20); !errors.Is(err, ErrForbidden) {
+		t.Errorf("correct the bot's dart: %v, want ErrForbidden", err)
+	}
+	if !v.MayEdit(0) {
+		t.Error("anna can't correct her own dart anymore")
+	}
+}

@@ -113,6 +113,7 @@ func (s *Service) turnTimer(gameID int64) {
 		}
 		if err := s.moveBot(ctx, &g, v); err != nil {
 			log.Printf("bot of game %d: %v", gameID, err)
+			s.retryTurn(gameID)
 			return
 		}
 		s.notifyGame(g)
@@ -120,7 +121,22 @@ func (s *Service) turnTimer(gameID int64) {
 	}
 	if err := s.endTurn(ctx, g, v); err != nil {
 		log.Printf("end the turn of game %d: %v", gameID, err)
+		s.retryTurn(gameID)
 	}
+}
+
+// retryAfter is how long the turn timer waits to try again after it failed, e.g. the
+// database couldn't be reached: nothing else sets it again while nobody changes the game.
+const retryAfter = 5 * time.Second
+
+// retryTurn sets the game's turn timer to try again after retryAfter.
+func (s *Service) retryTurn(gameID int64) {
+	s.timersMu.Lock()
+	defer s.timersMu.Unlock()
+	if t := s.timers[gameID]; t != nil {
+		t.Stop()
+	}
+	s.timers[gameID] = time.AfterFunc(retryAfter, func() { s.turnTimer(gameID) })
 }
 
 // endTurn is what happens when the time for a turn is up: the turn is skipped, and after

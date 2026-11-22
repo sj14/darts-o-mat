@@ -212,9 +212,10 @@ type GameView struct {
 }
 
 // MayEdit reports whether the viewer may correct the entry of the log at index i: it is a
-// dart of one of their players.
+// dart of one of their players who isn't a bot. A bot's darts are like another account's
+// player's: taking one back would only let it throw again.
 func (v GameView) MayEdit(i int) bool {
-	return !v.Completed && i >= 0 && i < len(v.Darts) && v.Darts[i].IsDart() && v.IsMine(v.Darts[i].PlayerID)
+	return !v.Completed && i >= 0 && i < len(v.Darts) && v.Darts[i].IsDart() && v.IsMine(v.Darts[i].PlayerID) && !v.Game.IsBot(v.Darts[i].PlayerID)
 }
 
 // MayUndo reports whether the viewer may take back the last entry of the log: the last
@@ -409,15 +410,16 @@ func (s *Service) DecideBullOff(ctx context.Context, acc account.Account, gameID
 }
 
 // AddDart registers the next dart of a game, for the player who is up, who has to be one
-// of the account's (ErrForbidden otherwise: nobody enters darts for another account's
-// player; the cameras of a board do, see AddBoardDart). The dart is only stored if the
+// of the account's and not a bot (ErrForbidden otherwise: nobody enters darts for another
+// account's player, the cameras of a board do, see AddBoardDart; the server throws for a
+// bot). The dart is only stored if the
 // game accepts it; otherwise the error wraps dartboard.ErrInvalid or turn.ErrGameOver.
 // A missing multiplier counts as single. Positions only come from the cameras
 // (AddBoardDart), so a position given here is dropped.
 func (s *Service) AddDart(ctx context.Context, acc account.Account, gameID int64, d throw.Dart) (GameView, error) {
 	d.X, d.Y = nil, nil
 	return s.changeGame(ctx, "AddDart", acc, gameID, func(g *game.Game, v GameView) error {
-		if cur := v.Common().CurrentPlayerID; cur != nil && !v.IsMine(*cur) {
+		if cur := v.Common().CurrentPlayerID; cur != nil && (!v.IsMine(*cur) || v.Game.IsBot(*cur)) {
 			return ErrForbidden
 		}
 		if v.Common().WaitingForTakeout {

@@ -284,7 +284,22 @@ templ inputPanel(v service.GameView, p progress, editing *throw.Dart, adding, ke
 		if adding && !handEntry(v, p) {
 			@hideKeypadButton(v)
 		}
-		@dartInput(v, gameURL(v.Game.ID, "/darts"))
+		@botLock(v, p) {
+			@dartInput(v, gameURL(v.Game.ID, "/darts"))
+		}
+	}
+}
+
+// botLock shows the input of darts locked while a bot is up, so the page keeps its layout
+// (see handEntry) but nobody enters the bot's darts: the server throws them.
+templ botLock(v service.GameView, p progress) {
+	if botUp(v, p) {
+		<fieldset disabled class="opacity-40" title={ T(ctx).BotThrows() }>
+			<legend class="sr-only">{ T(ctx).BotThrows() }</legend>
+			{ children... }
+		</fieldset>
+	} else {
+		{ children... }
 	}
 }
 
@@ -1075,13 +1090,15 @@ templ bullOffPanel(v service.GameView, p progress, keypad bool) {
 		if !handEntry(v, p) {
 			@hideKeypadButton(v)
 		}
-		<div class="grid grid-cols-3 gap-2">
-			@quickDart(action, dartboard.BullNumber, dartboard.Bullseye, T(ctx).Bullseye(), false, "1.875rem", "h-20 bg-board-red shadow-board-red/40")
-			@quickDart(action, dartboard.BullNumber, dartboard.Bull, T(ctx).Bull(), false, "1.875rem", "h-20 bg-board-green shadow-board-green/40")
-			<form hx-post={ action } hx-target="#board" hx-swap="outerHTML">
-				<button type="submit" name="miss" value="true" class="@container h-20 w-full rounded-2xl bg-pub-700 px-2 font-number font-extrabold uppercase text-white/80 shadow-lg transition hover:bg-pub-700/70 active:scale-95">@fitText(T(ctx).Miss(), "1.875rem")</button>
-			</form>
-		</div>
+		@botLock(v, p) {
+			<div class="grid grid-cols-3 gap-2">
+				@quickDart(action, dartboard.BullNumber, dartboard.Bullseye, T(ctx).Bullseye(), false, "1.875rem", "h-20 bg-board-red shadow-board-red/40")
+				@quickDart(action, dartboard.BullNumber, dartboard.Bull, T(ctx).Bull(), false, "1.875rem", "h-20 bg-board-green shadow-board-green/40")
+				<form hx-post={ action } hx-target="#board" hx-swap="outerHTML">
+					<button type="submit" name="miss" value="true" class="@container h-20 w-full rounded-2xl bg-pub-700 px-2 font-number font-extrabold uppercase text-white/80 shadow-lg transition hover:bg-pub-700/70 active:scale-95">@fitText(T(ctx).Miss(), "1.875rem")</button>
+				</form>
+			</div>
+		}
 	}
 }
 

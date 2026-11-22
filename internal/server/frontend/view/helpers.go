@@ -643,8 +643,9 @@ func handEntry(v service.GameView, p progress) bool {
 		return false
 	}
 	if v.Game.IsBot(*p.CurrentPlayerID) {
-		// A bot's turn keeps the layout: the keypad stays where nobody throws on a board.
-		return !v.HasBoard()
+		// A bot's turn keeps the layout: the keypad stays where nobody throws on a board,
+		// for an account still in the game (its bot may play on after it was skipped out).
+		return v.CanThrow && !v.HasBoard()
 	}
 	return !v.HasCamera(*p.CurrentPlayerID)
 }
@@ -894,6 +895,11 @@ func botStrength(t Texts, mode game.Mode, spread int) string {
 		return t.BotMPR(strength)
 	}
 	return t.BotAverage(strength)
+}
+
+// botUp reports whether a bot is up: the server throws for it, nobody enters its darts.
+func botUp(v service.GameView, p progress) bool {
+	return p.CurrentPlayerID != nil && v.Game.IsBot(*p.CurrentPlayerID)
 }
 
 // hintSpreads are the spreads the form for a bot gives as examples.

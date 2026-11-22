@@ -94,6 +94,12 @@ func TestHandEntry(t *testing.T) {
 			t.Errorf("%s: mayAddDart = %v, want %v", tt.name, got, tt.add)
 		}
 	}
+
+	// An account whose player was skipped out doesn't enter darts for its bot.
+	left := with(bot(players(nil, nil, nil)), anna, guest)
+	if handEntry(left, progress(guest)) {
+		t.Error("keypad for the bot of an account that can't throw anymore")
+	}
 }
 
 func TestLastTurnOf(t *testing.T) {
