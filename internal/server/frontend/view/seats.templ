@@ -5,6 +5,7 @@ import (
 
 	"github.com/sj14/darts-o-mat/internal/server/domain/board"
 	"github.com/sj14/darts-o-mat/internal/server/domain/bot"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/tournament"
 )
 
@@ -68,7 +69,7 @@ templ lobbySeatRow(m lobbyModel, s lobbySeat) {
 		<span class="font-display text-2xl font-semibold">
 			{ displayName(ctx, s.player) }
 			if s.botSpread > 0 {
-				<span class="font-sans text-sm font-normal text-white/50">{ T(ctx).BotMark(s.botSpread, botStrength(T(ctx), m.mode, s.botSpread)) }</span>
+				<span class="font-sans text-sm font-normal text-white/50">{ T(ctx).BotMark(spreadMM(T(ctx), s.botSpread), botStrength(T(ctx), m.mode, s.botSpread)) }</span>
 			} else if s.player.IsGuest() {
 				<span class="font-sans text-sm font-normal text-white/50">{ T(ctx).GuestMark() }</span>
 			}
@@ -175,24 +176,46 @@ templ lobbyAdd(m lobbyModel) {
 	}
 }
 
-// botAdd adds a bot with the spread of its darts in mm.
+// botAdd adds a bot with the strength chosen on a slider: the spread of its darts on a log
+// scale from the weakest to the strongest. The strength it plays follows the slider live
+// (htmx asks the server, which owns the table), one request at a time and then the latest
+// position (hx-sync), so it follows while dragging and ends at the right value. The form
+// sends the slider's position and keeps it when the lobby is swapped in live (hx-preserve).
+// autocomplete="off": the browser would restore the slider's old position on a reload or Back,
+// but not the value shown next to it.
 templ botAdd(m lobbyModel) {
-	<form method="post" action={ templ.URL(m.url("/bots")) } class="flex flex-col gap-1">
-		<span class="flex flex-wrap items-center gap-2">
-			<label class="flex items-center gap-2 text-sm text-white/70">
-				{ T(ctx).BotSpread() }
-				<input
-					type="number"
-					name="spread"
-					required
-					min={ strconv.Itoa(bot.MinSpread) }
-					max={ strconv.Itoa(bot.MaxSpread) }
-					value={ strconv.Itoa(bot.DefaultSpread) }
-					class={ inputClass, "w-24!" }
-				/>
-			</label>
-			<button type="submit" class={ btnSecondary }>{ T(ctx).AddBot() }</button>
-		</span>
-		<span class={ hintClass }>{ T(ctx).BotSpreadHint(botStrengths(T(ctx), m.mode)) }</span>
+	<form id="bot-add" hx-preserve="true" method="post" action={ templ.URL(m.url("/bots")) } class="flex w-full flex-col gap-2">
+		<button type="submit" class={ btnSecondary, "self-start" }>{ T(ctx).AddBot() }</button>
+		<label class="flex flex-col gap-1 text-sm text-white/70" for="bot-strength">
+			<span class="flex flex-wrap items-baseline justify-between gap-2">
+				{ T(ctx).BotStrength() }
+				<output id="bot-strength-value" for="bot-strength" aria-live="polite" class="font-number text-base text-white">
+					@BotStrengthValue(m.mode, bot.Position(bot.DefaultSpread))
+				</output>
+			</span>
+			<input
+				type="range"
+				id="bot-strength"
+				name="position"
+				min="0"
+				max={ strconv.Itoa(bot.SliderSteps) }
+				step="1"
+				autocomplete="off"
+				value={ strconv.Itoa(bot.Position(bot.DefaultSpread)) }
+				class="slider w-full text-emerald-300"
+				hx-get={ "/bots/strength?mode=" + string(m.mode) }
+				hx-trigger="input changed"
+				hx-sync="this:queue last"
+				hx-target="#bot-strength-value"
+				hx-swap="innerHTML"
+			/>
+		</label>
 	</form>
+}
+
+// BotStrengthValue is what a bot at the slider's position plays in the mode, with its
+// spread: "12.5 mm ≈ 63 average". The lobby shows it and htmx swaps in the answer to the
+// slider's changes.
+templ BotStrengthValue(mode game.Mode, position int) {
+	{ botSliderValue(T(ctx), mode, position) }
 }

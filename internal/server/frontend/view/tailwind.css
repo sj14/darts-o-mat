@@ -211,6 +211,45 @@
     0 0 0.6em rgb(11 12 15 / 0.35);
 }
 
+/* slider is a range input with a thin track and a round thumb in the text color. The thumb
+   is as large as the browser's own (1rem), which can't have a thinner track. WebKit and
+   Firefox each need their own rules: a browser drops a rule with a selector it doesn't know. */
+@utility slider {
+  height: 1rem;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+
+  &::-webkit-slider-runnable-track {
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: color-mix(in oklab, currentColor 40%, transparent);
+  }
+
+  &::-webkit-slider-thumb {
+    width: 1rem;
+    height: 1rem;
+    margin-top: -0.375rem; /* centers it on the track */
+    appearance: none;
+    border-radius: 9999px;
+    background: currentColor;
+  }
+
+  &::-moz-range-track {
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: color-mix(in oklab, currentColor 40%, transparent);
+  }
+
+  &::-moz-range-thumb {
+    width: 1rem;
+    height: 1rem;
+    border: none;
+    border-radius: 9999px;
+    background: currentColor;
+  }
+}
+
 /* The effects of the log's last entry play only on a fresh board (data-fresh, see sounds.js). */
 #board:not([data-fresh]) .effect-transient {
   display: none;

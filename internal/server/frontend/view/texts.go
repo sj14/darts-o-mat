@@ -430,15 +430,14 @@ type Texts interface {
 	AgainstPeople() string
 	AgainstBots() string
 	Opponents() string
-	BotSpread() string
-	BotSpreadHint(examples string) string
-	BotMark(spread int, strength string) string
+	BotStrength() string
+	BotMark(spread, strength string) string
 	BotAverage(average float64) string
 	BotHitRate(rate float64) string
 	BotMPR(mpr float64) string
 	ErrNoBots() string
 	ErrBotBoard() string
-	ErrBotSpread(min, max int) string
+	ErrBotSpread(min, max float64) string
 	ErrTooManyBots(max int) string
 	BotThrows() string
 	Invite() string

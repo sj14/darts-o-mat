@@ -28,10 +28,11 @@ func TestBotAPI(t *testing.T) {
 	id := strconv.Itoa(int(created["game"].(map[string]any)["id"].(float64)))
 
 	anna.expect(http.StatusBadRequest, "POST", "/games/"+id+"/bots", `{"spread": 0}`)
-	v := anna.expect(http.StatusOK, "POST", "/games/"+id+"/bots", `{"spread": 18}`)
+	anna.expect(http.StatusBadRequest, "POST", "/games/"+id+"/bots", `{"spread": 3.9}`)
+	v := anna.expect(http.StatusOK, "POST", "/games/"+id+"/bots", `{"spread": 12.5}`)
 	participants := v["game"].(map[string]any)["participants"].([]any)
-	if len(participants) != 2 || participants[1].(map[string]any)["bot_spread"] != 18.0 {
-		t.Fatalf("participants %v, want anna and a bot with a spread of 18", participants)
+	if len(participants) != 2 || participants[1].(map[string]any)["bot_spread"] != 12.5 {
+		t.Fatalf("participants %v, want anna and a bot with a spread of 12.5", participants)
 	}
 	if players := v["players"].([]any); players[1].(map[string]any)["bot"] != true {
 		t.Errorf("second player %v, want a bot", players[1])

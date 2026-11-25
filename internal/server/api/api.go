@@ -528,14 +528,14 @@ func (a *API) useBoard(w http.ResponseWriter, r *http.Request) {
 }
 
 // addBot seats a bot of the account in the lobby of a game, with the spread of its darts in
-// mm ({"spread": 20}), and answers with the game.
+// mm, to a tenth ({"spread": 12.5}), and answers with the game.
 func (a *API) addBot(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
 	}
 	var req struct {
-		Spread int `json:"spread"`
+		Spread game.Spread `json:"spread"`
 	}
 	if !decode(w, r, &req) {
 		return

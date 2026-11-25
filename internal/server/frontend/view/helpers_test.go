@@ -10,6 +10,7 @@ import (
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
 	"github.com/sj14/darts-o-mat/internal/common/i18n"
 	"github.com/sj14/darts-o-mat/internal/server/domain/board"
+	"github.com/sj14/darts-o-mat/internal/server/domain/bot"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/cricket"
 	"github.com/sj14/darts-o-mat/internal/server/domain/game/turn"
@@ -61,7 +62,7 @@ func TestHandEntry(t *testing.T) {
 		return v
 	}
 	bot := func(v service.GameView) service.GameView { // the guest is a bot
-		v.Game.Participants[1].BotSpread = 20
+		v.Game.Participants[1].BotSpread = 200
 		return v
 	}
 	with := func(v service.GameView, mine ...int64) service.GameView {
@@ -110,7 +111,7 @@ func TestBoardAction(t *testing.T) {
 	v.Game.Participants = []game.Participant{
 		{PlayerID: anna, Status: game.InvitationAccepted},
 		{PlayerID: ben, Status: game.InvitationAccepted, BoardID: &board},
-		{PlayerID: robo, Status: game.InvitationAccepted, BotSpread: 20},
+		{PlayerID: robo, Status: game.InvitationAccepted, BotSpread: 200},
 	}
 	withCamera := v
 	withCamera.Mine = []int64{ben}
@@ -317,5 +318,25 @@ func TestBoardTargetsOfCricket(t *testing.T) {
 	}
 	if !isBoardTarget(want, "19") || isBoardTarget(want, "20") {
 		t.Error("isBoardTarget doesn't match the numbers printed around the board")
+	}
+}
+
+// A bot's spread is shown with a tenth of a mm in the language's number format, also next to
+// the slider that chooses it.
+func TestBotSpreadText(t *testing.T) {
+	t.Parallel()
+	en, de := textsOf(i18n.English), textsOf(i18n.German)
+	if got := spreadMM(en, 125); got != "12.5 mm" {
+		t.Errorf("English %q, want 12.5 mm", got)
+	}
+	if got := spreadMM(de, 125); got != "12,5 mm" {
+		t.Errorf("German %q, want 12,5 mm", got)
+	}
+	got := botSliderValue(en, game.ModeX01, bot.Position(bot.DefaultSpread))
+	if want := "20.0 mm " + botStrength(en, game.ModeX01, bot.DefaultSpread); got != want {
+		t.Errorf("slider at the default shows %q, want %q", got, want)
+	}
+	if got := botSliderValue(en, game.ModeX01, 0); !strings.HasPrefix(got, "80.0 mm") {
+		t.Errorf("slider at the left end shows %q, want the weakest, 80 mm", got)
 	}
 }

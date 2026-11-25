@@ -57,14 +57,14 @@ func (p progress) isWinner(playerID int64) bool {
 }
 
 // playerName is the name of a player of the game as the game page shows it; a bot's with
-// its spread in this game, "Bot (20 mm)".
+// its spread in this game, "Bot (20.0 mm)".
 func playerName(ctx context.Context, v service.GameView, id int64) string {
 	for _, p := range v.Players {
 		if p.ID != id {
 			continue
 		}
 		if seat, _ := v.Game.Participant(id); seat.BotSpread > 0 {
-			return displayName(ctx, p) + " (" + strconv.Itoa(seat.BotSpread) + " mm)"
+			return displayName(ctx, p) + " (" + spreadMM(T(ctx), seat.BotSpread) + ")"
 		}
 		return displayName(ctx, p)
 	}
@@ -959,7 +959,7 @@ func showMode(selected, m game.Mode) bool {
 // botStrength is about what a bot with the spread plays in the mode, the way the
 // statistics count it: the average in X01, the hit rate in around the clock, the MPR in
 // cricket (bot.Strength).
-func botStrength(t Texts, mode game.Mode, spread int) string {
+func botStrength(t Texts, mode game.Mode, spread game.Spread) string {
 	strength := bot.Strength(mode, spread)
 	switch mode {
 	case game.ModeAroundTheClock:
@@ -975,16 +975,16 @@ func botUp(v service.GameView, p progress) bool {
 	return p.CurrentPlayerID != nil && v.Game.IsBot(*p.CurrentPlayerID)
 }
 
-// hintSpreads are the spreads the form for a bot gives as examples.
-var hintSpreads = []int{8, 15, 25, 40}
+// spreadMM is a bot's spread in mm, to a tenth, in the language: "12.5 mm".
+func spreadMM(t Texts, spread game.Spread) string {
+	return t.Decimal(spread.MM()) + " mm"
+}
 
-// botStrengths lists what the spreads of hintSpreads play in the mode, for the form.
-func botStrengths(t Texts, mode game.Mode) string {
-	var examples []string
-	for _, spread := range hintSpreads {
-		examples = append(examples, strconv.Itoa(spread)+" mm "+botStrength(t, mode, spread))
-	}
-	return strings.Join(examples, ", ")
+// botSliderValue is what the slider that chooses a bot's strength shows for its position:
+// the spread and about what it plays in the mode, "12.5 mm ≈ 63 average".
+func botSliderValue(t Texts, mode game.Mode, position int) string {
+	spread := bot.SpreadAt(position)
+	return spreadMM(t, spread) + " " + botStrength(t, mode, spread)
 }
 
 // statsURL is the statistics page narrowed down to a mode (empty for all) and opponents.

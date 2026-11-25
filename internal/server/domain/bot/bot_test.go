@@ -64,7 +64,7 @@ func TestStrengths(t *testing.T) {
 					failed = true
 				}
 				if i > 0 && strengths[settings.Mode][i] > strengths[settings.Mode][i-1] {
-					t.Errorf("%d mm plays better than %d mm in the table", spread, strengthSpreads[i-1])
+					t.Errorf("%v mm plays better than %v mm in the table", spread.MM(), strengthSpreads[i-1].MM())
 				}
 			}
 			if failed {
@@ -77,28 +77,75 @@ func TestStrengths(t *testing.T) {
 // TestStrength interpolates between the spreads measured.
 func TestStrength(t *testing.T) {
 	t.Parallel()
-	for _, spread := range []int{MinSpread, 4, 7, 20, 79, MaxSpread} {
+	for _, spread := range []game.Spread{MinSpread, 40, 65, 200, 790, MaxSpread} {
 		got := Strength(game.ModeX01, spread)
 		if i := slices.Index(strengthSpreads, spread); i >= 0 && got != strengths[game.ModeX01][i] {
-			t.Errorf("%d mm: %.2f, want the table's %.2f", spread, got, strengths[game.ModeX01][i])
+			t.Errorf("%v mm: %.2f, want the table's %.2f", spread.MM(), got, strengths[game.ModeX01][i])
 		}
 		if got < Strength(game.ModeX01, MaxSpread) || got > Strength(game.ModeX01, MinSpread) {
-			t.Errorf("%d mm: %.2f, outside the table", spread, got)
+			t.Errorf("%v mm: %.2f, outside the table", spread.MM(), got)
 		}
 	}
-	if a, b, c := Strength(game.ModeX01, 6), Strength(game.ModeX01, 7), Strength(game.ModeX01, 8); b < c || b > a {
-		t.Errorf("7 mm plays %.2f, not between 6 mm (%.2f) and 8 mm (%.2f)", b, a, c)
+	if a, b, c := Strength(game.ModeX01, 60), Strength(game.ModeX01, 65), Strength(game.ModeX01, 70); b < c || b > a {
+		t.Errorf("6.5 mm plays %.2f, not between 6 mm (%.2f) and 7 mm (%.2f)", b, a, c)
 	}
+}
+
+// The slider runs from the weakest to the strongest spread, steadily, and Position is the
+// inverse of SpreadAt.
+func TestSlider(t *testing.T) {
+	t.Parallel()
+	if got := SpreadAt(0); got != MaxSpread {
+		t.Errorf("left end %v, want %v", got, MaxSpread)
+	}
+	if got := SpreadAt(SliderSteps); got != MinSpread {
+		t.Errorf("right end %v, want %v", got, MinSpread)
+	}
+	if SpreadAt(-5) != MaxSpread || SpreadAt(SliderSteps+5) != MinSpread {
+		t.Error("positions outside the slider aren't clamped to its ends")
+	}
+	if got := Position(DefaultSpread); SpreadAt(got) != DefaultSpread {
+		t.Errorf("default spread at position %d is %v, want %v", got, SpreadAt(got), DefaultSpread)
+	}
+	for pos := range SliderSteps + 1 {
+		if got := Position(SpreadAt(pos)); math.Abs(float64(got-pos)) > 8 {
+			// A tenth is coarse for the strong end (4 mm = 40 tenths), so the position is only
+			// about the same there.
+			t.Errorf("position %d (%v) comes back as %d", pos, SpreadAt(pos), got)
+		}
+		if pos > 0 && SpreadAt(pos) > SpreadAt(pos-1) {
+			t.Errorf("position %d (%v) is weaker than %d (%v)", pos, SpreadAt(pos), pos-1, SpreadAt(pos-1))
+		}
+	}
+	if err := CheckSpread(MinSpread - 1); err == nil {
+		t.Error("less than the smallest spread isn't refused")
+	}
+	if err := CheckSpread(MaxSpread + 1); err == nil {
+		t.Error("more than the largest spread isn't refused")
+	}
+}
+
+// strengthLegs is how many legs TestStrengths lets a bot play with the spread. A strong bot
+// finishes a leg in few darts, so it plays more of them to be as certain as a weak one,
+// whose legs take up to 200 darts and, as every dart replays the leg, a lot of time.
+func strengthLegs(spread game.Spread) int {
+	switch {
+	case spread <= 150:
+		return 400
+	case spread <= 300:
+		return 80
+	}
+	return 40
 }
 
 // measure lets a bot with the spread play legs alone and returns how it played, as the
 // statistics count it over all its darts: the 3-dart average, the share of hits or the
 // marks per round.
-func measure(t *testing.T, r *rand.Rand, settings game.Settings, spread int) float64 {
+func measure(t *testing.T, r *rand.Rand, settings game.Settings, spread game.Spread) float64 {
 	t.Helper()
 	g := game.Game{Settings: settings, Participants: []game.Participant{{PlayerID: 1, BotSpread: spread}}}
 	var darts, score int
-	for range 50 {
+	for range strengthLegs(spread) {
 		switch st := playLeg(t, r, g).(type) {
 		case x01.State:
 			darts, score = darts+st.Players[0].Stats.Darts, score+int(st.Players[0].Stats.Points)

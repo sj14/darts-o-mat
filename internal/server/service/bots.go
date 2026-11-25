@@ -24,7 +24,7 @@ var (
 	// ErrBotBoard means a bot was to be put on a board: it throws on none.
 	ErrBotBoard = fmt.Errorf("%w: a bot throws on no board", ErrInvalid)
 	// ErrBotSpread means the spread of a bot is outside bot.MinSpread to bot.MaxSpread.
-	ErrBotSpread = fmt.Errorf("%w: a bot's spread must be between %d and %d mm", ErrInvalid, bot.MinSpread, bot.MaxSpread)
+	ErrBotSpread = fmt.Errorf("%w: a bot's spread must be between %v and %v mm", ErrInvalid, bot.MinSpread.MM(), bot.MaxSpread.MM())
 	// ErrTooManyBots means all MaxBots bots of the account are seated: no other one is made.
 	ErrTooManyBots = fmt.Errorf("%w: at most %d bots", ErrInvalid, MaxBots)
 )
@@ -34,10 +34,10 @@ var (
 const MaxBots = 5
 
 // AddBot seats a bot of the account in the lobby of a game it plays in, with the spread
-// of its darts in mm (bot.Throw). It takes a bot of the account that has no seat right
+// of its darts (bot.Throw). It takes a bot of the account that has no seat right
 // now and makes another one only if all are seated, so an account keeps only as many bots
 // as it needed at once.
-func (s *Service) AddBot(ctx context.Context, acc account.Account, gameID int64, spread int) error {
+func (s *Service) AddBot(ctx context.Context, acc account.Account, gameID int64, spread game.Spread) error {
 	unlock, err := s.lock(ctx, "AddBot")
 	if err != nil {
 		return err

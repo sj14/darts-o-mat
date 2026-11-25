@@ -3,7 +3,9 @@ package game
 import (
 	"errors"
 	"fmt"
+	"math"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/sj14/darts-o-mat/internal/common/dartboard"
@@ -155,11 +157,39 @@ type Participant struct {
 	// BoardID is the board the player throws on: its cameras report their darts. Nil: they
 	// enter their darts by hand.
 	BoardID *int64 `json:"board_id,omitempty"`
-	// BotSpread is how far a bot's darts land from where it aims, in mm (the standard
-	// deviation per direction); 0 for a player who isn't a bot. It belongs to the seat, so
-	// a bot plays each game at the strength chosen for it.
-	BotSpread int       `bun:",notnull,default:0" json:"bot_spread,omitempty"`
+	// BotSpread is how far a bot's darts land from where it aims (the standard deviation per
+	// direction); 0 for a player who isn't a bot. It belongs to the seat, so a bot plays
+	// each game at the strength chosen for it.
+	BotSpread Spread    `bun:",notnull,default:0" json:"bot_spread,omitempty"`
 	CreatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"-"`
+}
+
+// Spread is how far a bot's darts land from where it aims, in tenths of a mm (125 is
+// 12.5 mm); 0 is no bot. In JSON it is the decimal number of mm.
+type Spread int
+
+// MM returns the spread in mm.
+func (s Spread) MM() float64 { return float64(s) / 10 }
+
+// MarshalJSON writes the spread as the decimal number of mm.
+func (s Spread) MarshalJSON() ([]byte, error) {
+	return strconv.AppendFloat(nil, s.MM(), 'f', -1, 64), nil
+}
+
+// UnmarshalJSON reads the decimal number of mm, rounded to the nearest tenth.
+func (s *Spread) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+	mm, err := strconv.ParseFloat(string(data), 64)
+	if err != nil {
+		return fmt.Errorf("a spread is a number of mm: %w", err)
+	}
+	if math.Abs(mm) > math.MaxInt32/10 {
+		return fmt.Errorf("a spread of %v mm is out of range", mm)
+	}
+	*s = Spread(math.Round(mm * 10))
+	return nil
 }
 
 // Game holds what is needed to replay a game: its settings and the players in throwing

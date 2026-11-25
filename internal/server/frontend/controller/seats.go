@@ -10,6 +10,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/sj14/darts-o-mat/internal/server/auth"
 	"github.com/sj14/darts-o-mat/internal/server/domain/account"
+	"github.com/sj14/darts-o-mat/internal/server/domain/bot"
+	"github.com/sj14/darts-o-mat/internal/server/domain/game"
 	"github.com/sj14/darts-o-mat/internal/server/frontend/view"
 	"github.com/sj14/darts-o-mat/internal/server/service"
 )
@@ -78,21 +80,34 @@ func (c *Controller) lobbyRoutes(r chi.Router, prefix string, ref func(int64) se
 	}))
 }
 
-// addBot seats a bot in the lobby of a game, with the spread of the form, and goes back to
-// the game's page like the other changes of a lobby.
+// addBot seats a bot in the lobby of a game, with the spread of the form's slider
+// position, and goes back to the game's page like the other changes of a lobby.
 func (c *Controller) addBot(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlID(w, r, "id")
 	if !ok {
 		return
 	}
 	l := service.GameLobby(id)
-	spread, err := strconv.Atoi(r.FormValue("spread"))
+	position, err := strconv.Atoi(r.FormValue("position"))
 	if err != nil {
 		err = service.ErrBotSpread
 	} else {
-		err = c.svc.AddBot(r.Context(), auth.Account(r.Context()), id, spread)
+		err = c.svc.AddBot(r.Context(), auth.Account(r.Context()), id, bot.SpreadAt(position))
 	}
 	c.respondLobby(w, r, l, err, false)
+}
+
+// showBotStrength answers the slider of the form to add a bot: the spread at its position
+// and what it plays in the mode, both sent with the request: it doesn't load the game, each
+// request costs only the login check.
+func (c *Controller) showBotStrength(w http.ResponseWriter, r *http.Request) {
+	mode := game.Mode(r.FormValue("mode"))
+	position, err := strconv.Atoi(r.FormValue("position"))
+	if err != nil || game.NewRules(mode) == nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	render(w, r, http.StatusOK, view.BotStrengthValue(mode, position))
 }
 
 // playerFromForm reads the player to add to a lobby: a guest made of the name entered, or

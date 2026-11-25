@@ -634,12 +634,9 @@ func (textsEN) AddBot() string          { return "Add bot" }
 func (textsEN) AgainstPeople() string   { return "Against people" }
 func (textsEN) AgainstBots() string     { return "Against bots" }
 func (textsEN) Opponents() string       { return "Opponents" }
-func (textsEN) BotSpread() string       { return "Spread in mm" }
-func (textsEN) BotSpreadHint(examples string) string {
-	return "How far the bot's darts land from where it aims: the smaller, the stronger. In this mode about " + examples + "."
-}
-func (textsEN) BotMark(spread int, strength string) string {
-	return "(bot, " + strconv.Itoa(spread) + " mm, " + strength + ")"
+func (textsEN) BotStrength() string     { return "Strength" }
+func (textsEN) BotMark(spread, strength string) string {
+	return "(bot, " + spread + ", " + strength + ")"
 }
 func (t textsEN) BotAverage(average float64) string {
 	return "≈ " + strconv.Itoa(int(math.Round(average))) + " average"
@@ -654,8 +651,8 @@ func (textsEN) BotThrows() string   { return "The bot throws" }
 func (textsEN) ErrTooManyBots(max int) string {
 	return "You can have at most " + strconv.Itoa(max) + " bots, and all of them are in games."
 }
-func (textsEN) ErrBotSpread(min, max int) string {
-	return "A bot's spread must be between " + strconv.Itoa(min) + " and " + strconv.Itoa(max) + " mm."
+func (t textsEN) ErrBotSpread(min, max float64) string {
+	return "A bot's spread must be between " + t.Decimal(min) + " and " + t.Decimal(max) + " mm."
 }
 func (textsEN) Invite() string          { return "Invite" }
 func (textsEN) RemoveFromLobby() string { return "Remove" }

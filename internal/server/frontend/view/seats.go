@@ -36,8 +36,8 @@ type lobbySeat struct {
 	mine    bool   // one of the viewer's players
 	boardID *int64 // the board they throw on, nil for none
 	board   string // its name, if the viewer knows it
-	// botSpread is the spread of a bot's darts in mm, 0 for a player who isn't a bot.
-	botSpread int
+	// botSpread is the spread of a bot's darts, 0 for a player who isn't a bot.
+	botSpread game.Spread
 }
 
 func gameLobby(t Texts, v service.GameView) lobbyModel {
