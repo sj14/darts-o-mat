@@ -63,8 +63,8 @@ func playerName(ctx context.Context, v service.GameView, id int64) string {
 		if p.ID != id {
 			continue
 		}
-		if seat, _ := v.Game.Participant(id); seat.BotSpread > 0 {
-			return displayName(ctx, p) + " (" + spreadMM(T(ctx), seat.BotSpread) + ")"
+		if seat, _ := v.Game.Participant(id); seat.BotSpreadUM > 0 {
+			return displayName(ctx, p) + " (" + spreadMM(T(ctx), seat.BotSpreadUM) + ")"
 		}
 		return displayName(ctx, p)
 	}
@@ -959,8 +959,8 @@ func showMode(selected, m game.Mode) bool {
 // botStrength is about what a bot with the spread plays in the mode, the way the
 // statistics count it: the average in X01, the hit rate in around the clock, the MPR in
 // cricket (bot.Strength).
-func botStrength(t Texts, mode game.Mode, spread game.Spread) string {
-	strength := bot.Strength(mode, spread)
+func botStrength(t Texts, mode game.Mode, spreadUM int) string {
+	strength := bot.Strength(mode, spreadUM)
 	switch mode {
 	case game.ModeAroundTheClock:
 		return t.BotHitRate(strength)
@@ -976,15 +976,15 @@ func botUp(v service.GameView, p progress) bool {
 }
 
 // spreadMM is a bot's spread in mm, to a tenth, in the language: "12.5 mm".
-func spreadMM(t Texts, spread game.Spread) string {
-	return t.Decimal(spread.MM()) + " mm"
+func spreadMM(t Texts, spreadUM int) string {
+	return t.Decimal(float64(spreadUM)/1000) + " mm"
 }
 
 // botSliderValue is what the slider that chooses a bot's strength shows for its position:
 // the spread and about what it plays in the mode, "12.5 mm ≈ 63 average".
 func botSliderValue(t Texts, mode game.Mode, position int) string {
-	spread := bot.SpreadAt(position)
-	return spreadMM(t, spread) + " " + botStrength(t, mode, spread)
+	spreadUM := bot.SpreadAt(position)
+	return spreadMM(t, spreadUM) + " " + botStrength(t, mode, spreadUM)
 }
 
 // statsURL is the statistics page narrowed down to a mode (empty for all) and opponents.

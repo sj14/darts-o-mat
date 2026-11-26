@@ -36,8 +36,8 @@ type lobbySeat struct {
 	mine    bool   // one of the viewer's players
 	boardID *int64 // the board they throw on, nil for none
 	board   string // its name, if the viewer knows it
-	// botSpread is the spread of a bot's darts, 0 for a player who isn't a bot.
-	botSpread game.Spread
+	// botSpreadUM is the spread of a bot's darts in µm, 0 for a player who isn't a bot.
+	botSpreadUM int
 }
 
 func gameLobby(t Texts, v service.GameView) lobbyModel {
@@ -45,7 +45,7 @@ func gameLobby(t Texts, v service.GameView) lobbyModel {
 	m.bots, m.mode = m.canPlay && !m.Open(), v.Game.Mode
 	for _, p := range v.Players {
 		seat, _ := v.Game.Participant(p.ID)
-		m.seats = append(m.seats, lobbySeat{player: p, pending: v.Pending(p.ID), mine: v.IsMine(p.ID), boardID: seat.BoardID, board: v.BoardNames[p.ID], botSpread: seat.BotSpread})
+		m.seats = append(m.seats, lobbySeat{player: p, pending: v.Pending(p.ID), mine: v.IsMine(p.ID), boardID: seat.BoardID, board: v.BoardNames[p.ID], botSpreadUM: seat.BotSpreadUM})
 	}
 	return m
 }
@@ -76,11 +76,11 @@ func (m lobbyModel) url(suffix string) string {
 // lastOfMine reports whether the seat is the viewer's only player in the lobby who isn't a
 // bot: taking it out leaves, with the viewer's bots.
 func (m lobbyModel) lastOfMine(s lobbySeat) bool {
-	if s.botSpread > 0 {
+	if s.botSpreadUM > 0 {
 		return false
 	}
 	for _, o := range m.seats {
-		if o.mine && !o.pending && o.botSpread == 0 && o.player.ID != s.player.ID {
+		if o.mine && !o.pending && o.botSpreadUM == 0 && o.player.ID != s.player.ID {
 			return false
 		}
 	}

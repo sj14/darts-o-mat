@@ -71,16 +71,16 @@ func (s *botSite) do(method, target string, form url.Values) *httptest.ResponseR
 }
 
 // spreads returns the bots' spreads in the game's lobby.
-func (s *botSite) spreads(t *testing.T) []game.Spread {
+func (s *botSite) spreads(t *testing.T) []int {
 	t.Helper()
 	v, err := s.svc.Game(context.Background(), s.acc, s.gameID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var spreads []game.Spread
+	var spreads []int
 	for _, p := range v.Game.Participants {
-		if p.BotSpread > 0 {
-			spreads = append(spreads, p.BotSpread)
+		if p.BotSpreadUM > 0 {
+			spreads = append(spreads, p.BotSpreadUM)
 		}
 	}
 	return spreads
@@ -107,7 +107,7 @@ func TestAddBotFromForm(t *testing.T) {
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("valid position: %d, want 303", w.Code)
 	}
-	if got, want := s.spreads(t), []game.Spread{bot.SpreadAt(500)}; len(got) != 1 || got[0] != want[0] {
+	if got, want := s.spreads(t), []int{bot.SpreadAt(500)}; len(got) != 1 || got[0] != want[0] {
 		t.Errorf("bots %v, want %v", got, want)
 	}
 }

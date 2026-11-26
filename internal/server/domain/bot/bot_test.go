@@ -64,7 +64,7 @@ func TestStrengths(t *testing.T) {
 					failed = true
 				}
 				if i > 0 && strengths[settings.Mode][i] > strengths[settings.Mode][i-1] {
-					t.Errorf("%v mm plays better than %v mm in the table", spread.MM(), strengthSpreads[i-1].MM())
+					t.Errorf("%d µm plays better than %d µm in the table", spread, strengthSpreads[i-1])
 				}
 			}
 			if failed {
@@ -77,50 +77,54 @@ func TestStrengths(t *testing.T) {
 // TestStrength interpolates between the spreads measured.
 func TestStrength(t *testing.T) {
 	t.Parallel()
-	for _, spread := range []game.Spread{MinSpread, 40, 65, 200, 790, MaxSpread} {
-		got := Strength(game.ModeX01, spread)
-		if i := slices.Index(strengthSpreads, spread); i >= 0 && got != strengths[game.ModeX01][i] {
-			t.Errorf("%v mm: %.2f, want the table's %.2f", spread.MM(), got, strengths[game.ModeX01][i])
+	for _, spreadUM := range []int{MinSpreadUM, 4_000, 6_500, 20_000, 79_000, MaxSpreadUM} {
+		got := Strength(game.ModeX01, spreadUM)
+		if i := slices.Index(strengthSpreads, spreadUM); i >= 0 && got != strengths[game.ModeX01][i] {
+			t.Errorf("%d µm: %.2f, want the table's %.2f", spreadUM, got, strengths[game.ModeX01][i])
 		}
-		if got < Strength(game.ModeX01, MaxSpread) || got > Strength(game.ModeX01, MinSpread) {
-			t.Errorf("%v mm: %.2f, outside the table", spread.MM(), got)
+		if got < Strength(game.ModeX01, MaxSpreadUM) || got > Strength(game.ModeX01, MinSpreadUM) {
+			t.Errorf("%d µm: %.2f, outside the table", spreadUM, got)
 		}
 	}
-	if a, b, c := Strength(game.ModeX01, 60), Strength(game.ModeX01, 65), Strength(game.ModeX01, 70); b < c || b > a {
+	if a, b, c := Strength(game.ModeX01, 6_000), Strength(game.ModeX01, 6_500), Strength(game.ModeX01, 7_000); b < c || b > a {
 		t.Errorf("6.5 mm plays %.2f, not between 6 mm (%.2f) and 7 mm (%.2f)", b, a, c)
 	}
 }
 
-// The slider runs from the weakest to the strongest spread, steadily, and Position is the
-// inverse of SpreadAt.
+// The slider runs from the weakest to the strongest spread, steadily, in tenths of a mm, and
+// Position is about the inverse of SpreadAt.
 func TestSlider(t *testing.T) {
 	t.Parallel()
-	if got := SpreadAt(0); got != MaxSpread {
-		t.Errorf("left end %v, want %v", got, MaxSpread)
+	if got := SpreadAt(0); got != MaxSpreadUM {
+		t.Errorf("left end %d µm, want %d", got, MaxSpreadUM)
 	}
-	if got := SpreadAt(SliderSteps); got != MinSpread {
-		t.Errorf("right end %v, want %v", got, MinSpread)
+	if got := SpreadAt(SliderSteps); got != MinSpreadUM {
+		t.Errorf("right end %d µm, want %d", got, MinSpreadUM)
 	}
-	if SpreadAt(-5) != MaxSpread || SpreadAt(SliderSteps+5) != MinSpread {
+	if SpreadAt(-5) != MaxSpreadUM || SpreadAt(SliderSteps+5) != MinSpreadUM {
 		t.Error("positions outside the slider aren't clamped to its ends")
 	}
-	if got := Position(DefaultSpread); SpreadAt(got) != DefaultSpread {
-		t.Errorf("default spread at position %d is %v, want %v", got, SpreadAt(got), DefaultSpread)
+	if got := Position(DefaultSpreadUM); SpreadAt(got) != DefaultSpreadUM {
+		t.Errorf("default spread at position %d is %d µm, want %d", got, SpreadAt(got), DefaultSpreadUM)
 	}
 	for pos := range SliderSteps + 1 {
-		if got := Position(SpreadAt(pos)); math.Abs(float64(got-pos)) > 8 {
-			// A tenth is coarse for the strong end (4 mm = 40 tenths), so the position is only
-			// about the same there.
-			t.Errorf("position %d (%v) comes back as %d", pos, SpreadAt(pos), got)
+		spreadUM := SpreadAt(pos)
+		if spreadUM%sliderRoundingUM != 0 {
+			t.Errorf("position %d is %d µm, not a tenth of a mm", pos, spreadUM)
 		}
-		if pos > 0 && SpreadAt(pos) > SpreadAt(pos-1) {
-			t.Errorf("position %d (%v) is weaker than %d (%v)", pos, SpreadAt(pos), pos-1, SpreadAt(pos-1))
+		if got := Position(spreadUM); math.Abs(float64(got-pos)) > 8 {
+			// A tenth is coarse for the strong end (0.1 of 4 mm is 2.5 %, a step 0.3 %), so
+			// the position is only about the same there.
+			t.Errorf("position %d (%d µm) comes back as %d", pos, spreadUM, got)
+		}
+		if pos > 0 && spreadUM > SpreadAt(pos-1) {
+			t.Errorf("position %d (%d µm) is weaker than %d (%d µm)", pos, spreadUM, pos-1, SpreadAt(pos-1))
 		}
 	}
-	if err := CheckSpread(MinSpread - 1); err == nil {
+	if err := CheckSpread(MinSpreadUM - 1); err == nil {
 		t.Error("less than the smallest spread isn't refused")
 	}
-	if err := CheckSpread(MaxSpread + 1); err == nil {
+	if err := CheckSpread(MaxSpreadUM + 1); err == nil {
 		t.Error("more than the largest spread isn't refused")
 	}
 }
@@ -128,11 +132,11 @@ func TestSlider(t *testing.T) {
 // strengthLegs is how many legs TestStrengths lets a bot play with the spread. A strong bot
 // finishes a leg in few darts, so it plays more of them to be as certain as a weak one,
 // whose legs take up to 200 darts and, as every dart replays the leg, a lot of time.
-func strengthLegs(spread game.Spread) int {
+func strengthLegs(spreadUM int) int {
 	switch {
-	case spread <= 150:
+	case spreadUM <= 15_000:
 		return 400
-	case spread <= 300:
+	case spreadUM <= 30_000:
 		return 80
 	}
 	return 40
@@ -141,11 +145,11 @@ func strengthLegs(spread game.Spread) int {
 // measure lets a bot with the spread play legs alone and returns how it played, as the
 // statistics count it over all its darts: the 3-dart average, the share of hits or the
 // marks per round.
-func measure(t *testing.T, r *rand.Rand, settings game.Settings, spread game.Spread) float64 {
+func measure(t *testing.T, r *rand.Rand, settings game.Settings, spreadUM int) float64 {
 	t.Helper()
-	g := game.Game{Settings: settings, Participants: []game.Participant{{PlayerID: 1, BotSpread: spread}}}
+	g := game.Game{Settings: settings, Participants: []game.Participant{{PlayerID: 1, BotSpreadUM: spreadUM}}}
 	var darts, score int
-	for range strengthLegs(spread) {
+	for range strengthLegs(spreadUM) {
 		switch st := playLeg(t, r, g).(type) {
 		case x01.State:
 			darts, score = darts+st.Players[0].Stats.Darts, score+int(st.Players[0].Stats.Points)
@@ -178,7 +182,7 @@ func playLeg(t *testing.T, r *rand.Rand, g game.Game) game.State {
 		if !ok || len(darts) == 200 {
 			return st
 		}
-		d := Throw(r, aim, g.Participants[0].BotSpread)
+		d := Throw(r, aim, g.Participants[0].BotSpreadUM)
 		if d.X == nil || d.Y == nil {
 			t.Fatalf("dart %v without its position", d)
 		}

@@ -389,7 +389,7 @@ func (store *Store) ListOpenGames(ctx context.Context) ([]game.Game, error) {
 // throwing) that aren't aborted and started or had a dart since the time.
 func (store *Store) ListTimedGames(ctx context.Context, since time.Time) ([]game.Game, error) {
 	bots := store.db.NewSelect().Model((*game.Participant)(nil)).ColumnExpr("1").
-		Where("participant.game_id = game.id").Where("participant.bot_spread > 0")
+		Where("participant.game_id = game.id").Where("participant.bot_spread_um > 0")
 	return store.scanGames(ctx, store.db.NewSelect().
 		Where("turn_seconds > 0 OR EXISTS (?)", bots).
 		Where("aborted_at IS NULL").

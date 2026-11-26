@@ -62,7 +62,7 @@ func TestHandEntry(t *testing.T) {
 		return v
 	}
 	bot := func(v service.GameView) service.GameView { // the guest is a bot
-		v.Game.Participants[1].BotSpread = 200
+		v.Game.Participants[1].BotSpreadUM = 20_000
 		return v
 	}
 	with := func(v service.GameView, mine ...int64) service.GameView {
@@ -111,7 +111,7 @@ func TestBoardAction(t *testing.T) {
 	v.Game.Participants = []game.Participant{
 		{PlayerID: anna, Status: game.InvitationAccepted},
 		{PlayerID: ben, Status: game.InvitationAccepted, BoardID: &board},
-		{PlayerID: robo, Status: game.InvitationAccepted, BotSpread: 200},
+		{PlayerID: robo, Status: game.InvitationAccepted, BotSpreadUM: 20_000},
 	}
 	withCamera := v
 	withCamera.Mine = []int64{ben}
@@ -322,18 +322,18 @@ func TestBoardTargetsOfCricket(t *testing.T) {
 }
 
 // A bot's spread is shown with a tenth of a mm in the language's number format, also next to
-// the slider that chooses it.
+// the slider that chooses it, which starts at the default.
 func TestBotSpreadText(t *testing.T) {
 	t.Parallel()
 	en, de := textsOf(i18n.English), textsOf(i18n.German)
-	if got := spreadMM(en, 125); got != "12.5 mm" {
+	if got := spreadMM(en, 12_500); got != "12.5 mm" {
 		t.Errorf("English %q, want 12.5 mm", got)
 	}
-	if got := spreadMM(de, 125); got != "12,5 mm" {
+	if got := spreadMM(de, 12_500); got != "12,5 mm" {
 		t.Errorf("German %q, want 12,5 mm", got)
 	}
-	got := botSliderValue(en, game.ModeX01, bot.Position(bot.DefaultSpread))
-	if want := "20.0 mm " + botStrength(en, game.ModeX01, bot.DefaultSpread); got != want {
+	got := botSliderValue(en, game.ModeX01, bot.Position(bot.DefaultSpreadUM))
+	if want := "20.0 mm " + botStrength(en, game.ModeX01, bot.DefaultSpreadUM); got != want {
 		t.Errorf("slider at the default shows %q, want %q", got, want)
 	}
 	if got := botSliderValue(en, game.ModeX01, 0); !strings.HasPrefix(got, "80.0 mm") {

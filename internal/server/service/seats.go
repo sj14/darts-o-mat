@@ -56,14 +56,14 @@ func (l lobby) pending(playerID int64) bool {
 // isBot reports whether the player sits in the lobby as a bot.
 func (l lobby) isBot(playerID int64) bool {
 	i := slices.IndexFunc(l.seats, func(p game.Participant) bool { return p.PlayerID == playerID })
-	return i >= 0 && l.seats[i].BotSpread > 0
+	return i >= 0 && l.seats[i].BotSpreadUM > 0
 }
 
 // humans counts the players of mine with an accepted seat in the lobby that aren't bots.
 func (l lobby) humans(mine []int64) int {
 	n := 0
 	for _, p := range l.seats {
-		if slices.Contains(mine, p.PlayerID) && p.Status == game.InvitationAccepted && p.BotSpread == 0 {
+		if slices.Contains(mine, p.PlayerID) && p.Status == game.InvitationAccepted && p.BotSpreadUM == 0 {
 			n++
 		}
 	}

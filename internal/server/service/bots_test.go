@@ -28,16 +28,16 @@ func newBotService(t *testing.T) *Service {
 }
 
 // lobbyWithBots creates a game of the account's own player in the lobby and adds bots with
-// the spreads.
-func lobbyWithBots(t *testing.T, s *Service, acc account.Account, g game.Game, spreads ...game.Spread) int64 {
+// the spreads in µm.
+func lobbyWithBots(t *testing.T, s *Service, acc account.Account, g game.Game, spreadsUM ...int) int64 {
 	t.Helper()
 	ctx := context.Background()
 	v, err := s.CreateGame(ctx, acc, g, 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, spread := range spreads {
-		if err := s.AddBot(ctx, acc, v.Game.ID, spread); err != nil {
+	for _, spreadUM := range spreadsUM {
+		if err := s.AddBot(ctx, acc, v.Game.ID, spreadUM); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -48,7 +48,7 @@ func lobbyWithBots(t *testing.T, s *Service, acc account.Account, g game.Game, s
 func botsOf(g game.Game) []int64 {
 	var bots []int64
 	for _, p := range g.Participants {
-		if p.BotSpread > 0 {
+		if p.BotSpreadUM > 0 {
 			bots = append(bots, p.PlayerID)
 		}
 	}
@@ -87,7 +87,7 @@ func TestAddBot(t *testing.T) {
 	s := newBotService(t)
 	anna := register(t, s, "anna")
 
-	id := lobbyWithBots(t, s, anna, x01Game(), 200, 200)
+	id := lobbyWithBots(t, s, anna, x01Game(), 20_000, 20_000)
 	v, err := s.Game(ctx, anna, id)
 	if err != nil {
 		t.Fatal(err)
@@ -114,12 +114,12 @@ func TestAddBot(t *testing.T) {
 	if _, err := s.LeaveGame(ctx, anna, id); err != nil {
 		t.Fatal(err)
 	}
-	next := lobbyWithBots(t, s, anna, x01Game(), 300)
+	next := lobbyWithBots(t, s, anna, x01Game(), 30_000)
 	if v, _ = s.Game(ctx, anna, next); !slices.Equal(botsOf(v.Game), bots[:1]) {
 		t.Errorf("bots of the next game %v, want the first again %v", botsOf(v.Game), bots[:1])
 	}
-	if p, _ := v.Game.Participant(bots[0]); p.BotSpread != 300 {
-		t.Errorf("spread %d, want the new one 300: it belongs to the seat", p.BotSpread)
+	if p, _ := v.Game.Participant(bots[0]); p.BotSpreadUM != 30_000 {
+		t.Errorf("spread %d µm, want the new one 30000: it belongs to the seat", p.BotSpreadUM)
 	}
 }
 
@@ -132,12 +132,12 @@ func TestBotSeats(t *testing.T) {
 	anna, ben := register(t, s, "anna"), register(t, s, "ben")
 	befriend(t, s, anna, ben)
 
-	id := lobbyWithBots(t, s, anna, x01Game(), 200)
+	id := lobbyWithBots(t, s, anna, x01Game(), 20_000)
 	v, _ := s.Game(ctx, anna, id)
 	bot := botsOf(v.Game)[0]
-	for _, spread := range []game.Spread{0, 39, 801} {
-		if err := s.AddBot(ctx, anna, id, spread); !errors.Is(err, ErrBotSpread) {
-			t.Errorf("spread %d: %v, want ErrBotSpread", spread, err)
+	for _, spreadUM := range []int{0, 3_999, 80_001} {
+		if err := s.AddBot(ctx, anna, id, spreadUM); !errors.Is(err, ErrBotSpread) {
+			t.Errorf("spread %d µm: %v, want ErrBotSpread", spreadUM, err)
 		}
 	}
 	b, err := s.CreateBoard(ctx, anna, "Board")
@@ -152,7 +152,7 @@ func TestBotSeats(t *testing.T) {
 	if err := s.Invite(ctx, anna, GameLobby(id), "ben"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AddBot(ctx, ben, id, 200); !errors.Is(err, ErrForbidden) {
+	if err := s.AddBot(ctx, ben, id, 20_000); !errors.Is(err, ErrForbidden) {
 		t.Errorf("bot of an invited account: %v, want ErrForbidden", err)
 	}
 
@@ -162,7 +162,7 @@ func TestBotSeats(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AddBot(ctx, ben, ov.Game.ID, 200); !errors.Is(err, ErrNoBots) {
+	if err := s.AddBot(ctx, ben, ov.Game.ID, 20_000); !errors.Is(err, ErrNoBots) {
 		t.Errorf("bot in an open game: %v, want ErrNoBots", err)
 	}
 
@@ -194,7 +194,7 @@ func TestRemoveLastPlayerTakesBots(t *testing.T) {
 	ctx := context.Background()
 	s := newBotService(t)
 	anna := register(t, s, "anna")
-	id := lobbyWithBots(t, s, anna, x01Game(), 200)
+	id := lobbyWithBots(t, s, anna, x01Game(), 20_000)
 	if err := s.RemovePlayer(ctx, anna, GameLobby(id), anna.PlayerID); err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func TestBotThrows(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := v.Game.ID
-	if err := s.AddBot(ctx, anna, id, 200); err != nil {
+	if err := s.AddBot(ctx, anna, id, 20_000); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Start(ctx, anna, GameLobby(id)); err != nil {
@@ -258,7 +258,7 @@ func TestOnlyBotsLeft(t *testing.T) {
 	s.now = func() time.Time { return time.Now().Add(time.Duration(offset.Load())) }
 	g := x01Game()
 	g.TurnSeconds = 60
-	id := lobbyWithBots(t, s, anna, g, 200, 200)
+	id := lobbyWithBots(t, s, anna, g, 20_000, 20_000)
 	if err := s.Start(ctx, anna, GameLobby(id)); err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +279,7 @@ func TestRematchWithBot(t *testing.T) {
 	s := newBotService(t)
 	anna := register(t, s, "anna")
 	g := game.Game{Settings: game.Settings{Mode: game.ModeX01, Rules: &x01.Settings{StartScore: 40, OutMode: x01.OutModeDouble}}}
-	id := lobbyWithBots(t, s, anna, g, 250)
+	id := lobbyWithBots(t, s, anna, g, 25_000)
 	if err := s.Start(ctx, anna, GameLobby(id)); err != nil {
 		t.Fatal(err)
 	}
@@ -294,8 +294,8 @@ func TestRematchWithBot(t *testing.T) {
 	if len(bots) != 1 {
 		t.Fatalf("rematch's bots %v, want one", bots)
 	}
-	if p, _ := r.Game.Participant(bots[0]); p.BotSpread != 250 {
-		t.Errorf("bot's spread in the rematch %d, want 250", p.BotSpread)
+	if p, _ := r.Game.Participant(bots[0]); p.BotSpreadUM != 25_000 {
+		t.Errorf("bot's spread in the rematch %d µm, want 25000", p.BotSpreadUM)
 	}
 
 	// The rematch completed the game anna won: it counts among the games against bots.
@@ -327,11 +327,11 @@ func TestMaxBots(t *testing.T) {
 		t.Fatalf("spread 0: %v, want ErrBotSpread", err)
 	}
 	for range MaxBots {
-		if err := s.AddBot(ctx, anna, id, 200); err != nil {
+		if err := s.AddBot(ctx, anna, id, 20_000); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := s.AddBot(ctx, anna, id, 200); !errors.Is(err, ErrTooManyBots) {
+	if err := s.AddBot(ctx, anna, id, 20_000); !errors.Is(err, ErrTooManyBots) {
 		t.Errorf("bot %d: %v, want ErrTooManyBots", MaxBots+1, err)
 	}
 	if bots, _ := s.store.ListBots(ctx, anna.ID); len(bots) != MaxBots {
@@ -346,7 +346,7 @@ func TestRematchWithBusyBot(t *testing.T) {
 	s := newBotService(t)
 	anna := register(t, s, "anna")
 	g := game.Game{Settings: game.Settings{Mode: game.ModeX01, Rules: &x01.Settings{StartScore: 40, OutMode: x01.OutModeDouble}}}
-	id := lobbyWithBots(t, s, anna, g, 250)
+	id := lobbyWithBots(t, s, anna, g, 25_000)
 	if err := s.Start(ctx, anna, GameLobby(id)); err != nil {
 		t.Fatal(err)
 	}
@@ -364,7 +364,7 @@ func TestRematchWithBusyBot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AddBot(ctx, anna, other.Game.ID, 300); err != nil {
+	if err := s.AddBot(ctx, anna, other.Game.ID, 30_000); err != nil {
 		t.Fatal(err)
 	}
 	if got := botsOf(gameView(t, s, other.Game.ID).Game); !slices.Equal(got, []int64{old}) {
@@ -379,8 +379,8 @@ func TestRematchWithBusyBot(t *testing.T) {
 	if len(bots) != 1 || bots[0] == old {
 		t.Fatalf("rematch's bots %v, want another one than %d", bots, old)
 	}
-	if p, _ := r.Game.Participant(bots[0]); p.BotSpread != 250 {
-		t.Errorf("spread %d, want the old one 250", p.BotSpread)
+	if p, _ := r.Game.Participant(bots[0]); p.BotSpreadUM != 25_000 {
+		t.Errorf("spread %d µm, want the old one 25000", p.BotSpreadUM)
 	}
 }
 
@@ -406,7 +406,7 @@ func TestRemoveLastGuestKeepsInvitation(t *testing.T) {
 	if err := s.AddPlayer(ctx, anna, GameLobby(id), guest.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AddBot(ctx, anna, id, 200); err != nil {
+	if err := s.AddBot(ctx, anna, id, 20_000); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.RemovePlayer(ctx, anna, GameLobby(id), guest.ID); err != nil {
@@ -431,7 +431,7 @@ func TestBotDartsAreTheBots(t *testing.T) {
 	var offset atomic.Int64
 	s.now = func() time.Time { return time.Now().Add(time.Duration(offset.Load())) }
 	anna := register(t, s, "anna")
-	id := lobbyWithBots(t, s, anna, x01Game(), 200)
+	id := lobbyWithBots(t, s, anna, x01Game(), 20_000)
 	if err := s.Start(ctx, anna, GameLobby(id)); err != nil {
 		t.Fatal(err)
 	}

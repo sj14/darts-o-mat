@@ -60,5 +60,5 @@ func (s *Service) moveBot(ctx context.Context, g *game.Game, v GameView) error {
 		return nil
 	}
 	seat, _ := g.Participant(*v.Common().CurrentPlayerID)
-	return s.storeDart(ctx, g, v, bot.Throw(s.bots, aim, seat.BotSpread))
+	return s.storeDart(ctx, g, v, bot.Throw(s.bots, aim, seat.BotSpreadUM))
 }

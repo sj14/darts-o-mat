@@ -23,8 +23,8 @@ var (
 	ErrNoBots = fmt.Errorf("%w: bots only play in games that aren't open for strangers", ErrInvalid)
 	// ErrBotBoard means a bot was to be put on a board: it throws on none.
 	ErrBotBoard = fmt.Errorf("%w: a bot throws on no board", ErrInvalid)
-	// ErrBotSpread means the spread of a bot is outside bot.MinSpread to bot.MaxSpread.
-	ErrBotSpread = fmt.Errorf("%w: a bot's spread must be between %v and %v mm", ErrInvalid, bot.MinSpread.MM(), bot.MaxSpread.MM())
+	// ErrBotSpread means the spread of a bot is outside bot.MinSpreadUM to bot.MaxSpreadUM.
+	ErrBotSpread = fmt.Errorf("%w: a bot's spread must be between %d and %d µm", ErrInvalid, bot.MinSpreadUM, bot.MaxSpreadUM)
 	// ErrTooManyBots means all MaxBots bots of the account are seated: no other one is made.
 	ErrTooManyBots = fmt.Errorf("%w: at most %d bots", ErrInvalid, MaxBots)
 )
@@ -34,10 +34,10 @@ var (
 const MaxBots = 5
 
 // AddBot seats a bot of the account in the lobby of a game it plays in, with the spread
-// of its darts (bot.Throw). It takes a bot of the account that has no seat right
+// of its darts in µm (bot.Throw). It takes a bot of the account that has no seat right
 // now and makes another one only if all are seated, so an account keeps only as many bots
 // as it needed at once.
-func (s *Service) AddBot(ctx context.Context, acc account.Account, gameID int64, spread game.Spread) error {
+func (s *Service) AddBot(ctx context.Context, acc account.Account, gameID int64, spreadUM int) error {
 	unlock, err := s.lock(ctx, "AddBot")
 	if err != nil {
 		return err
@@ -53,14 +53,14 @@ func (s *Service) AddBot(ctx context.Context, acc account.Account, gameID int64,
 	if l.Open() {
 		return ErrNoBots
 	}
-	if bot.CheckSpread(spread) != nil {
+	if bot.CheckSpread(spreadUM) != nil {
 		return ErrBotSpread // before freeBot, which may make a bot
 	}
 	botID, err := s.freeBot(ctx, acc, playerIDs(l.seats))
 	if err != nil {
 		return err
 	}
-	seat := game.Participant{PlayerID: botID, Status: game.InvitationAccepted, BotSpread: spread}
+	seat := game.Participant{PlayerID: botID, Status: game.InvitationAccepted, BotSpreadUM: spreadUM}
 	return s.takeSeats(ctx, acc, l.seat(), []game.Participant{seat}, 0, func() error {
 		return s.addSeat(ctx, l, seat)
 	})
@@ -109,14 +109,14 @@ func (s *Service) checkBotSeats(ctx context.Context, st seat, seats []game.Parti
 	for _, p := range seats {
 		isBot := slices.ContainsFunc(players, func(pl player.Player) bool { return pl.ID == p.PlayerID && pl.Bot })
 		switch {
-		case !isBot && p.BotSpread != 0:
+		case !isBot && p.BotSpreadUM != 0:
 			return fmt.Errorf("%w: only a bot has a spread", ErrInvalid)
 		case !isBot:
 		case st.tournament || st.lobby.Open():
 			return ErrNoBots
 		case p.BoardID != nil:
 			return ErrBotBoard
-		case bot.CheckSpread(p.BotSpread) != nil:
+		case bot.CheckSpread(p.BotSpreadUM) != nil:
 			return ErrBotSpread
 		}
 	}
@@ -127,7 +127,7 @@ func (s *Service) checkBotSeats(ctx context.Context, st seat, seats []game.Parti
 // players left, is a bot: then the game is aborted, as bots don't play among themselves.
 func onlyBotsLeft(g game.Game, st game.State) bool {
 	for _, p := range g.Participants {
-		if p.BotSpread == 0 && !st.Common().Records[p.PlayerID].Left {
+		if p.BotSpreadUM == 0 && !st.Common().Records[p.PlayerID].Left {
 			return false
 		}
 	}

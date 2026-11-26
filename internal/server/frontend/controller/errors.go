@@ -43,7 +43,7 @@ func errorText(t view.Texts, err error) (string, bool) {
 		return t.ErrTooManyBots(service.MaxBots), true
 	}
 	if errors.Is(err, service.ErrBotSpread) {
-		return t.ErrBotSpread(bot.MinSpread.MM(), bot.MaxSpread.MM()), true
+		return t.ErrBotSpread(float64(bot.MinSpreadUM)/1000, float64(bot.MaxSpreadUM)/1000), true
 	}
 	texts := []struct {
 		err  error

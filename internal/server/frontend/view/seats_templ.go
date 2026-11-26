@@ -419,15 +419,15 @@ func lobbySeatRow(m lobbyModel, s lobbySeat) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if s.botSpread > 0 {
+		if s.botSpreadUM > 0 {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<span class=\"font-sans text-sm font-normal text-white/50\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var21 string
-			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).BotMark(spreadMM(T(ctx), s.botSpread), botStrength(T(ctx), m.mode, s.botSpread)))
+			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).BotMark(spreadMM(T(ctx), s.botSpreadUM), botStrength(T(ctx), m.mode, s.botSpreadUM)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/seats.templ`, Line: 72, Col: 151}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/seats.templ`, Line: 72, Col: 155}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -479,7 +479,7 @@ func lobbySeatRow(m lobbyModel, s lobbySeat) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if s.mine && !s.pending && s.botSpread == 0 && m.canPlay && len(m.boards) > 0 {
+		if s.mine && !s.pending && s.botSpreadUM == 0 && m.canPlay && len(m.boards) > 0 {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "  <form method=\"post\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -1540,13 +1540,13 @@ func lobbyAdd(m lobbyModel) templ.Component {
 	})
 }
 
-// botAdd adds a bot with the strength chosen on a slider: the spread of its darts on a log
-// scale from the weakest to the strongest. The strength it plays follows the slider live
-// (htmx asks the server, which owns the table), one request at a time and then the latest
-// position (hx-sync), so it follows while dragging and ends at the right value. The form
-// sends the slider's position and keeps it when the lobby is swapped in live (hx-preserve).
-// autocomplete="off": the browser would restore the slider's old position on a reload or Back,
-// but not the value shown next to it.
+// botAdd adds a bot with the strength chosen on a slider right of the button (below it on a
+// phone): the spread of its darts on a log scale from the weakest to the strongest. The
+// strength it plays follows the slider live (htmx asks the server, which owns the table),
+// one request at a time and then the latest position (hx-sync), so it follows while
+// dragging and ends at the right value. The form sends the slider's position and keeps it
+// when the lobby is swapped in live (hx-preserve). autocomplete="off": the browser would
+// restore the slider's old position on a reload or Back, but not the value shown next to it.
 func botAdd(m lobbyModel) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -1577,7 +1577,7 @@ func botAdd(m lobbyModel) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "\" class=\"flex w-full flex-col gap-2\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "\" class=\"flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-3\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1589,7 +1589,7 @@ func botAdd(m lobbyModel) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var84 = []any{btnSecondary, "self-start"}
+			var templ_7745c5c3_Var84 = []any{btnSecondary, "shrink-0 self-start sm:self-center"}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_ElementWriter, templ_7745c5c3_Var84...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -1624,13 +1624,13 @@ func botAdd(m lobbyModel) templ.Component {
 		var templ_7745c5c3_Var86 string
 		templ_7745c5c3_Var86, templ_7745c5c3_Err = templ.JoinStringErrs(T(ctx).AddBot())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/seats.templ`, Line: 188, Col: 78}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/seats.templ`, Line: 188, Col: 102}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var86))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "</button> <label class=\"flex flex-col gap-1 text-sm text-white/70\" for=\"bot-strength\"><span class=\"flex flex-wrap items-baseline justify-between gap-2\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "</button> <label class=\"flex min-w-0 flex-1 flex-col gap-1 text-sm text-white/70\" for=\"bot-strength\"><span class=\"flex flex-wrap items-baseline justify-between gap-2\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1647,7 +1647,7 @@ func botAdd(m lobbyModel) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = BotStrengthValue(m.mode, bot.Position(bot.DefaultSpread)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = BotStrengthValue(m.mode, bot.Position(bot.DefaultSpreadUM)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1669,9 +1669,9 @@ func botAdd(m lobbyModel) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var89 string
-		templ_7745c5c3_Var89, templ_7745c5c3_Err = templruntime.NewAttributeExpression(strconv.Itoa(bot.Position(bot.DefaultSpread))).Resolve(ctx)
+		templ_7745c5c3_Var89, templ_7745c5c3_Err = templruntime.NewAttributeExpression(strconv.Itoa(bot.Position(bot.DefaultSpreadUM))).Resolve(ctx)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/seats.templ`, Line: 204, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/server/frontend/view/seats.templ`, Line: 204, Col: 59}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var89)
 		if templ_7745c5c3_Err != nil {

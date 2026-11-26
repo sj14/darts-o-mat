@@ -3,4 +3,4 @@ ALTER TABLE "players" ADD COLUMN "bot" BOOLEAN NOT NULL DEFAULT false;
 
 --bun:split
 
-ALTER TABLE "game_players" ADD COLUMN "bot_spread" BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE "game_players" ADD COLUMN "bot_spread_um" BIGINT NOT NULL DEFAULT 0;

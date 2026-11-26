@@ -26,7 +26,7 @@ type Player struct {
 	Color string `json:"color,omitempty"`
 	// Bot marks a guest the server throws for. Bots don't show in the account's lists of
 	// guests: a free one is taken when a bot is added to a game, another one made only if
-	// all are seated. How well it throws belongs to its seat (game.Participant.BotSpread).
+	// all are seated. How well it throws belongs to its seat (game.Participant.BotSpreadUM).
 	Bot bool `bun:",notnull,default:false" json:"bot,omitempty"`
 	// DeletedAt is set when the player was deleted, as a guest or with their account: the
 	// name is gone and the player belongs to nobody, but the games and darts stay, so the

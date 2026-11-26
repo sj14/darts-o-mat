@@ -56,12 +56,12 @@ func (s *Service) Rematch(ctx context.Context, acc account.Account, gameID int64
 		case old.IsMine(p.ID):
 			seat, _ := old.Game.Participant(p.ID)
 			id := p.ID
-			if seat.BotSpread > 0 { // any free bot of the account plays at the old one's strength
+			if seat.BotSpreadUM > 0 { // any free bot of the account plays at the old one's strength
 				if id, err = s.freeBot(ctx, acc, g.PlayerIDs()); err != nil {
 					return GameView{}, err
 				}
 			}
-			g.Participants = append(g.Participants, game.Participant{PlayerID: id, Status: game.InvitationAccepted, BoardID: seat.BoardID, BotSpread: seat.BotSpread})
+			g.Participants = append(g.Participants, game.Participant{PlayerID: id, Status: game.InvitationAccepted, BoardID: seat.BoardID, BotSpreadUM: seat.BotSpreadUM})
 		case !p.IsGuest():
 			invited = append(invited, game.Participant{PlayerID: p.ID, Status: game.InvitationPending})
 		}

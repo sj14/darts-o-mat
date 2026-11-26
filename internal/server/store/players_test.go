@@ -63,7 +63,7 @@ func TestBots(t *testing.T) {
 		}
 		return g.ID
 	}
-	withBot := create([]game.Participant{{PlayerID: own.ID}, {PlayerID: bot.ID, BotSpread: 200}})
+	withBot := create([]game.Participant{{PlayerID: own.ID}, {PlayerID: bot.ID, BotSpreadUM: 20_000}})
 	create([]game.Participant{{PlayerID: own.ID}, {PlayerID: guest.ID}})
 
 	games, err := st.ListTimedGames(ctx, now.Add(-time.Hour))
@@ -73,8 +73,8 @@ func TestBots(t *testing.T) {
 	if len(games) != 1 || games[0].ID != withBot {
 		t.Fatalf("timed games %v, want only the game with the bot %d", games, withBot)
 	}
-	if p, _ := games[0].Participant(bot.ID); p.BotSpread != 200 {
-		t.Errorf("bot's spread %d, want 200", p.BotSpread)
+	if p, _ := games[0].Participant(bot.ID); p.BotSpreadUM != 20_000 {
+		t.Errorf("bot's spread %d µm, want 20000", p.BotSpreadUM)
 	}
 }
 
