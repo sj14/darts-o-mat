@@ -2,5 +2,13 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "local>sj14/renovate-config"
+  ],
+  "packageRules": [
+    {
+      "description": "tools/go.mod requires the project itself, replaced with .. (the version is only a placeholder)",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["github.com/sj14/darts-o-mat"],
+      "enabled": false
+    }
   ]
 }
